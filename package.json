@@ -1,0 +1,26 @@
+{
+  "name": "canvas-animation-project",
+  "version": "1.0.0",
+  "description": "Generative animation project with browser development and headless Node.js recording using canvas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "record:browser": "ts-node record/browser-record.ts",
+    "record:cli": "ts-node --project tsconfig.node.json record/cli-record.ts"  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "phil-lib": "^1.7.0",
+    "skia-canvas": "^3.0.8"
+  }
+}

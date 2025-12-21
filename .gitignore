@@ -1,0 +1,44 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+
+# Build output
+dist/
+*.tgz
+
+# Environment variables and sensitive files
+.env
+.env.local
+.env.*.local
+
+# Editor and IDE files
+.vscode/*
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.log.*
+*.tmp
+tmp/
+
+# Vite cache
+.vite/
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Optional: Ignore local test files or assets
+test-output/
+coverage/
