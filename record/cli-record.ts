@@ -19,35 +19,57 @@ const ffmpeg = spawn("ffmpeg", [
   "-f",
   "rawvideo",
   "-pix_fmt",
-  "rgba",
+  "rgba", // Input from skia-canvas
   "-s",
   `${WIDTH}x${HEIGHT}`,
   "-r",
-  `${FPS}`,
+  `${FPS}`, // Input rate (matches your -framerate)
   "-i",
   "pipe:0",
+
   "-c:v",
-  "libx264",
-  "-preset",
-  "medium",
-  "-crf",
-  "14", // or lower for higher quality
+  "hevc_videotoolbox",
+  "-q:v",
+  "30",
+  "-profile:v",
+  "main10",
   "-pix_fmt",
-  "yuv420p",
+  "yuv420p10le", // Explicit 10-bit output
+  "-colorspace",
+  "bt709",
+  "-color_primaries",
+  "bt709",
+  "-color_trc",
+  "bt709",
+  "-color_range",
+  "tv",
+  "-tag:v",
+  "hvc1",
+  "-movflags",
+  "+faststart+write_colr",
+
+  "-r",
+  `${FPS}`, // Output rate (matches your final -r)
   "output.mp4",
 ]);
 
 for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
   const timeMs = (frame / FPS) * 1000;
+  ctx.reset();
   draw(timeMs, ctx as any); // your pure function
 
   const buffer = await canvas.toBuffer("raw"); // RGBA Uint8Array
+  //const buffer = await canvas.toBuffer("raw",{colorType:"rgb"});
+  //const buffer = await canvas.toBuffer("jpeg");
+  //const imageData = ctx.getImageData(0, 0, WIDTH, HEIGHT)
   ffmpeg.stdin.write(Buffer.from(buffer));
   process.stdout.write(`\rFrame ${frame + 1}/${TOTAL_FRAMES}`);
 }
 
 ffmpeg.stdin.end();
 ffmpeg.on("close", () => {
-  const elapsed = (Date.now() - startTime)/1000;
-  console.log(`\nDone! TOTAL_FRAMES = ${TOTAL_FRAMES}, elapsed = ${elapsed} seconds`);
+  const elapsed = (Date.now() - startTime) / 1000;
+  console.log(
+    `\nDone! TOTAL_FRAMES = ${TOTAL_FRAMES}, elapsed = ${elapsed} seconds`
+  );
 });

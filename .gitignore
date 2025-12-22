@@ -42,3 +42,7 @@ tmp/
 # Optional: Ignore local test files or assets
 test-output/
 coverage/
+
+
+
+output.mp4

@@ -9,7 +9,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "record:browser": "ts-node record/browser-record.ts",
-    "record:cli": "ts-node --project tsconfig.node.json record/cli-record.ts"  },
+    "record:cli": "ts-node --project tsconfig.node.json record/cli-record.ts"
+  },
   "devDependencies": {
     "@types/node": "^25.0.3",
     "ts-node": "^10.9.2",
