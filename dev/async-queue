@@ -1,0 +1,47 @@
+import { makePromise } from "phil-lib/misc";
+
+export class AsyncQueue<T> {
+  #items: T[] = [];
+  #popListener?: ReturnType<typeof makePromise<T[] | "closed">>;
+  #closed = false;
+  close() {
+    if (!this.#closed) {
+      this.#closed = true;
+      if (this.#popListener) {
+        this.#popListener.resolve("closed");
+        this.#popListener = undefined;
+        if (this.#items.length > 0) {
+          throw new Error("wtf");
+        }
+      }
+    }
+  }
+  push(item: T): void {
+    if (this.#closed) {
+      throw new Error("This queue is closed!");
+    } else if (this.#popListener) {
+      this.#popListener.resolve([item]);
+      this.#popListener = undefined;
+      if (this.#items.length > 0) {
+        throw new Error("wtf");
+      }
+    } else {
+      this.#items.push(item);
+    }
+  }
+  pop(): Promise<T[] | "closed"> {
+    if (this.#popListener) {
+      throw new Error("Only one listener allowed at a time");
+    }
+    if (this.#items.length > 0) {
+      const result = Promise.resolve(this.#items);
+      this.#items = [];
+      return result;
+    }
+    this.#popListener = makePromise();
+    return this.#popListener.promise;
+  }
+  listener(): { pop(): Promise<T[] | "closed"> } {
+    return this;
+  }
+}

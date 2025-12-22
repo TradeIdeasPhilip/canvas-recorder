@@ -1,104 +1,80 @@
-import { assertNonNullable, sleep } from "phil-lib/misc.ts";
+import { assertNonNullable } from "phil-lib/misc.ts";
 import { draw } from "../src/top.ts";
-import { AnimationLoop, getById } from "phil-lib/client-misc.ts";
+import { getById } from "phil-lib/client-misc.ts";
 import "./style.css";
 
-//document.body.append(magicWords());
+import { Output, WebMOutputFormat, StreamTarget, CanvasSource, Mp4OutputFormat } from 'mediabunny';
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
-/*
-let offset = NaN;
-new AnimationLoop((timeInMS: number) => {
-  if (isNaN(offset)) {
-    offset = timeInMS;
-  }
-  timeInMS -= offset;
-  context.reset();
-  draw(timeInMS, context);
-});
-*/
-
-// This is a very efficient way to encode things.
-// Puppeteer would make it more practical.
-// You could save each chunk immediately, instead of saving them all in memory.
-// And you could run without worrying about keeping the window visible.
-
 const FPS = 60;
-const TOTAL_FRAMES = 600; // 10 seconds
-
-// Start timing
-const startTime = performance.now();
-let frameCount = 0;
-
-// Create stream and recorder
-const stream = canvas.captureStream(60); // Hint FPS, but we go faster
-const recorder = new MediaRecorder(stream, {
-  mimeType: "video/mp4;codecs=avc1.42E01E", // H.264 Main Profile (matches macOS)
-  videoBitsPerSecond: 5000000, // 5Mbps — tune for quality/size
-
-  //  mimeType: "video/mp4",
-
-  //  mimeType: "video/webm;codecs=vp9", // Best browser support + quality
-  // Optional: bitsPerSecond for more control (e.g., 5000000 for ~5Mbps)
-});
-
-const chunks: any[] = [];
-recorder.ondataavailable = (event) => {
-  if (event.data.size > 0) chunks.push(event.data);
-};
+const TOTAL_FRAMES = 600;  // 10 seconds @ 60fps
 
 const infoDiv = getById("info", HTMLDivElement);
+infoDiv.innerHTML = "Click 'Record and Save' to start...";
 
-recorder.onstop = () => {
+async function startRecording() {
+  infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
+
+  // User picks file
+  const fileHandle = await window.showSaveFilePicker({
+    suggestedName: "canvas-recording.mp4",
+    types: [
+      {
+        description: "WebM Video",
+        accept: { "video/mp4": [".mp4"] },
+      },
+    ],
+  });
+
+  const writableStream = await fileHandle.createWritable();
+
+  // Set up Mediabunny output (streaming to file)
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target: new StreamTarget(writableStream, { chunked: true }),  // Batch writes for speed
+  });
+
+  // Canvas source (VP9 for good quality/size on macOS)
+  const videoSource = new CanvasSource(canvas, {
+    codec: 'hevc',
+    bitrate: 8_000_000,  // ~8Mbps — tune higher for better quality
+  });
+
+  output.addVideoTrack(videoSource, { frameRate: FPS });
+
+  const startTime = performance.now();
+
+  await output.start();
+  infoDiv.innerHTML = "Recording in progress... (drawing frames as fast as possible)";
+
+  // Offline loop: draw + push frames (faster than realtime)
+  for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
+    const timeMs = (frame / FPS) * 1000;
+    context.reset();
+    draw(timeMs, context);
+
+    // Push frame (timestamp/duration in seconds)
+    const timestampSec = frame / FPS;
+    const durationSec = 1 / FPS;
+    videoSource.add(timestampSec, durationSec);
+  }
+
+  await output.finalize();  // Finishes encoding + closes stream automatically
+
   const elapsedSeconds = (performance.now() - startTime) / 1000;
-  const blob = new Blob(chunks, { type: "video/mp4" });
-  const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
 
   infoDiv.innerHTML = `
     <strong>Recording complete!</strong><br>
     Frames: ${TOTAL_FRAMES}<br>
-    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
-    File size: ${sizeMB} MB<br>
-    <a href="${URL.createObjectURL(blob)}" download="canvas-recording.mp4">
-      Download video (canvas-recording.mp4)
-    </a>
+    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds (faster than realtime)<br>
+    File saved via File System Access API!
   `;
-
-  // Clean up
-  stream.getTracks().forEach((track) => track.stop());
-};
-
-// Start recording (timeslice = 0 means "as much data as possible")
-recorder.start();
-recorder.requestData(); // Prime it
-
-// Render all frames as fast as possible
-async function renderNextFrame() {
-  if (frameCount >= TOTAL_FRAMES) {
-    recorder.stop();
-    return;
-  }
-
-  const timeMs = (frameCount / FPS) * 1000;
-  context.reset();
-  draw(timeMs, context);
-
-  /*
-  if (frameCount >= 60 && frameCount < 120) {
-    const endTime = Date.now() + 300;
-    while (Date.now() < endTime) {}
-  }
-    */
-
-  frameCount++;
-  // Push frame to recorder immediately
-  recorder.requestData();
-  requestAnimationFrame(renderNextFrame); // Fastest browser loop
 }
 
-renderNextFrame();
-
-// Pipe the output of this through
-// ffmpeg -i canvas-recording.mp4 -c copy -bsf:v "setts=ts=STARTPTS+N/TB_OUT/60" output.mp4 to fix the timestamps
+// Trigger with a button (user gesture required for showSaveFilePicker)
+const button = document.createElement("button");
+button.textContent = "Record and Save Video";
+button.onclick = startRecording;
+document.body.appendChild(button);
