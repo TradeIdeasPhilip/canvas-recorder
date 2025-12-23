@@ -1,20 +1,52 @@
-import { assertNonNullable } from "phil-lib/misc.ts";
-import { draw } from "../src/top.ts";
-import { getById } from "phil-lib/client-misc.ts";
+import { assertNonNullable, sleep } from "phil-lib/misc.ts";
+import { fourierIntro } from "../src/peano-fourier/fourier-intro.ts";
+import { AnimationLoop, getById } from "phil-lib/client-misc.ts";
 import "./style.css";
 
-import { Output, WebMOutputFormat, StreamTarget, CanvasSource, Mp4OutputFormat } from 'mediabunny';
+import {
+  Output,
+  StreamTarget,
+  CanvasSource,
+  Mp4OutputFormat,
+} from "mediabunny";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
+const toShow = fourierIntro;
+
+function showFrame(timeInMS: number, size: "live" | "4k") {
+  if (size == "live") {
+    const clientRect = canvas.getClientRects()[0];
+    canvas.width = Math.round(clientRect.width * devicePixelRatio);
+    canvas.height = Math.round(clientRect.height * devicePixelRatio);
+  } else {
+    canvas.width = 3840;
+    canvas.height = 2160;
+  }
+  context.reset();
+  context.scale(canvas.width / 16, canvas.height / 9);
+  toShow.show(timeInMS, context);
+}
+(window as any).showFrame = showFrame;
+
+let offset = NaN;
+const animationLoop = new AnimationLoop((timeInMS: number) => {
+  if (isNaN(offset)) {
+    offset = timeInMS;
+  }
+  timeInMS -= offset;
+  showFrame(timeInMS, "live");
+});
+
 const FPS = 60;
-const TOTAL_FRAMES = 600;  // 10 seconds @ 60fps
 
 const infoDiv = getById("info", HTMLDivElement);
 infoDiv.innerHTML = "Click 'Record and Save' to start...";
 
 async function startRecording() {
+  animationLoop.cancel();
+
   infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
 
   // User picks file
@@ -33,13 +65,13 @@ async function startRecording() {
   // Set up Mediabunny output (streaming to file)
   const output = new Output({
     format: new Mp4OutputFormat(),
-    target: new StreamTarget(writableStream, { chunked: true }),  // Batch writes for speed
+    target: new StreamTarget(writableStream, { chunked: true }), // Batch writes for speed
   });
 
   // Canvas source (VP9 for good quality/size on macOS)
   const videoSource = new CanvasSource(canvas, {
-    codec: 'hevc',
-    bitrate: 8_000_000,  // ~8Mbps — tune higher for better quality
+    codec: "hevc",
+    bitrate: 8_000_000, // ~8Mbps — tune higher for better quality
   });
 
   output.addVideoTrack(videoSource, { frameRate: FPS });
@@ -47,28 +79,34 @@ async function startRecording() {
   const startTime = performance.now();
 
   await output.start();
-  infoDiv.innerHTML = "Recording in progress... (drawing frames as fast as possible)";
+  infoDiv.innerHTML =
+    "Recording in progress... (drawing frames as fast as possible)";
+
+  const frameDuration = 1000 / FPS;
 
   // Offline loop: draw + push frames (faster than realtime)
-  for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
-    const timeMs = (frame / FPS) * 1000;
-    context.reset();
-    draw(timeMs, context);
-
+  let frameNumber = 0;
+  while (true) {
+    const timeInMS = (frameNumber + 0.5) * frameDuration;
+    if (timeInMS > toShow.duration) {
+      break;
+    }
+    showFrame(timeInMS, "4k");
     // Push frame (timestamp/duration in seconds)
-    const timestampSec = frame / FPS;
+    const timestampSec = frameNumber / FPS;
     const durationSec = 1 / FPS;
-    videoSource.add(timestampSec, durationSec);
+    await videoSource.add(timestampSec, durationSec);
+    frameNumber++;
   }
 
-  await output.finalize();  // Finishes encoding + closes stream automatically
+  await output.finalize(); // Finishes encoding + closes stream automatically
 
   const elapsedSeconds = (performance.now() - startTime) / 1000;
 
   infoDiv.innerHTML = `
     <strong>Recording complete!</strong><br>
-    Frames: ${TOTAL_FRAMES}<br>
-    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds (faster than realtime)<br>
+    Frames: ${frameNumber}<br>
+    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
     File saved via File System Access API!
   `;
 }

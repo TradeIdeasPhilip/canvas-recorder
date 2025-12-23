@@ -1,4 +1,5 @@
 #main {
   max-width: 95vw;
   max-height: 95vh;
+  aspect-ratio: 16 / 9;
 }
