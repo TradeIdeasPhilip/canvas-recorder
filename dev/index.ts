@@ -9,20 +9,24 @@ import {
   CanvasSource,
   Mp4OutputFormat,
 } from "mediabunny";
+import { peanoIterations } from "../src/peano-fourier/peano-iterations.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
-const toShow = fourierIntro;
+const toShow = peanoIterations;
 
-function showFrame(timeInMS: number, size: "live" | "4k") {
+function showFrame(timeInMS: number, size: "live" | "4k" | "hd") {
   if (size == "live") {
     const clientRect = canvas.getClientRects()[0];
     canvas.width = Math.round(clientRect.width * devicePixelRatio);
     canvas.height = Math.round(clientRect.height * devicePixelRatio);
-  } else {
+  } else if (size == "4k") {
     canvas.width = 3840;
     canvas.height = 2160;
+  } else {
+    canvas.width = 1920;
+    canvas.height = 1080;
   }
   context.reset();
   context.scale(canvas.width / 16, canvas.height / 9);

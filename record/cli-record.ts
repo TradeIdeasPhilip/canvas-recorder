@@ -1,13 +1,24 @@
 import { Canvas } from "skia-canvas";
 import { spawn } from "child_process";
-import { draw } from "../src/top.ts";
+import { fourierIntro } from "../src/peano-fourier/fourier-intro.ts";
+
+// WARNING:  This doesn't ran any more.
+// As soon as a switched from import { draw } from "../src/top.ts" to import { fourierIntro } from "../src/peano-fourier/fourier-intro.ts",
+// ts-node refused to run the program.
+// Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/Users/philipsmolen/Documents/fun-git/canvas-recorder/src/showable' imported from /Users/philipsmolen/Documents/fun-git/canvas-recorder/src/peano-fourier/fourier-intro.ts
+// The web / realtime part of the code works just fine.
+// And VS code can understand all of the code, including this file.
+//
+// I haven't tried to fix this because this code is deprecated anyway.
+// I was hoping to take a few last measurements.
+// It seems like the full web version is faster and more convenient.
 
 const startTime = Date.now();
 
 const WIDTH = 3840;
 const HEIGHT = 2160;
 const FPS = 60;
-const DURATION_SEC = 10;
+const DURATION_SEC = fourierIntro.duration / 1000;
 const TOTAL_FRAMES = DURATION_SEC * FPS;
 
 const canvas = new Canvas(WIDTH, HEIGHT);
@@ -56,7 +67,7 @@ const ffmpeg = spawn("ffmpeg", [
 for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
   const timeMs = (frame / FPS) * 1000;
   ctx.reset();
-  draw(timeMs, ctx as any); // your pure function
+  fourierIntro.show(timeMs, ctx as any); // your pure function
 
   const buffer = await canvas.toBuffer("raw"); // RGBA Uint8Array
   //const buffer = await canvas.toBuffer("raw",{colorType:"rgb"});

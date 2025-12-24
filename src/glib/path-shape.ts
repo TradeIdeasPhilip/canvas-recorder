@@ -187,7 +187,7 @@ export type Command = {
   readonly asString: string;
   translate(Δx: number, Δy: number): Command;
   toCubic(): CCommand;
-  transform(matrix: DOMMatrix): Command;
+  transform(matrix: DOMMatrixReadOnly): Command;
 };
 
 // MARK: LCommand
@@ -1751,7 +1751,7 @@ export class PathShape {
       this.commands.map((command) => command.translate(Δx, Δy))
     );
   }
-  transform(matrix: DOMMatrix): PathShape {
+  transform(matrix: DOMMatrixReadOnly): PathShape {
     return new PathShape(
       this.commands.map((command) => command.transform(matrix))
     );

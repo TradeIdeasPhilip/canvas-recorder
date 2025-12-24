@@ -1,39 +1,74 @@
-import { getById } from "phil-lib/client-misc";
-import { Font } from "./glib/letters-base";
+import { Font } from "../glib/letters-base";
 import {
   addMargins,
-  commonHider,
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
-  wrapAnimation,
-} from "./showable";
-import { createHandwriting } from "./glib/handwriting";
-import { ParagraphLayout } from "./glib/paragraph-layout";
-import { LCommand, PathShape } from "./glib/path-shape";
-import { assertFinite, initializedArray, makeLinear } from "phil-lib/misc";
+} from "../showable";
+import { createHandwriting } from "../glib/handwriting";
+import { ParagraphLayout } from "../glib/paragraph-layout";
+import { LCommand, PathShape } from "../glib/path-shape";
+import {
+  assertFinite,
+  initializedArray,
+  lerp,
+  makeLinear,
+} from "phil-lib/misc";
 import { createPeanoPath, getSegmentLength } from "./peano-shared";
+import { interpolateColors, makePathShapeInterpolator } from "../interpolate";
+import { BLUE } from "../utility";
 
-const mainSVG = getById("peano-iterations", SVGGElement);
 const font = Font.cursive(0.37);
-
-function makeChapterTitle(title: string, className: string) {
-  const delayBefore = 500;
-  const duration = (2500 / 30) * ((title.length + 30) / 2);
-  const delayAfter = 1000;
+function makeHandwritingForText(
+  text: string,
+  left: number,
+  top: number,
+  color: string
+): Showable {
   const layout = new ParagraphLayout(font);
-  const wordInfo = layout.addText(title);
+  const wordInfo = layout.addText(text);
   const laidOut = layout.align();
-  const pathShape = laidOut.singlePathShape();
-  const handwriting = createHandwriting(pathShape);
-  mainSVG.append(handwriting.topElement);
-  handwriting.topElement.classList.add(className);
-  const showable = handwriting.makeShowable({
+  const animator = laidOut.drawPartial(left, top); //❤️
+  const duration = (2500 / 30) * ((text.length + 30) / 2);
+  return {
+    description: `${text} » handwriting`,
     duration,
-    delayAfter,
-    delayBefore,
-  });
-  return showable;
+    show(timeInMs, context) {
+      context.strokeStyle = color;
+      context.lineWidth = 0.045;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      animator.drawTo((timeInMs / duration) * animator.totalLength, context);
+    },
+  };
+}
+const CHAPTER_TITLE_DELAY = 500;
+
+const PEANO_HANDWRITING_TRANSFORM = new DOMMatrixReadOnly(
+  "translate(8.5px, 1.5px) scale(7)"
+);
+
+function makeHandwritingForPeano(
+  iteration: number,
+  duration: number,
+  color: string,
+  lineWidth: number
+): Showable {
+  const shape = createPeanoPath(iteration).transform(
+    PEANO_HANDWRITING_TRANSFORM
+  );
+  const handwriting = createHandwriting(shape);
+  return {
+    description: `Animate Peano curve #${iteration} as handwriting`,
+    duration,
+    show(timeInMs, context) {
+      context.strokeStyle = color;
+      context.lineWidth = lineWidth * 7;
+      context.lineCap = "square";
+      context.lineJoin = "miter";
+      handwriting(timeInMs / duration, context);
+    },
+  };
 }
 
 /**
@@ -55,8 +90,8 @@ function createExpander(
   duration: number,
   frozenBefore: number,
   frozenAfter: number,
-  from: { iteration: number; color: string; strokeWidth: string },
-  to: { iteration: number; color: string; strokeWidth: string },
+  from: { iteration: number; color: string; strokeWidth: number },
+  to: { iteration: number; color: string; strokeWidth: number },
   midColors: string[] = []
 ): Showable {
   assertFinite(from.iteration, to.iteration);
@@ -154,97 +189,87 @@ function createExpander(
       );
     })
   );
-  const pathElement = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "path"
-  );
-  const animation = wrapAnimation(
-    pathElement,
-    {
-      strokeWidth: [from.strokeWidth, to.strokeWidth],
-      stroke: [from.color, ...midColors, to.color],
-      d: [fromPath.cssPath, toPath.cssPath],
+  const baseDuration = duration - frozenBefore - frozenAfter;
+  const colors = [from.color, ...midColors, to.color];
+  const makePathShape = makePathShapeInterpolator(fromPath, toPath);
+  const animation: Showable = {
+    description: `Expander ${from.iteration} - ${to.iteration}`,
+    duration: baseDuration,
+    show(timeInMs, context) {
+      // TODO ease-out
+      const progress = timeInMs / baseDuration;
+      const strokeWidth = lerp(from.strokeWidth, to.strokeWidth, progress);
+      const color = interpolateColors(progress, colors);
+      const pathShape = makePathShape(progress);
+      const originalTransform = context.getTransform();
+      context.translate(0.5, 1.5);
+      context.scale(7, 7);
+      context.lineCap = "square";
+      context.lineJoin = "miter";
+      context.lineWidth = strokeWidth;
+      context.strokeStyle = color;
+      const path = new Path2D(pathShape.rawPath);
+      context.stroke(path);
+      context.setTransform(originalTransform);
     },
-    duration - frozenBefore - frozenAfter,
-    "ease-out"
-  );
-  pathElement.style.transform = "translate(0.5px, 1.5px) scale(7)";
-  pathElement.style.strokeLinecap = "square";
-  pathElement.style.fill = "none";
-  pathElement.style.strokeWidth = "0.05";
-  mainSVG.append(pathElement);
+  };
+
   return addMargins(animation, { frozenBefore, frozenAfter });
 }
-const state1 = { iteration: 1, color: "red", strokeWidth: "0.045" };
+const state1 = { iteration: 1, color: "red", strokeWidth: 0.045 };
 const state2 = {
   iteration: 2,
   color: "white",
-  strokeWidth: "0.03",
+  strokeWidth: 0.03,
 };
 const state3 = {
   iteration: 3,
-  color: "var(--blue)",
-  strokeWidth: "0.015",
+  color: BLUE,
+  strokeWidth: 0.015,
 };
 
 const builder = new MakeShowableInParallel();
 const inSeries = new MakeShowableInSeries();
+
+// TODO move this somewhere better
+builder.addJustified({
+  description: "background",
+  duration: 0,
+  show(timeInMs, context) {
+    context.fillStyle = "black";
+    context.fillRect(0, 0, 16, 9);
+  },
+});
 
 {
   // Script:
   // One large copy of the first iteration drawing.
   // Draw it with the handwriting effect.
   // Leave it in place when finished, where the second and third iterations will cover it.
-  const peano0Shape = createPeanoPath(1); //PathShape.fromString(peano0D);
-  const peanoHandwriting = createHandwriting(peano0Shape);
-  peanoHandwriting.topElement.id = "peano-1-main";
-  mainSVG.append(peanoHandwriting.topElement);
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 2000 });
-  const chapterTitle = makeChapterTitle(
+  const peanoShowable = makeHandwritingForPeano(1, 2000, "red", 0.045);
+  const chapterTitle = makeHandwritingForText(
     "First iteration of Peano curve",
-    "iteration-1-text"
+    0.5,
+    0.375,
+    "red"
   );
-  builder.add(
-    addMargins(chapterTitle, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
-  );
-  builder.add(
-    addMargins(peanoShowable, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
-  );
+
+  builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
+  builder.addJustified(peanoShowable, inSeries.duration);
   inSeries.skip(Math.max(chapterTitle.duration, peanoShowable.duration) + 500);
 }
 {
-  const peanoShape = createPeanoPath(2);
-  const peanoHandwriting = createHandwriting(peanoShape);
-  peanoHandwriting.topElement.id = "peano-2-main";
-  mainSVG.append(peanoHandwriting.topElement);
-
   const duration = 6000;
-  const peanoShowable = peanoHandwriting.makeShowable({ duration });
+  const peanoShowable = makeHandwritingForPeano(2, duration, "white", 0.03);
 
-  const chapterTitle = makeChapterTitle("Second iteration", "iteration-2-text");
-  builder.add(
-    addMargins(chapterTitle, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
+  const chapterTitle = makeHandwritingForText(
+    "Second iteration",
+    7.9375,
+    0.375,
+    "white"
   );
-  builder.add(
-    addMargins(peanoShowable, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
-  );
-
+  builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
+  builder.addJustified(peanoShowable, inSeries.duration);
   const initialPause = 500;
   const finalPause = 1000;
   const expander = createExpander(
@@ -259,27 +284,15 @@ const inSeries = new MakeShowableInSeries();
 }
 
 {
-  const peanoShape = createPeanoPath(3);
-  const peanoHandwriting = createHandwriting(peanoShape);
-  peanoHandwriting.topElement.id = "peano-3-main";
-  mainSVG.append(peanoHandwriting.topElement);
-  const peanoShowable = peanoHandwriting.makeShowable({ duration: 18000 });
-
-  const chapterTitle = makeChapterTitle("Third iteration", "iteration-3-text");
-  builder.add(
-    addMargins(chapterTitle, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
+  const peanoShowable = makeHandwritingForPeano(3, 18000, BLUE, 0.015);
+  const chapterTitle = makeHandwritingForText(
+    "Third iteration",
+    12,
+    0.375,
+    BLUE
   );
-  builder.add(
-    addMargins(peanoShowable, {
-      hiddenBefore: inSeries.duration,
-      frozenAfter: Infinity,
-    }),
-    0
-  );
+  builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
+  builder.addJustified(peanoShowable, inSeries.duration);
 
   const expander1 = createExpander(9000, 500, 1500, state2, state3);
   const expander2 = createExpander(9000, 1000, 1500, state1, state3);
@@ -287,9 +300,9 @@ const inSeries = new MakeShowableInSeries();
   inSeries.add(expander2);
 }
 
-builder.add(inSeries.build());
+builder.add(inSeries.build("in series"));
 
 /**
  * This section of the video shows the first 3 iterations of the Peano curve and how each compares to the others.
  */
-export const peanoIterations = commonHider(builder.build(), mainSVG);
+export const peanoIterations = builder.build("Peano Iterations");

@@ -264,7 +264,10 @@ export class ParagraphLayout {
      * @returns
      */
     function drawPartial(left = 0, top = 0) {
+      // See createHandwriting in handwriting.ts.
+      // TODO use that to implement this.
       let start = 0;
+      //const shapesToAnimate = getAllLetters(left, top).map(({translatedShape}) => translatedShape);
       const allShapeInfo = [...getAllLetters(left, top)]
         .flatMap(({ translatedShape }) => translatedShape.splitOnMove())
         .map((shape) => {

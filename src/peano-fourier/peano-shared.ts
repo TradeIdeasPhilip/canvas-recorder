@@ -1,4 +1,4 @@
-import { LCommand, PathShape } from "./glib/path-shape";
+import { LCommand, PathShape } from "../glib/path-shape";
 
 /**
  * If the entire shape is contained in a one x one square, how big is each individual segment.

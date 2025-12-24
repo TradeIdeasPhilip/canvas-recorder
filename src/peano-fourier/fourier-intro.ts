@@ -9,9 +9,11 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./fourier-shared";
+import { BLUE } from "../utility";
 
 const builder = new MakeShowableInParallel();
 
+// TODO move this somewhere better
 builder.addJustified({
   description: "background",
   duration: 0,
@@ -20,8 +22,6 @@ builder.addJustified({
     context.fillRect(0, 0, 16, 9);
   },
 });
-
-const BLUE = "hwb(204.42deg 0% 0%)";
 
 const font = Font.cursive(0.5);
 function makeHandwriting(
@@ -37,9 +37,8 @@ function makeHandwriting(
   const duration = 2000;
   return {
     description: `${text} » handwriting`,
-    duration: 2000,
+    duration,
     show(timeInMs, context) {
-      context.fillStyle = "none";
       context.strokeStyle = color;
       context.lineWidth = 0.045;
       context.lineCap = "round";
