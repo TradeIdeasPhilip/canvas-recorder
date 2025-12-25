@@ -9,6 +9,64 @@
   <body>
     <h1>Canvas Recorder Development Environment</h1>
     <canvas id="main" width="3840" height="2160"></canvas>
-    <div id="info">Recording in progress...</div>
+    <div>
+      <select></select
+      ><button id="previousButton">Previous</button
+      ><button id="nextButton">Next</button>
+    </div>
+    <table>
+      <tr>
+        <th></th>
+        <th></th>
+        <th>Start</th>
+        <th>End</th>
+      </tr>
+      <tr id="parentRow">
+        <td><button>Parent</button></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr id="previousSiblingRow">
+        <td>&emsp;<button>Previous Sibling</button></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr id="thisRow">
+        <td>&emsp;This</td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr id="firstChildRow">
+        <td>&emsp;&emsp;<button>First Child</button></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr id="nextSiblingRow">
+        <td>&emsp;<button>Next Sibling</button></td>
+        <td></td>
+        <td></td>
+        <td></td>
+      </tr>
+    </table>
+    <div class="range-container">
+      <input type="range" id="playPosition" value="0" step="any" />
+      <label
+        ><input
+          type="radio"
+          name="playState"
+          value="pause"
+          checked
+        />Pause</label
+      >
+      <label><input type="radio" name="playState" value="play" />Play</label>
+      <label
+        ><input type="radio" name="playState" value="repeat" />Repeat</label
+      >
+    </div>
+    <div id="info"><i>status goes here</i>...</div>
   </body>
 </html>

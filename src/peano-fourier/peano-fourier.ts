@@ -65,8 +65,6 @@ const keyframes = [
   1022,
 ];
 
-console.log(keyframes);
-
 createExample(
   1,
   new DOMMatrixReadOnly("translateX(3px) translateY(2px) scale(0.75)"),

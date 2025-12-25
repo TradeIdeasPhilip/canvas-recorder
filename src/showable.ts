@@ -37,7 +37,10 @@ export type Showable = {
    * Aimed at a person using our development console.
    * That type of user can navigate a tree of Showable objects.
    */
-  readonly children?: readonly Showable[];
+  readonly children?: readonly {
+    readonly start: number;
+    readonly child: Showable;
+  }[];
 };
 
 /**
@@ -87,7 +90,14 @@ export class MakeShowableInParallel {
         all[i].show(timeInMS, context);
       }
     };
-    return { duration, show, description, children: this.#all };
+    return {
+      duration,
+      show,
+      description,
+      children: this.#all.map((child) => {
+        return { start: 0, child };
+      }),
+    };
   }
   /**
    * Creates a new Showable object which passes each show() call to all of its children.
@@ -147,7 +157,6 @@ export class MakeShowableInSeries {
      */
     const reversedScript = this.#script.toReversed();
     const duration = this.duration;
-    const children = this.#script.map(({ child }) => child);
     const show = (timeInMs: number, context: CanvasRenderingContext2D) => {
       for (const { start, child } of reversedScript) {
         const localTime = timeInMs - start;
@@ -158,7 +167,7 @@ export class MakeShowableInSeries {
         }
       }
     };
-    return { description, duration, show, children };
+    return { description, duration, show, children: this.#script };
   }
   /**
    * Create a new showable that contains all of the inputs as children.
@@ -209,7 +218,7 @@ export function makeRepeater(showable: Showable, count = Infinity): Showable {
     description: `${showable.description} » repeater`,
     duration: repeaterDuration,
     show,
-    children: [showable],
+    children: [{ start: 0, child: showable }],
   };
 }
 
@@ -259,6 +268,6 @@ export function addMargins(
   if (extra.hiddenAfter !== undefined) {
     builder.skip(extra.hiddenAfter);
   }
-  const description = `${base.description}  margins`;
+  const description = `${base.description} » margins`;
   return builder.build(description);
 }

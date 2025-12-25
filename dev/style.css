@@ -3,3 +3,19 @@
   max-height: 95vh;
   aspect-ratio: 16 / 9;
 }
+
+td:nth-child(3) {
+  text-align: right;
+}
+
+td:nth-child(4) {
+  text-align: right;
+}
+
+.range-container {
+  display: flex;
+}
+
+.range-container input[type="range"] {
+  flex-grow: 1;
+}
