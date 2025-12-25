@@ -1,20 +1,13 @@
-import { getById, querySelector, querySelectorAll } from "phil-lib/client-misc";
 import { createPeanoPath } from "./peano-shared";
 import {
   createFourierAnimation,
-  createFourierTracker,
   getAnimationRules,
   numberOfFourierSamples,
   samplesFromPath,
   samplesToFourier,
-  simpleDestination,
 } from "./fourier-shared";
-import {
-  commonHider,
-  MakeShowableInParallel,
-  Showable,
-  wrapAnimation,
-} from "./showable";
+import { MakeShowableInParallel, Showable } from "../showable";
+import { BLUE } from "../utility";
 
 // This is the main event.
 // Display 3 complete iterations of the peano curve.
@@ -22,25 +15,46 @@ import {
 
 const builder = new MakeShowableInParallel();
 
+// TODO move this somewhere better
+builder.addJustified({
+  description: "background",
+  duration: 0,
+  show(timeInMs, context) {
+    context.fillStyle = "black";
+    context.fillRect(0, 0, 16, 9);
+  },
+});
+
 const SIZE = new DOMMatrix("translate(-2px, -2px) scale(4)");
 
-function createExample(iteration: number, keyframes: readonly number[]) {
-  const activeElement = querySelector(
-    `[data-pf="${iteration}"]`,
-    SVGPathElement
-  );
-  const destination = simpleDestination(activeElement);
+function createExample(
+  iteration: number,
+  positionOfIdeal: DOMMatrixReadOnly,
+  color: string,
+  lineWidth: number,
+  keyframes: readonly number[]
+) {
+  // Active element: [data-pf] and #pf2-container
   const path = createPeanoPath(iteration).transform(SIZE);
   const samples = samplesFromPath(path.rawPath, numberOfFourierSamples);
   const terms = samplesToFourier(samples);
   const animationRules = getAnimationRules(terms, keyframes);
-  const showable = createFourierAnimation(destination, animationRules);
-  builder.addJustified(showable);
-  const referenceElement = querySelector(
-    `[data-pf-ideal="${iteration}"]`,
-    SVGPathElement
-  );
-  referenceElement.setAttribute("d", path.rawPath);
+  const showable = createFourierAnimation(animationRules);
+  //builder.addJustified(showable); ⁉️
+  // Reference elements:  [data-pf-ideal]
+  const referencePath = new Path2D(path.transform(positionOfIdeal).rawPath);
+  const referenceShowable: Showable = {
+    description: `reference path #${iteration}`,
+    duration: 10000, // TODO set to 0
+    show(timeInMs, context) {
+      context.strokeStyle = color;
+      context.lineWidth = lineWidth * 0.75;
+      context.lineCap = "square";
+      context.lineJoin = "miter";
+      context.stroke(referencePath);
+    },
+  };
+  builder.addJustified(referenceShowable);
 }
 
 const keyframes = [
@@ -53,13 +67,32 @@ const keyframes = [
 
 console.log(keyframes);
 
-createExample(1, keyframes);
-createExample(2, keyframes);
-createExample(3, keyframes);
+createExample(
+  1,
+  new DOMMatrixReadOnly("translateX(3px) translateY(2px) scale(0.75)"),
+  "red",
+  0.06,
+  keyframes
+);
+createExample(
+  2,
+  new DOMMatrixReadOnly("translateX(8px) translateY(2px) scale(0.75)"),
+  "white",
+  0.04,
+  keyframes
+);
+createExample(
+  3,
+  new DOMMatrixReadOnly("translateX(13px) translateY(2px) scale(0.75)"),
+  BLUE,
+  0.02,
+  keyframes
+);
 
-const debuggerText = getById("peano-fourier-debugger", SVGTextElement);
-builder.add(createFourierTracker(debuggerText, keyframes));
+//const debuggerText = getById("peano-fourier-debugger", SVGTextElement);
+//builder.add(createFourierTracker(debuggerText, keyframes));
 
+/*
 const spinner = querySelector('[data-pf="2"]', SVGPathElement);
 builder.addJustified(
   wrapAnimation(
@@ -90,7 +123,6 @@ builder.addJustified(
   ),
   67500
 );
+*/
 
-const topElement = getById("peano-fourier", SVGGElement);
-
-export const peanoFourier: Showable = commonHider(builder.build(), topElement);
+export const peanoFourier: Showable = builder.build("Peano Fourier");

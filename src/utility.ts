@@ -19,4 +19,4 @@ export function ease(t: number): number {
  * Out of context I'd call this color blue.
  * And it looks good with css "red" and "white".
  */
-export const BLUE = "hwb(210deg 0% 0%)";
+export const BLUE = "#007fff";

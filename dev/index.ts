@@ -10,11 +10,12 @@ import {
   Mp4OutputFormat,
 } from "mediabunny";
 import { peanoIterations } from "../src/peano-fourier/peano-iterations.ts";
+import { peanoFourier } from "../src/peano-fourier/peano-fourier.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
-const toShow = peanoIterations;
+const toShow = peanoFourier;
 
 function showFrame(timeInMS: number, size: "live" | "4k" | "hd") {
   if (size == "live") {

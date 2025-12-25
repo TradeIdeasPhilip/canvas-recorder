@@ -372,19 +372,6 @@ export function samplesFromPath(
 
 export const numberOfFourierSamples = 1024;
 
-export type Destination = { hide(): void; show(rawPathString: string): void };
-
-export function simpleDestination(pathElement: SVGPathElement) {
-  return {
-    hide() {
-      pathElement.setAttribute("d", "");
-    },
-    show(rawPathString: string) {
-      pathElement.setAttribute("d", rawPathString);
-    },
-  };
-}
-
 // TODO add in y1 and y2, rather than just assuming they are 0 and 1.
 function makeEasing(x1: number, x2: number) {
   if (x1 >= x2) {
@@ -658,14 +645,12 @@ export function createFourierAnimation(
       );
     }
     const rawPathString = animationRules[index](progress);
-    return {rawPathString,index,progress}
+    return { rawPathString, index, progress };
   }
   const duration =
     animationRules.length * (PLAY_DURATION + PAUSE_BETWEEN) -
     PAUSE_BETWEEN +
     PAUSE_BEFORE_FIRST +
     PAUSE_AFTER_LAST;
-  return {duration,getInfo};
+  return { duration, getInfo };
 }
-
-
