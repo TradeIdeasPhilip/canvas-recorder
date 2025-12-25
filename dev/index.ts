@@ -1,4 +1,4 @@
-import { assertNonNullable, FIGURE_SPACE, sleep } from "phil-lib/misc.ts";
+import { assertNonNullable, FIGURE_SPACE, parseIntX } from "phil-lib/misc.ts";
 import {
   AnimationLoop,
   getById,
@@ -12,9 +12,6 @@ import {
   CanvasSource,
   Mp4OutputFormat,
 } from "mediabunny";
-import { fourierIntro } from "../src/peano-fourier/fourier-intro.ts";
-import { peanoIterations } from "../src/peano-fourier/peano-iterations.ts";
-import { peanoFourier } from "../src/peano-fourier/peano-fourier.ts";
 import { top } from "../src/peano-fourier/top.ts";
 import { Showable } from "../src/showable.ts";
 
@@ -319,3 +316,53 @@ nextButton.addEventListener("click", () => {
   select.selectedIndex++;
   updateFromSelect();
 });
+
+/**
+ * When someone hits refresh in their browser,
+ * or hits save in vs code so vite causes a refresh,
+ * restart the user with the same gui settings.
+ */
+function saveState() {
+  sessionStorage.setItem("index", select.selectedIndex.toString());
+  sessionStorage.setItem("time", playPositionRangeInput.value);
+  sessionStorage.setItem(
+    "state",
+    querySelector('input[name="playState"]:checked', HTMLInputElement).value
+  );
+}
+
+if (import.meta.hot) {
+  // Changing a typescript file invokes this.
+  // Changing a css file would cause vite:beforeUpdate, instead.
+  import.meta.hot.on("vite:beforeFullReload", (data) => {
+    saveState();
+  });
+}
+
+// addEventListener("beforeunload", (event) => {
+//   addDebugMessage("beforeunload")
+// })
+
+addEventListener("pagehide", (event) => {
+  saveState();
+});
+
+{
+  try {
+    const index = sessionStorage.getItem("index");
+    const time = sessionStorage.getItem("time");
+    const state = sessionStorage.getItem("state");
+    if (index && time && state) {
+      select.selectedIndex = assertNonNullable(parseIntX(index));
+      updateFromSelect();
+      playPositionRangeInput.value = time;
+      querySelector(
+        `input[name="playState"][value=${state}]`,
+        HTMLInputElement
+      ).checked = true;
+      playOffset = NaN;
+    }
+  } finally {
+    sessionStorage.clear();
+  }
+}
