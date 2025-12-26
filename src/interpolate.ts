@@ -49,6 +49,38 @@ function equalWeights<T>(
 }
 
 /**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param array Inputs should come in order.
+ * @returns
+ */
+export function timedKeyframes<T>(
+  time: number,
+  array: readonly { time: number; value: T }[]
+):
+  | { single: true; value: T }
+  | { single: false; progress: number; from: T; to: T } {
+  if (time <= array[0].time) {
+    return { single: true, value: array[0].value };
+  }
+  if (time >= array.at(-1)!.time) {
+    return { single: true, value: array.at(-1)!.value };
+  }
+  for (let i = 1; i < array.length; i++) {
+    const to = array[i];
+    if (time == to.time) {
+      return { single: true, value: to.value };
+    }
+    const from = array[i - 1];
+    if (time >= from.time && time <= to.time) {
+      const progress = (time - from.time) / (to.time - from.time);
+      return { single: false, progress, from: from.value, to: to.value };
+    }
+  }
+  throw new Error("wtf");
+}
+
+/**
  * Pick a color from the list of colors, interpolating as required.
  * @param progress A value between 0 and 1.
  * @param colors A list of colors.

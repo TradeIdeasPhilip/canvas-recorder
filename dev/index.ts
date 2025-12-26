@@ -13,7 +13,7 @@ import {
   Mp4OutputFormat,
 } from "mediabunny";
 import { top } from "../src/peano-fourier/top.ts";
-import { Showable } from "../src/showable.ts";
+import { Selectable, Showable } from "../src/showable.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -95,6 +95,7 @@ const infoDiv = getById("info", HTMLDivElement);
 infoDiv.innerHTML = "Click 'Record and Save' to start...";
 
 async function startRecording() {
+  // Consider using https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset to disable all controls at once.
   animationLoop.cancel();
 
   infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
@@ -179,27 +180,27 @@ button.textContent = "Record and Save Video";
 button.onclick = startRecording;
 document.body.appendChild(button);
 
-type ShowableTree = {
+type SelectableTree = {
   description: string;
   prefix: string;
   start: number;
   end: number;
-  parent: ShowableTree | undefined;
-  children: ShowableTree[];
+  parent: SelectableTree | undefined;
+  children: SelectableTree[];
   absolutePosition: number;
   siblingPosition: number;
 };
 
-const debug = new Array<ShowableTree>();
+const debug = new Array<SelectableTree>();
 function dump(
-  showable: Showable,
+  showable: Selectable,
   prefix = "",
   start = 0,
   limit = Infinity,
-  parent?: ShowableTree
+  parent?: SelectableTree
 ) {
   const end = Math.min(start + showable.duration, limit);
-  const info: ShowableTree = {
+  const info: SelectableTree = {
     prefix,
     description: showable.description,
     start,
@@ -246,12 +247,12 @@ const nextSiblingCells = querySelectorAll(
 
 const buttonDestination = new Map<
   HTMLButtonElement,
-  ShowableTree | undefined
+  SelectableTree | undefined
 >();
 
 function updateRow(
   cells: readonly HTMLTableCellElement[],
-  info: ShowableTree | undefined
+  info: SelectableTree | undefined
 ) {
   const button = querySelectorAll(
     "button",

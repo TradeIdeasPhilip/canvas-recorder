@@ -4,19 +4,10 @@ import { positiveModulo } from "phil-lib/misc";
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
  * Or this might be a part of the animation that will be joined with other parts.
+ *
+ * In particular, this represents the part that you can see in the user interface.
  */
-export type Showable = {
-  /**
-   * Draw this object to the canvas.
-   *
-   * This should have no other assumptions or side effects.
-   * The system can call show with any input at any time.
-   * @param timeInMs Show the animation at this time.
-   *
-   * This will typically be between 0 and `duration`, inclusive.
-   * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
-   */
-  show(timeInMs: number, context: CanvasRenderingContext2D): void;
+export type Selectable = {
   /**
    * How long should this effect last, in milliseconds?
    * This should be 0 or positive.
@@ -39,8 +30,27 @@ export type Showable = {
    */
   readonly children?: readonly {
     readonly start: number;
-    readonly child: Showable;
+    readonly child: Selectable;
   }[];
+};
+
+/**
+ * This represents an animation.
+ * This might be the entire animation we intend to display or record.
+ * Or this might be a part of the animation that will be joined with other parts.
+ */
+export type Showable = Selectable & {
+  /**
+   * Draw this object to the canvas.
+   *
+   * This should have no other assumptions or side effects.
+   * The system can call show with any input at any time.
+   * @param timeInMs Show the animation at this time.
+   *
+   * This will typically be between 0 and `duration`, inclusive.
+   * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
+   */
+  show(timeInMs: number, context: CanvasRenderingContext2D): void;
 };
 
 /**
@@ -57,8 +67,15 @@ function notNegative(value: number) {
 
 export class MakeShowableInParallel {
   readonly #all: Showable[] = [];
+  readonly #children: {
+    readonly start: number;
+    readonly child: Selectable;
+  }[] = [];
   #duration = 0;
   #used = false;
+  addNotes(description: string, start: number, duration: number) {
+    this.#children.push({ start, child: { description, duration } });
+  }
   add(showable: Showable, minDuration = showable.duration) {
     if (this.#used) {
       throw new Error("wtf");
@@ -66,6 +83,7 @@ export class MakeShowableInParallel {
     notNegative(minDuration);
     this.#all.push(showable);
     this.#duration = Math.max(this.#duration, minDuration);
+    this.#children.push({ start: 0, child: showable });
   }
   /**
    * This will add an item and it will extend the last frame to the end of the composite Showable object.
@@ -94,9 +112,7 @@ export class MakeShowableInParallel {
       duration,
       show,
       description,
-      children: this.#all.map((child) => {
-        return { start: 0, child };
-      }),
+      children: this.#children,
     };
   }
   /**

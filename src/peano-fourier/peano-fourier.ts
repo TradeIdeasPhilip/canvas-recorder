@@ -8,6 +8,8 @@ import {
 } from "./fourier-shared";
 import { MakeShowableInParallel, Showable } from "../showable";
 import { BLUE } from "../utility";
+import { timedKeyframes } from "../interpolate";
+import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 
 // This is the main event.
 // Display 3 complete iterations of the peano curve.
@@ -33,7 +35,11 @@ function createExample(
   livePathX: number,
   color: string,
   lineWidth: number,
-  keyframes: readonly number[]
+  keyframes: readonly number[],
+  livePathChanges?: (
+    timeInMS: number,
+    context: CanvasRenderingContext2D
+  ) => void
 ) {
   // Active element: [data-pf] and #pf2-container
   const path = createPeanoPath(iteration).transform(SIZE);
@@ -52,6 +58,7 @@ function createExample(
       context.lineCap = "round";
       context.strokeStyle = color;
       context.lineWidth = lineWidth;
+      livePathChanges?.(timeInMS, context);
       context.stroke(path);
       context.setTransform(originalTransform);
     }
@@ -96,14 +103,50 @@ createExample(
   0.06,
   keyframes
 );
-createExample(
-  2,
-  new DOMMatrixReadOnly("translateX(8px) translateY(2px) scale(0.75)"),
-  8,
-  "white",
-  0.04,
-  keyframes
-);
+{
+  const animationStartTime = 67500;
+  const animationDuration = 8000;
+  const transformKeyframes = [
+    { time: animationStartTime, value: 0 },
+    { time: animationStartTime + animationDuration / 4, value: 1 },
+    { time: animationStartTime + (animationDuration * 3) / 4, value: 1 },
+    { time: animationStartTime + animationDuration, value: 0 },
+  ];
+  function animateTransform(
+    timeInMS: number,
+    context: CanvasRenderingContext2D
+  ): void {
+    const relevant = timedKeyframes(timeInMS, transformKeyframes);
+    if (relevant.single && relevant.value == 0) {
+      // An optimization.
+      // Most of the time we do nothing.
+      return;
+    }
+    let progress: number;
+    if (relevant.single) {
+      progress = relevant.value;
+    } else {
+      progress = lerp(relevant.from, relevant.to, relevant.progress);
+    }
+    context.translate(0, progress * -4.5);
+    context.scale(lerp(1, 0.25, progress), lerp(1, 0.75, progress));
+    context.rotate((FULL_CIRCLE / 4) * progress);
+  }
+  builder.addNotes(
+    "⭐️ spin and translate",
+    animationStartTime - animationDuration * 0.25,
+    animationDuration * 1.5
+  );
+  createExample(
+    2,
+    new DOMMatrixReadOnly("translateX(8px) translateY(2px) scale(0.75)"),
+    8,
+    "white",
+    0.04,
+    keyframes,
+    animateTransform
+  );
+}
 createExample(
   3,
   new DOMMatrixReadOnly("translateX(13px) translateY(2px) scale(0.75)"),
