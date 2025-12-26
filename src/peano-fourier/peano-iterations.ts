@@ -15,7 +15,11 @@ import {
   makeLinear,
 } from "phil-lib/misc";
 import { createPeanoPath, getSegmentLength } from "./peano-shared";
-import { interpolateColors, makePathShapeInterpolator } from "../interpolate";
+import {
+  easeOut,
+  interpolateColors,
+  makePathShapeInterpolator,
+} from "../interpolate";
 import { BLUE } from "../utility";
 
 const font = Font.cursive(0.37);
@@ -196,8 +200,7 @@ function createExpander(
     description: `Expander ${from.iteration} - ${to.iteration}`,
     duration: baseDuration,
     show(timeInMs, context) {
-      // TODO ease-out
-      const progress = timeInMs / baseDuration;
+      const progress = easeOut(timeInMs / baseDuration);
       const strokeWidth = lerp(from.strokeWidth, to.strokeWidth, progress);
       const color = interpolateColors(progress, colors);
       const pathShape = makePathShape(progress);

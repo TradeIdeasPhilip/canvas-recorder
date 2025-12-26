@@ -1916,7 +1916,7 @@ export class PathShape {
     // Basically, any time you see a parabola segment get really big.
     // It's possible that the input function really was shaped like a long, thin parabola segment.
     // But it's unlikely that our normal algorithm would break the function up like that.
-    // An artist who's drawing in inkscape might know what he's doing and use one long segment where it works.
+    // An artist who's drawing in Inkscape might know what he's doing and use one long segment where it works.
     // But even if such a segment existed in the function, we would still chop it into pieces.
     //
     // Sometimes things aren't huge, but they still jump suddenly.

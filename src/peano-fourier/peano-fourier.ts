@@ -8,7 +8,7 @@ import {
 } from "./fourier-shared";
 import { MakeShowableInParallel, Showable } from "../showable";
 import { BLUE } from "../utility";
-import { timedKeyframes } from "../interpolate";
+import { easeOut, timedKeyframes } from "../interpolate";
 import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 
 // This is the main event.
@@ -128,6 +128,7 @@ createExample(
     } else {
       progress = lerp(relevant.from, relevant.to, relevant.progress);
     }
+    progress = easeOut(progress);
     context.translate(0, progress * -4.5);
     context.scale(lerp(1, 0.25, progress), lerp(1, 0.75, progress));
     context.rotate((FULL_CIRCLE / 4) * progress);

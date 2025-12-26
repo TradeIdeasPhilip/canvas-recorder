@@ -162,3 +162,38 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
   }
   return interpolate;
 }
+
+/**
+ * This converts a linear timing to an eased timing.
+ * This is similar to "ease" or "ease-in-out"
+ * @param t A value between 0 and 1.
+ * @returns A value between 0 and 1.
+ */
+export function ease(t: number): number {
+  const angle = t * Math.PI;
+  const cosine = Math.cos(angle);
+  const result = (1 - cosine) / 2;
+  return result;
+}
+
+/**
+ * This creates an "ease-in" acceleration profile.
+ * It starts (t=0) with an speed of 0 that quickly increases.
+ * The speed is maximum and nearly constant near the end (t=1).
+ * @param t A value between 0 and 1.
+ * @returns A value between 0 and 1.
+ */
+export function easeIn(t: number): number {
+  return 1 - Math.cos((t * Math.PI) / 2);
+}
+
+/**
+ * This creates an "ease-out" acceleration profile.
+ * The speed is maximum and nearly constant at the beginning (t=0).
+ * The speed quickly drops to 0 at the end (t=1).
+ * @param t A value between 0 and 1.
+ * @returns A value between 0 and 1.
+ */
+export function easeOut(t: number): number {
+  return Math.sin((t * Math.PI) / 2);
+}

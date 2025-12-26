@@ -16,8 +16,7 @@ import {
   Random,
   sum,
 } from "phil-lib/misc";
-import { addMargins, MakeShowableInSeries, Showable } from "../showable";
-import { ease } from "../utility";
+import { ease } from "../interpolate";
 
 const sharedCaliper = new PathCaliper();
 
