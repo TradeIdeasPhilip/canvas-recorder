@@ -29,23 +29,46 @@ const SIZE = new DOMMatrix("translate(-2px, -2px) scale(4)");
 
 function createExample(
   iteration: number,
-  positionOfIdeal: DOMMatrixReadOnly,
+  positionOfReferencePath: DOMMatrixReadOnly,
+  livePathX: number,
   color: string,
   lineWidth: number,
   keyframes: readonly number[]
 ) {
   // Active element: [data-pf] and #pf2-container
   const path = createPeanoPath(iteration).transform(SIZE);
-  const samples = samplesFromPath(path.rawPath, numberOfFourierSamples);
-  const terms = samplesToFourier(samples);
-  const animationRules = getAnimationRules(terms, keyframes);
-  const showable = createFourierAnimation(animationRules);
-  //builder.addJustified(showable); ⁉️
+  {
+    const samples = samplesFromPath(path.rawPath, numberOfFourierSamples);
+    const terms = samplesToFourier(samples);
+    const animationRules = getAnimationRules(terms, keyframes);
+    const { getInfo, duration } = createFourierAnimation(animationRules);
+    function show(timeInMS: number, context: CanvasRenderingContext2D) {
+      const { pathShape } = getInfo(timeInMS);
+      const path = new Path2D(pathShape.rawPath);
+      const originalTransform = context.getTransform();
+      //context.transform(positionOfLivePath.a, positionOfLivePath.b, positionOfLivePath.c, positionOfLivePath.d, positionOfLivePath.e, positionOfLivePath.f)
+      context.translate(livePathX, 6.5);
+      context.lineJoin = "round";
+      context.lineCap = "round";
+      context.strokeStyle = color;
+      context.lineWidth = lineWidth;
+      context.stroke(path);
+      context.setTransform(originalTransform);
+    }
+    builder.addJustified({
+      description: `live path #${iteration}`,
+      duration,
+      show,
+    });
+  }
+
   // Reference elements:  [data-pf-ideal]
-  const referencePath = new Path2D(path.transform(positionOfIdeal).rawPath);
+  const referencePath = new Path2D(
+    path.transform(positionOfReferencePath).rawPath
+  );
   const referenceShowable: Showable = {
     description: `reference path #${iteration}`,
-    duration: 10000, // TODO set to 0
+    duration: 0,
     show(timeInMs, context) {
       context.strokeStyle = color;
       context.lineWidth = lineWidth * 0.75;
@@ -68,6 +91,7 @@ const keyframes = [
 createExample(
   1,
   new DOMMatrixReadOnly("translateX(3px) translateY(2px) scale(0.75)"),
+  3,
   "red",
   0.06,
   keyframes
@@ -75,6 +99,7 @@ createExample(
 createExample(
   2,
   new DOMMatrixReadOnly("translateX(8px) translateY(2px) scale(0.75)"),
+  8,
   "white",
   0.04,
   keyframes
@@ -82,6 +107,7 @@ createExample(
 createExample(
   3,
   new DOMMatrixReadOnly("translateX(13px) translateY(2px) scale(0.75)"),
+  13,
   BLUE,
   0.02,
   keyframes

@@ -76,8 +76,8 @@ function addAnimation(
     getAnimationRules(terms, keyframes)
   );
   function show(timeInMS: number, context: CanvasRenderingContext2D) {
-    const { rawPathString } = getInfo(timeInMS);
-    const path = new Path2D(rawPathString);
+    const { pathShape } = getInfo(timeInMS);
+    const path = new Path2D(pathShape.rawPath);
     const originalTransform = context.getTransform();
     context.translate(x, y);
     context.lineJoin = "round";

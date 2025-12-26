@@ -404,7 +404,7 @@ function makeEasing(x1: number, x2: number) {
 export function getAnimationRules(
   terms: string | FourierTerm[],
   keyframes: readonly number[]
-): ((progress: number) => string)[] {
+): ((progress: number) => PathShape)[] {
   // In principal this could be adapted to transition from any curve to any other curve.
   // Currently this function has some details that are specific to Fourier.
   // 1) This includes an optimization.  We know that the two paths are related.
@@ -439,7 +439,7 @@ export function getAnimationRules(
       return 8 * Math.min(maxFrequency, 110) + 7;
     }
   };
-  const result: ((t: number) => string)[] = initializedArray(
+  const result: ((t: number) => PathShape)[] = initializedArray(
     numberOfSteps,
     (index) => {
       const startingTermCount = keyframes[index];
@@ -475,7 +475,7 @@ export function getAnimationRules(
           const to = location(leadingProgress);
           const pathString = `M ${from} L ${to}`;
           // console.log({ t, trailingProgress, leadingProgress, pathString });
-          return pathString;
+          return PathShape.fromString(pathString);
         };
       } else if (startingTermCount == endingTermCount) {
         const parametricFunction = termsToParametricFunction(
@@ -488,8 +488,8 @@ export function getAnimationRules(
           parametricFunction,
           numberOfDisplaySegments
         );
-        const result = path.rawPath;
-        return (_timeInMs: number): string => {
+        const result = path;
+        return (_timeInMs: number): PathShape => {
           return result;
         };
       } else {
@@ -527,7 +527,7 @@ export function getAnimationRules(
             x: 0,
             y: 0,
           };
-          return (timeInMs: number): string => {
+          return (timeInMs: number): PathShape => {
             const centerOfChange = tToCenter(timeInMs);
             const startOfChange = centerOfChange - r;
             const endOfChange = centerOfChange + r;
@@ -538,7 +538,9 @@ export function getAnimationRules(
             const safePartEnds = Math.min(1, endOfChange);
             if (safePartEnds <= 0) {
               // There is no safe part!
-              return `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`;
+              return PathShape.fromString(
+                `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`
+              );
             } else {
               const frugalSegmentCount = Math.ceil(
                 // TODO that 150 is crude.  The transition might require
@@ -564,12 +566,12 @@ export function getAnimationRules(
                 parametricFunction,
                 frugalSegmentCount
               );
-              return path.rawPath;
+              return path;
             }
           };
         } else {
           // COMMON CASE:  Converting from one normal shape into another.
-          return (timeInMs: number): string => {
+          return (timeInMs: number): PathShape => {
             const centerOfChange = tToCenter(timeInMs);
             const getFraction = makeEasing(
               centerOfChange - r,
@@ -592,7 +594,7 @@ export function getAnimationRules(
               parametricFunction,
               numberOfDisplaySegments
             );
-            return path.rawPath;
+            return path;
           };
         }
       }
@@ -617,10 +619,10 @@ const PAUSE_AFTER_LAST = 500;
  * @returns
  */
 export function createFourierAnimation(
-  animationRules: readonly ((t: number) => string)[]
+  animationRules: readonly ((t: number) => PathShape)[]
 ): {
   getInfo(timeInMS: number): {
-    rawPathString: string;
+    pathShape: PathShape;
     index: number;
     progress: number;
   };
@@ -644,8 +646,8 @@ export function createFourierAnimation(
         ((unitized - index) * (PLAY_DURATION + PAUSE_BETWEEN)) / PLAY_DURATION
       );
     }
-    const rawPathString = animationRules[index](progress);
-    return { rawPathString, index, progress };
+    const pathShape = animationRules[index](progress);
+    return { pathShape, index, progress };
   }
   const duration =
     animationRules.length * (PLAY_DURATION + PAUSE_BETWEEN) -

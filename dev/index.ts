@@ -279,6 +279,7 @@ const previousButton = getById("previousButton", HTMLButtonElement);
 const nextButton = getById("nextButton", HTMLButtonElement);
 
 function updateFromSelect() {
+  playOffset = NaN;
   const info = debug[select.selectedIndex];
   previousButton.disabled = info.absolutePosition == 0;
   nextButton.disabled = info.absolutePosition == debug.length;
