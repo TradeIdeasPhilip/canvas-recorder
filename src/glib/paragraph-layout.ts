@@ -80,7 +80,7 @@ export class ParagraphLayout {
           this.addLineBreak();
         }
       } else if (word != "") {
-        this.addWord(word, font);
+        result.push(this.addWord(word, font));
       }
     }
     return result;
