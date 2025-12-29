@@ -147,6 +147,22 @@ function matchShapes(a: PathShape, b: PathShape) {
   }
   // We just got the paths all lined up.
   // (The nth path in list a will morph into the nth path in list b)
+  // But which end of each one path should morph into which end of the other path.
+  const bReorientedPieces = aConnectedPieces.map((pieceA, index) => {
+    const pieceB = bConnectedPieces[index];
+    const currentDistance =
+      Math.hypot(pieceA.startX - pieceB.startX, pieceA.startY - pieceB.startY) +
+      Math.hypot(pieceA.endX - pieceB.endX, pieceA.endY - pieceB.endY);
+    const reversedDistance =
+      Math.hypot(pieceA.startX - pieceB.endX, pieceA.startY - pieceB.endY) +
+      Math.hypot(pieceA.endX - pieceB.startX, pieceA.endY - pieceB.startY);
+    if (reversedDistance < currentDistance) {
+      return pieceB.reverse();
+    } else {
+      return pieceB;
+    }
+  });
+
   // Now I need to make the individual command line up.
   // Each path will need the same number of commands as its corresponding path.
   // For simplicity I'm only using QCommands.
@@ -154,7 +170,7 @@ function matchShapes(a: PathShape, b: PathShape) {
   const finalBCommands = new Array<QCommand>();
   for (const [pathFromA, pathFromB] of zip(
     aConnectedPieces,
-    bConnectedPieces
+    bReorientedPieces
   )) {
     function addCommands(desiredLength: number, commands: QCommand[]) {
       const toSplit = commands.pop()!;
@@ -204,7 +220,7 @@ for (const originalShapes of zip(before, after)) {
       context.lineCap = "round";
       context.lineJoin = "round";
       context.translate(8, 0.5);
-      const progress = Math.sin((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
+      const progress = -Math.cos((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
       for (const [color, interpolator] of zip(colors, interpolators)) {
         context.strokeStyle = color;
         context.stroke(new Path2D(interpolator(progress).rawPath));
