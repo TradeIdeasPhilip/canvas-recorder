@@ -5,8 +5,9 @@ import { MakeShowableInParallel, Showable } from "./showable";
 import { BLUE } from "./utility";
 import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
 import { makePathShapeInterpolator } from "./interpolate";
+import { Font } from "./glib/letters-base";
 
-const font = makeLineFont(1);
+const font = Font.cursive(1); //makeLineFont(1);
 function makeLayout(text: string) {
   const layout = new ParagraphLayout(font);
   layout.addText(text);
@@ -21,8 +22,8 @@ function makeLayout(text: string) {
   return paths;
 }
 
-const before = makeLayout("A\nB\nC");
-const after = makeLayout("1\n2\n3");
+const before = makeLayout("Philip");
+const after = makeLayout("Felipe");
 
 const builder = new MakeShowableInParallel();
 
@@ -36,7 +37,14 @@ builder.addJustified({
   },
 });
 
-const colors = ["red", "white", BLUE];
+const colors = [
+  "red",
+  "rgb(255, 128, 0)",
+  "yellow",
+  "rgb(0, 255, 0)",
+  BLUE,
+  "rgb(128, 0, 255)",
+];
 
 builder.addJustified({
   description: "start",
@@ -46,12 +54,12 @@ builder.addJustified({
     context.lineWidth = 0.06;
     context.lineCap = "round";
     context.lineJoin = "round";
-    context.translate(1, 0.5);
+    context.translate(3, 1);
     for (const [color, path] of zip(colors, before)) {
       context.strokeStyle = color;
       context.stroke(path.path);
     }
-    context.translate(14, 0);
+    context.translate(10, 0);
     for (const [color, path] of zip(colors, after)) {
       context.strokeStyle = color;
       context.stroke(path.path);
@@ -219,7 +227,7 @@ for (const originalShapes of zip(before, after)) {
       context.lineWidth = 0.06;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.translate(8, 0.5);
+      context.translate(8, 1);
       const progress = -Math.cos((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
       for (const [color, interpolator] of zip(colors, interpolators)) {
         context.strokeStyle = color;
