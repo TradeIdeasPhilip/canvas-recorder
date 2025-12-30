@@ -13,17 +13,15 @@ function makeLayout(text: string) {
   layout.addText(text);
   const layoutResult = layout.align(0, "center");
   console.log([...layoutResult.getAllLetters()]);
-  const paths = [
-    ...layoutResult.getAllLetters().map(({ translatedShape }) => ({
-      path: new Path2D(translatedShape.rawPath),
-      pathShape: translatedShape,
-    })),
-  ];
-  return paths;
+  return layoutResult.singlePathShape();
 }
 
 const before = makeLayout("Philip");
 const after = makeLayout("Felipe");
+/*
+const before = makeLayout("abcdefghijklm");
+const after =  makeLayout("nopqrstuvwxyz");
+*/
 
 const builder = new MakeShowableInParallel();
 
@@ -38,14 +36,20 @@ builder.addJustified({
 });
 
 const colors = [
-  "red",
+  "rgb(255, 0, 0)",
   "rgb(255, 128, 0)",
-  "yellow",
+  "rgb(255, 255, 0)",
   "rgb(0, 255, 0)",
-  BLUE,
+  "rgb(0, 255, 255)",
+  "rgb(0, 128, 255)",
+  "rgb(0, 0, 255)",
   "rgb(128, 0, 255)",
+  "rgb(255, 0, 255)",
 ];
 
+function getColor(index: number) {
+  return colors[index % colors.length];
+}
 builder.addJustified({
   description: "start",
   duration: 0,
@@ -55,19 +59,30 @@ builder.addJustified({
     context.lineCap = "round";
     context.lineJoin = "round";
     context.translate(3, 1);
-    for (const [color, path] of zip(colors, before)) {
+    before.splitOnMove().map((path, index) => {
+      const color = getColor(index);
       context.strokeStyle = color;
-      context.stroke(path.path);
-    }
+      context.stroke(new Path2D(path.rawPath));
+    });
     context.translate(10, 0);
-    for (const [color, path] of zip(colors, after)) {
+    after.splitOnMove().map((path, index) => {
+      const color = getColor(index);
       context.strokeStyle = color;
-      context.stroke(path.path);
-    }
+      context.stroke(new Path2D(path.rawPath));
+    });
     context.setTransform(initialTransform);
   },
 });
 
+/**
+ * Convert to QCommand.
+ * * QCommand inputs are returned as is.
+ * * LCommand inputs are converted to QCommands.
+ * * Any other input will cause an exception.
+ * @param command Start from this
+ * @returns A QCommand that looks like the input command.
+ * @throws A CCommand would be a bad input and will cause a _runtime_ error.
+ */
 function makeQCommand(command: Command): QCommand {
   if (command instanceof QCommand) {
     return command;
@@ -207,15 +222,10 @@ function matchShapes(a: PathShape, b: PathShape) {
   return [new PathShape(finalACommands), new PathShape(finalBCommands)];
 }
 const interpolators = new Array<ReturnType<typeof makePathShapeInterpolator>>();
-for (const originalShapes of zip(before, after)) {
-  const matchedShapes = matchShapes(
-    originalShapes[0].pathShape,
-    originalShapes[1].pathShape
-  );
-  interpolators.push(
-    makePathShapeInterpolator(matchedShapes[0], matchedShapes[1])
-  );
-}
+const matchedShapes = matchShapes(before, after);
+interpolators.push(
+  makePathShapeInterpolator(matchedShapes[0], matchedShapes[1])
+);
 
 {
   const period = 4000;
@@ -229,10 +239,14 @@ for (const originalShapes of zip(before, after)) {
       context.lineJoin = "round";
       context.translate(8, 1);
       const progress = -Math.cos((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
-      for (const [color, interpolator] of zip(colors, interpolators)) {
+      const paths = interpolators.flatMap((interpolator) => {
+        return interpolator(progress).splitOnMove();
+      });
+      paths.forEach((path, index) => {
+        const color = getColor(index);
         context.strokeStyle = color;
-        context.stroke(new Path2D(interpolator(progress).rawPath));
-      }
+        context.stroke(new Path2D(path.rawPath));
+      });
       context.setTransform(initialTransform);
     },
   };
@@ -240,3 +254,19 @@ for (const originalShapes of zip(before, after)) {
 }
 
 export const morphTest = builder.build("Morph Test");
+
+/**
+ * Need to convert to parametric functions.
+ * Each time we jump or hit a corner we create a new parametric function
+ * and we string them together, each with its own duration.
+ *
+ * What happens if we create a new series of parametric functions that is a weighted average of the before and after case?
+ * Initially it's all the before case.
+ * At the end it's all the after case.
+ * Will the result be any different from doing it the way we are doing it?
+ *
+ * What if we move the first part of the curve first, like in the fourier examples?
+ *
+ * In either case, can we do a smooth transition between the end points and the parametric parts?
+ * Maybe we never show the original end points, only the parametric parts?
+ */
