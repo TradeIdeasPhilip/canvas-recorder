@@ -77,7 +77,10 @@ function fixCorners(path: PathShape) {
   });
   for (let i = 1; i < result.length - 1; i++) {
     // For every command except the first and last...
-    if (vertexCommands.has(result[i-1]) && vertexCommands.has(result[i-1])) {
+    if (
+      vertexCommands.has(result[i - 1]) &&
+      vertexCommands.has(result[i + 1])
+    ) {
       // If the previous and next commands are both vertices
       // Then split this command into two equal pieces.
       result.splice(i, 1, ...makeQCommand(result[i]).split(0.5));
@@ -93,8 +96,8 @@ function makeLayout(text: string) {
   return fixCorners(layoutResult.singlePathShape());
 }
 
-const before = makeLayout("4");
-const after = makeLayout("4");
+const before = makeLayout("0123456789");
+const after = makeLayout("4444444444");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -297,10 +300,23 @@ function matchShapes(a: PathShape, b: PathShape) {
     if (newACommands.length != newBCommands.length) {
       throw new Error("wtf");
     }
-    // This would be a good place to do the following:
-    // TODO look for any corners that overlap in the source and destination.
-    // If they are both at the same index, remove the special treatment.
-    // Remove the special point command.
+    // Look for any corners that overlap in the source and destination.
+    // If they are both at the same index, remove the special point command.
+    // This will completely remove the special treatment.
+    // (Not 100%  We still break some commands into two commands, like in the
+    // "4" where one command had a corner on both ends.)
+    for (let index = newACommands.length - 1; index >= 0; index--) {
+      if (
+        vertexCommands.has(newACommands[index]) &&
+        vertexCommands.has(newBCommands[index])
+      ) {
+        newACommands.splice(index, 1);
+        newBCommands.splice(index, 1);
+      }
+    }
+    if (newACommands.length != newBCommands.length) {
+      throw new Error("wtf");
+    }
     finalACommands.push(...newACommands);
     finalBCommands.push(...newBCommands);
   }
@@ -319,6 +335,13 @@ function matchShapes(a: PathShape, b: PathShape) {
       bCorners.push(index);
     }
   });
+  /**
+   *
+   * @param commands
+   * @param corners
+   * @param progress 0 Means no rounding.  1 Means max rounding.
+   * @returns
+   */
   function makeRoundedCorners(
     commands: readonly QCommand[],
     corners: readonly number[],
@@ -330,7 +353,15 @@ function matchShapes(a: PathShape, b: PathShape) {
       const beforeCornerOriginal = commands[indexBeforeCorner];
       const indexAfterCorner = indexOfCorner + 1;
       const afterCornerOriginal = commands[indexAfterCorner];
-      const toRemove = (1 - progress) / 2;
+      /**
+       * Initially remove nothing.
+       * Keep everything.
+       * Start with the given image, unmodified.
+       *
+       * As progress increases to 50%,
+       * r
+       */
+      const toRemove = Math.min(1 - progress, 0.5);
       const beforeCorner = beforeCornerOriginal.split(1 - toRemove)[0];
       const afterCorner = afterCornerOriginal.split(toRemove)[1];
       const corner = QCommand.controlPoints(
@@ -348,8 +379,8 @@ function matchShapes(a: PathShape, b: PathShape) {
     return result;
   }
   function interpolate(progress: number) {
-    const from = makeRoundedCorners(finalACommands, aCorners,1- progress);
-    const to = makeRoundedCorners(finalBCommands, bCorners,  progress);
+    const from = makeRoundedCorners(finalACommands, aCorners, 1 - progress);
+    const to = makeRoundedCorners(finalBCommands, bCorners, progress);
     const result = qCommandInterpolation(from, to, progress);
     //return new PathShape(to);
     return new PathShape(result);
@@ -370,7 +401,9 @@ const interpolator = matchShapes(before, after);
       context.lineJoin = "round";
       context.translate(8, 3.5);
       const progress = -Math.cos((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
-      const paths = interpolator(progress).commands.map(command=>new PathShape([command]));
+      const paths = interpolator(progress).commands.map(
+        (command) => new PathShape([command])
+      );
       paths.forEach((path, index) => {
         const color = getColor(index);
         context.strokeStyle = color;
@@ -401,36 +434,6 @@ export const morphTest = builder.build("Morph Test");
  */
 
 /**
- * Need an improvement to the interpolator.
- * To handle corners.
- * Instead of directly interpolating between the two initial shapes...
- * Interpolate shape a against a less curvy version of itself.
- * To get rid of the corners gradually and smoothly.
- * Same with b.
- * Then interpolate between those last two results.
- *
- * To smothenify a path:
- * At each corner add a new
- *
- * Notice the meeting point when deciding which items are the same lenght as which items.
- * That might be t= 1/2.
- * But we can tweak that any which way.
- * Maybe the from case gets smoothened very quickly, completing before t = 1/2
- * And the to case gets unsmoothened very quickly at the very end, starting after t= 1/2
- *
- * Should the final size of the new smooth peice be small always,
- * just enough not to be an obvious corner?
- * I.e. the same for all corners?
- * Maybe it's bigger for sharper corners.
- * So if something is barely a corner, almost nothing happens to it.
- * I.e. if a round off error or even a sloppy artist made something almost but not quite perfect,
- * any corrective action we gave would be almost imperceptible.
- * The easy option is to make the end state where the two lines adjacent to the corner each end at half their original length.
- * If a single command is between two corners, both ends will approach the middle,
- * and the original line will be gone at the end.
- */
-
-/**
  * What if I just add a QCommand with all three control points to the same point?
  * Add one of these to each hard corner.
  *
@@ -444,4 +447,7 @@ export const morphTest = builder.build("Morph Test");
  * Would that work?
  * It seems like I just created two corners in place of one.
  * I'm not setting the angles of anything with that point-command.
+ *
+ * Tried and failed.  No real effect.  If anything, it created two corners, one on either
+ * side of the newly added segment.
  */
