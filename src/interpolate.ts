@@ -163,6 +163,73 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
   return interpolate;
 }
 
+export function qCommandInterpolation(
+  fromCommands: readonly QCommand[],
+  toCommands: readonly QCommand[],  progress: number,
+) {
+  if (fromCommands.length != toCommands.length) {
+    throw new Error("wtf");
+  }
+  const result = fromCommands.map((fromCommand, index) => {
+    const toCommand = toCommands[index];
+    return QCommand.controlPoints(
+      lerp(fromCommand.x0, toCommand.x0, progress),
+      lerp(fromCommand.y0, toCommand.y0, progress),
+      lerp(fromCommand.x1, toCommand.x1, progress),
+      lerp(fromCommand.y1, toCommand.y1, progress),
+      lerp(fromCommand.x, toCommand.x, progress),
+      lerp(fromCommand.y, toCommand.y, progress)
+    );
+  });
+  return result;
+  /**
+   * Do this after splitting on connected segments.
+   * Do this to each connected segment.
+   * Do this before calling pathShapeInterpolation()
+   *
+   * Can we give preference that if a connected segment must be split,
+   * and we have corners, we do the split at the corners?
+   * That's pretty specific, not sure of the test case.
+   *
+   * Start by counting the number of corners.
+   * If any segment is adjacent to two corners, split it in half.
+   * Record the number of segments currently present,
+   * plus one for the piece to be added in each corner.
+   * Do this for the initial and final states.
+   * Then use the algorithm we've been using to match things.
+   * Using the recently modified list of commands.
+   * And the count that includes the commands to be added.
+   * Then we find the positions of the corners in each PathShape.
+   * And we verify that the number matches the previous pass.
+   * That's all we can do in advance.
+   * __When we have a value for progress:__
+   * Create an array of QCommand for the result
+   * Walk through the commands from the matching pass.
+   * Most get copied to the result unchanged.
+   * But when we get to a pair with a corner:
+   * Before the corner, cut off the last part.
+   * Cut off (1-progress)/2 from the end.
+   * Keep 0 through 1-((1-progress)/2).
+   * Add that to the result.
+   * Now look at the command after the bend.
+   * Cut off the first part.
+   * Cut off (1-progress)/2 from the beginning.
+   * Keep (1-progress)/2 through 1.
+   * Now create the bendy part.
+   * Start where the first piece ends,
+   * the one we just cut then added to result.
+   * End where the next piece starts,
+   * the one we just created but have not yet added to the result.
+   * The middle control point is the meeting point of the two commands before clipping.
+   * Add the bendy piece then the recently clipped piece to the result.
+   * Do that for both of the paths.
+   * Then the simplist interpolation between the commands in each of those to make a third.
+   *
+   * No.  The match step comes before the call to makePathShapeInterpolator()
+   * A filler command should be added before the call
+   */
+}
+
 /**
  * This converts a linear timing to an eased timing.
  * This is similar to "ease" or "ease-in-out"
