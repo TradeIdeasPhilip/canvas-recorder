@@ -93,12 +93,14 @@ function makeLayout(text: string) {
   const layout = new ParagraphLayout(font);
   layout.font;
   layout.addText(text);
-  const layoutResult = layout.align(0, "center", 0.25);
-  return fixCorners(layoutResult.singlePathShape());
+  const layoutResult = layout.align(Infinity, "center", 0.25);
+  return fixCorners(
+    layoutResult.singlePathShape().translate(-layoutResult.width / 2, 0)
+  );
 }
 
-const before = makeLayout("Merry Christmas 2025");
-const after = makeLayout("Happy New" + NON_BREAKING_SPACE + "Year 2026");
+const before = makeLayout("Merry\nChristmas\n2025");
+const after = makeLayout("Happy New\nYear\n2026");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
