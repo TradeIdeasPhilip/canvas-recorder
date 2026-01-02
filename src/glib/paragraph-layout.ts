@@ -103,7 +103,8 @@ export class ParagraphLayout {
    */
   align(
     width = Infinity,
-    alignment: "left" | "center" | "right" | "justify" = "left"
+    alignment: "left" | "center" | "right" | "justify" = "left",
+    additionalLineHeight = 0
   ) {
     const lines: WordInfo[][] = [[]];
     const hardLineBreakAt = new Set<number>();
@@ -158,6 +159,7 @@ export class ParagraphLayout {
         allRowMetrics.push({ top, baseline, bottom, minWidth });
         y = bottom;
       }
+      y += additionalLineHeight;
     });
     const words = new Array<{
       x: number;

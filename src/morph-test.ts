@@ -42,7 +42,7 @@ function makeQCommand(command: Command): QCommand {
   }
 }
 
-const font = Font.cursive(1); //makeLineFont(1);
+const font = Font.cursive(1.25); //makeLineFont(1);
 function fixCorners(path: PathShape) {
   const result = new Array<Command>();
   path.commands.forEach((command, index, array) => {
@@ -91,13 +91,14 @@ function fixCorners(path: PathShape) {
 
 function makeLayout(text: string) {
   const layout = new ParagraphLayout(font);
+  layout.font;
   layout.addText(text);
-  const layoutResult = layout.align(0, "center");
+  const layoutResult = layout.align(0, "center", 0.25);
   return fixCorners(layoutResult.singlePathShape());
 }
 
-const before = makeLayout("0123456789");
-const after = makeLayout("4444444444");
+const before = makeLayout("Merry Christmas 2025");
+const after = makeLayout("Happy New" + NON_BREAKING_SPACE + "Year 2026");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -150,6 +151,7 @@ const colors = [
 function getColor(index: number) {
   return colors[index % colors.length];
 }
+/*
 builder.addJustified({
   description: "start",
   duration: 0,
@@ -177,6 +179,7 @@ builder.addJustified({
     context.setTransform(initialTransform);
   },
 });
+*/
 
 /**
  * Given two PathShape objects, return two more.
@@ -390,25 +393,32 @@ function matchShapes(a: PathShape, b: PathShape) {
 const interpolator = matchShapes(before, after);
 
 {
-  const period = 4000;
+  const period = 6000;
   const base: Showable = {
     description: "morphing",
     duration: period,
     show(timeInMs, context) {
       const initialTransform = context.getTransform();
-      context.lineWidth = 0.06;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.translate(8, 3.5);
+      context.translate(8, 1);
       const progress = -Math.cos((timeInMs / period) * FULL_CIRCLE) / 2 + 0.5;
-      const paths = interpolator(progress).commands.map(
-        (command) => new PathShape([command])
+      const completePath = interpolator(progress);
+      function drawPaths(paths: readonly PathShape[]) {
+        paths.forEach((path, index) => {
+          const color = getColor(index);
+          context.strokeStyle = color;
+          context.stroke(new Path2D(path.rawPath));
+        });
+      }
+      context.lineWidth = 0.12;
+      drawPaths(
+        completePath.commands.map((command) => new PathShape([command]))
       );
-      paths.forEach((path, index) => {
-        const color = getColor(index);
-        context.strokeStyle = color;
-        context.stroke(new Path2D(path.rawPath));
-      });
+      context.lineWidth = 0.04;
+      context.filter = "brightness(75%)";
+      drawPaths(completePath.splitOnMove());
+      context.filter = "none";
       context.setTransform(initialTransform);
     },
   };
