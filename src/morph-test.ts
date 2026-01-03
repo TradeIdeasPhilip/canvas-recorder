@@ -5,7 +5,11 @@ import {
   zip,
 } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
-import { MakeShowableInParallel, Showable } from "./showable";
+import {
+  MakeShowableInParallel,
+  MakeShowableInSeries,
+  Showable,
+} from "./showable";
 import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
 import { qCommandInterpolation } from "./interpolate";
 import { Font } from "./glib/letters-base";
@@ -94,7 +98,7 @@ function makeLayout(text: string) {
 }
 
 const before = makeLayout("5555");
-const after = makeLayout("777777777777777");
+//const after = makeLayout("777777777777777");
 //const before = makeLayout("Merry\nChristmas\n2025");
 //const after = makeLayout("Happy\nNew Year\n2026");
 
@@ -510,7 +514,7 @@ function createRocker(
   interpolator: (progress: number) => PathShape,
   description: string
 ) {
-  const period = 6000;
+  const period = 4500;
   const base: Showable = {
     description,
     duration: period,
@@ -541,7 +545,16 @@ function createRocker(
   };
   return base;
 }
-builder.add(createRocker(matchShapes(before, after), "morphing"));
+//builder.add(createRocker(matchShapes(before, after), "morphing"));
+{
+  const eachOne = new MakeShowableInSeries();
+  for (let length = 1; length <= 15; length++) {
+    const after = makeLayout("7".repeat(length));
+    const rocker = createRocker(matchShapes(before, after), `${length} × “7”`);
+    eachOne.add(rocker);
+  }
+  builder.add(eachOne.build("growing list"));
+}
 
 export const morphTest = builder.build("Morph Test");
 
