@@ -1,19 +1,13 @@
 import {
   angleBetween,
-  assertNonNullable,
   FULL_CIRCLE,
-  NON_BREAKING_SPACE,
   radiansPerDegree,
   zip,
 } from "phil-lib/misc";
-import { makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { MakeShowableInParallel, Showable } from "./showable";
 import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
-import {
-  makePathShapeInterpolator,
-  qCommandInterpolation,
-} from "./interpolate";
+import { qCommandInterpolation } from "./interpolate";
 import { Font } from "./glib/letters-base";
 
 /**
@@ -99,8 +93,10 @@ function makeLayout(text: string) {
   );
 }
 
-const before = makeLayout("Merry\nChristmas\n2025");
-const after = makeLayout("Happy\nNew Year\n2026");
+const before = makeLayout("5555");
+const after = makeLayout("777777777777777");
+//const before = makeLayout("Merry\nChristmas\n2025");
+//const after = makeLayout("Happy\nNew Year\n2026");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -153,35 +149,6 @@ const colors = [
 function getColor(index: number) {
   return colors[index % colors.length];
 }
-/*
-builder.addJustified({
-  description: "start",
-  duration: 0,
-  show(timeInMs, context) {
-    const initialTransform = context.getTransform();
-    context.lineWidth = 0.06;
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.translate(8, 1);
-    //before.splitOnMove().map((path, index) => {
-    before.commands.map((command, index) => {
-      const path = new PathShape([command]);
-      const color = getColor(index);
-      context.strokeStyle = color;
-      context.stroke(new Path2D(path.rawPath));
-    });
-    context.translate(0, 5);
-    //after.splitOnMove().map((path, index) => {
-    after.commands.map((command, index) => {
-      const path = new PathShape([command]);
-      const color = getColor(index);
-      context.strokeStyle = color;
-      context.stroke(new Path2D(path.rawPath));
-    });
-    context.setTransform(initialTransform);
-  },
-});
-*/
 
 /**
  * Given two PathShape objects, return two more.
@@ -195,39 +162,129 @@ builder.addJustified({
 function matchShapes(a: PathShape, b: PathShape) {
   const aConnectedPieces = a.splitOnMove();
   const bConnectedPieces = b.splitOnMove();
-  function makeSecondLonger(alreadyLong: PathShape[], makeLonger: PathShape[]) {
-    function breakShapesIntoCommands() {
-      let needToAdd = alreadyLong.length - makeLonger.length;
+  function makeSecondLonger(
+    alreadyLong: readonly PathShape[],
+    makeLonger: PathShape[]
+  ) {
+    /**
+     * This is an ideal first step because it typically looks better.
+     *
+     * But also because corners have that special item in them that
+     * should be removed if we break at a corner.  If we didn't
+     * remove the corners first, breakShapesIntoCommands() would have
+     * to think about that.
+     */
+    function breakAtCorners() {
       let newTail = new Array<PathShape>();
-      while (needToAdd > 0 && makeLonger.length > 0) {
-        const last = makeLonger.pop()!;
-        if (last.commands.length == 1) {
+      while (alreadyLong.length > makeLonger.length + newTail.length) {
+        const last = makeLonger.pop();
+        if (last === undefined) {
+          break;
+        }
+        const vertexIndex = last.commands.findLastIndex((command) =>
+          vertexCommands.has(command)
+        );
+        if (vertexIndex < 0) {
+          // No corners in this path.
+          // Try the next one.
           newTail.unshift(last);
-        } else if (needToAdd >= last.commands.length - 1) {
-          // needToAdd = 2 , lastLength= 2 split it completely and split the next one.
-          // needToAdd = 1 , lastLength= 2 split it completely
-          last.commands.toReversed().forEach((command) => {
-            newTail.unshift(new PathShape([command]));
-          });
-          needToAdd -= last.commands.length - 1;
         } else {
-          // needToAdd = 1, lastLength = 3, split it partially
           const commands = [...last.commands];
-          while (needToAdd > 0) {
-            const command = assertNonNullable(commands.pop());
-            newTail.unshift(new PathShape([command]));
-            needToAdd--;
-          }
-          if (commands.length == 0) {
+          const commandsAfterCorner = commands.splice(
+            vertexIndex + 1,
+            Infinity
+          );
+          const vertex = commands.pop();
+          if (!vertexCommands.has(vertex!)) {
             throw new Error("wtf");
           }
-          newTail.unshift(new PathShape(commands));
+          const pathBeforeCorner = new PathShape(commands);
+          const pathAfterCorner = new PathShape(commandsAfterCorner);
+          makeLonger.push(pathBeforeCorner);
+          newTail.unshift(pathAfterCorner);
+          console.log("corner broken!");
         }
       }
       makeLonger.push(...newTail);
       if (makeLonger.length > alreadyLong.length) {
         throw new Error("wtf");
       }
+    }
+    function breakPathShapesIntoCommands() {
+      let needToAdd = alreadyLong.length - makeLonger.length;
+      if (needToAdd < 1) {
+        return;
+      }
+      const pathShapeInfo = makeLonger.map((pathShape, index) => {
+        const length = pathShape.getLength();
+        const maxPieces = pathShape.commands.length;
+        return {
+          pathShape,
+          length,
+          currentCount: 1,
+          maxPieces,
+          originalIndex: index,
+          priority: maxPieces > 1 ? length : -Infinity,
+        };
+      });
+      pathShapeInfo.sort((a, b) => {
+        return a.priority - b.priority;
+      });
+      while (needToAdd > 0 && pathShapeInfo.at(-1)!.priority > 0) {
+        const toSplit = pathShapeInfo.pop()!;
+        toSplit.currentCount++;
+        if (toSplit.currentCount == toSplit.maxPieces) {
+          toSplit.priority = -Infinity;
+        } else {
+          toSplit.priority = toSplit.length / toSplit.currentCount;
+        }
+        needToAdd--;
+
+        {
+          // Insert addTo back into the list.
+          // Use binary search to find the right location.
+          let start = 0;
+          let end = pathShapeInfo.length;
+          while (start < end) {
+            const middle = ((start + end) / 2) | 0;
+            if (pathShapeInfo[middle].priority < toSplit.priority) {
+              // We're looking at things that are too small.
+              // Look at the bigger half of what's remaining.
+              start = middle + 1;
+            } else {
+              // We're looking at things that are too big.
+              // Look at the smaller half of what's remaining.
+              end = middle;
+            }
+          }
+          pathShapeInfo.splice(end, 0, toSplit);
+        }
+      }
+      pathShapeInfo.sort((a, b) => a.originalIndex - b.originalIndex);
+      makeLonger.length = 0;
+      pathShapeInfo.forEach((info) => {
+        if (info.currentCount == 1) {
+          makeLonger.push(info.pathShape);
+        } else {
+          const commands = [...info.pathShape.commands];
+          for (
+            let desiredCount = info.currentCount;
+            desiredCount > 0;
+            desiredCount--
+          ) {
+            const nextCommandCount = Math.round(commands.length / desiredCount);
+            if (nextCommandCount <= 0) {
+              throw new Error("wtf");
+            }
+            const nextCommands = commands.splice(0, nextCommandCount);
+            const nextPathShape = new PathShape(nextCommands);
+            makeLonger.push(nextPathShape);
+          }
+          if (commands.length > 0) {
+            throw new Error("wtf");
+          }
+        }
+      });
     }
     function breakCommandIntoMultipleCommands() {
       const needToAdd = alreadyLong.length - makeLonger.length;
@@ -251,8 +308,8 @@ function matchShapes(a: PathShape, b: PathShape) {
         throw new Error("wtf");
       }
     }
-    // TODO Start by looking for opportunities to break at corners.
-    breakShapesIntoCommands();
+    breakAtCorners();
+    breakPathShapesIntoCommands();
     breakCommandIntoMultipleCommands();
   }
   if (aConnectedPieces.length > bConnectedPieces.length) {
@@ -448,12 +505,14 @@ function matchShapes(a: PathShape, b: PathShape) {
   }
   return interpolate;
 }
-const interpolator = matchShapes(before, after);
 
-{
+function createRocker(
+  interpolator: (progress: number) => PathShape,
+  description: string
+) {
   const period = 6000;
   const base: Showable = {
-    description: "morphing",
+    description,
     duration: period,
     show(timeInMs, context) {
       const initialTransform = context.getTransform();
@@ -480,8 +539,9 @@ const interpolator = matchShapes(before, after);
       context.setTransform(initialTransform);
     },
   };
-  builder.add(base);
+  return base;
 }
+builder.add(createRocker(matchShapes(before, after), "morphing"));
 
 export const morphTest = builder.build("Morph Test");
 
@@ -499,23 +559,4 @@ export const morphTest = builder.build("Morph Test");
  *
  * In either case, can we do a smooth transition between the end points and the parametric parts?
  * Maybe we never show the original end points, only the parametric parts?
- */
-
-/**
- * What if I just add a QCommand with all three control points to the same point?
- * Add one of these to each hard corner.
- *
- * Then hope for the best.
- * If, by luck, a corner in the initial and final paths line up perfectly,
- * Then the corner is preserved through the entire animation.
- * Otherwise, the initial point QCommand should grow into the final shape.
- * During the animation the point should only affect the position and size of the command.
- * The command will always look like a scaled, translated version of the non-point end.
- *
- * Would that work?
- * It seems like I just created two corners in place of one.
- * I'm not setting the angles of anything with that point-command.
- *
- * Tried and failed.  No real effect.  If anything, it created two corners, one on either
- * side of the newly added segment.
  */
