@@ -274,6 +274,9 @@ export type QCommandFromAngles = QCommand & {
 };
 
 export class QCommand implements Command {
+  getLength() {
+   return new Bezier(this.x0, this.y0, this.x1, this.y1, this.x, this.y).length();
+  }
   reverse(): QCommand {
     return QCommand.controlPoints(
       this.x,

@@ -100,7 +100,7 @@ function makeLayout(text: string) {
 }
 
 const before = makeLayout("Merry\nChristmas\n2025");
-const after = makeLayout("Happy New\nYear\n2026");
+const after = makeLayout("Happy\nNew Year\n2026");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -122,9 +122,9 @@ function dumpBigCorners(shape: PathShape) {
     })
   );
 }
-dumpBigCorners(before);
-dumpBigCorners(after);
-console.log(after);
+//dumpBigCorners(before);
+//dumpBigCorners(after);
+//console.log(after);
 
 const builder = new MakeShowableInParallel();
 
@@ -242,6 +242,7 @@ function matchShapes(a: PathShape, b: PathShape) {
         throw new Error("wtf");
       }
       const command = makeQCommand(originalCommands[0]);
+      console.log("multiSplit() #1");
       const newCommands = command.multiSplit(needToAdd + 1);
       makeLonger.push(
         ...newCommands.map((newCommand) => new PathShape([newCommand]))
@@ -287,8 +288,63 @@ function matchShapes(a: PathShape, b: PathShape) {
     bReorientedPieces
   )) {
     function addCommands(desiredLength: number, commands: QCommand[]) {
-      const toSplit = commands.pop()!;
-      commands.push(...toSplit.multiSplit(desiredLength - commands.length));
+      const commandInfo = commands.map((command, index, array) => {
+        let length: number;
+        if (vertexCommands.has(command)) {
+          length = -Infinity;
+        } else {
+          length = command.getLength();
+          if (
+            vertexCommands.has(array[index - 1]) ||
+            vertexCommands.has(array[index + 1])
+          ) {
+            length /= 10;
+          }
+        }
+        return {
+          command,
+          totalLength: length,
+          currentLength: length,
+          count: 1,
+          originalIndex: index,
+        };
+      });
+      commandInfo.sort((a, b) => a.currentLength - b.currentLength);
+      let needToCreate = desiredLength - commands.length;
+      while (needToCreate > 0) {
+        const addTo = commandInfo.pop()!;
+        addTo.count++;
+        addTo.currentLength = addTo.totalLength / addTo.count;
+        needToCreate--;
+        {
+          // Insert addTo back into the list.
+          // Use binary search to find the right location.
+          let start = 0;
+          let end = commandInfo.length;
+          while (start < end) {
+            const middle = ((start + end) / 2) | 0;
+            if (commandInfo[middle].currentLength < addTo.currentLength) {
+              // We're looking at things that are too small.
+              // Look at the bigger half of what's remaining.
+              start = middle + 1;
+            } else {
+              // We're looking at things that are too big.
+              // Look at the smaller half of what's remaining.
+              end = middle;
+            }
+          }
+          commandInfo.splice(end, 0, addTo);
+        }
+      }
+      commandInfo.sort((a, b) => a.originalIndex - b.originalIndex);
+      commands.length = 0;
+      commandInfo.forEach((info) => {
+        if (info.count == 1) {
+          commands.push(info.command);
+        } else {
+          commands.push(...info.command.multiSplit(info.count));
+        }
+      });
     }
     // insert new point commands here and record them and spit any command between two points.
     const newACommands = pathFromA.commands.map((command) =>
