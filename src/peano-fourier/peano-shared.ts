@@ -61,7 +61,7 @@ export function createPeanoPath(iteration: number) {
    * These were created in such a way that every one has the exact same length.
    * If you see one segment on the screen that is 5✕ as long as the shortest segment, it is actually made out of 5 commands in this list.
    */
-  const verboseCommands = PathShape.fromString(fullString).commands;
+  const verboseCommands = PathShape.fromRawString(fullString).commands;
   /**
    * Build a new list of commands that is equivalent to {@link verboseCommands} but shorter.
    * This is not strictly necessary, but it might help the Fourier process to have fewer segments.

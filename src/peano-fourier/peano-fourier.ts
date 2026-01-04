@@ -7,7 +7,7 @@ import {
   samplesToFourier,
 } from "./fourier-shared";
 import { MakeShowableInParallel, Showable } from "../showable";
-import { BLUE } from "../utility";
+import { blackBackground, BLUE } from "../utility";
 import { easeOut, timedKeyframes } from "../interpolate";
 import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 
@@ -17,15 +17,7 @@ import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 
 const builder = new MakeShowableInParallel();
 
-// TODO move this somewhere better
-builder.addJustified({
-  description: "background",
-  duration: 0,
-  show(timeInMs, context) {
-    context.fillStyle = "black";
-    context.fillRect(0, 0, 16, 9);
-  },
-});
+builder.addJustified(blackBackground);
 
 const SIZE = new DOMMatrix("translate(-2px, -2px) scale(4)");
 

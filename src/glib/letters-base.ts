@@ -152,7 +152,7 @@ export class Font {
         throw new Error("wtf");
       }
       const descriptionOfLetter: DescriptionOfLetter = {
-        shape: PathShape.fromString(d),
+        shape: PathShape.fromRawString(d),
         advance,
       };
       font.#letters.set(key, descriptionOfLetter);

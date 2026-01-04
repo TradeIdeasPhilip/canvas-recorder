@@ -44,7 +44,7 @@ const sharedCaliper = new PathCaliper();
  */
 export function recenter(path: PathShape | string, x = 0.5, y = 0.5) {
   const pathShape =
-    path instanceof PathShape ? path : PathShape.fromString(path);
+    path instanceof PathShape ? path : PathShape.fromRawString(path);
   const pathString = typeof path === "string" ? path : path.rawPath;
   sharedCaliper.d = pathString;
   const bBox = sharedCaliper.getBBox();
@@ -249,7 +249,7 @@ export function samplesFromPath(
 ): Complex[] {
   const caliper = new PathCaliper();
   try {
-    const commands = PathShape.fromString(pathString).commands;
+    const commands = PathShape.fromRawString(pathString).commands;
     if (commands.length == 0) {
       throw new Error("wtf");
     }
@@ -474,7 +474,7 @@ export function getAnimationRules(
           const to = location(leadingProgress);
           const pathString = `M ${from} L ${to}`;
           // console.log({ t, trailingProgress, leadingProgress, pathString });
-          return PathShape.fromString(pathString);
+          return PathShape.fromRawString(pathString);
         };
       } else if (startingTermCount == endingTermCount) {
         const parametricFunction = termsToParametricFunction(
@@ -537,7 +537,7 @@ export function getAnimationRules(
             const safePartEnds = Math.min(1, endOfChange);
             if (safePartEnds <= 0) {
               // There is no safe part!
-              return PathShape.fromString(
+              return PathShape.fromRawString(
                 `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`
               );
             } else {

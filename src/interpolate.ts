@@ -1,4 +1,4 @@
-import { lerp } from "phil-lib/misc";
+import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 import { LCommand, PathShape, QCommand } from "./glib/path-shape";
 
 /**
@@ -264,4 +264,14 @@ export function easeIn(t: number): number {
  */
 export function easeOut(t: number): number {
   return Math.sin((t * Math.PI) / 2);
+}
+
+/**
+ * As the input goes from 0 to 1, the output from 0 to 1 and back.
+ * It slows down near the ends and moves quickly in between.
+ * @param t A value between 0 and 1.
+ * @returns A value between 0 and 1.
+ */
+export function easeAndBack(t: number): number {
+  return -Math.cos(t * FULL_CIRCLE) / 2 + 0.5;
 }

@@ -20,7 +20,7 @@ import {
   interpolateColors,
   makePathShapeInterpolator,
 } from "../interpolate";
-import { BLUE } from "../utility";
+import { blackBackground, BLUE } from "../utility";
 
 const font = Font.cursive(0.37);
 function makeHandwritingForText(
@@ -234,15 +234,7 @@ const state3 = {
 const builder = new MakeShowableInParallel();
 const inSeries = new MakeShowableInSeries();
 
-// TODO move this somewhere better
-builder.addJustified({
-  description: "background",
-  duration: 0,
-  show(timeInMs, context) {
-    context.fillStyle = "black";
-    context.fillRect(0, 0, 16, 9);
-  },
-});
+builder.addJustified(blackBackground);
 
 {
   // Script:
