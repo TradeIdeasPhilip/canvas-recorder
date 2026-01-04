@@ -255,7 +255,7 @@ export function addMargins(
     hiddenBefore?: number;
     hiddenAfter?: number;
     frozenBefore?: number;
-    frozenAfter: number;
+    frozenAfter?: number;
   }
 ): Showable {
   const builder = new MakeShowableInSeries();

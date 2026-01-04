@@ -165,7 +165,8 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
 
 export function qCommandInterpolation(
   fromCommands: readonly QCommand[],
-  toCommands: readonly QCommand[],  progress: number,
+  toCommands: readonly QCommand[],
+  progress: number
 ) {
   if (fromCommands.length != toCommands.length) {
     throw new Error("wtf");
@@ -232,7 +233,7 @@ export function qCommandInterpolation(
 
 /**
  * This converts a linear timing to an eased timing.
- * This is similar to "ease" or "ease-in-out"
+ * This is similar to a css "ease" or "ease-in-out" timing function.
  * @param t A value between 0 and 1.
  * @returns A value between 0 and 1.
  */

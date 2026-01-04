@@ -6,8 +6,8 @@ import {
 } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import {
+  makeRepeater,
   MakeShowableInParallel,
-  MakeShowableInSeries,
   Showable,
 } from "./showable";
 import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
@@ -97,10 +97,10 @@ function makeLayout(text: string) {
   );
 }
 
-const before = makeLayout("5555");
+//const before = makeLayout("5555");
 //const after = makeLayout("777777777777777");
-//const before = makeLayout("Merry\nChristmas\n2025");
-//const after = makeLayout("Happy\nNew Year\n2026");
+const before = makeLayout("Merry\nChristmas\n2025");
+const after = makeLayout("Happy\nNew Year\n2026");
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -206,7 +206,6 @@ function matchShapes(a: PathShape, b: PathShape) {
           const pathAfterCorner = new PathShape(commandsAfterCorner);
           makeLonger.push(pathBeforeCorner);
           newTail.unshift(pathAfterCorner);
-          console.log("corner broken!");
         }
       }
       makeLonger.push(...newTail);
@@ -510,6 +509,67 @@ function matchShapes(a: PathShape, b: PathShape) {
   return interpolate;
 }
 
+function byLine(from: string, to: string) {
+  function makeLayout(text: string) {
+    const layout = new ParagraphLayout(font);
+    layout.font;
+    layout.addText(text);
+    const layoutResult = layout.align(Infinity, "center", 0.25);
+    const Δx = -layoutResult.width / 2;
+    const Δy = 0;
+    const allCommands = new Map<number, Command[]>();
+    for (const current of layoutResult.getAllLetters(Δx, Δy)) {
+      let lineCommands = allCommands.get(current.baseline);
+      if (lineCommands === undefined) {
+        lineCommands = [];
+        allCommands.set(current.baseline, lineCommands);
+      }
+      lineCommands.push(...current.translatedShape.commands);
+    }
+    const result = allCommands
+      .values()
+      .map((commands) => {
+        return fixCorners(new PathShape(commands));
+      })
+      .toArray();
+    return result;
+  }
+  const colors = ["red", "limegreen", " hwb(210 50% 0%)"];
+  const fromLines = makeLayout(from);
+  const toLines = makeLayout(to);
+  if (colors.length != fromLines.length || colors.length != toLines.length) {
+    throw new Error("wtf");
+  }
+  const interpolators = fromLines.map((fromShape, index) => {
+    const toShape = toLines[index];
+    return matchShapes(fromShape, toShape);
+  });
+  const main: Showable = {
+    description: "byLine()",
+    duration: 4500,
+    show(timeInMs, context) {
+      // const progress = easeIn(timeInMs / this.duration);
+      const progress = -Math.cos((timeInMs / this.duration) * FULL_CIRCLE) / 2 + 0.5;
+      const initialTransform = context.getTransform();
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.translate(8, 1);
+      context.lineWidth = 0.12;
+      for (const [color, interpolator] of zip(colors, interpolators)) {
+        const completePath = interpolator(progress);
+        context.strokeStyle = color;
+        context.stroke(new Path2D(completePath.rawPath));
+      }
+      context.setTransform(initialTransform);
+    },
+  };
+  return main;
+}
+builder.add(
+  makeRepeater(byLine("Merry\nChristmas\n2025", "Happy\nNew Year\n2026"), 3)
+);
+
+/*
 function createRocker(
   interpolator: (progress: number) => PathShape,
   description: string
@@ -545,7 +605,9 @@ function createRocker(
   };
   return base;
 }
-//builder.add(createRocker(matchShapes(before, after), "morphing"));
+builder.add(createRocker(matchShapes(before, after), "morphing"));
+*/
+/*
 {
   const eachOne = new MakeShowableInSeries();
   for (let length = 1; length <= 15; length++) {
@@ -555,6 +617,7 @@ function createRocker(
   }
   builder.add(eachOne.build("growing list"));
 }
+  */
 
 export const morphTest = builder.build("Morph Test");
 
