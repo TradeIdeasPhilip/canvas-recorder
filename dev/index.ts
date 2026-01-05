@@ -90,6 +90,25 @@ playPositionRangeInput.addEventListener("input", () => {
   playOffset = NaN;
 });
 
+addEventListener("keypress", (event) => {
+  console.log({ key: event.key, code: event.code });
+  switch (event.key) {
+    case " ": {
+      if (pauseButton.checked) {
+        playButton.checked = true;
+      } else {
+        pauseButton.checked = true;
+      }
+      break;
+    }
+    case "0": {
+      playPositionRangeInput.valueAsNumber = sectionStartTime;
+      playOffset = NaN;
+      break;
+    }
+  }
+});
+
 const FPS = 60;
 
 const infoDiv = getById("info", HTMLDivElement);
@@ -341,10 +360,6 @@ if (import.meta.hot) {
     saveState();
   });
 }
-
-// addEventListener("beforeunload", (event) => {
-//   addDebugMessage("beforeunload")
-// })
 
 addEventListener("pagehide", (event) => {
   saveState();
