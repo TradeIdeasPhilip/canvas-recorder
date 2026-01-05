@@ -182,22 +182,21 @@ if (false) {
   builder.add(createRocker(matchShapes(before, after), "morphing"));
 }
 
-{
+if (false) {
   const eachOne = new MakeShowableInSeries();
   for (let length = 1; length <= 15; length++) {
     const after = makeLayout("7".repeat(length));
     const rocker = createRocker(matchShapes(before, after), `${length} × “7”`);
     eachOne.add(rocker);
   }
-  if (false) {
-    builder.add(eachOne.build("growing list"));
-  }
+  builder.add(eachOne.build("growing list"));
 }
 
 {
-  const finalPath = PathShape.fromRawString("M 1,1 h 7 v 7 h -7 z");
+  const square = "M 4.5,8 h -3.5 v -7 h 7 v 7 z";
+  const finalPath = PathShape.fromRawString(square);
   console.log(finalPath.rawPath);
-  const initialPath = makeLayout("Square", "left");
+  const initialPath = makeLayout("Square", "left").translate(1, 1);
   const interpolator = matchShapes(initialPath, finalPath);
   const showable: Showable = {
     duration: 5000,

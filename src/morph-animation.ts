@@ -26,6 +26,66 @@ export function makeQCommand(command: Command): QCommand {
   }
 }
 
+function addCommands(desiredLength: number, commands: QCommand[]) {
+  const commandInfo = commands.map((command, index, array) => {
+    let length: number;
+    if (vertexCommands.has(command)) {
+      length = -Infinity;
+    } else {
+      length = command.getLength();
+      if (
+        vertexCommands.has(array[index - 1]) ||
+        vertexCommands.has(array[index + 1])
+      ) {
+        length /= 10;
+      }
+    }
+    return {
+      command,
+      totalLength: length,
+      currentLength: length,
+      count: 1,
+      originalIndex: index,
+    };
+  });
+  commandInfo.sort((a, b) => a.currentLength - b.currentLength);
+  let needToCreate = desiredLength - commands.length;
+  while (needToCreate > 0) {
+    const addTo = commandInfo.pop()!;
+    addTo.count++;
+    addTo.currentLength = addTo.totalLength / addTo.count;
+    needToCreate--;
+    {
+      // Insert addTo back into the list.
+      // Use binary search to find the right location.
+      let start = 0;
+      let end = commandInfo.length;
+      while (start < end) {
+        const middle = ((start + end) / 2) | 0;
+        if (commandInfo[middle].currentLength < addTo.currentLength) {
+          // We're looking at things that are too small.
+          // Look at the bigger half of what's remaining.
+          start = middle + 1;
+        } else {
+          // We're looking at things that are too big.
+          // Look at the smaller half of what's remaining.
+          end = middle;
+        }
+      }
+      commandInfo.splice(end, 0, addTo);
+    }
+  }
+  commandInfo.sort((a, b) => a.originalIndex - b.originalIndex);
+  commands.length = 0;
+  commandInfo.forEach((info) => {
+    if (info.count == 1) {
+      commands.push(info.command);
+    } else {
+      commands.push(...info.command.multiSplit(info.count));
+    }
+  });
+}
+
 export function fixCorners(path: PathShape) {
   const result = new Array<Command>();
   path.commands.forEach((command, index, array) => {
@@ -214,16 +274,17 @@ export function matchShapes(a: PathShape, b: PathShape) {
       if (needToAdd == 0) {
         return;
       }
-      const originalCommands = makeLonger.pop()!.commands;
-      if (originalCommands.length != 1) {
-        throw new Error("wtf");
-      }
-      const command = makeQCommand(originalCommands[0]);
-      console.log("multiSplit() #1");
-      const newCommands = command.multiSplit(needToAdd + 1);
-      makeLonger.push(
-        ...newCommands.map((newCommand) => new PathShape([newCommand]))
-      );
+      const commands = makeLonger.map((pathShape) => {
+        if (pathShape.commands.length != 1) {
+          throw new Error("wtf");
+        }
+        return makeQCommand(pathShape.commands[0]);
+      });
+      addCommands(alreadyLong.length, commands);
+      makeLonger.length = 0;
+      commands.forEach((command) => {
+        makeLonger.push(new PathShape([command]));
+      });
       if (alreadyLong.length != makeLonger.length) {
         throw new Error("wtf");
       }
@@ -267,65 +328,6 @@ export function matchShapes(a: PathShape, b: PathShape) {
     aConnectedPieces,
     bReorientedPieces
   )) {
-    function addCommands(desiredLength: number, commands: QCommand[]) {
-      const commandInfo = commands.map((command, index, array) => {
-        let length: number;
-        if (vertexCommands.has(command)) {
-          length = -Infinity;
-        } else {
-          length = command.getLength();
-          if (
-            vertexCommands.has(array[index - 1]) ||
-            vertexCommands.has(array[index + 1])
-          ) {
-            length /= 10;
-          }
-        }
-        return {
-          command,
-          totalLength: length,
-          currentLength: length,
-          count: 1,
-          originalIndex: index,
-        };
-      });
-      commandInfo.sort((a, b) => a.currentLength - b.currentLength);
-      let needToCreate = desiredLength - commands.length;
-      while (needToCreate > 0) {
-        const addTo = commandInfo.pop()!;
-        addTo.count++;
-        addTo.currentLength = addTo.totalLength / addTo.count;
-        needToCreate--;
-        {
-          // Insert addTo back into the list.
-          // Use binary search to find the right location.
-          let start = 0;
-          let end = commandInfo.length;
-          while (start < end) {
-            const middle = ((start + end) / 2) | 0;
-            if (commandInfo[middle].currentLength < addTo.currentLength) {
-              // We're looking at things that are too small.
-              // Look at the bigger half of what's remaining.
-              start = middle + 1;
-            } else {
-              // We're looking at things that are too big.
-              // Look at the smaller half of what's remaining.
-              end = middle;
-            }
-          }
-          commandInfo.splice(end, 0, addTo);
-        }
-      }
-      commandInfo.sort((a, b) => a.originalIndex - b.originalIndex);
-      commands.length = 0;
-      commandInfo.forEach((info) => {
-        if (info.count == 1) {
-          commands.push(info.command);
-        } else {
-          commands.push(...info.command.multiSplit(info.count));
-        }
-      });
-    }
     // insert new point commands here and record them and spit any command between two points.
     const newACommands = pathFromA.commands.map((command) =>
       makeQCommand(command)
