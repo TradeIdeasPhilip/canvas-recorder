@@ -1,4 +1,5 @@
 import {
+  assertNonNullable,
   initializedArray,
   makeBoundedLinear,
   pickAny,
@@ -765,6 +766,38 @@ export function makeLineFontMap(
         .Q(right, baseline, left, baseline).pathShape;
       add("9", shape, advance);
     }
+  }
+
+  {
+    // MARK: Superscripts
+    /**
+     * How big should the subscript be compared to the original.
+     */
+    const ratio = 0.5;
+    /**
+     * How high to go above the top of a capital.
+     * Copied from the definition of "$".
+     */
+    const tipHeight = fontMetrics.mHeight / 8;
+    const transform = new DOMMatrixReadOnly()
+      .translate(0, -fontMetrics.mHeight * (1 - ratio) - tipHeight)
+      .scaleSelf(ratio);
+    function addSuperscript(base: string, superscript: string) {
+      const original = assertNonNullable(result.get(base));
+      const newShape = original.shape.transform(transform);
+      const newAdvance = original.advance * ratio;
+      add(superscript, newShape, newAdvance);
+    }
+    addSuperscript("0", "⁰");
+    addSuperscript("1", "¹");
+    addSuperscript("2", "²");
+    addSuperscript("3", "³");
+    addSuperscript("4", "⁴");
+    addSuperscript("5", "⁵");
+    addSuperscript("6", "⁶");
+    addSuperscript("7", "⁷");
+    addSuperscript("8", "⁸");
+    addSuperscript("9", "⁹");
   }
 
   {

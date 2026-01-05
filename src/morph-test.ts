@@ -6,6 +6,7 @@ import {
 } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import {
+  addMargins,
   makeRepeater,
   MakeShowableInParallel,
   MakeShowableInSeries,
@@ -263,7 +264,7 @@ if (false) {
     };
     builder.add(showable);
   }
-  if (true) {
+  if (false) {
     drawSample("Triangle", cursive, 16 / 6, 0.5, "yellow", 0.08);
     drawSample("Equilateral Triangle", cursive, 16 / 6, 5, "yellow", 0.04);
     drawSample("Triangle", futura, 8, 0.5, "lime", 0.08);
@@ -271,6 +272,44 @@ if (false) {
     drawSample("Triangle", lineFont, 16 * (5 / 6), 0.5, "cyan", 0.08);
     drawSample("Equilateral Triangle", lineFont, 16 * (5 / 6), 5, "cyan", 0.04);
   }
+}
+
+{
+  const font = makeLineFont(0.8);
+  const inOrder = new MakeShowableInSeries();
+  function animateTransition(from: string, to: string) {
+    const fromPath = makeLayout(from, "center", font);
+    const toPath = makeLayout(to, "center", font);
+    const interpolator = matchShapes(fromPath, toPath);
+    const thisStep: Showable = {
+      duration: 2000,
+      description: "square",
+      show(timeInMs, context) {
+        const progress = timeInMs / this.duration;
+        const originalTransform = context.getTransform();
+        context.translate(8, 3);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.08;
+        context.strokeStyle = "magenta";
+        const shape = interpolator(progress);
+        context.stroke(new Path2D(shape.rawPath));
+        context.setTransform(originalTransform);
+      },
+    };
+    inOrder.add(
+      addMargins(thisStep, { frozenBefore: 1000, frozenAfter: 1000 })
+    );
+  }
+  animateTransition("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789");
+  animateTransition(
+    "(Total ÷ Relevant) × (Area - 3)",
+    "(288 ÷ 144) × (4² - 3)"
+  );
+  animateTransition("(288 ÷ 144) × (4² - 3)", "(2 + 1) × (16 - 7)");
+  animateTransition("(2 + 1) × (16 - 7)", "3 × 9");
+  animateTransition("3 × 9", "27");
+  builder.add(inOrder.build("algebra"));
 }
 
 export const morphTest = builder.build("Morph Test");
