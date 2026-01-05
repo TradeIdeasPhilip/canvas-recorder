@@ -224,7 +224,7 @@ export function qCommandInterpolation(
    * The middle control point is the meeting point of the two commands before clipping.
    * Add the bendy piece then the recently clipped piece to the result.
    * Do that for both of the paths.
-   * Then the simplist interpolation between the commands in each of those to make a third.
+   * Then the simplest interpolation between the commands in each of those to make a third.
    *
    * No.  The match step comes before the call to makePathShapeInterpolator()
    * A filler command should be added before the call

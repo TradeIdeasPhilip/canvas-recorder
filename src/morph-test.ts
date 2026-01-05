@@ -16,15 +16,16 @@ import { Font } from "./glib/letters-base";
 import { ALMOST_STRAIGHT, fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
 import { easeAndBack } from "./interpolate";
+import { makeLineFont } from "./glib/line-font";
 
-const font = Font.cursive(1.25); //makeLineFont(1);
+const cursive = Font.cursive(1.25);
 
 function makeLayout(
   text: string,
-  alignment: "left" | "center" | "right" = "center"
+  alignment: "left" | "center" | "right" = "center",
+  font = cursive
 ) {
   const layout = new ParagraphLayout(font);
-  layout.font;
   layout.addText(text);
   const layoutResult = layout.align(Infinity, "center", 0.25);
   let shape = layoutResult.singlePathShape();
@@ -87,8 +88,7 @@ function getColor(index: number) {
 
 function byLine(from: string, to: string) {
   function makeLayout(text: string) {
-    const layout = new ParagraphLayout(font);
-    layout.font;
+    const layout = new ParagraphLayout(cursive);
     layout.addText(text);
     const layoutResult = layout.align(Infinity, "center", 0.25);
     const Δx = -layoutResult.width / 2;
@@ -222,6 +222,8 @@ if (false) {
 }
 
 {
+  const futura = Font.futuraL(1.25);
+  const lineFont = makeLineFont(1.25);
   const height = (9 - 3 * 0.5) / 2;
   const width = (height * 2) / Math.sqrt(3);
   console.log({ height, width });
@@ -230,29 +232,44 @@ if (false) {
     .L(0, 0)
     .L(width / 2, height)
     .L(0, height).pathShape;
-  const baseText = makeLayout("Triangle");
-  const textBBox = baseText.getBBox();
-  const transform = new DOMMatrix();
-  transform.translateSelf(16 / 6, 0.5);
-  transform.scaleSelf(width / assertNonNullable(textBBox.x.size));
-  const initialPath = baseText.transform(transform);
-  const finalPath = triangle.translate(16 / 6, 0.5);
-  const interpolator = matchShapes(initialPath, finalPath);
-  const showable: Showable = {
-    duration: 5000,
-    description: "square",
-    show(timeInMs, context) {
-      const progress = easeAndBack(timeInMs / this.duration);
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.08;
-      context.strokeStyle = "lime";
-      const shape = interpolator(progress);
-      context.stroke(new Path2D(shape.rawPath));
-    },
-  };
-  if (true) {
+  function drawSample(
+    text: string,
+    font: Font,
+    x: number,
+    y: number,
+    color: string,
+    lineWidth: number
+  ) {
+    const baseText = makeLayout(text, "center", font);
+    const textBBox = baseText.getBBox();
+    const transform = new DOMMatrix();
+    transform.translateSelf(x, y);
+    transform.scaleSelf(width / assertNonNullable(textBBox.x.size));
+    const initialPath = baseText.transform(transform);
+    const finalPath = triangle.translate(x, y);
+    const interpolator = matchShapes(initialPath, finalPath);
+    const showable: Showable = {
+      duration: 6500,
+      description: "square",
+      show(timeInMs, context) {
+        const progress = easeAndBack(timeInMs / this.duration);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = lineWidth;
+        context.strokeStyle = color;
+        const shape = interpolator(progress);
+        context.stroke(new Path2D(shape.rawPath));
+      },
+    };
     builder.add(showable);
+  }
+  if (true) {
+    drawSample("Triangle", cursive, 16 / 6, 0.5, "yellow", 0.08);
+    drawSample("Equilateral Triangle", cursive, 16 / 6, 5, "yellow", 0.04);
+    drawSample("Triangle", futura, 8, 0.5, "lime", 0.08);
+    drawSample("Equilateral Triangle", futura, 8, 5, "lime", 0.04);
+    drawSample("Triangle", lineFont, 16 * (5 / 6), 0.5, "cyan", 0.08);
+    drawSample("Equilateral Triangle", lineFont, 16 * (5 / 6), 5, "cyan", 0.04);
   }
 }
 
