@@ -15,9 +15,6 @@ import {
 } from "phil-lib/misc";
 import { transform } from "./transforms";
 
-import parse from "parse-svg-path";
-import abs from "abs-svg-path";
-import normalize from "normalize-svg-path";
 import { Bezier } from "bezier-js";
 
 /**
@@ -141,6 +138,8 @@ const formatForSvg = new Intl.NumberFormat("en-US", {
 
 // MARK: Command
 export type Command = {
+  getLength(): number;
+  getBezier(): Bezier;
   /**
    * Create another command that will follow the same path, but backwards.
    * If you stroke or fill the path, it will look just like the original.
@@ -192,6 +191,15 @@ export type Command = {
 
 // MARK: LCommand
 export class LCommand implements Command {
+  getLength(): number {
+    return Math.hypot(this.x0 - this.x, this.y0 - this.y);
+  }
+  getBezier(): Bezier {
+    return Bezier.getUtils().makeline(
+      { x: this.x0, y: this.y0 },
+      { x: this.x, y: this.y }
+    );
+  }
   reverse(): LCommand {
     return new LCommand(this.x, this.y, this.x0, this.y0);
   }
@@ -274,15 +282,11 @@ export type QCommandFromAngles = QCommand & {
 };
 
 export class QCommand implements Command {
+  getBezier(): Bezier {
+    return new Bezier(this.x0, this.y0, this.x1, this.y1, this.x, this.y);
+  }
   getLength() {
-    return new Bezier(
-      this.x0,
-      this.y0,
-      this.x1,
-      this.y1,
-      this.x,
-      this.y
-    ).length();
+    return this.getBezier().length();
   }
   reverse(): QCommand {
     return QCommand.controlPoints(
@@ -606,6 +610,22 @@ export class QCommand implements Command {
  * It's mostly aimed at imported curves.
  */
 class CCommand implements Command {
+  getBezier(): Bezier {
+    return new Bezier(
+      this.x0,
+      this.y0,
+      this.x1,
+      this.y1,
+      this.x2,
+      this.y2,
+      this.x,
+      this.y
+    );
+  }
+  getLength() {
+    return this.getBezier().length();
+  }
+
   reverse() {
     return new CCommand(
       this.x,
@@ -1232,33 +1252,16 @@ export class PathShapeError extends Error {
  * If you wan to make more complicated changes, work on an array of `Command` objects.
  */
 export class PathShape {
+  getBBox() {
+    const utils = Bezier.getUtils();
+    const sections = this.commands.map((command) => command.getBezier());
+    const result = utils.findbbox(sections);
+    return result;
+  }
   getLength() {
-    // TODO this is serious overkill.
-    // If we are working from a path shape we will only have L's Q's and Cs.
-    // We already know the length of an L command.
-    // We QCommand and CCommand use directly call new Bezier() to implement length.
-    // And this function just sums up the lengths of the segments.
-    const segments = normalize(abs(parse(this.rawPath)));
-    let length = 0;
-    segments.forEach((segment, index) => {
-      if (index > 0) {
-        const previous = segments[index - 1];
-        const command = segment[0];
-        if (command != "C") {
-          throw new Error("wtf");
-        }
-        const x0 = previous.at(-2);
-        const y0 = previous.at(-1);
-        if (typeof x0 != "number" || typeof y0 != "number") {
-          throw new Error("wtf");
-        }
-        const coordinates = [x0, y0, ...(segment.slice(1) as number[])];
-        const b = new Bezier(coordinates);
-        //console.log({previous,segments,coordinates, b, pathString:this.rawPath} )
-        length += b.length();
-      }
-    });
-    return length;
+    let sum = 0;
+    this.commands.forEach((command) => {sum+=command.getLength()})
+    return sum;
   }
   /**
    * Create another path that will look the same, but backwards.

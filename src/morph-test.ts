@@ -1,4 +1,9 @@
-import { angleBetween, FULL_CIRCLE, zip } from "phil-lib/misc";
+import {
+  angleBetween,
+  assertNonNullable,
+  FULL_CIRCLE,
+  zip,
+} from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import {
   makeRepeater,
@@ -6,7 +11,7 @@ import {
   MakeShowableInSeries,
   Showable,
 } from "./showable";
-import { Command, PathShape } from "./glib/path-shape";
+import { Command, PathBuilder, PathShape } from "./glib/path-shape";
 import { Font } from "./glib/letters-base";
 import { ALMOST_STRAIGHT, fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
@@ -211,7 +216,44 @@ if (false) {
       context.stroke(new Path2D(shape.rawPath));
     },
   };
-  builder.add(showable);
+  if (false) {
+    builder.add(showable);
+  }
+}
+
+{
+  const height = (9 - 3 * 0.5) / 2;
+  const width = (height * 2) / Math.sqrt(3);
+  console.log({ height, width });
+  const triangle = PathBuilder.M(0, height)
+    .L(-width / 2, height)
+    .L(0, 0)
+    .L(width / 2, height)
+    .L(0, height).pathShape;
+  const baseText = makeLayout("Triangle");
+  const textBBox = baseText.getBBox();
+  const transform = new DOMMatrix();
+  transform.translateSelf(16 / 6, 0.5);
+  transform.scaleSelf(width / assertNonNullable(textBBox.x.size));
+  const initialPath = baseText.transform(transform);
+  const finalPath = triangle.translate(16 / 6, 0.5);
+  const interpolator = matchShapes(initialPath, finalPath);
+  const showable: Showable = {
+    duration: 5000,
+    description: "square",
+    show(timeInMs, context) {
+      const progress = easeAndBack(timeInMs / this.duration);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.08;
+      context.strokeStyle = "lime";
+      const shape = interpolator(progress);
+      context.stroke(new Path2D(shape.rawPath));
+    },
+  };
+  if (true) {
+    builder.add(showable);
+  }
 }
 
 export const morphTest = builder.build("Morph Test");

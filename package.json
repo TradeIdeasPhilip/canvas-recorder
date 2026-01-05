@@ -21,12 +21,9 @@
     "node": ">=18"
   },
   "dependencies": {
-    "abs-svg-path": "^0.1.1",
     "bezier-js": "^6.1.4",
     "fft-js": "^0.0.12",
     "mediabunny": "^1.27.1",
-    "normalize-svg-path": "^1.1.0",
-    "parse-svg-path": "^0.1.2",
     "phil-lib": "^1.7.0"
   }
 }
