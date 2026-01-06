@@ -92,7 +92,7 @@ export class MakeShowableInParallel {
   addJustified(showable: Showable, startAtMs = 0) {
     this.add(
       addMargins(showable, { hiddenBefore: startAtMs, frozenAfter: Infinity }),
-      showable.duration
+      showable.duration + startAtMs
     );
   }
   build(description: string): Showable {

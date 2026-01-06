@@ -1,6 +1,7 @@
 import {
   angleBetween,
   assertNonNullable,
+  count,
   FULL_CIRCLE,
   zip,
 } from "phil-lib/misc";
@@ -16,7 +17,7 @@ import { Command, PathBuilder, PathShape } from "./glib/path-shape";
 import { Font } from "./glib/letters-base";
 import { ALMOST_STRAIGHT, fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
-import { easeAndBack } from "./interpolate";
+import { ease, easeAndBack, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 
 const cursive = Font.cursive(1.25);
@@ -343,10 +344,62 @@ if (false) {
     ["(", "Total", " ÷ ", "Relevant", " + 1) × (", "Area", " - 3)"],
     ["(", "288", " ÷ ", "144", " + 1) × (", "4²", " - 3)"]
   );
-  animateTransition(["(", "288 ÷ 144", " + 1) × (", "4²", " - 3)"], ["(", "2", " + 1) × (", "16", " - 7)"]);
+  animateTransition(
+    ["(", "288 ÷ 144", " + 1) × (", "4²", " - 3)"],
+    ["(", "2", " + 1) × (", "16", " - 7)"]
+  );
   animateTransition("(2 + 1)§ × §(16 - 7)".split("§"), "3§ × §9".split("§"));
   animateTransition(["3 × 9"], ["27"]);
-  builder.add(inOrder.build("algebra"));
+  if (false) {
+    builder.add(inOrder.build("algebra"));
+  }
+}
+
+{
+  const font = makeLineFont(0.85);
+  const initialString = "²◯±◠~°×←☆↑✧→↓♡↕⭒";
+  const finalString = "To be continued...";
+  const initialLayout = new ParagraphLayout(font);
+  const finalLayout = new ParagraphLayout(font);
+  initialLayout.addText(initialString);
+  finalLayout.addText(finalString);
+  const initialLayoutResult = initialLayout.align();
+  const finalLayoutResult = finalLayout.align();
+  const initialLetterShapes = initialLayoutResult
+    .getAllLetters(15 - initialLayoutResult.width, 1)
+    .map(({ translatedShape }) => fixCorners(translatedShape));
+  const finalLetterShapes = finalLayoutResult
+    .getAllLetters(1, 1)
+    .map(({ translatedShape }) => fixCorners(translatedShape));
+  for (const [initialShape, finalShape, i] of zip(
+    initialLetterShapes,
+    finalLetterShapes,
+    count()
+  )) {
+    const interpolator = matchShapes(initialShape, finalShape);
+    const thisStep: Showable = {
+      duration: 1200,
+      description: `Sliding interpolator #${i}`,
+      show(timeInMs, context) {
+        const progress = ease(timeInMs / this.duration);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.08;
+        context.strokeStyle = interpolateColor(
+          progress,
+          "#C0A0FF",
+          "#9eff9eff"
+        );
+        const shape = interpolator(progress);
+        context.stroke(new Path2D(shape.rawPath));
+      },
+    };
+    const startTime = 500 * i;
+    builder.add(
+      addMargins(thisStep, { frozenBefore: startTime, frozenAfter: Infinity }),
+      thisStep.duration + startTime
+    );
+  }
 }
 
 export const morphTest = builder.build("Morph Test");
