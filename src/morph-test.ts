@@ -275,12 +275,48 @@ if (false) {
 }
 
 {
-  const font = makeLineFont(0.8);
+  const font = makeLineFont(0.75);
   const inOrder = new MakeShowableInSeries();
-  function animateTransition(from: string, to: string) {
-    const fromPath = makeLayout(from, "center", font);
-    const toPath = makeLayout(to, "center", font);
-    const interpolator = matchShapes(fromPath, toPath);
+  function animateTransition(from: readonly string[], to: readonly string[]) {
+    if (from.length != to.length) {
+      throw new Error("wtf");
+    }
+    function makeShapes(pieces: readonly string[]) {
+      const requestInfo = pieces.flatMap((letters, group) =>
+        [...letters].flatMap((letter) => {
+          if (!font.getChar(letter)) {
+            return [];
+          } else {
+            return { letter, group };
+          }
+        })
+      );
+      const layout = new ParagraphLayout(font);
+      layout.addText(pieces.join(""));
+      const layoutResult = layout.align();
+      const resultInfo = layoutResult
+        .getAllLetters(-layoutResult.width / 2)
+        .toArray();
+      if (requestInfo.length != resultInfo.length) {
+        throw new Error("wtf");
+      }
+      const commands = from.map(() => new Array<Command>());
+      for (const [request, result] of zip(requestInfo, resultInfo)) {
+        commands[request.group].push(...result.translatedShape.commands);
+      }
+      const result = commands.map((currentCommands) => {
+        return fixCorners(new PathShape(currentCommands));
+      });
+      return result;
+    }
+    const fromShapes = makeShapes(from);
+    const toShapes = makeShapes(to);
+    if (fromShapes.length != toShapes.length) {
+      throw new Error("wtf");
+    }
+    const interpolators = zip(fromShapes, toShapes)
+      .map(([from, to]) => matchShapes(from, to))
+      .toArray();
     const thisStep: Showable = {
       duration: 2000,
       description: "square",
@@ -292,8 +328,10 @@ if (false) {
         context.lineJoin = "round";
         context.lineWidth = 0.08;
         context.strokeStyle = "magenta";
-        const shape = interpolator(progress);
-        context.stroke(new Path2D(shape.rawPath));
+        interpolators.forEach((interpolator) => {
+          const shape = interpolator(progress);
+          context.stroke(new Path2D(shape.rawPath));
+        });
         context.setTransform(originalTransform);
       },
     };
@@ -301,14 +339,13 @@ if (false) {
       addMargins(thisStep, { frozenBefore: 1000, frozenAfter: 1000 })
     );
   }
-  animateTransition("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789");
   animateTransition(
-    "(Total ÷ Relevant) × (Area - 3)",
-    "(288 ÷ 144) × (4² - 3)"
+    ["(", "Total", " ÷ ", "Relevant", " + 1) × (", "Area", " - 3)"],
+    ["(", "288", " ÷ ", "144", " + 1) × (", "4²", " - 3)"]
   );
-  animateTransition("(288 ÷ 144) × (4² - 3)", "(2 + 1) × (16 - 7)");
-  animateTransition("(2 + 1) × (16 - 7)", "3 × 9");
-  animateTransition("3 × 9", "27");
+  animateTransition(["(", "288 ÷ 144", " + 1) × (", "4²", " - 3)"], ["(", "2", " + 1) × (", "16", " - 7)"]);
+  animateTransition("(2 + 1)§ × §(16 - 7)".split("§"), "3§ × §9".split("§"));
+  animateTransition(["3 × 9"], ["27"]);
   builder.add(inOrder.build("algebra"));
 }
 
