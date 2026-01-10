@@ -313,7 +313,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
       // Strange.  This code doesn't see to be working.
       // Lots of things were flipping around.
       // When I disabled the next line, it actually worked better.
-      return pieceB; //.reverse();
+      return pieceB.reverse();
     } else {
       return pieceB;
     }

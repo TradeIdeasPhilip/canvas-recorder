@@ -269,7 +269,8 @@ export function easeOut(t: number): number {
 /**
  * As the input goes from 0 to 1, the output from 0 to 1 and back.
  * It slows down near the ends and moves quickly in between.
- * @param t A value between 0 and 1.
+ * @param t Typically a value between 0 and 1.
+ * The function is periodic and effectively starts with `t %= 1;`.
  * @returns A value between 0 and 1.
  */
 export function easeAndBack(t: number): number {

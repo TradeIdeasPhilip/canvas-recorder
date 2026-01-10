@@ -21,6 +21,7 @@ import { blackBackground, BLUE } from "./utility";
 import { ease, easeAndBack, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 import { panAndZoom } from "./glib/transforms";
+import { createHandwriting } from "./glib/handwriting";
 
 const cursive = Font.cursive(1.25);
 
@@ -458,15 +459,20 @@ if (false) {
 
 {
   const layout = new ParagraphLayout(cursive);
-    layout.addText("Keep it simple!");
-    const layoutResult = layout.align();
-    const transform = new DOMMatrixReadOnly("translate(1px, 4.5px) scale(0.5)");
-    const textPath = layoutResult.singlePathShape().transform(transform);
+  layout.addText("Who, What, When, Where, Why?");
+  const layoutResult = layout.align();
+  const transform = new DOMMatrixReadOnly("translate(1px, 6px) scale(0.5)");
+  const textPath = layoutResult.singlePathShape().transform(transform);
   const bBox = textPath.getBBox();
-  const lineCommand = new LCommand(bBox.x.min, bBox.y.max, bBox.x.max, bBox.y.max);
+  const lineCommand = new LCommand(
+    bBox.x.min,
+    bBox.y.max,
+    bBox.x.max,
+    bBox.y.max
+  );
   const linePath = new PathShape([lineCommand]);
-  const interpolator = matchShapes(textPath,linePath);
-    const toShow: Showable = {
+  const interpolator = matchShapes(textPath, linePath);
+  const toShow: Showable = {
     description: "Underline to text",
     duration: 5000,
     show(timeInMs, context) {
@@ -474,13 +480,34 @@ if (false) {
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = 0.08;
-        context.strokeStyle = "pink";
-        const path = interpolator(progress);
-        context.stroke(new Path2D( path.rawPath));
+      context.strokeStyle = "pink";
+      const path = interpolator(progress);
+      context.stroke(new Path2D(path.rawPath));
     },
   };
   builder.addJustified(toShow);
+}
 
+{
+  const layout = new ParagraphLayout(cursive);
+  layout.addText("W");
+  const layoutResult = layout.align();
+  const transform = new DOMMatrixReadOnly().translate(1, 1).scale(3);
+ const completePath= layoutResult.singlePathShape().transform(transform);
+  const handwriting = createHandwriting(completePath);
+  const toShow: Showable = {
+    description: "Is W Connected?",
+    duration: 5000,
+    show(timeInMs, context) {
+      const progress = easeAndBack((timeInMs / this.duration));
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.2;
+      context.strokeStyle = "saddlebrown";
+      handwriting(progress,context);
+    },
+  };
+  builder.add(toShow);
 }
 
 export const morphTest = builder.build("Morph Test");
@@ -500,3 +527,6 @@ export const morphTest = builder.build("Morph Test");
  * In either case, can we do a smooth transition between the end points and the parametric parts?
  * Maybe we never show the original end points, only the parametric parts?
  */
+
+// The last piece of the cursive capital W.
+console.log(PathShape.fromRawString("M 30,-21 Q 28.918861,-20.662278 28,-20 Q 26.938048,-19.234589 25,-17 Q 23.163318,-14.882287 22,-13 Q 20.601984,-10.737962 19,-7 L 16,0").reverse().rawPath)
