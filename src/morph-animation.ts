@@ -303,16 +303,24 @@ export function matchShapes(a: PathShape, b: PathShape) {
   // But which end of each one path should morph into which end of the other path.
   const bReorientedPieces = aConnectedPieces.map((pieceA, index) => {
     const pieceB = bConnectedPieces[index];
+    /**
+     * If you Add this to all pieceB coordinates to translate it,
+     * then pieceB and pieceA will have the same midpoint.
+     * (Approximately.  It would be perfect if both paths were line segments.)
+     */
+    const Δx = (pieceA.startX + pieceA.endX - pieceB.startX - pieceB.endX) / 2;
+    const Δy = (pieceA.startY + pieceA.endY - pieceB.startY - pieceB.endY) / 2;
+    const bStartX = pieceB.startX + Δx;
+    const bStartY = pieceB.startY + Δy;
+    const bEndX = pieceB.endX + Δx;
+    const bEndY = pieceB.endY + Δy;
     const currentDistance =
-      Math.hypot(pieceA.startX - pieceB.startX, pieceA.startY - pieceB.startY) +
-      Math.hypot(pieceA.endX - pieceB.endX, pieceA.endY - pieceB.endY);
+      Math.hypot(pieceA.startX - bStartX, pieceA.startY - bStartY) +
+      Math.hypot(pieceA.endX - bEndX, pieceA.endY - bEndY);
     const reversedDistance =
-      Math.hypot(pieceA.startX - pieceB.endX, pieceA.startY - pieceB.endY) +
-      Math.hypot(pieceA.endX - pieceB.startX, pieceA.endY - pieceB.startY);
+      Math.hypot(pieceA.startX - bEndX, pieceA.startY - bEndY) +
+      Math.hypot(pieceA.endX - bStartX, pieceA.endY - bStartY);
     if (reversedDistance < currentDistance) {
-      // Strange.  This code doesn't see to be working.
-      // Lots of things were flipping around.
-      // When I disabled the next line, it actually worked better.
       return pieceB.reverse();
     } else {
       return pieceB;
