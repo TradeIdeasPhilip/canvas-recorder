@@ -3,6 +3,7 @@ import {
   assertNonNullable,
   count,
   FULL_CIRCLE,
+  ReadOnlyRect,
   zip,
 } from "phil-lib/misc";
 import { ParagraphLayout } from "./glib/paragraph-layout";
@@ -13,12 +14,13 @@ import {
   MakeShowableInSeries,
   Showable,
 } from "./showable";
-import { Command, PathBuilder, PathShape } from "./glib/path-shape";
+import { Command, LCommand, PathBuilder, PathShape } from "./glib/path-shape";
 import { Font } from "./glib/letters-base";
 import { ALMOST_STRAIGHT, fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
 import { ease, easeAndBack, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
+import { panAndZoom } from "./glib/transforms";
 
 const cursive = Font.cursive(1.25);
 
@@ -355,10 +357,11 @@ if (false) {
   }
 }
 
-{
-  const font = makeLineFont(0.85);
-  const initialString = "²◯±◠~°×←☆↑✧→↓♡↕⭒";
-  const finalString = "To be continued...";
+if (false) {
+  //const font = makeLineFont(0.85);
+  const font = Font.cursive(0.53);
+  const initialString = "abcdefghijklmnopqrstuvwxyz";
+  const finalString = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   const initialLayout = new ParagraphLayout(font);
   const finalLayout = new ParagraphLayout(font);
   initialLayout.addText(initialString);
@@ -400,6 +403,84 @@ if (false) {
       thisStep.duration + startTime
     );
   }
+}
+
+{
+  function makeShape(text: string) {
+    const layout = new ParagraphLayout(cursive);
+    layout.addText(text);
+    const layoutResult = layout.align();
+    const originalShape = layoutResult.singlePathShape();
+    const originalBBox = originalShape.getBBox();
+    const originalRect: ReadOnlyRect = {
+      x: originalBBox.x.min,
+      y: originalBBox.y.min,
+      height: assertNonNullable(originalBBox.y.size),
+      width: assertNonNullable(originalBBox.x.size),
+    };
+    const margin = 0.125;
+    const fullScreen: ReadOnlyRect = {
+      x: margin,
+      y: margin,
+      width: 16 - margin * 2,
+      height: 9 - margin * 2,
+    };
+    const transform = panAndZoom(
+      originalRect,
+      fullScreen,
+      "srcRect fits completely into destRect",
+      0,
+      1
+    );
+    const finalShape = originalShape.transform(transform);
+    return finalShape;
+  }
+  const finalShape = makeShape("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  const toStroke = finalShape.splitOnMove().map((pathShape) => {
+    return new Path2D(pathShape.rawPath);
+  });
+  const toShow: Showable = {
+    description: "Are the letters connected?",
+    duration: 0,
+    show(timeInMs, context) {
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.04;
+      toStroke.forEach((path, index) => {
+        const color = colors[index % colors.length];
+        context.strokeStyle = color;
+        context.stroke(path);
+      });
+    },
+  };
+  builder.addJustified(toShow);
+}
+
+{
+  const layout = new ParagraphLayout(cursive);
+    layout.addText("Keep it simple!");
+    const layoutResult = layout.align();
+    const transform = new DOMMatrixReadOnly("translate(1px, 4.5px) scale(0.5)");
+    const textPath = layoutResult.singlePathShape().transform(transform);
+  const bBox = textPath.getBBox();
+  const lineCommand = new LCommand(bBox.x.min, bBox.y.max, bBox.x.max, bBox.y.max);
+  const linePath = new PathShape([lineCommand]);
+  const interpolator = matchShapes(textPath,linePath);
+    const toShow: Showable = {
+    description: "Underline to text",
+    duration: 5000,
+    show(timeInMs, context) {
+      const progress = easeAndBack(timeInMs / this.duration);
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.08;
+        context.strokeStyle = "pink";
+        const path = interpolator(progress);
+        context.stroke(new Path2D( path.rawPath));
+    },
+  };
+  builder.addJustified(toShow);
+
 }
 
 export const morphTest = builder.build("Morph Test");
