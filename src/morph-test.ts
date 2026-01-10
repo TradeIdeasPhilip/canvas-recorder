@@ -44,8 +44,8 @@ function makeLayout(
 
 //const before = makeLayout("5555");
 //const after = makeLayout("777777777777777");
-const before = makeLayout("Merry\nChristmas\n2025");
-const after = makeLayout("Happy\nNew Year\n2026");
+const before = makeLayout("Getting\nColorful");
+const after = makeLayout("⭒~✧\n☆", "center", makeLineFont(1.25));
 
 function dumpBigCorners(shape: PathShape) {
   console.log(
@@ -165,7 +165,7 @@ function createRocker(
       const initialTransform = context.getTransform();
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.translate(8, 1);
+      context.translate(11, 0.5);
       const progress = easeAndBack(timeInMs / period);
       const completePath = interpolator(progress);
       function drawPaths(paths: readonly PathShape[]) {
@@ -188,8 +188,15 @@ function createRocker(
   };
   return base;
 }
-if (false) {
-  builder.add(createRocker(matchShapes(before, after), "morphing"));
+if (true) {
+  const transform = new DOMMatrixReadOnly().scale(0.8);
+  builder.add(
+    createRocker(
+      matchShapes(before.transform(transform), after.transform(transform)),
+      "morphing"
+    ),
+    Infinity
+  );
 }
 
 if (false) {
@@ -436,7 +443,7 @@ if (false) {
     const finalShape = originalShape.transform(transform);
     return finalShape;
   }
-  const finalShape = makeShape("ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+  const finalShape = makeShape("olABCDEFGHIJKLMNOPQRSTUVWXYZ");
   const toStroke = finalShape.splitOnMove().map((pathShape) => {
     return new Path2D(pathShape.rawPath);
   });
@@ -474,7 +481,7 @@ if (false) {
   const interpolator = matchShapes(textPath, linePath);
   const toShow: Showable = {
     description: "Underline to text",
-    duration: 5000,
+    duration: 3000,
     show(timeInMs, context) {
       const progress = easeAndBack(timeInMs / this.duration);
       context.lineCap = "round";
@@ -485,26 +492,27 @@ if (false) {
       context.stroke(new Path2D(path.rawPath));
     },
   };
-  builder.addJustified(toShow);
+  builder.add(toShow);
 }
 
 {
   const layout = new ParagraphLayout(cursive);
-  layout.addText("W");
+  layout.addText("ol");
   const layoutResult = layout.align();
+  console.log(layoutResult.singlePathShape().rawPath);
   const transform = new DOMMatrixReadOnly().translate(1, 1).scale(3);
- const completePath= layoutResult.singlePathShape().transform(transform);
+  const completePath = layoutResult.singlePathShape().transform(transform);
   const handwriting = createHandwriting(completePath);
   const toShow: Showable = {
     description: "Is W Connected?",
     duration: 5000,
     show(timeInMs, context) {
-      const progress = easeAndBack((timeInMs / this.duration));
+      const progress = easeAndBack(timeInMs / this.duration);
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = 0.2;
       context.strokeStyle = "saddlebrown";
-      handwriting(progress,context);
+      handwriting(progress, context);
     },
   };
   builder.add(toShow);
@@ -529,4 +537,8 @@ export const morphTest = builder.build("Morph Test");
  */
 
 // The last piece of the cursive capital W.
-console.log(PathShape.fromRawString("M 30,-21 Q 28.918861,-20.662278 28,-20 Q 26.938048,-19.234589 25,-17 Q 23.163318,-14.882287 22,-13 Q 20.601984,-10.737962 19,-7 L 16,0").reverse().rawPath)
+console.log(
+  PathShape.fromRawString(
+    "M 30,-21 Q 28.918861,-20.662278 28,-20 Q 26.938048,-19.234589 25,-17 Q 23.163318,-14.882287 22,-13 Q 20.601984,-10.737962 19,-7 L 16,0"
+  ).reverse().rawPath
+);
