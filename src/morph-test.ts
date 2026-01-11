@@ -453,9 +453,9 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
     return result;
   }
   for (const connectedPath of input.splitOnMove()) {
-    const endPoints = getEndPoints(connectedPath.endY);
+    const possibleMerge = getEndPoints(connectedPath.startY);
     let takenCareOf = false;
-    for (const index of endPoints) {
+    for (const index of possibleMerge) {
       const previous = output[index];
       if (closeEnough(previous.endX!, connectedPath.startX)) {
         const joinedCommands = [
@@ -481,7 +481,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
       }
     }
     if (!takenCareOf) {
-      endPoints.push(output.length);
+      getEndPoints(connectedPath.endY).push(output.length);
       output.push(connectedPath);
     }
   }
@@ -522,7 +522,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
     const finalShape = originalShape.transform(transform);
     return finalShape;
   }
-  const initialShape = makeShape("abcdefghijklmnopqrstuvwxyz");
+  const initialShape = makeShape("Fixing Cursive Writing");
   const fixedShape = fixCursive(initialShape.translate(0, -1.75));
   const toStroke = [
     ...initialShape.splitOnMove(),
@@ -538,7 +538,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
     show(timeInMs, context) {
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.lineWidth = 0.04;
+      context.lineWidth = 0.08;
       toStroke.forEach((path, index) => {
         const color = colors[index % colors.length];
         context.strokeStyle = color;
@@ -549,7 +549,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   builder.addJustified(toShow);
 }
 
-{
+if (false) {
   function createAnimation(
     path: PathShape,
     description: string,
@@ -635,7 +635,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   }
   {
     const layout = new ParagraphLayout(cursive);
-    layout.addText("iiiijjjjxxxxtttt");
+    layout.addText("iissssjjjxxxxtttt");
     const layoutResult = layout.align();
     const fixedTransform = new DOMMatrixReadOnly()
       .translate(0.5, 2.35)
