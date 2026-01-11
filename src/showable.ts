@@ -215,7 +215,8 @@ export class MakeShowableInSeries {
  * @param showable The action to repeat
  * @param count How many times to repeat the action.
  * This can be Infinity.
- * Otherwise, calling this after the last repeat will freeze the time at the end of the period.
+ * This only affects the duration.
+ * If you continue calling this it will repeat forever.
  * @returns A new `Showable` object that will call the original multiple times.
  */
 export function makeRepeater(showable: Showable, count = Infinity): Showable {
@@ -223,12 +224,8 @@ export function makeRepeater(showable: Showable, count = Infinity): Showable {
   const repeaterDuration = count * period;
   function show(timeInMS: number, context: CanvasRenderingContext2D) {
     const iteration = Math.floor(timeInMS / period);
-    if (iteration >= count) {
-      showable.show(period, context);
-    } else {
-      const timeWithinPeriod = positiveModulo(timeInMS, period);
-      showable.show(timeWithinPeriod, context);
-    }
+    const timeWithinPeriod = positiveModulo(timeInMS, period);
+    showable.show(timeWithinPeriod, context);
   }
   return {
     description: `${showable.description} » repeater`,
@@ -286,4 +283,33 @@ export function addMargins(
   }
   const description = `${base.description} » margins`;
   return builder.build(description);
+}
+
+/**
+ * Create a new showable that is similar to another, but change the duration and possibly the start time.
+ *
+ * Example, you want to record the first 60 seconds of a longer, possibly infinite Showable.
+ * Or the second 60 seconds.
+ *
+ * This may call the base with times before 0 or after base.duration.
+ * If that's a problem, consider {@link addMargins}.
+ * @param base The object to modify.
+ * @param duration The duration in milliseconds of the new Showable we are creating.
+ * @param offset Start this many milliseconds into the new Showable.
+ * Defaults to 0, starting at the beginning.
+ * @returns The newly created Showable
+ */
+export function reschedule(
+  base: Showable,
+  duration: number,
+  offset = 0
+): Showable {
+  return {
+    description: `${base.description} » rescheduled`,
+    duration,
+    show(timeInMs, context) {
+      base.show(timeInMs + offset, context);
+    },
+    children: [{ start: -offset, child: base }],
+  };
 }

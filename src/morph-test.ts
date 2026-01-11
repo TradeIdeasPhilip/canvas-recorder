@@ -12,13 +12,25 @@ import {
   makeRepeater,
   MakeShowableInParallel,
   MakeShowableInSeries,
+  reschedule,
   Showable,
 } from "./showable";
-import { Command, LCommand, PathBuilder, PathShape } from "./glib/path-shape";
+import {
+  Command,
+  LCommand,
+  PathBuilder,
+  PathShape,
+  QCommand,
+} from "./glib/path-shape";
 import { Font } from "./glib/letters-base";
-import { ALMOST_STRAIGHT, fixCorners, matchShapes } from "./morph-animation";
+import {
+  ALMOST_STRAIGHT,
+  fixCorners,
+  makeQCommand,
+  matchShapes,
+} from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
-import { ease, easeAndBack, interpolateColor } from "./interpolate";
+import { ease, easeAndBack, easeIn, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 import { panAndZoom } from "./glib/transforms";
 import { createHandwriting } from "./glib/handwriting";
@@ -162,10 +174,8 @@ function createRocker(
     description,
     duration: period,
     show(timeInMs, context) {
-      const initialTransform = context.getTransform();
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.translate(11, 0.5);
       const progress = easeAndBack(timeInMs / period);
       const completePath = interpolator(progress);
       function drawPaths(paths: readonly PathShape[]) {
@@ -183,16 +193,31 @@ function createRocker(
       context.filter = "brightness(75%)";
       drawPaths(completePath.splitOnMove());
       context.filter = "none";
-      context.setTransform(initialTransform);
     },
   };
   return base;
 }
 if (true) {
-  const transform = new DOMMatrixReadOnly().scale(0.8);
+  const baseTransform = new DOMMatrixReadOnly().translate(13, 0.5).scale(0.8);
+  const fixedTransform = new DOMMatrixReadOnly()
+    .translate(7.75, 0.5)
+    .scale(0.8);
   builder.add(
     createRocker(
-      matchShapes(before.transform(transform), after.transform(transform)),
+      matchShapes(
+        before.transform(baseTransform),
+        after.transform(baseTransform)
+      ),
+      "morphing"
+    ),
+    Infinity
+  );
+  builder.add(
+    createRocker(
+      matchShapes(
+        fixCursive(before).transform(fixedTransform),
+        after.transform(fixedTransform)
+      ),
       "morphing"
     ),
     Infinity
@@ -413,6 +438,60 @@ if (false) {
   }
 }
 
+function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
+  function closeEnough(a: number, b: number) {
+    return Math.abs(a - b) < fudgeFactor;
+  }
+  const output = new Array<PathShape>();
+  const endPointsByY = new Map<number, number[]>();
+  function getEndPoints(y: number) {
+    let result = endPointsByY.get(y);
+    if (result === undefined) {
+      result = [];
+      endPointsByY.set(y, result);
+    }
+    return result;
+  }
+  for (const connectedPath of input.splitOnMove()) {
+    const endPoints = getEndPoints(connectedPath.endY);
+    let takenCareOf = false;
+    for (const index of endPoints) {
+      const previous = output[index];
+      if (closeEnough(previous.endX!, connectedPath.startX)) {
+        const joinedCommands = [
+          ...previous.commands,
+          ...connectedPath.commands,
+        ];
+        const beforeBreak = joinedCommands[previous.commands.length - 1];
+        const afterBreak = makeQCommand(
+          joinedCommands[previous.commands.length]
+        );
+        const replacement = QCommand.controlPoints(
+          beforeBreak.x,
+          beforeBreak.y,
+          afterBreak.x1,
+          afterBreak.y1,
+          afterBreak.x,
+          afterBreak.y
+        );
+        joinedCommands[previous.commands.length] = replacement;
+        const combinedPath = new PathShape(joinedCommands);
+        output[index] = combinedPath;
+        takenCareOf = true;
+      }
+    }
+    if (!takenCareOf) {
+      endPoints.push(output.length);
+      output.push(connectedPath);
+    }
+  }
+  return new PathShape(
+    output.flatMap((pathShape) => {
+      return pathShape.commands;
+    })
+  );
+}
+
 {
   function makeShape(text: string) {
     const layout = new ParagraphLayout(cursive);
@@ -443,9 +522,15 @@ if (false) {
     const finalShape = originalShape.transform(transform);
     return finalShape;
   }
-  const finalShape = makeShape("olABCDEFGHIJKLMNOPQRSTUVWXYZ");
-  const toStroke = finalShape.splitOnMove().map((pathShape) => {
-    return new Path2D(pathShape.rawPath);
+  const initialShape = makeShape("abcdefghijklmnopqrstuvwxyz");
+  const fixedShape = fixCursive(initialShape.translate(0, -1.75));
+  const toStroke = [
+    ...initialShape.splitOnMove(),
+    ...fixedShape.splitOnMove(),
+  ].flatMap((shape) => {
+    return shape.splitOnMove().map((connectedShape) => {
+      return new Path2D(connectedShape.rawPath);
+    });
   });
   const toShow: Showable = {
     description: "Are the letters connected?",
@@ -465,60 +550,109 @@ if (false) {
 }
 
 {
+  function createAnimation(
+    path: PathShape,
+    description: string,
+    color: string
+  ) {
+    const bBox = path.getBBox();
+    const lineCommand = new LCommand(
+      bBox.x.min,
+      bBox.y.max,
+      bBox.x.max,
+      bBox.y.max
+    );
+    const linePath = new PathShape([lineCommand]);
+    const interpolator = matchShapes(path, linePath);
+    const toShow: Showable = {
+      description,
+      duration: 3000,
+      show(timeInMs, context) {
+        const progress = easeAndBack(timeInMs / this.duration);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        context.strokeStyle = color;
+        const path = interpolator(progress);
+        context.stroke(new Path2D(path.rawPath));
+      },
+    };
+    builder.add(toShow);
+  }
   const layout = new ParagraphLayout(cursive);
-  layout.addText("Who, What, When, Where, Why?");
+  layout.addText("abcdefghijklmnopqrstuvwxyz");
   const layoutResult = layout.align();
-  const transform = new DOMMatrixReadOnly("translate(1px, 6px) scale(0.5)");
-  const textPath = layoutResult.singlePathShape().transform(transform);
-  const bBox = textPath.getBBox();
-  const lineCommand = new LCommand(
-    bBox.x.min,
-    bBox.y.max,
-    bBox.x.max,
-    bBox.y.max
+  const fixedPath = fixCursive(
+    layoutResult
+      .singlePathShape()
+      .transform(new DOMMatrixReadOnly("translate(0.25px, 4.75px) scale(0.35)"))
   );
-  const linePath = new PathShape([lineCommand]);
-  const interpolator = matchShapes(textPath, linePath);
-  const toShow: Showable = {
-    description: "Underline to text",
-    duration: 3000,
-    show(timeInMs, context) {
-      const progress = easeAndBack(timeInMs / this.duration);
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.08;
-      context.strokeStyle = "pink";
-      const path = interpolator(progress);
-      context.stroke(new Path2D(path.rawPath));
-    },
-  };
-  builder.add(toShow);
+  const basePath = layoutResult
+    .singlePathShape()
+    .transform(new DOMMatrixReadOnly("translate(8.25px, 4.75px) scale(0.35)"));
+  createAnimation(fixedPath, "fixed to straight line", "lightblue");
+  createAnimation(basePath, "base to straight line", "pink");
 }
 
 {
-  const layout = new ParagraphLayout(cursive);
-  layout.addText("ol");
-  const layoutResult = layout.align();
-  console.log(layoutResult.singlePathShape().rawPath);
-  const transform = new DOMMatrixReadOnly().translate(1, 1).scale(3);
-  const completePath = layoutResult.singlePathShape().transform(transform);
-  const handwriting = createHandwriting(completePath);
-  const toShow: Showable = {
-    description: "Is W Connected?",
-    duration: 5000,
-    show(timeInMs, context) {
-      const progress = easeAndBack(timeInMs / this.duration);
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.2;
-      context.strokeStyle = "saddlebrown";
-      handwriting(progress, context);
-    },
-  };
-  builder.add(toShow);
+  function makeAnimation(completePath: PathShape, color: string) {
+    const handwriting = createHandwriting(completePath);
+    const toShow: Showable = {
+      description: "Is W Connected?",
+      duration: 10000,
+      show(timeInMs, context) {
+        const progress = timeInMs / this.duration;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.03;
+        context.strokeStyle = color;
+        handwriting(progress, context);
+      },
+    };
+    builder.add(
+      makeRepeater(
+        addMargins(toShow, { hiddenBefore: 500, frozenAfter: 1000 }),
+        1
+      )
+    );
+  }
+  {
+    const layout = new ParagraphLayout(cursive);
+    layout.addText("ijxijx Philip");
+    const layoutResult = layout.align();
+    const fixedTransform = new DOMMatrixReadOnly()
+      .translate(0.5, 0.2)
+      .scale(0.5);
+    const fixedPath = fixCursive(layoutResult.singlePathShape()).transform(
+      fixedTransform
+    );
+    makeAnimation(fixedPath, "blue");
+    const baseTransform = new DOMMatrixReadOnly()
+      .translate(0.5, 1.25)
+      .scale(0.5);
+    const basePath = layoutResult.singlePathShape().transform(baseTransform);
+    makeAnimation(basePath, "red");
+  }
+  {
+    const layout = new ParagraphLayout(cursive);
+    layout.addText("iiiijjjjxxxxtttt");
+    const layoutResult = layout.align();
+    const fixedTransform = new DOMMatrixReadOnly()
+      .translate(0.5, 2.35)
+      .scale(0.5);
+    const fixedPath = fixCursive(layoutResult.singlePathShape()).transform(
+      fixedTransform
+    );
+    makeAnimation(fixedPath, "blue");
+    const baseTransform = new DOMMatrixReadOnly()
+      .translate(0.5, 3.35)
+      .scale(0.5);
+    const basePath = layoutResult.singlePathShape().transform(baseTransform);
+    makeAnimation(basePath, "red");
+  }
 }
 
-export const morphTest = builder.build("Morph Test");
+export const morphTest = reschedule(builder.build("Morph Test"), 3 * 60 * 1000);
 
 /**
  * Need to convert to parametric functions.
@@ -535,10 +669,3 @@ export const morphTest = builder.build("Morph Test");
  * In either case, can we do a smooth transition between the end points and the parametric parts?
  * Maybe we never show the original end points, only the parametric parts?
  */
-
-// The last piece of the cursive capital W.
-console.log(
-  PathShape.fromRawString(
-    "M 30,-21 Q 28.918861,-20.662278 28,-20 Q 26.938048,-19.234589 25,-17 Q 23.163318,-14.882287 22,-13 Q 20.601984,-10.737962 19,-7 L 16,0"
-  ).reverse().rawPath
-);
