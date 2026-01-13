@@ -67,7 +67,7 @@ export class PathShapeSplitter {
    * @returns The point at the given position along this curve.
    */
   at(position: number): Point {
-    position = Math.min(1, Math.max(0, position));
+    position = Math.min(this.length, Math.max(0, position));
     const index = this.#findCommandAt(position);
     const info = this.#allCommandInfo[index];
     const progress = (position - info.start) / info.length;
@@ -103,13 +103,10 @@ export class PathShapeSplitter {
         // Handle first command
         const info = this.#allCommandInfo[fromIndex];
         const progress = (from - info.start) / info.length;
-        if (progress < 0 || progress > 1) {
-          throw new Error("wtf");
-        }
-        if (progress == 0) {
+        if (progress <= 0) {
           // Keep the entire thing
           commands.push(info.command);
-        } else if (progress == 1) {
+        } else if (progress >= 1) {
           // Skip the entire thing.
         } else {
           // Split it.
@@ -123,14 +120,12 @@ export class PathShapeSplitter {
       {
         // Handle last command
         const info = this.#allCommandInfo[toIndex];
-        const progress = (from - info.start) / info.length;
-        if (progress < 0 || progress > 1) {
-          throw new Error("wtf");
-        }
-        if (progress == 1) {
+        const progress = (to - info.start) / info.length;
+        if (progress >= 1) {
+          // > 1 is possible because of round-off error.
           // Keep the entire thing
           commands.push(info.command);
-        } else if (progress == 0) {
+        } else if (progress <= 0) {
           // Skip the entire thing.
         } else {
           // Split it.

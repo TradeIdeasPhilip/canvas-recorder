@@ -3,6 +3,7 @@ import {
   assertNonNullable,
   count,
   FULL_CIRCLE,
+  makeBoundedLinear,
   ReadOnlyRect,
   zip,
 } from "phil-lib/misc";
@@ -32,7 +33,7 @@ import {
 import { blackBackground, BLUE } from "./utility";
 import { ease, easeAndBack, easeIn, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
-import { panAndZoom } from "./glib/transforms";
+import { panAndZoom, transform } from "./glib/transforms";
 import { createHandwriting } from "./glib/handwriting";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 
@@ -225,7 +226,7 @@ if (false) {
   );
 }
 
-{
+if (false) {
   /**
    * Assume the right 1/3 of the screen is covered by other videos.
    */
@@ -537,9 +538,16 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
-if (false) {
-  function makeShape(text: string) {
-    const layout = new ParagraphLayout(cursive);
+if (true) {
+  const margin = 0.5;
+  const fullScreen = {
+    x: margin,
+    y: margin,
+    width: 16 - margin * 2,
+    height: 9 - margin * 2,
+  };
+  function makeShape(text: string, font: Font) {
+    const layout = new ParagraphLayout(font);
     layout.addText(text);
     const layoutResult = layout.align();
     const originalShape = layoutResult.singlePathShape();
@@ -550,48 +558,60 @@ if (false) {
       height: assertNonNullable(originalBBox.y.size),
       width: assertNonNullable(originalBBox.x.size),
     };
-    const margin = 0.125;
-    const fullScreen: ReadOnlyRect = {
-      x: margin,
-      y: margin,
-      width: 16 - margin * 2,
-      height: 9 - margin * 2,
-    };
-    const transform = panAndZoom(
+    const makeItFit = panAndZoom(
       originalRect,
       fullScreen,
       "srcRect fits completely into destRect",
       0,
-      1
+      0
     );
-    const finalShape = originalShape.transform(transform);
+    const bottom = transform(0, originalBBox.y.max, makeItFit).y;
+    fullScreen.y = bottom + margin;
+    fullScreen.height = 9 - margin - fullScreen.y;
+    const finalShape = originalShape.transform(makeItFit);
     return finalShape;
   }
-  const initialShape = makeShape("Fixing Cursive Writing");
-  const fixedShape = fixCursive(initialShape.translate(0, -1.75));
-  const toStroke = [
-    ...initialShape.splitOnMove(),
-    ...fixedShape.splitOnMove(),
-  ].flatMap((shape) => {
-    return shape.splitOnMove().map((connectedShape) => {
-      return new Path2D(connectedShape.rawPath);
+  function buildOne(font: Font) {
+    const duration = 10000;
+    const initialShape = makeShape('const initialShape = "Hello";', font);
+    const splitter = new PathShapeSplitter(initialShape);
+    const layers = colors.map((color, index, array) => {
+      const startTime = (duration / array.length) * index;
+      const endTime = (duration / array.length) * (index + 1);
+      const finalPathStart = (splitter.length / 2 / array.length) * index;
+      const finalPathEnd = splitter.length - finalPathStart;
+      const pathStart = makeBoundedLinear(
+        startTime,
+        0,
+        endTime,
+        finalPathStart
+      );
+      const pathEnd = makeBoundedLinear(startTime, 0, endTime, finalPathEnd);
+      return { color, pathStart, pathEnd };
     });
-  });
-  const toShow: Showable = {
-    description: "Are the letters connected?",
-    duration: 0,
-    show(timeInMs, context) {
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.08;
-      toStroke.forEach((path, index) => {
-        const color = colors[index % colors.length];
-        context.strokeStyle = color;
-        context.stroke(path);
-      });
-    },
-  };
-  builder.addJustified(toShow);
+    const toShow: Showable = {
+      description: "Multi Color Handwriting",
+      duration,
+      show(timeInMs, context) {
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.08;
+        layers.forEach((layer) => {
+          const to = layer.pathEnd(timeInMs);
+          if (to > 0) {
+            const from = layer.pathStart(timeInMs);
+            const path = splitter.get(from, to);
+            context.strokeStyle = layer.color;
+            context.stroke(new Path2D(path.rawPath));
+          }
+        });
+      },
+    };
+    builder.addJustified(toShow);
+  }
+  buildOne(cursive);
+  buildOne(makeLineFont(1));
+  buildOne(Font.futuraL(1));
 }
 
 if (false) {
