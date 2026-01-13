@@ -21,6 +21,9 @@ import { Bezier } from "bezier-js";
  * This is a wrapper around an `SVGPathElement`.
  *
  * You cannot call `getPointAtLength()` or `getTotalLength()` on a `<path>` object without doing some extra work.
+ *
+ * @deprecated See {@link PathShape} for the bounding box and length.
+ * See {@link PathShapeSplitter} for getPoint().
  */
 export class PathCaliper {
   /**
@@ -141,6 +144,20 @@ export type Command = {
   getLength(): number;
   getBezier(): Bezier;
   /**
+   * Create a command that is a piece of the original command.
+   *
+   * Inputs should be between 0 and 1.
+   * Out of range values will lead to undefined results.
+   * @param from
+   * @param to
+   */
+  split1(from: number, to: number): Command;
+  /**
+   * Return a point along the command.
+   * @param progress 0 for the start, 1 for the end.
+   */
+  at(progress: number): Point;
+  /**
    * Create another command that will follow the same path, but backwards.
    * If you stroke or fill the path, it will look just like the original.
    * But some animations can tell the difference.
@@ -191,6 +208,20 @@ export type Command = {
 
 // MARK: LCommand
 export class LCommand implements Command {
+  split1(from: number, to: number): LCommand {
+    return new LCommand(
+      lerp(this.x0, this.x, from),
+      lerp(this.y0, this.y, from),
+      lerp(this.x0, this.x, to),
+      lerp(this.y0, this.y, to)
+    );
+  }
+  at(progress: number): Point {
+    return {
+      x: lerp(this.x0, this.x, progress),
+      y: lerp(this.y0, this.y, progress),
+    };
+  }
   getLength(): number {
     return Math.hypot(this.x0 - this.x, this.y0 - this.y);
   }
@@ -281,7 +312,24 @@ export type QCommandFromAngles = QCommand & {
   creationInfo: { source: "angles" };
 };
 
+function safeSplit(bezier: Bezier, from: number, to: number) {
+  if (to == 0) {
+    if (from != 0) {
+      throw new Error("wtf");
+    }
+    return bezier.split(0).left;
+  } else {
+    return bezier.split(from, to);
+  }
+}
+
 export class QCommand implements Command {
+  at(progress: number): Point {
+    return this.getBezier().get(progress);
+  }
+  split1(from: number, to: number): Command {
+    return fromBezier(safeSplit(this.getBezier(), from, to));
+  }
   getBezier(): Bezier {
     return new Bezier(this.x0, this.y0, this.x1, this.y1, this.x, this.y);
   }
@@ -610,6 +658,12 @@ export class QCommand implements Command {
  * It's mostly aimed at imported curves.
  */
 class CCommand implements Command {
+  at(progress: number): Point {
+    return this.getBezier().get(progress);
+  }
+  split1(from: number, to: number): Command {
+    return fromBezier(safeSplit(this.getBezier(), from, to));
+  }
   getBezier(): Bezier {
     return new Bezier(
       this.x0,
@@ -708,6 +762,37 @@ class CCommand implements Command {
   toCubic(): CCommand {
     return this;
   }
+}
+
+// MARK: fromBezier
+
+export function fromBezier(bezier: Bezier): Command {
+  switch (bezier.order) {
+    case 2: {
+      return QCommand.controlPoints(
+        bezier.points[0].x,
+        bezier.points[0].y,
+        bezier.points[1].x,
+        bezier.points[1].y,
+        bezier.points[2].x,
+        bezier.points[2].y
+      );
+    }
+    case 3: {
+      return new CCommand(
+        bezier.points[0].x,
+        bezier.points[0].y,
+        bezier.points[1].x,
+        bezier.points[1].y,
+        bezier.points[2].x,
+        bezier.points[2].y,
+        bezier.points[3].x,
+        bezier.points[3].y
+      );
+    }
+  }
+  console.error(bezier, bezier.order);
+  throw new Error("wtf");
 }
 
 // MARK: PathBuilder
@@ -1260,7 +1345,9 @@ export class PathShape {
   }
   getLength() {
     let sum = 0;
-    this.commands.forEach((command) => {sum+=command.getLength()})
+    this.commands.forEach((command) => {
+      sum += command.getLength();
+    });
     return sum;
   }
   /**

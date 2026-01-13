@@ -34,6 +34,7 @@ import { ease, easeAndBack, easeIn, interpolateColor } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 import { panAndZoom } from "./glib/transforms";
 import { createHandwriting } from "./glib/handwriting";
+import { PathShapeSplitter } from "./glib/path-shape-splitter";
 
 const cursive = Font.cursive(1.25);
 
@@ -51,7 +52,8 @@ function makeLayout(
   } else if (alignment == "right") {
     shape = shape.translate(-layoutResult.width, 0);
   }
-  return fixCorners(shape);
+  return shape;
+  //return fixCorners(shape);
 }
 
 //const before = makeLayout("5555");
@@ -169,7 +171,7 @@ function createRocker(
   interpolator: (progress: number) => PathShape,
   description: string
 ) {
-  const period = 4500;
+  const period = 5000;
   const base: Showable = {
     description,
     duration: period,
@@ -185,11 +187,11 @@ function createRocker(
           context.stroke(new Path2D(path.rawPath));
         });
       }
-      context.lineWidth = 0.12;
+      context.lineWidth = 0.18;
       drawPaths(
         completePath.commands.map((command) => new PathShape([command]))
       );
-      context.lineWidth = 0.04;
+      context.lineWidth = 0.06;
       context.filter = "brightness(75%)";
       drawPaths(completePath.splitOnMove());
       context.filter = "none";
@@ -197,7 +199,8 @@ function createRocker(
   };
   return base;
 }
-if (true) {
+
+if (false) {
   const baseTransform = new DOMMatrixReadOnly().translate(13, 0.5).scale(0.8);
   const fixedTransform = new DOMMatrixReadOnly()
     .translate(7.75, 0.5)
@@ -209,8 +212,7 @@ if (true) {
         after.transform(baseTransform)
       ),
       "morphing"
-    ),
-    Infinity
+    )
   );
   builder.add(
     createRocker(
@@ -219,9 +221,52 @@ if (true) {
         after.transform(fixedTransform)
       ),
       "morphing"
-    ),
-    Infinity
+    )
   );
+}
+
+{
+  /**
+   * Assume the right 1/3 of the screen is covered by other videos.
+   */
+  const endScreen: ReadOnlyRect = {
+    x: 1 / 3,
+    y: 2 / 3,
+    width: 10,
+    height: 9 - 4 / 3,
+  };
+  const starPath = makeLayout("☆", "center", makeLineFont(3)).translate(
+    endScreen.x + endScreen.width / 2,
+    2
+  );
+  const eachOne = new MakeShowableInSeries();
+  [
+    "Thanks\nfor\nwatching!",
+    "More\nto\ncome...",
+    "Like\nshare\n&\nsubscribe.",
+    "* * * * *",
+  ].forEach((word) => {
+    const originalPath = fixCursive(makeLayout(word));
+    const originalBBox = originalPath.getBBox();
+    const originalRect: ReadOnlyRect = {
+      x: originalBBox.x.min,
+      y: originalBBox.y.min,
+      height: assertNonNullable(originalBBox.y.size),
+      width: assertNonNullable(originalBBox.x.size),
+    };
+    const transform = panAndZoom(
+      originalRect,
+      endScreen,
+      "srcRect fits completely into destRect",
+      0.5,
+      0.5
+    );
+    const finalPath = originalPath.transform(transform);
+    const interpolator = matchShapes(starPath, finalPath);
+    const rocker = createRocker(interpolator, `“${word}”`);
+    eachOne.add(rocker);
+  });
+  builder.add(eachOne.build("flashing ☆ list"));
 }
 
 if (false) {
@@ -237,7 +282,7 @@ if (false) {
 {
   const square = "M 4.5,8 h -3.5 v -7 h 7 v 7 z";
   const finalPath = PathShape.fromRawString(square);
-  console.log(finalPath.rawPath);
+  //console.log(finalPath.rawPath);
   const initialPath = makeLayout("Square", "left").translate(1, 1);
   const interpolator = matchShapes(initialPath, finalPath);
   const showable: Showable = {
@@ -263,7 +308,7 @@ if (false) {
   const lineFont = makeLineFont(1.25);
   const height = (9 - 3 * 0.5) / 2;
   const width = (height * 2) / Math.sqrt(3);
-  console.log({ height, width });
+  //console.log({ height, width });
   const triangle = PathBuilder.M(0, height)
     .L(-width / 2, height)
     .L(0, 0)
@@ -492,7 +537,7 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
-{
+if (false) {
   function makeShape(text: string) {
     const layout = new ParagraphLayout(cursive);
     layout.addText(text);
@@ -594,7 +639,7 @@ if (false) {
   createAnimation(basePath, "base to straight line", "pink");
 }
 
-{
+if (false) {
   function makeAnimation(completePath: PathShape, color: string) {
     const handwriting = createHandwriting(completePath);
     const toShow: Showable = {
@@ -652,7 +697,7 @@ if (false) {
   }
 }
 
-export const morphTest = reschedule(builder.build("Morph Test"), 3 * 60 * 1000);
+export const morphTest = builder.build("Morph Test");
 
 /**
  * Need to convert to parametric functions.
@@ -669,3 +714,5 @@ export const morphTest = reschedule(builder.build("Morph Test"), 3 * 60 * 1000);
  * In either case, can we do a smooth transition between the end points and the parametric parts?
  * Maybe we never show the original end points, only the parametric parts?
  */
+
+console.log(PathShapeSplitter);
