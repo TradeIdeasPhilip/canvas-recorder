@@ -85,6 +85,9 @@ export class MakeShowableInParallel {
     this.#duration = Math.max(this.#duration, minDuration);
     this.#children.push({ start: 0, child: showable });
   }
+  reserve(minDuration: number) {
+    this.#duration = Math.max(this.#duration, minDuration);
+  }
   /**
    * This will add an item and it will extend the last frame to the end of the composite Showable object.
    * @param showable To be added.

@@ -271,6 +271,60 @@ if (false) {
   builder.add(eachOne.build("flashing ☆ list"));
 }
 
+{
+  const lineFont = makeLineFont(1);
+  const availableSpace: ReadOnlyRect = {
+    x: 1 / 2,
+    y: 5.75,
+    width: 15,
+    height: 2.75,
+  };
+  const starPath = makeLayout("☆", "center", makeLineFont(3)).makeItFit(
+    availableSpace,
+    "srcRect fits completely into destRect",
+    0.5,
+    0.5
+  );
+  const eachOne = new MakeShowableInSeries();
+  [
+    { word: "Morph this.", font: lineFont },
+    { word: "Morph this.", font: cursive },
+    { word: "ZZZ ZZZ ZZZ", font: lineFont },
+    { word: "ZZZ ZZZ ZZZ", font: cursive },
+    { word: "* * * * *", font: cursive },
+  ].forEach(({ word, font }) => {
+    const originalPath = makeLayout(word, "left", font);
+    const finalPath = originalPath.makeItFit(
+      availableSpace,
+      "srcRect fits completely into destRect",
+      0.5,
+      0.5
+    );
+    const interpolator = matchShapes(starPath, finalPath);
+    const period = 5000;
+    const rocker: Showable = {
+      description: `“${word}”`,
+      duration: period,
+      show(timeInMs, context) {
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.12;
+        const progress = easeAndBack(timeInMs / period);
+        const completePath = interpolator(progress);
+        completePath.splitOnMove().forEach((connectedPath) => {
+          strokeColors({ pathShape: connectedPath, context });
+        });
+
+        context.lineWidth = 0.03;
+        context.strokeStyle = "#404040";
+        context.stroke(new Path2D(completePath.rawPath));
+      },
+    };
+    eachOne.add(rocker);
+  });
+  builder.add(eachOne.build("flashing ☆ list"));
+}
+
 if (false) {
   const eachOne = new MakeShowableInSeries();
   for (let length = 1; length <= 15; length++) {
@@ -539,8 +593,6 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
-let firstCall = true; //TODO delete me
-
 function strokeColors(options: {
   pathShape: PathShape;
   context: CanvasRenderingContext2D;
@@ -557,58 +609,147 @@ function strokeColors(options: {
       options.colors.length * options.sectionLength
     );
   }
-  if (firstCall) {
-    console.log(options);
-  }
   const splitter = new PathShapeSplitter(options.pathShape);
   let colorIndex = 0;
-  let startPosition = 0;
+  let startPosition = -options.offset;
   while (startPosition < splitter.length) {
     const endPosition = startPosition + options.sectionLength;
     const section = splitter.get(startPosition, endPosition);
-    if (firstCall) {
-      console.log(section.getLength(), startPosition, endPosition);
-    }
     const color = options.colors[colorIndex % options.colors.length];
     options.context.strokeStyle = color;
     options.context.stroke(new Path2D(section.rawPath));
     startPosition = endPosition;
     colorIndex++;
   }
-  firstCall = false;
 }
 
 if (true) {
+  function slidingColors(
+    pathShape: PathShape,
+    colors: readonly string[],
+    speed = 0.001242 / 2.5
+  ) {
+    const fullPath = new Path2D(pathShape.rawPath);
+    const sectionLength = 0.23;
+    const duration = (sectionLength * colors.length) / speed;
+    const toShow: Showable = {
+      description: "Hot",
+      duration,
+      show(timeInMs, context) {
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.12;
+        strokeColors({
+          pathShape,
+          context,
+          colors,
+          sectionLength,
+          offset: timeInMs * speed,
+        });
+        context.lineWidth = 0.04;
+        context.strokeStyle = "#404040";
+        context.stroke(fullPath);
+      },
+    };
+    builder.add(makeRepeater(toShow, 1));
+  }
   const font = makeLineFont(1);
-  const pathShape = ParagraphLayout.singlePathShape({
-    font,
-    text: "Hot",
-  }).translate(1, 0.5);
-  const duration = 10000;
-  const getSectionLength = makeLinear(0, Math.log(0.1), duration, Math.log(1));
-  const toShow: Showable = {
-    description: "Hot",
-    duration,
-    show(timeInMs, context) {
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.08;
-      strokeColors({
-        pathShape,
-        context,
-        colors: ["rgb(255, 0, 0)", "rgb(255, 128, 0)", "rgb(255, 255, 0)"],
-        sectionLength: /*0.23*/ Math.exp(getSectionLength(timeInMs)),
-      });
-    },
-  };
-  builder.add(toShow);
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Hot",
+    }).translate(1, 0.5),
+    ["rgb(255, 0, 0)", "rgb(255, 128, 0)", "rgb(255, 255, 0)"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Cool",
+    }).translate(4, 0.5),
+    ["rgb(0, 255, 255)", "rgb(0, 128, 255)", "rgb(0, 0, 255)"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Purple",
+    }).translate(7, 0.5),
+    ["rgb(128, 0, 255)", "rgb(255, 0, 255)"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "cga 0",
+    }).translate(12, 0.5),
+    ["lime", "red", "yellow"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "cga 1",
+    }).translate(0.5, 2),
+    ["cyan", "magenta", "white"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Rainbow",
+    }).translate(4.25, 2),
+    colors
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Grayscale",
+    }).translate(9.75, 2),
+    [
+      "#b0b0b0",
+      "#808080",
+      "#404040",
+      "#808080",
+      "#b0b0b0",
+      "#d0d0d0",
+      "#ffffff",
+      "#d0d0d0",
+      "#b0b0b0",
+    ]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Fast",
+    }).translate(1, 3.75),
+    colors,
+    0.001242
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Slow",
+    }).translate(4.5, 3.75),
+    colors,
+    0.001242 / 10
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Dashes",
+    }).translate(7.75, 3.75),
+    ["white", "transparent"]
+  );
+  slidingColors(
+    ParagraphLayout.singlePathShape({
+      font,
+      text: "Green",
+    }).translate(12, 3.75),
+    ["green", "limegreen", "lime"]
+  );
 }
 
-if (true) {
+if (false) {
   const margin = 0.5;
   const availableSpace = {
     x: margin,
-    y: margin + 3,
+    y: margin + 5,
     width: 16 - margin * 2,
     height: 9 - margin * 2,
   };
@@ -633,14 +774,14 @@ if (true) {
     );
     const bottom = transform(0, originalBBox.y.max, makeItFit).y;
     availableSpace.y = bottom + margin;
-    availableSpace.height = 9 - margin - availableSpace.y;
+    availableSpace.height = 9 - margin / 2 - availableSpace.y;
     const finalShape = originalShape.transform(makeItFit);
     return finalShape;
   }
   function buildOne(font: Font) {
     const duration = 10000;
     const initialShape = makeShape(
-      "Like, share, comment, subscribe, the thing with the bell...",
+      "I'’m just putting in my ten thousand (10,000) hours.",
       font
     );
     const splitter = new PathShapeSplitter(initialShape);
@@ -786,6 +927,7 @@ if (false) {
   }
 }
 
+//builder.reserve(Infinity);
 export const morphTest = builder.build("Morph Test");
 
 /**
@@ -803,5 +945,3 @@ export const morphTest = builder.build("Morph Test");
  * In either case, can we do a smooth transition between the end points and the parametric parts?
  * Maybe we never show the original end points, only the parametric parts?
  */
-
-console.log(PathShapeSplitter);

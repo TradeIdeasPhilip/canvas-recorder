@@ -11,9 +11,10 @@ import {
   polarToRectangular,
   positiveModulo,
   radiansPerDegree,
+  ReadOnlyRect,
   RealSvgRect,
 } from "phil-lib/misc";
-import { transform } from "./transforms";
+import { panAndZoom, transform } from "./transforms";
 
 import { Bezier } from "bezier-js";
 
@@ -1867,6 +1868,51 @@ export class PathShape {
     return new PathShape(
       this.commands.map((command) => command.transform(matrix))
     );
+  }
+  /**
+   * A wrapper around `panAndZoom()`.
+   * @param destRect Where you are trying to fit into.
+   * @param aspect `srcRect` refers to `this.getBBox()`
+   * @param howFarRight If there is extra space in the horizontal direction, how should it
+   * be distributed?
+   * * 0 means the content is all the way to the left.
+   * * 0.5, the default, means the content is centered.
+   * * 1 means that the content is all the way to the right.
+   * * etc.
+   * @param howFarDown If there is extra space in the vertical direction, how should it
+   * be distributed?
+   * * 0 means the content is at the very top.
+   * * 0.5, the default, means the content is centered.
+   * * 1 means that the content is all the way to the bottom.
+   * * etc.
+   * @returns A new path meeting the given requirements.
+   */
+  makeItFit(
+    destRect: ReadOnlyRect,
+    aspect:
+      | "meet"
+      | "slice"
+      | "srcRect fits completely into destRect"
+      | "srcRect completely covers destRect",
+    howFarRight = 0.5,
+    howFarDown = 0.5
+  ) {
+    const bBox = this.getBBox();
+    const srcRect: ReadOnlyRect = {
+      x: bBox.x.min,
+      y: bBox.y.min,
+      height: bBox.y.size!,
+      width: bBox.x.size!,
+    };
+    const transform = panAndZoom(
+      srcRect,
+      destRect,
+      aspect,
+      howFarRight,
+      howFarDown
+    );
+    const result = this.transform(transform);
+    return result;
   }
 
   /**

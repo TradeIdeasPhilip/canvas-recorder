@@ -99,11 +99,13 @@ addEventListener("keypress", (event) => {
       } else {
         pauseButton.checked = true;
       }
+      event.preventDefault();
       break;
     }
     case "0": {
       playPositionRangeInput.valueAsNumber = sectionStartTime;
       playOffset = NaN;
+      event.preventDefault();
       break;
     }
   }
