@@ -4,6 +4,8 @@ import {
   count,
   FULL_CIRCLE,
   makeBoundedLinear,
+  makeLinear,
+  positiveModulo,
   ReadOnlyRect,
   zip,
 } from "phil-lib/misc";
@@ -13,7 +15,6 @@ import {
   makeRepeater,
   MakeShowableInParallel,
   MakeShowableInSeries,
-  reschedule,
   Showable,
 } from "./showable";
 import {
@@ -538,11 +539,76 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
+let firstCall = true; //TODO delete me
+
+function strokeColors(options: {
+  pathShape: PathShape;
+  context: CanvasRenderingContext2D;
+  colors?: ReadonlyArray<string>;
+  offset?: number;
+  sectionLength?: number;
+}) {
+  options.colors ??= colors;
+  options.offset ??= 0;
+  options.sectionLength ??= 0.1;
+  if (options.offset < 0) {
+    options.offset = positiveModulo(
+      options.offset,
+      options.colors.length * options.sectionLength
+    );
+  }
+  if (firstCall) {
+    console.log(options);
+  }
+  const splitter = new PathShapeSplitter(options.pathShape);
+  let colorIndex = 0;
+  let startPosition = 0;
+  while (startPosition < splitter.length) {
+    const endPosition = startPosition + options.sectionLength;
+    const section = splitter.get(startPosition, endPosition);
+    if (firstCall) {
+      console.log(section.getLength(), startPosition, endPosition);
+    }
+    const color = options.colors[colorIndex % options.colors.length];
+    options.context.strokeStyle = color;
+    options.context.stroke(new Path2D(section.rawPath));
+    startPosition = endPosition;
+    colorIndex++;
+  }
+  firstCall = false;
+}
+
+if (true) {
+  const font = makeLineFont(1);
+  const pathShape = ParagraphLayout.singlePathShape({
+    font,
+    text: "Hot",
+  }).translate(1, 0.5);
+  const duration = 10000;
+  const getSectionLength = makeLinear(0, Math.log(0.1), duration, Math.log(1));
+  const toShow: Showable = {
+    description: "Hot",
+    duration,
+    show(timeInMs, context) {
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.08;
+      strokeColors({
+        pathShape,
+        context,
+        colors: ["rgb(255, 0, 0)", "rgb(255, 128, 0)", "rgb(255, 255, 0)"],
+        sectionLength: /*0.23*/ Math.exp(getSectionLength(timeInMs)),
+      });
+    },
+  };
+  builder.add(toShow);
+}
+
 if (true) {
   const margin = 0.5;
-  const fullScreen = {
+  const availableSpace = {
     x: margin,
-    y: margin,
+    y: margin + 3,
     width: 16 - margin * 2,
     height: 9 - margin * 2,
   };
@@ -560,20 +626,23 @@ if (true) {
     };
     const makeItFit = panAndZoom(
       originalRect,
-      fullScreen,
+      availableSpace,
       "srcRect fits completely into destRect",
       0,
       0
     );
     const bottom = transform(0, originalBBox.y.max, makeItFit).y;
-    fullScreen.y = bottom + margin;
-    fullScreen.height = 9 - margin - fullScreen.y;
+    availableSpace.y = bottom + margin;
+    availableSpace.height = 9 - margin - availableSpace.y;
     const finalShape = originalShape.transform(makeItFit);
     return finalShape;
   }
   function buildOne(font: Font) {
     const duration = 10000;
-    const initialShape = makeShape('const initialShape = "Hello";', font);
+    const initialShape = makeShape(
+      "Like, share, comment, subscribe, the thing with the bell...",
+      font
+    );
     const splitter = new PathShapeSplitter(initialShape);
     const layers = colors.map((color, index, array) => {
       const startTime = (duration / array.length) * index;
@@ -595,7 +664,7 @@ if (true) {
       show(timeInMs, context) {
         context.lineCap = "round";
         context.lineJoin = "round";
-        context.lineWidth = 0.08;
+        context.lineWidth = 0.05;
         layers.forEach((layer) => {
           const to = layer.pathEnd(timeInMs);
           if (to > 0) {

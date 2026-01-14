@@ -321,4 +321,26 @@ export class ParagraphLayout {
       singlePathShape,
     };
   }
+  static singlePathShape(options: {
+    font: Font;
+    text: string | ReadonlyArray<string>;
+    width?: number;
+    alignment?: "left" | "center" | "right" | "justify";
+    additionalLineHeight?: number;
+  }) {
+    const layout = new this(options.font);
+    if (typeof options.text === "string") {
+      layout.addText(options.text);
+    } else {
+      options.text.forEach((value) => {
+        layout.addText(value);
+      });
+    }
+    const laidOut = layout.align(
+      options.width ?? Infinity,
+      options.alignment ?? "left",
+      options.additionalLineHeight ?? 0
+    );
+    return laidOut.singlePathShape();
+  }
 }

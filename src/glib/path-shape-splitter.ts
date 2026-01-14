@@ -95,7 +95,10 @@ export class PathShapeSplitter {
     const toIndex = this.#findCommandAt(to);
     if (fromIndex == toIndex) {
       const info = this.#allCommandInfo[fromIndex];
-      const command = info.command.split1(from / this.length, to / this.length);
+      const command = info.command.split1(
+        (from - info.start) / info.length,
+        (to - info.start) / info.length
+      );
       return new PathShape([command]);
     } else {
       const commands = new Array<Command>();
