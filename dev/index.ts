@@ -21,7 +21,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 
 const toShow = morphTest;
 
-function showFrame(timeInMS: number, size: "live" | "4k" | "hd") {
+function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
   if (size == "live") {
     const clientRect = canvas.getClientRects()[0];
     canvas.width = Math.round(clientRect.width * devicePixelRatio);
@@ -35,7 +35,7 @@ function showFrame(timeInMS: number, size: "live" | "4k" | "hd") {
   }
   context.reset();
   context.scale(canvas.width / 16, canvas.height / 9);
-  toShow.show(timeInMS, context);
+  toShow.show({ timeInMs, context, globalTime: timeInMs });
 }
 (window as any).showFrame = showFrame;
 

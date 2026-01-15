@@ -150,7 +150,7 @@ function byLine(from: string, to: string) {
   const main: Showable = {
     description: "byLine()",
     duration: 4500,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       // const progress = easeIn(timeInMs / this.duration);
       const progress =
         -Math.cos((timeInMs / this.duration) * FULL_CIRCLE) / 2 + 0.5;
@@ -183,7 +183,7 @@ function createRocker(
   const base: Showable = {
     description,
     duration: period,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       context.lineCap = "round";
       context.lineJoin = "round";
       const progress = easeAndBack(timeInMs / period);
@@ -327,7 +327,7 @@ if (false) {
     const rocker: Showable = {
       description: `“${word}”`,
       duration: period,
-      show(timeInMs, context) {
+      show({ timeInMs, context, globalTime }) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.12;
@@ -337,7 +337,7 @@ if (false) {
           pathShape: completePath,
           context,
           repeatCount: 10,
-          offset: timeInMs / 5000,
+          offset: globalTime / 5000,
         });
         /*
         completePath.splitOnMove().forEach((connectedPath) => {
@@ -373,7 +373,7 @@ if (false) {
   const showable: Showable = {
     duration: 5000,
     description: "square",
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       const progress = easeAndBack(timeInMs / this.duration);
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -418,7 +418,7 @@ if (false) {
     const showable: Showable = {
       duration: 6500,
       description: "square",
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         const progress = easeAndBack(timeInMs / this.duration);
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -486,7 +486,7 @@ if (false) {
     const thisStep: Showable = {
       duration: 2000,
       description: "square",
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         const progress = timeInMs / this.duration;
         const originalTransform = context.getTransform();
         context.translate(8, 3);
@@ -546,7 +546,7 @@ if (false) {
     const thisStep: Showable = {
       duration: 1200,
       description: `Sliding interpolator #${i}`,
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         const progress = ease(timeInMs / this.duration);
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -674,7 +674,7 @@ if (true) {
     const toShow: Showable = {
       description: "Hot",
       duration,
-      show(timeInMs, context) {
+      show({ globalTime, context }) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.12;
@@ -683,7 +683,7 @@ if (true) {
           context,
           colors,
           sectionLength,
-          offset: timeInMs * speed,
+          offset: globalTime * speed,
         });
         context.lineWidth = 0.04;
         context.strokeStyle = "#404040";
@@ -841,7 +841,7 @@ if (false) {
     const toShow: Showable = {
       description: "Multi Color Handwriting",
       duration,
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
@@ -881,7 +881,7 @@ if (false) {
     const toShow: Showable = {
       description,
       duration: 3000,
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         const progress = easeAndBack(timeInMs / this.duration);
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -914,7 +914,7 @@ if (false) {
     const toShow: Showable = {
       description: "Is W Connected?",
       duration: 10000,
-      show(timeInMs, context) {
+      show({ timeInMs, context }) {
         const progress = timeInMs / this.duration;
         context.lineCap = "round";
         context.lineJoin = "round";

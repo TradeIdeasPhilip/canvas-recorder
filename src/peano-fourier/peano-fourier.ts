@@ -6,7 +6,7 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./fourier-shared";
-import { MakeShowableInParallel, Showable } from "../showable";
+import { MakeShowableInParallel, Showable, ShowOptions } from "../showable";
 import { blackBackground, BLUE } from "../utility";
 import { easeOut, timedKeyframes } from "../interpolate";
 import { FULL_CIRCLE, lerp } from "phil-lib/misc";
@@ -40,8 +40,8 @@ function createExample(
     const terms = samplesToFourier(samples);
     const animationRules = getAnimationRules(terms, keyframes);
     const { getInfo, duration } = createFourierAnimation(animationRules);
-    function show(timeInMS: number, context: CanvasRenderingContext2D) {
-      const { pathShape } = getInfo(timeInMS);
+    function show({ context, timeInMs }: ShowOptions) {
+      const { pathShape } = getInfo(timeInMs);
       const path = new Path2D(pathShape.rawPath);
       const originalTransform = context.getTransform();
       //context.transform(positionOfLivePath.a, positionOfLivePath.b, positionOfLivePath.c, positionOfLivePath.d, positionOfLivePath.e, positionOfLivePath.f)
@@ -50,7 +50,7 @@ function createExample(
       context.lineCap = "round";
       context.strokeStyle = color;
       context.lineWidth = lineWidth;
-      livePathChanges?.(timeInMS, context);
+      livePathChanges?.(timeInMs, context);
       context.stroke(path);
       context.setTransform(originalTransform);
     }
@@ -68,7 +68,7 @@ function createExample(
   const referenceShowable: Showable = {
     description: `reference path #${iteration}`,
     duration: 0,
-    show(timeInMs, context) {
+    show({ context }) {
       context.strokeStyle = color;
       context.lineWidth = lineWidth * 0.75;
       context.lineCap = "square";

@@ -34,6 +34,12 @@ export type Selectable = {
   }[];
 };
 
+export type ShowOptions = {
+  readonly timeInMs: number;
+  readonly context: CanvasRenderingContext2D;
+  readonly globalTime: number;
+};
+
 /**
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
@@ -50,7 +56,7 @@ export type Showable = Selectable & {
    * This will typically be between 0 and `duration`, inclusive.
    * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
    */
-  show(timeInMs: number, context: CanvasRenderingContext2D): void;
+  show(options: ShowOptions): void;
 };
 
 /**
@@ -106,9 +112,9 @@ export class MakeShowableInParallel {
     const duration = this.#duration;
     const all = this.#all;
     const end = all.length;
-    const show = (timeInMS: number, context: CanvasRenderingContext2D) => {
+    const show = (options: ShowOptions) => {
       for (let i = 0; i < end; i++) {
-        all[i].show(timeInMS, context);
+        all[i].show(options);
       }
     };
     return {
@@ -176,12 +182,12 @@ export class MakeShowableInSeries {
      */
     const reversedScript = this.#script.toReversed();
     const duration = this.duration;
-    const show = (timeInMs: number, context: CanvasRenderingContext2D) => {
+    const show = (options: ShowOptions) => {
       for (const { start, child } of reversedScript) {
-        const localTime = timeInMs - start;
+        const localTime = options.timeInMs - start;
         if (localTime >= 0 && localTime <= child.duration) {
           // This item can be shown now.
-          child.show(localTime, context);
+          child.show({ ...options, timeInMs: localTime });
           break;
         }
       }
@@ -225,10 +231,10 @@ export class MakeShowableInSeries {
 export function makeRepeater(showable: Showable, count = Infinity): Showable {
   const period = showable.duration;
   const repeaterDuration = count * period;
-  function show(timeInMS: number, context: CanvasRenderingContext2D) {
-    const iteration = Math.floor(timeInMS / period);
-    const timeWithinPeriod = positiveModulo(timeInMS, period);
-    showable.show(timeWithinPeriod, context);
+  function show(options: ShowOptions) {
+    const iteration = Math.floor(options.timeInMs / period);
+    const timeWithinPeriod = positiveModulo(options.timeInMs, period);
+    showable.show({ ...options, timeInMs: timeWithinPeriod });
   }
   return {
     description: `${showable.description} » repeater`,
@@ -266,8 +272,8 @@ export function addMargins(
     builder.add({
       description: `${base.description} » frozen before`,
       duration: extra.frozenBefore,
-      show(timeInMS: number, context: CanvasRenderingContext2D) {
-        base.show(0, context);
+      show(options: ShowOptions) {
+        base.show({ ...options, timeInMs: 0 });
       },
     });
   }
@@ -276,8 +282,8 @@ export function addMargins(
     builder.add({
       description: `${base.description} » frozen after`,
       duration: extra.frozenAfter,
-      show(timeInMS: number, context: CanvasRenderingContext2D) {
-        base.show(base.duration, context);
+      show(options: ShowOptions) {
+        base.show({ ...options, timeInMs: base.duration });
       },
     });
   }
@@ -310,8 +316,8 @@ export function reschedule(
   return {
     description: `${base.description} » rescheduled`,
     duration,
-    show(timeInMs, context) {
-      base.show(timeInMs + offset, context);
+    show(options: ShowOptions) {
+      base.show({ ...options, timeInMs: options.timeInMs + offset });
     },
     children: [{ start: -offset, child: base }],
   };

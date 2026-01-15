@@ -1,4 +1,4 @@
-import { MakeShowableInParallel, Showable } from "../showable";
+import { MakeShowableInParallel, Showable, ShowOptions } from "../showable";
 import { PathShape } from "../glib/path-shape";
 import { Font } from "../glib/letters-base";
 import { ParagraphLayout } from "../glib/paragraph-layout";
@@ -30,7 +30,7 @@ function makeHandwriting(
   return {
     description: `${text} » handwriting`,
     duration,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       context.strokeStyle = color;
       context.lineWidth = 0.045;
       context.lineCap = "round";
@@ -67,8 +67,8 @@ function addAnimation(
   const { getInfo, duration } = createFourierAnimation(
     getAnimationRules(terms, keyframes)
   );
-  function show(timeInMS: number, context: CanvasRenderingContext2D) {
-    const { pathShape } = getInfo(timeInMS);
+  function show({ timeInMs, context }: ShowOptions) {
+    const { pathShape } = getInfo(timeInMs);
     const path = new Path2D(pathShape.rawPath);
     const originalTransform = context.getTransform();
     context.translate(x, y);

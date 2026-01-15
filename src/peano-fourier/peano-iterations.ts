@@ -37,7 +37,7 @@ function makeHandwritingForText(
   return {
     description: `${text} » handwriting`,
     duration,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       context.strokeStyle = color;
       context.lineWidth = 0.045;
       context.lineCap = "round";
@@ -65,7 +65,7 @@ function makeHandwritingForPeano(
   return {
     description: `Animate Peano curve #${iteration} as handwriting`,
     duration,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       context.strokeStyle = color;
       context.lineWidth = lineWidth * 7;
       context.lineCap = "square";
@@ -199,7 +199,7 @@ function createExpander(
   const animation: Showable = {
     description: `Expander ${from.iteration} - ${to.iteration}`,
     duration: baseDuration,
-    show(timeInMs, context) {
+    show({ timeInMs, context }) {
       const progress = easeOut(timeInMs / baseDuration);
       const strokeWidth = lerp(from.strokeWidth, to.strokeWidth, progress);
       const color = interpolateColors(progress, colors);

@@ -13,7 +13,7 @@ export const BLUE = "#007fff";
 export const blackBackground: Showable = {
   description: "background",
   duration: 0,
-  show(timeInMs, context) {
+  show({ context }) {
     context.fillStyle = "black";
     context.fillRect(0, 0, 16, 9);
   },
