@@ -32,7 +32,13 @@ import {
   matchShapes,
 } from "./morph-animation";
 import { blackBackground, BLUE } from "./utility";
-import { ease, easeAndBack, easeIn, interpolateColor } from "./interpolate";
+import {
+  ease,
+  easeAndBack,
+  interpolateColor,
+  interpolateNumbers,
+  Keyframes,
+} from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 import { panAndZoom, transform } from "./glib/transforms";
 import { createHandwriting } from "./glib/handwriting";
@@ -273,25 +279,42 @@ if (false) {
 
 {
   const lineFont = makeLineFont(1);
+  console.log("cursive", cursive.getAllLetters());
+  console.log("lineFont", lineFont.getAllLetters());
   const availableSpace: ReadOnlyRect = {
     x: 1 / 2,
     y: 5.75,
     width: 15,
     height: 2.75,
   };
-  const starPath = makeLayout("☆", "center", makeLineFont(3)).makeItFit(
+  const starPath = makeLayout("⭒", "center", makeLineFont(3)).makeItFit(
     availableSpace,
     "srcRect fits completely into destRect",
     0.5,
     0.5
   );
+  const period = 5000;
+  const easingKeyframes: Keyframes<number> = [
+    { time: 0, value: 0 },
+    { time: period * 0.125, value: 0, easeAfter: ease },
+    { time: period * 0.5, value: 1 },
+    { time: period * 0.625, value: 1, easeAfter: ease },
+    { time: period, value: 0 },
+  ];
+  (window as any).xx = {
+    period,
+    easingKeyframes,
+    go(timeInMs: number) {
+      return interpolateNumbers(timeInMs % period, easingKeyframes);
+    },
+  };
+
   const eachOne = new MakeShowableInSeries();
   [
-    { word: "Morph this.", font: lineFont },
-    { word: "Morph this.", font: cursive },
-    { word: "ZZZ ZZZ ZZZ", font: lineFont },
-    { word: "ZZZ ZZZ ZZZ", font: cursive },
-    { word: "* * * * *", font: cursive },
+    { word: "ZZZzZZZzZZZ", font: cursive },
+    { word: "The number of colored segments is now constant.", font: lineFont },
+    { word: "This requires smaller adjustments over time.", font: cursive },
+    { word: "← ↑ → ↓ ↔ ↕", font: lineFont },
   ].forEach(({ word, font }) => {
     const originalPath = makeLayout(word, "left", font);
     const finalPath = originalPath.makeItFit(
@@ -301,7 +324,6 @@ if (false) {
       0.5
     );
     const interpolator = matchShapes(starPath, finalPath);
-    const period = 5000;
     const rocker: Showable = {
       description: `“${word}”`,
       duration: period,
@@ -309,12 +331,19 @@ if (false) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.12;
-        const progress = easeAndBack(timeInMs / period);
+        const progress = interpolateNumbers(timeInMs % period, easingKeyframes);
         const completePath = interpolator(progress);
+        strokeColors({
+          pathShape: completePath,
+          context,
+          repeatCount: 10,
+          offset: timeInMs / 5000,
+        });
+        /*
         completePath.splitOnMove().forEach((connectedPath) => {
           strokeColors({ pathShape: connectedPath, context });
         });
-
+        */
         context.lineWidth = 0.03;
         context.strokeStyle = "#404040";
         context.stroke(new Path2D(completePath.rawPath));
@@ -599,17 +628,27 @@ function strokeColors(options: {
   colors?: ReadonlyArray<string>;
   offset?: number;
   sectionLength?: number;
+  repeatCount?: number;
 }) {
+  const splitter = new PathShapeSplitter(options.pathShape);
   options.colors ??= colors;
   options.offset ??= 0;
-  options.sectionLength ??= 0.1;
+  if (
+    options.sectionLength !== undefined &&
+    options.repeatCount !== undefined
+  ) {
+    throw new Error("wtf");
+  }
+  if (options.sectionLength === undefined) {
+    options.sectionLength =
+      splitter.length / (options.repeatCount ?? 1) / options.colors.length;
+  }
   if (options.offset < 0) {
     options.offset = positiveModulo(
       options.offset,
       options.colors.length * options.sectionLength
     );
   }
-  const splitter = new PathShapeSplitter(options.pathShape);
   let colorIndex = 0;
   let startPosition = -options.offset;
   while (startPosition < splitter.length) {

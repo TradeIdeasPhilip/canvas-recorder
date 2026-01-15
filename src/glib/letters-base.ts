@@ -117,6 +117,13 @@ export class Font {
     }
     return result;
   }
+  /**
+   *
+   * @returns A string containing all letters defined by this font.
+   */
+  getAllLetters(): string {
+    return this.#letters.keys().toArray().join("");
+  }
   #letters: Map<string, DescriptionOfLetter>;
   getChar(char: string): DescriptionOfLetter | undefined {
     return this.#letters.get(char);

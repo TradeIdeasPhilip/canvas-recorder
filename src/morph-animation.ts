@@ -132,13 +132,10 @@ export function fixCorners(path: PathShape) {
   return new PathShape(result);
 }
 /**
- * Given two PathShape objects, return two more.
- * The new ones cover the exact same path.
- * However, they are split into commands that match up.
- * So you can interpolate from one path to the other.
  * @param a
  * @param b
- * @returns
+ * @returns A new function that will interpolate between a (when its input is 0)
+ * and b (when its input is 1).
  */
 export function matchShapes(a: PathShape, b: PathShape) {
   const aConnectedPieces = a.splitOnMove();

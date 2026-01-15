@@ -48,36 +48,66 @@ function equalWeights<T>(
   };
 }
 
+export type Keyframe<T> = {
+  time: number;
+  value: T;
+  easeAfter?: (progress: number) => number;
+};
+
+export type Keyframes<T> = readonly Keyframe<T>[];
+
+/**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param keyframes Inputs should come in order.
+ * @returns
+ */
+export function timedKeyframes<T>(
+  time: number,
+  keyframes: Keyframes<T>
+):
+  | { single: true; value: T }
+  | { single: false; progress: number; from: T; to: T } {
+  if (time <= keyframes[0].time) {
+    return { single: true, value: keyframes[0].value };
+  }
+  if (time >= keyframes.at(-1)!.time) {
+    return { single: true, value: keyframes.at(-1)!.value };
+  }
+  // TODO change this to a binary search
+  for (let i = 1; i < keyframes.length; i++) {
+    const to = keyframes[i];
+    if (time == to.time) {
+      return { single: true, value: to.value };
+    }
+    const from = keyframes[i - 1];
+    if (time >= from.time && time <= to.time) {
+      let progress = (time - from.time) / (to.time - from.time);
+      if (from.easeAfter) {
+        progress = from.easeAfter(progress);
+      }
+      return { single: false, progress, from: from.value, to: to.value };
+    }
+  }
+  throw new Error("wtf");
+}
+
 /**
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
  * @param array Inputs should come in order.
  * @returns
  */
-export function timedKeyframes<T>(
+export function interpolateNumbers(
   time: number,
-  array: readonly { time: number; value: T }[]
-):
-  | { single: true; value: T }
-  | { single: false; progress: number; from: T; to: T } {
-  if (time <= array[0].time) {
-    return { single: true, value: array[0].value };
+  keyframes: Keyframes<number>
+): number {
+  const relevant = timedKeyframes(time, keyframes);
+  if (relevant.single) {
+    return relevant.value;
+  } else {
+    return lerp(relevant.from, relevant.to, relevant.progress);
   }
-  if (time >= array.at(-1)!.time) {
-    return { single: true, value: array.at(-1)!.value };
-  }
-  for (let i = 1; i < array.length; i++) {
-    const to = array[i];
-    if (time == to.time) {
-      return { single: true, value: to.value };
-    }
-    const from = array[i - 1];
-    if (time >= from.time && time <= to.time) {
-      const progress = (time - from.time) / (to.time - from.time);
-      return { single: false, progress, from: from.value, to: to.value };
-    }
-  }
-  throw new Error("wtf");
 }
 
 /**
@@ -100,6 +130,8 @@ export function interpolateColors(progress: number, colors: readonly string[]) {
 
 /**
  * Interpolate between two paths.  The two paths must have identical command types in the identical order.  Only the arguments to the commands can change.
+ *
+ * See matchShapes() in morph-animations.ts for a newer version of this function.
  * @param from The path to return at progress <= 0.
  * @param to The path to return at progress >= 1.
  * @returns A function that will take progress as an input and returns a path as an output.
