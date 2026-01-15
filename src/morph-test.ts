@@ -337,7 +337,7 @@ if (false) {
           pathShape: completePath,
           context,
           repeatCount: 10,
-          offset: globalTime / 5000,
+          relativeOffset: globalTime / 4000,
         });
         /*
         completePath.splitOnMove().forEach((connectedPath) => {
@@ -627,12 +627,12 @@ function strokeColors(options: {
   context: CanvasRenderingContext2D;
   colors?: ReadonlyArray<string>;
   offset?: number;
+  relativeOffset?: number;
   sectionLength?: number;
   repeatCount?: number;
 }) {
   const splitter = new PathShapeSplitter(options.pathShape);
   options.colors ??= colors;
-  options.offset ??= 0;
   if (
     options.sectionLength !== undefined &&
     options.repeatCount !== undefined
@@ -642,6 +642,17 @@ function strokeColors(options: {
   if (options.sectionLength === undefined) {
     options.sectionLength =
       splitter.length / (options.repeatCount ?? 1) / options.colors.length;
+  }
+  if (options.relativeOffset !== undefined && options.offset !== undefined) {
+    throw new Error("wtf");
+  }
+  if (options.offset == undefined) {
+    if (options.relativeOffset == undefined) {
+      options.offset = 0;
+    } else {
+      options.offset =
+        options.relativeOffset * options.sectionLength * options.colors.length;
+    }
   }
   if (options.offset < 0) {
     options.offset = positiveModulo(
@@ -664,6 +675,7 @@ function strokeColors(options: {
 
 if (true) {
   function slidingColors(
+    description: string,
     pathShape: PathShape,
     colors: readonly string[],
     speed = 0.001242 / 2.5
@@ -672,7 +684,7 @@ if (true) {
     const sectionLength = 0.23;
     const duration = (sectionLength * colors.length) / speed;
     const toShow: Showable = {
-      description: "Hot",
+      description,
       duration,
       show({ globalTime, context }) {
         context.lineCap = "round";
@@ -694,6 +706,7 @@ if (true) {
   }
   const font = makeLineFont(1);
   slidingColors(
+    "Hot",
     ParagraphLayout.singlePathShape({
       font,
       text: "Hot",
@@ -701,6 +714,7 @@ if (true) {
     ["rgb(255, 0, 0)", "rgb(255, 128, 0)", "rgb(255, 255, 0)"]
   );
   slidingColors(
+    "Cool",
     ParagraphLayout.singlePathShape({
       font,
       text: "Cool",
@@ -708,6 +722,7 @@ if (true) {
     ["rgb(0, 255, 255)", "rgb(0, 128, 255)", "rgb(0, 0, 255)"]
   );
   slidingColors(
+    "Purple",
     ParagraphLayout.singlePathShape({
       font,
       text: "Purple",
@@ -715,6 +730,7 @@ if (true) {
     ["rgb(128, 0, 255)", "rgb(255, 0, 255)"]
   );
   slidingColors(
+    "cga 0",
     ParagraphLayout.singlePathShape({
       font,
       text: "cga 0",
@@ -722,6 +738,7 @@ if (true) {
     ["lime", "red", "yellow"]
   );
   slidingColors(
+    "cga 1",
     ParagraphLayout.singlePathShape({
       font,
       text: "cga 1",
@@ -729,6 +746,7 @@ if (true) {
     ["cyan", "magenta", "white"]
   );
   slidingColors(
+    "Rainbow",
     ParagraphLayout.singlePathShape({
       font,
       text: "Rainbow",
@@ -736,6 +754,7 @@ if (true) {
     colors
   );
   slidingColors(
+    "Grayscale",
     ParagraphLayout.singlePathShape({
       font,
       text: "Grayscale",
@@ -753,6 +772,7 @@ if (true) {
     ]
   );
   slidingColors(
+    "Fast",
     ParagraphLayout.singlePathShape({
       font,
       text: "Fast",
@@ -761,6 +781,7 @@ if (true) {
     0.001242
   );
   slidingColors(
+    "Slow",
     ParagraphLayout.singlePathShape({
       font,
       text: "Slow",
@@ -769,6 +790,7 @@ if (true) {
     0.001242 / 10
   );
   slidingColors(
+    "Dashes",
     ParagraphLayout.singlePathShape({
       font,
       text: "Dashes",
@@ -776,6 +798,7 @@ if (true) {
     ["white", "transparent"]
   );
   slidingColors(
+    "Green",
     ParagraphLayout.singlePathShape({
       font,
       text: "Green",
