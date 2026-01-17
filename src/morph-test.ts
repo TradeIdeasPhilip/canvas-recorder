@@ -439,40 +439,39 @@ if (true) {
   hilbert.forEach((value, index) => {
     // This shortens hilbert[1] from 15 to 13 commands,
     // and hilbert[2] from 63 51 commands
-    const terseCommands = new Array<LCommand>();
+    const desiredLength = value.commands[0].getLength();
+    const finalCommands = new Array<LCommand>();
+
     value.commands.forEach((command) => {
       // Any time we see two line commands in a row with identical angles, combine them.
       if (!(command instanceof LCommand)) {
         throw new Error("wtf");
       }
-      const previous = terseCommands.at(-1);
-      if (
-        previous != undefined &&
-        previous.outgoingAngle == command.incomingAngle
-      ) {
-        const combined = new LCommand(
-          previous.x0,
-          previous.y0,
-          command.x,
-          command.y
-        );
-        terseCommands.pop();
-        terseCommands.push(combined);
-      } else {
-        // Add the command as is.
-        terseCommands.push(command);
-      }
+      /**
+       * This should be an integer.
+       * If it's not, assume round off error.
+       */
+      const numberOfPieces = Math.round(command.getLength() / desiredLength);
+      finalCommands.push(...command.multiSplit(numberOfPieces));
     });
     console.log(
       value.commands.length,
-      terseCommands.length,
-      value.getLength() / terseCommands[0].getLength()
+      finalCommands.length,
+      value.getLength() / finalCommands[0].getLength()
     );
-    hilbert[index] = new PathShape(terseCommands);
+    hilbert[index] = new PathShape(finalCommands);
   });
-  const interpolators = initializedArray(hilbert.length - 1, (firstIndex) => {
-    return matchShapes(hilbert[firstIndex], hilbert[firstIndex + 1]);
+  const steps = initializedArray(hilbert.length - 1, (firstIndex) => {
+    const from = hilbert[firstIndex];
+    const to = hilbert[firstIndex + 1];
+    return {
+      interpolator: matchShapes(from, to),
+      fromLength: from.commands.length,
+      toLength: to.commands.length,
+    };
   });
+  console.log(steps);
+  /*
   interpolators.push(matchShapes(hilbert[0], hilbert[2]));
   interpolators.push(matchShapes(hilbert[2], hilbert[4]));
   interpolators.push(matchShapes(hilbert[1], hilbert[3]));
@@ -480,8 +479,9 @@ if (true) {
   for (let i = 3; i < 6; i++) {
     interpolators.push(matchShapes(hilbert[0], hilbert[i]));
   }
+  */
   const inOrder = new MakeShowableInSeries();
-  interpolators.forEach((interpolator, index) => {
+  steps.forEach((step, index) => {
     const thisStep: Showable = {
       duration: 4000,
       description: `Hilbert ${index}`,
@@ -490,9 +490,14 @@ if (true) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.08;
-        context.strokeStyle = "magenta";
-        const shape = interpolator(progress);
-        context.stroke(new Path2D(shape.rawPath));
+        //context.strokeStyle = "magenta";
+        const shape = step.interpolator(progress);
+        strokeColors({
+          pathShape: shape,
+          context: context,
+          colorCount: step.fromLength,
+        });
+        //context.stroke(new Path2D(shape.rawPath));
       },
     };
     inOrder.add(addMargins(thisStep, { frozenBefore: 500, frozenAfter: 500 }));
@@ -768,27 +773,97 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
-function strokeColors(options: {
-  pathShape: PathShape;
-  context: CanvasRenderingContext2D;
-  colors?: ReadonlyArray<string>;
+function countNotNullable(items: readonly unknown[]) {
+  let result = 0;
+  items.forEach((item) => {
+    if (item !== undefined && item !== null) {
+      result++;
+    }
+  });
+  return result;
+}
+
+type StrokeColorsOptions = {
+  /** Stroke this path. */
+  readonly pathShape: PathShape;
+  /** Draw everything here. */
+  readonly context: CanvasRenderingContext2D;
+  /**
+   * A list of CSS color strings to use when stroking the path.
+   */
+  readonly colors?: ReadonlyArray<string>;
+  /**
+   * How far ahead to jump in the colors.
+   * This is measured in userspace units, same as pathShape.getLength().
+   * A small, positive number means to make the first section a little bit smaller,
+   * move all of the other sections forward to fill in the gap,
+   * and make the last section larger and/or add a new section at the end.
+   * As if you added a small section to the beginning of the curve, and later covered it up.
+   * Larger number and negative numbers will work.
+   *
+   * For example, consider a line segment going from left to right.
+   * Animate this property so it slowly grows.
+   * The colored segments will slowly move to the left.
+   *
+   * At most one of offset and relative offset may be set.
+   * If neither is set, the default is offset=0.
+   */
   offset?: number;
+  /**
+   * This is an alternative to setting the offset.
+   * 0 and small positive and negative values work as with offset.
+   * But the scale is different.
+   * A value of 1 means to rotate once all the way through the colors.
+   * Jumping directly between 0 and 1 will have no visible effect.
+   * Gradually animating the change between 0 and 1 will cause the colors to move one complete cycle.
+   *
+   * If the length of the path is changing over time,
+   * I often find it's better to use relativeOffset and offset.
+   */
   relativeOffset?: number;
+  /**
+   * sectionLength says how far to go before changing colors.
+   * It is measured in userspace units, just like pathShape.getLength().
+   *
+   * At most one of sectionLength, repeatCount and colorCount can be used.
+   * Setting none of these is the same as setting repeatCount to 1.
+   */
   sectionLength?: number;
+  /**
+   * repeatCount says how many times to display the entire list of colors.
+   *
+   * At most one of sectionLength, repeatCount and colorCount can be used.
+   * Setting none of these is the same as setting repeatCount to 1.
+   */
   repeatCount?: number;
-}) {
+  /**
+   * colorCount says how many different colored segments to draw.
+   * If offset == 0 (and round off error is not a problem) then you will have exactly colorCount sections.
+   * Otherwise the first and last segments might be smaller,
+   * adding up to single segment.
+   *
+   * At most one of sectionLength, repeatCount and colorCount can be used.
+   * Setting none of these is the same as setting repeatCount to 1.
+   */
+  colorCount?: number;
+};
+
+function strokeColors(options: StrokeColorsOptions) {
   const splitter = new PathShapeSplitter(options.pathShape);
-  options.colors ??= colors;
+  const colorsToUse = options.colors ?? colors;
   if (
-    options.sectionLength !== undefined &&
-    options.repeatCount !== undefined
+    countNotNullable([
+      options.sectionLength,
+      options.repeatCount,
+      options.colorCount,
+    ]) > 1
   ) {
     throw new Error("wtf");
   }
-  if (options.sectionLength === undefined) {
-    options.sectionLength =
-      splitter.length / (options.repeatCount ?? 1) / options.colors.length;
-  }
+  const sectionLength: number =
+    options.sectionLength ??
+    splitter.length /
+      (options.colorCount ?? (options.repeatCount ?? 1) * colorsToUse.length);
   if (options.relativeOffset !== undefined && options.offset !== undefined) {
     throw new Error("wtf");
   }
@@ -797,21 +872,21 @@ function strokeColors(options: {
       options.offset = 0;
     } else {
       options.offset =
-        options.relativeOffset * options.sectionLength * options.colors.length;
+        options.relativeOffset * sectionLength * colorsToUse.length;
     }
   }
   if (options.offset < 0) {
     options.offset = positiveModulo(
       options.offset,
-      options.colors.length * options.sectionLength
+      colorsToUse.length * sectionLength
     );
   }
   let colorIndex = 0;
   let startPosition = -options.offset;
   while (startPosition < splitter.length) {
-    const endPosition = startPosition + options.sectionLength;
+    const endPosition = startPosition + sectionLength;
     const section = splitter.get(startPosition, endPosition);
-    const color = options.colors[colorIndex % options.colors.length];
+    const color = colorsToUse[colorIndex % colorsToUse.length];
     options.context.strokeStyle = color;
     options.context.stroke(new Path2D(section.rawPath));
     startPosition = endPosition;

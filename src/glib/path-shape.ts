@@ -209,6 +209,17 @@ export type Command = {
 
 // MARK: LCommand
 export class LCommand implements Command {
+    multiSplit(count: number): LCommand[] {
+      if (count == 1) {
+        return [this];
+      }
+    if (count < 1 || !Number.isSafeInteger(count)) {
+      throw new Error("wtf");
+    }
+    return initializedArray(count, (index) => {
+      return this.split1(index / count, (index+1)/count)      
+    })
+  }
   split1(from: number, to: number): LCommand {
     return new LCommand(
       lerp(this.x0, this.x, from),
