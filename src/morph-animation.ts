@@ -26,10 +26,18 @@ export function makeQCommand(command: Command): QCommand {
   }
 }
 
+/**
+ * Modify a path so it has more commands, but the resulting path looks the same.
+ * Breaks some commands into smaller pieces.
+ * @param desiredLength Number of commands in the out.
+ * @param commands This is any input and an output.
+ */
 function addCommands(desiredLength: number, commands: QCommand[]) {
   const commandInfo = commands.map((command, index, array) => {
     let length: number;
     if (vertexCommands.has(command)) {
+      // This is a 0 length command that was inserted into a corner so the corner could become rounded as part of the animation.
+      // Do not modify this under any circumstances.
       length = -Infinity;
     } else {
       length = command.getLength();
@@ -37,20 +45,40 @@ function addCommands(desiredLength: number, commands: QCommand[]) {
         vertexCommands.has(array[index - 1]) ||
         vertexCommands.has(array[index + 1])
       ) {
+        // This segment is right next to a corner.
+        // It will shrink as the 0 length segment in the corner grows.
+        // Don't modify this command any more than we have to.
+        // Give it a low priority.
         length /= 10;
       }
     }
     return {
       command,
+      /**
+       * The length before splitting.
+       */
       totalLength: length,
+      /**
+       * The length after splitting.
+       *
+       * This is the priority of the command.
+       * The largest commands will be split first.
+       */
       currentLength: length,
+      /**
+       * The number of commands this command will turn into.
+       */
       count: 1,
+      /**
+       * So we can put these back in order at the end.
+       */
       originalIndex: index,
     };
   });
   commandInfo.sort((a, b) => a.currentLength - b.currentLength);
   let needToCreate = desiredLength - commands.length;
   while (needToCreate > 0) {
+    // Split the largest commands.
     const addTo = commandInfo.pop()!;
     addTo.count++;
     addTo.currentLength = addTo.totalLength / addTo.count;

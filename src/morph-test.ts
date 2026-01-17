@@ -464,9 +464,15 @@ if (true) {
     let colorIndex = 0;
     const interpolators: {
       color: string;
+      isConnector: boolean;
       interpolator: (progress: number) => PathShape;
     }[] = [];
-    function grab(fromCount: number, toCount: number, color: string) {
+    function grab(
+      fromCount: number,
+      toCount: number,
+      color: string,
+      isConnector: boolean
+    ) {
       const segmentFrom = fromCommands.splice(0, fromCount);
       if (segmentFrom.length != fromCount) {
         throw new Error("wtf");
@@ -479,19 +485,25 @@ if (true) {
         new PathShape(segmentFrom),
         new PathShape(segmentTo)
       );
-      interpolators.push({ color, interpolator });
+      const result = { color, interpolator, isConnector };
+      if (isConnector) {
+        // Draw the connectors first
+        interpolators.unshift(result);
+      } else {
+        interpolators.push(result);
+      }
     }
     while (true) {
       const color = colors[colorIndex % colors.length];
       colorIndex++;
-      grab(3, 15, color);
+      grab(3, 15, color, false);
       if (fromCommands.length == 0) {
         if (toCommands.length != 0) {
           throw new Error("wtf");
         }
         break;
       }
-      grab(1, 1, "#444");
+      grab(1, 1, "#ccc", true);
     }
     return interpolators;
   });
@@ -502,10 +514,10 @@ if (true) {
       description: `Hilbert ${index}`,
       show({ timeInMs, context }) {
         const progress = ease(timeInMs / this.duration);
-        context.lineCap = "square";
         context.lineJoin = "miter";
         context.lineWidth = 0.08;
         step.forEach((segment) => {
+          context.lineCap = segment.isConnector ? "round" : "square";
           context.strokeStyle = segment.color;
           const shape = segment.interpolator(progress);
           context.stroke(new Path2D(shape.rawPath));
