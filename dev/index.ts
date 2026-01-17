@@ -91,7 +91,6 @@ playPositionRangeInput.addEventListener("input", () => {
 });
 
 addEventListener("keypress", (event) => {
-  console.log({ key: event.key, code: event.code });
   switch (event.key) {
     case " ": {
       if (pauseButton.checked) {
