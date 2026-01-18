@@ -538,6 +538,39 @@ if (true) {
     };
     inOrder.add(addMargins(thisStep, { frozenBefore: 500, frozenAfter: 500 }));
   });
+  {
+    const pathShape = hilbert.at(-1)!;
+    const toShow: Showable = {
+      description: "Hilbert rotating colors",
+      duration: 40000,
+      show({ timeInMs, context }) {
+        context.lineJoin = "round";
+        context.lineCap = "round";
+        context.lineWidth = 0.08;
+        const progress = ((timeInMs / this.duration) * 50) / 4;
+        const simple = [
+          "white",
+          "#a4a4a4",
+          "#272727",
+          "transparent",
+          "transparent",
+        ].reverse();
+        const copies = [...simple, ...simple, ...simple, ...simple];
+        copies[copies.length - 1] = "red";
+        strokeColors({
+          colors: copies,
+          pathShape,
+          context,
+          repeatCount: 400,
+          relativeOffset: -progress,
+        });
+        //context.lineWidth /= 3;
+        //context.strokeStyle = "#404040";
+        //context.stroke(new Path2D(pathShape.rawPath));
+      },
+    };
+    inOrder.add(toShow);
+  }
   builder.add(inOrder.build("Hilbert all"));
 }
 
