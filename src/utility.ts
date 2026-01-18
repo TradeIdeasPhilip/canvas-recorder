@@ -1,5 +1,17 @@
 import { Showable } from "./showable";
 
+// TODO copy this to phil-lib/client-misc.ts
+// Right under download() which only works on strings.
+// Or maybe join them.  The last argument could have type string|Blob.
+export function downloadBlob(filename: string, blob: Blob) {
+  const blobURL = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = blobURL;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(blobURL);
+}
+
 /**
  * My favorite shade of blue.
  *

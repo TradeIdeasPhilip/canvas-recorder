@@ -1,7 +1,13 @@
 import "../src/morph-test.ts";
-import { assertNonNullable, FIGURE_SPACE, parseIntX } from "phil-lib/misc.ts";
+import {
+  assertNonNullable,
+  FIGURE_SPACE,
+  parseFloatX,
+  parseIntX,
+} from "phil-lib/misc.ts";
 import {
   AnimationLoop,
+  getBlobFromCanvas,
   getById,
   querySelector,
   querySelectorAll,
@@ -15,13 +21,23 @@ import {
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
 import { morphTest } from "../src/morph-test.ts";
+import { downloadBlob } from "../src/utility.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
+const currentTimeSpan = getById("currentTime", HTMLSpanElement);
+
 const toShow = morphTest;
 
 function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
+  const newTimeString = (timeInMs / 1000).toLocaleString(undefined, {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 6,
+  });
+  if (currentTimeSpan.innerText != newTimeString) {
+    currentTimeSpan.innerText = newTimeString;
+  }
   if (size == "live") {
     const clientRect = canvas.getClientRects()[0];
     canvas.width = Math.round(clientRect.width * devicePixelRatio);
@@ -91,6 +107,9 @@ playPositionRangeInput.addEventListener("input", () => {
 });
 
 addEventListener("keypress", (event) => {
+  if (document.activeElement instanceof HTMLInputElement) {
+    return;
+  }
   switch (event.key) {
     case " ": {
       if (pauseButton.checked) {
@@ -340,6 +359,8 @@ nextButton.addEventListener("click", () => {
   updateFromSelect();
 });
 
+const saveImageSecondsInput = getById("saveImageSeconds", HTMLInputElement);
+
 /**
  * When someone hits refresh in their browser,
  * or hits save in vs code so vite causes a refresh,
@@ -352,6 +373,7 @@ function saveState() {
     "state",
     querySelector('input[name="playState"]:checked', HTMLInputElement).value
   );
+  sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
 }
 
 if (import.meta.hot) {
@@ -367,6 +389,32 @@ addEventListener("pagehide", (event) => {
 });
 
 {
+  const saveButton = getById("saveImage", HTMLButtonElement);
+  saveImageSecondsInput.addEventListener("input", () => {
+    if (parseFloatX(saveImageSecondsInput.value) === undefined) {
+      saveButton.disabled = true;
+      saveImageSecondsInput.style.backgroundColor = "pink";
+    } else {
+      saveButton.disabled = false;
+      saveImageSecondsInput.style.backgroundColor = "";
+    }
+  });
+
+  getById("saveImage", HTMLButtonElement).addEventListener(
+    "click",
+    async () => {
+      showFrame(
+        assertNonNullable(parseFloatX(saveImageSecondsInput.value)) * 1000,
+        "4k"
+      );
+      const filename = `frame-${currentTimeSpan.innerText}.png`;
+      const blob = await getBlobFromCanvas(canvas);
+      downloadBlob(filename, blob);
+    }
+  );
+}
+
+{
   try {
     const index = sessionStorage.getItem("index");
     const time = sessionStorage.getItem("time");
@@ -380,6 +428,12 @@ addEventListener("pagehide", (event) => {
         HTMLInputElement
       ).checked = true;
       playOffset = NaN;
+    }
+    const saveImageSeconds = parseFloatX(
+      sessionStorage.getItem("saveImageSeconds")
+    );
+    if (saveImageSeconds !== undefined) {
+      saveImageSecondsInput.valueAsNumber = saveImageSeconds;
     }
   } finally {
     sessionStorage.clear();
