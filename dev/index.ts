@@ -421,6 +421,12 @@ addEventListener("pagehide", (event) => {
     const state = sessionStorage.getItem("state");
     if (index && time && state) {
       select.selectedIndex = assertNonNullable(parseIntX(index));
+      if (select.selectedIndex < 0) {
+        // What if you save the state when row 13 is selected, but there are currently
+        // only 5 rows available?  That's when we get here.  Without this change
+        // updateFromSelect() would throw an exception.
+        select.selectedIndex = 0;
+      }
       updateFromSelect();
       playPositionRangeInput.value = time;
       querySelector(
