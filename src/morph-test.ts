@@ -36,6 +36,7 @@ import {
   ease,
   easeAndBack,
   interpolateColor,
+  interpolateColors,
   interpolateNumbers,
   Keyframes,
 } from "./interpolate";
@@ -505,6 +506,17 @@ if (true) {
       }
       grab(1, 1, "#ccc", true);
     }
+    function changeToColorSpectrum() {
+      const allChanges = interpolators.filter(
+        (segment) => !segment.isConnector
+      );
+      allChanges.forEach((toChange, index, array) => {
+        const progress = array.length < 2 ? 0.5 : index / (array.length - 1);
+        const newColor = interpolateColors(progress, colors);
+        array[index].color = newColor;
+      });
+    }
+    changeToColorSpectrum();
     return interpolators;
   });
   const inOrder = new MakeShowableInSeries();
