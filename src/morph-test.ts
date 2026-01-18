@@ -547,26 +547,16 @@ if (true) {
         context.lineJoin = "round";
         context.lineCap = "round";
         context.lineWidth = 0.08;
-        const progress = ((timeInMs / this.duration) * 50) / 4;
-        const simple = [
-          "white",
-          "#a4a4a4",
-          "#272727",
-          "transparent",
-          "transparent",
-        ].reverse();
-        const copies = [...simple, ...simple, ...simple, ...simple];
-        copies[copies.length - 1] = "red";
+        const progress = timeInMs / this.duration;
         strokeColors({
-          colors: copies,
           pathShape,
           context,
-          repeatCount: 400,
+          repeatCount: 1,
           relativeOffset: -progress,
         });
-        //context.lineWidth /= 3;
-        //context.strokeStyle = "#404040";
-        //context.stroke(new Path2D(pathShape.rawPath));
+        context.lineWidth /= 3;
+        context.strokeStyle = "#404040";
+        context.stroke(new Path2D(pathShape.rawPath));
       },
     };
     inOrder.add(toShow);
