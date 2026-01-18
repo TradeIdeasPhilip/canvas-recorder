@@ -22,6 +22,8 @@ import {
 import { Selectable, Showable } from "../src/showable.ts";
 import { morphTest } from "../src/morph-test.ts";
 import { downloadBlob } from "../src/utility.ts";
+import { Point } from "../src/glib/path-shape.ts";
+import { transform } from "../src/glib/transforms.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -29,6 +31,10 @@ const context = assertNonNullable(canvas.getContext("2d"));
 const currentTimeSpan = getById("currentTime", HTMLSpanElement);
 
 const toShow = morphTest;
+
+function mainTransform() {
+  return new DOMMatrixReadOnly().scale(canvas.width / 16, canvas.height / 9);
+}
 
 function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
   const newTimeString = (timeInMs / 1000).toLocaleString(undefined, {
@@ -50,7 +56,7 @@ function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
     canvas.height = 1080;
   }
   context.reset();
-  context.scale(canvas.width / 16, canvas.height / 9);
+  context.setTransform(mainTransform());
   toShow.show({ timeInMs, context, globalTime: timeInMs });
 }
 (window as any).showFrame = showFrame;
@@ -107,11 +113,11 @@ playPositionRangeInput.addEventListener("input", () => {
 });
 
 addEventListener("keypress", (event) => {
-  if (document.activeElement instanceof HTMLInputElement) {
+  if (!event.altKey) {
     return;
   }
-  switch (event.key) {
-    case " ": {
+  switch (event.code) {
+    case "Space": {
       if (pauseButton.checked) {
         playButton.checked = true;
       } else {
@@ -120,7 +126,7 @@ addEventListener("keypress", (event) => {
       event.preventDefault();
       break;
     }
-    case "0": {
+    case "Digit0": {
       playPositionRangeInput.valueAsNumber = sectionStartTime;
       playOffset = NaN;
       event.preventDefault();
@@ -445,3 +451,34 @@ addEventListener("pagehide", (event) => {
     sessionStorage.clear();
   }
 }
+
+function getLocation(pointerEvent: PointerEvent): Point {
+  return transform(
+    pointerEvent.offsetX * devicePixelRatio,
+    pointerEvent.offsetY * devicePixelRatio,
+    mainTransform().inverse()
+  );
+}
+
+function pointToString(point: Point) {
+  return `{x: ${point.x.toFixed(3)}, y:${point.y.toFixed(3)}}`;
+}
+
+function locationString(pointerEvent: PointerEvent) {
+  return pointToString(getLocation(pointerEvent));
+}
+
+const currentPositionSpan = getById("currentPosition", HTMLSpanElement);
+const lastDownSpan = getById("lastDown", HTMLSpanElement);
+const lastUpSpan = getById("lastUp", HTMLSpanElement);
+
+canvas.addEventListener("pointermove", (pointerEvent) => {
+  currentPositionSpan.innerText = locationString(pointerEvent);
+});
+canvas.addEventListener("pointerdown", (pointerEvent) => {
+  lastDownSpan.innerText = locationString(pointerEvent);
+  canvas.setPointerCapture(pointerEvent.pointerId);
+});
+canvas.addEventListener("pointerup", (pointerEvent) => {
+  lastUpSpan.innerText = locationString(pointerEvent);
+});
