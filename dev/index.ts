@@ -359,6 +359,9 @@ function updateFromSelect() {
   sectionEndTime = info.end;
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
+  // playPositionRange automatically limits you to the range of the currently selected chapter.
+  // Make the number match in this case.
+  playPositionNumber.valueAsNumber = playPositionRange.valueAsNumber;
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -504,7 +507,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
 
-// TODO when you change chapters:  Force in range.
 // TODO when paused the number control should update the range control
 //  * (the reverse already works)
 //  * Also when we first start we are loading the number control but not the range control!
