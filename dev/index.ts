@@ -113,7 +113,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
       if (repeatRadioButton.checked) {
         timeInMS = sectionStartTime;
       } else {
-        timeInMS = sectionEndTime;  
+        timeInMS = sectionEndTime;
         playCheckBox.checked = false;
         playPositionNumber.disabled = false;
       }
@@ -393,6 +393,10 @@ function saveState() {
     querySelector('input[name="playState"]:checked', HTMLInputElement).value
   );
   sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
+  sessionStorage.setItem(
+    "play",
+    playCheckBox.checked ? "checked" : "unchecked"
+  );
 }
 
 if (import.meta.hot) {
@@ -454,6 +458,10 @@ addEventListener("pagehide", (event) => {
       ).checked = true;
       playOffset = NaN;
     }
+    // TODO better names.  THIS should be playState, not the radio buttons!
+    //sessionStorage.setItem("play", playCheckBox.checked?"checked":"unchecked");
+    const playCheckBoxState = sessionStorage.getItem("play");
+    playCheckBox.checked = playCheckBoxState == "checked";
     const saveImageSeconds = parseFloatX(
       sessionStorage.getItem("saveImageSeconds")
     );
@@ -496,8 +504,15 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
 
-// TODO save the play button state
 // TODO when you change chapters:  Force in range.
-// TOD when paused the number control should update the range control (the reverse already works)
+// TODO when paused the number control should update the range control
+//  * (the reverse already works)
+//  * Also when we first start we are loading the number control but not the range control!
 // TODO The number control should be in seconds not milliseconds
 // TODO the number control should be precise to the 10th of a millisecond
+// TODO Remove current time span.  It is redundant.
+// TODO Add a button to load load current time into the save frame button.
+// TODO when saving video, only save the currently selected section.
+//  * That button should make it obvious if we are saving everything or just part.
+//  * Disable an infinite save.
+//  * Add a way to record any range you want.  Essential for infinite items.
