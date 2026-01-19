@@ -58,19 +58,30 @@
       </tr>
     </table>
     <div class="range-container">
-      <input type="range" id="playPosition" value="0" step="any" />
-      <label
-        ><input
-          type="radio"
-          name="playState"
-          value="pause"
-          checked
-        />Pause</label
+      <label><input type="checkbox" id="play" />Play</label>
+      <span style="background-color: lightcyan"
+        >&nbsp;(At end
+        <label
+          ><input
+            type="radio"
+            name="playState"
+            value="pause"
+            checked
+          />Pause</label
+        >
+        <label
+          ><input type="radio" name="playState" value="repeat" />Repeat</label
+        >
+        <label
+          ><input
+            type="radio"
+            name="playState"
+            value="continue"
+          />Continue</label
+        >)&nbsp;</span
       >
-      <label><input type="radio" name="playState" value="play" />Play</label>
-      <label
-        ><input type="radio" name="playState" value="repeat" />Repeat</label
-      >
+      <input type="number" id="playPositionNumber" value="0" />
+      <input type="range" id="playPositionRange" value="0" step="any" />
     </div>
     <div>
       <button id="saveImage">Save Image</button> at

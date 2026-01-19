@@ -64,17 +64,19 @@ function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
 let sectionStartTime = 0;
 let sectionEndTime = 0;
 
-const playPositionRangeInput = getById("playPosition", HTMLInputElement);
-const pauseButton = querySelector(
+const playCheckBox = getById("play", HTMLInputElement);
+const playPositionRange = getById("playPositionRange", HTMLInputElement);
+const playPositionNumber = getById("playPositionNumber", HTMLInputElement);
+const pauseRadioButton = querySelector(
   'input[name="playState"][value="pause"]',
   HTMLInputElement
 );
-const playButton = querySelector(
-  'input[name="playState"][value="play"]',
+const repeatRadioButton = querySelector(
+  'input[name="playState"][value="repeat"]',
   HTMLInputElement
 );
-const repeatButton = querySelector(
-  'input[name="playState"][value="repeat"]',
+const continueRadioButton = querySelector(
+  'input[name="playState"][value="continue"]',
   HTMLInputElement
 );
 
@@ -85,31 +87,46 @@ const repeatButton = querySelector(
  */
 let playOffset = NaN;
 const animationLoop = new AnimationLoop((timeInMS: number) => {
-  if (pauseButton.checked) {
-    timeInMS = playPositionRangeInput.valueAsNumber;
+  if (!playCheckBox.checked) {
+    // Paused.  Copy time from the numerical input.
+    playPositionNumber.disabled = false;
+    timeInMS = playPositionNumber.valueAsNumber;
     playOffset = NaN;
   } else {
+    // Playing.  (Not paused.)
+    playPositionNumber.disabled = true;
     if (isNaN(playOffset)) {
-      if (playPositionRangeInput.valueAsNumber >= sectionEndTime) {
-        // Is this correct?  I'm imaging problems with rounding where the max value of the control != sectionEndTime.
-        playPositionRangeInput.valueAsNumber = sectionStartTime;
+      // Starting fresh.
+      if (
+        playPositionNumber.valueAsNumber >= sectionEndTime &&
+        !continueRadioButton.checked
+      ) {
+        // At the end.  Jump to the beginning.
+        playPositionNumber.valueAsNumber = sectionStartTime;
       }
-      playOffset = timeInMS - playPositionRangeInput.valueAsNumber;
+      playOffset = timeInMS - playPositionNumber.valueAsNumber;
     }
     timeInMS -= playOffset;
-    if (timeInMS >= sectionEndTime) {
+    if (timeInMS >= sectionEndTime && !continueRadioButton.checked) {
+      // At the end and not instructed to continue past the end.
       playOffset = NaN;
-      if (playButton.checked) {
-        pauseButton.checked = true;
+      if (repeatRadioButton.checked) {
+        timeInMS = sectionStartTime;
+      } else {
+        timeInMS = sectionEndTime;  
+        playCheckBox.checked = false;
+        playPositionNumber.disabled = false;
       }
     }
-    playPositionRangeInput.valueAsNumber = timeInMS;
+    playPositionNumber.valueAsNumber = timeInMS;
+    playPositionRange.valueAsNumber = timeInMS;
   }
   showFrame(timeInMS, "live");
 });
 
-playPositionRangeInput.addEventListener("input", () => {
+playPositionRange.addEventListener("input", () => {
   playOffset = NaN;
+  playPositionNumber.valueAsNumber = playPositionRange.valueAsNumber;
 });
 
 addEventListener("keypress", (event) => {
@@ -118,16 +135,12 @@ addEventListener("keypress", (event) => {
   }
   switch (event.code) {
     case "Space": {
-      if (pauseButton.checked) {
-        playButton.checked = true;
-      } else {
-        pauseButton.checked = true;
-      }
+      playCheckBox.checked = !playCheckBox.checked;
       event.preventDefault();
       break;
     }
     case "Digit0": {
-      playPositionRangeInput.valueAsNumber = sectionStartTime;
+      playPositionNumber.valueAsNumber = sectionStartTime;
       playOffset = NaN;
       event.preventDefault();
       break;
@@ -344,8 +357,8 @@ function updateFromSelect() {
   updateRow(nextSiblingCells, nextSibling);
   sectionStartTime = info.start;
   sectionEndTime = info.end;
-  playPositionRangeInput.min = sectionStartTime.toString();
-  playPositionRangeInput.max = sectionEndTime.toString();
+  playPositionRange.min = sectionStartTime.toString();
+  playPositionRange.max = sectionEndTime.toString();
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -374,7 +387,7 @@ const saveImageSecondsInput = getById("saveImageSeconds", HTMLInputElement);
  */
 function saveState() {
   sessionStorage.setItem("index", select.selectedIndex.toString());
-  sessionStorage.setItem("time", playPositionRangeInput.value);
+  sessionStorage.setItem("time", playPositionNumber.value);
   sessionStorage.setItem(
     "state",
     querySelector('input[name="playState"]:checked', HTMLInputElement).value
@@ -434,9 +447,9 @@ addEventListener("pagehide", (event) => {
         select.selectedIndex = 0;
       }
       updateFromSelect();
-      playPositionRangeInput.value = time;
+      playPositionNumber.value = time;
       querySelector(
-        `input[name="playState"][value=${state}]`,
+        `input[name="playState"][value="${state}"]`,
         HTMLInputElement
       ).checked = true;
       playOffset = NaN;
@@ -482,3 +495,9 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
 canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
+
+// TODO save the play button state
+// TODO when you change chapters:  Force in range.
+// TOD when paused the number control should update the range control (the reverse already works)
+// TODO The number control should be in seconds not milliseconds
+// TODO the number control should be precise to the 10th of a millisecond
