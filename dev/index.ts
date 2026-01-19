@@ -28,8 +28,6 @@ import { transform } from "../src/glib/transforms.ts";
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
-const currentTimeSpan = getById("currentTime", HTMLSpanElement);
-
 const toShow = morphTest;
 
 function mainTransform() {
@@ -41,9 +39,6 @@ function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
     minimumFractionDigits: 3,
     maximumFractionDigits: 6,
   });
-  if (currentTimeSpan.innerText != newTimeString) {
-    currentTimeSpan.innerText = newTimeString;
-  }
   if (size == "live") {
     const clientRect = canvas.getClientRects()[0];
     canvas.width = Math.round(clientRect.width * devicePixelRatio);
@@ -433,7 +428,7 @@ addEventListener("pagehide", (event) => {
         assertNonNullable(parseFloatX(saveImageSecondsInput.value)) * 1000,
         "4k"
       );
-      const filename = `frame-${currentTimeSpan.innerText}.png`;
+      const filename = `frame-${saveImageSecondsInput.value}.png`;
       const blob = await getBlobFromCanvas(canvas);
       downloadBlob(filename, blob);
     }
@@ -512,9 +507,13 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Also when we first start we are loading the number control but not the range control!
 // TODO The number control should be in seconds not milliseconds
 // TODO the number control should be precise to the 10th of a millisecond
-// TODO Remove current time span.  It is redundant.
 // TODO Add a button to load load current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
 //  * Disable an infinite save.
 //  * Add a way to record any range you want.  Essential for infinite items.
+
+// TODO fix gui for saving things.
+// * Add a stop button.
+// * Disable the other buttons.
+// * Reenable the other buttons when live again.
