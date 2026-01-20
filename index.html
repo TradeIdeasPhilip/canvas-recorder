@@ -14,79 +14,91 @@
       Current position: <span id="currentPosition"></span>, Last down:
       <span id="lastDown"></span>, Last up: <span id="lastUp"></span>
     </div>
-    <div>
-      <select></select
-      ><button id="previousButton">Previous</button
-      ><button id="nextButton">Next</button>
-    </div>
-    <table>
-      <tr>
-        <th></th>
-        <th></th>
-        <th>Start</th>
-        <th>End</th>
-      </tr>
-      <tr id="parentRow">
-        <td><button>Parent</button></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr id="previousSiblingRow">
-        <td>&emsp;<button>Previous Sibling</button></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr id="thisRow">
-        <td>&emsp;This</td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr id="firstChildRow">
-        <td>&emsp;&emsp;<button>First Child</button></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-      <tr id="nextSiblingRow">
-        <td>&emsp;<button>Next Sibling</button></td>
-        <td></td>
-        <td></td>
-        <td></td>
-      </tr>
-    </table>
-    <div class="range-container">
-      <label><input type="checkbox" id="play" />Play</label>
-      <span style="background-color: lightcyan"
-        >&nbsp;(At end
-        <label
-          ><input
-            type="radio"
-            name="playState"
-            value="pause"
-            checked
-          />Pause</label
+    <fieldset id="liveControls">
+      <div>
+        <select></select
+        ><button id="previousButton">Previous</button
+        ><button id="nextButton">Next</button>
+      </div>
+      <table>
+        <tr>
+          <th></th>
+          <th></th>
+          <th>Start</th>
+          <th>End</th>
+        </tr>
+        <tr id="parentRow">
+          <td><button>Parent</button></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr id="previousSiblingRow">
+          <td>&emsp;<button>Previous Sibling</button></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr id="thisRow">
+          <td>&emsp;This</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr id="firstChildRow">
+          <td>&emsp;&emsp;<button>First Child</button></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+        <tr id="nextSiblingRow">
+          <td>&emsp;<button>Next Sibling</button></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </table>
+      <div class="range-container">
+        <label><input type="checkbox" id="play" />Play</label>
+        <span style="background-color: lightcyan"
+          >&nbsp;(At end
+          <label
+            ><input
+              type="radio"
+              name="playState"
+              value="pause"
+              checked
+            />Pause</label
+          >
+          <label
+            ><input type="radio" name="playState" value="repeat" />Repeat</label
+          >
+          <label
+            ><input
+              type="radio"
+              name="playState"
+              value="continue"
+            />Continue</label
+          >)&nbsp;</span
         >
-        <label
-          ><input type="radio" name="playState" value="repeat" />Repeat</label
-        >
-        <label
-          ><input
-            type="radio"
-            name="playState"
-            value="continue"
-          />Continue</label
-        >)&nbsp;</span
-      >
-      <input type="number" id="playPositionNumber" value="0" />
-      <input type="range" id="playPositionRange" value="0" step="any" />
+        <input type="number" id="playPositionNumber" value="0" />
+        <input type="range" id="playPositionRange" value="0" step="any" />
+      </div>
+      <div>
+        <button id="saveImage">Save Image</button> at
+        <input value="0.000" id="saveImageSeconds" type="number" /> seconds.
+      </div>
+    </fieldset>
+    <div
+      style="
+        border: 0.3em inset rgb(178, 178, 178);
+        padding: 0.5em;
+        margin-top: 0.5em;
+      "
+    >
+      <button id="startRecording">Record and Save Video</button>
+      <button id="cancelRecording" disabled>Cancel Recording</button>
+      <div id="info"><i>status goes here</i>...</div>
     </div>
-    <div>
-      <button id="saveImage">Save Image</button> at
-      <input value="0.000" id="saveImageSeconds" type="number" /> seconds.
-    </div>
-    <div id="info"><i>status goes here</i>...</div>
   </body>
 </html>

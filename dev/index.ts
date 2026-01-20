@@ -146,10 +146,20 @@ addEventListener("keypress", (event) => {
 const FPS = 60;
 
 const infoDiv = getById("info", HTMLDivElement);
-infoDiv.innerHTML = "Click 'Record and Save' to start...";
+infoDiv.innerHTML = "";
+
+const startRecordingButton = getById("startRecording", HTMLButtonElement);
+const cancelRecordingButton = getById("cancelRecording", HTMLButtonElement);
+const liveControls = getById("liveControls", HTMLFieldSetElement);
+
+let canceled = false;
 
 async function startRecording() {
-  // Consider using https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/fieldset to disable all controls at once.
+  startRecordingButton.disabled = true;
+  liveControls.disabled = true;
+  cancelRecordingButton.disabled = false;
+  canceled = false;
+
   animationLoop.cancel();
 
   infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
@@ -184,14 +194,13 @@ async function startRecording() {
   const startTime = performance.now();
 
   await output.start();
-  infoDiv.innerHTML =
-    "Recording in progress... (drawing frames as fast as possible)";
+  infoDiv.innerHTML = "Recording in progress...";
 
   const frameDuration = 1000 / FPS;
 
-  // Offline loop: draw + push frames (faster than realtime)
+  // Offline loop: draw + push frames (not limited to realtime)
   let frameNumber = 0;
-  while (true) {
+  while (!canceled) {
     const timeInMS = (frameNumber + 0.5) * frameDuration;
     if (timeInMS > toShow.duration) {
       break;
@@ -216,6 +225,9 @@ async function startRecording() {
     frameNumber++;
   }
 
+  infoDiv.innerHTML = "Frames complete.  Finalizing video.";
+  cancelRecordingButton.disabled = true;
+
   await output.finalize(); // Finishes encoding + closes stream automatically
 
   const elapsedSeconds = (performance.now() - startTime) / 1000;
@@ -223,16 +235,15 @@ async function startRecording() {
   infoDiv.innerHTML = `
     <strong>Recording complete!</strong><br>
     Frames: ${frameNumber}<br>
-    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
-    File saved via File System Access API!
+    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds
   `;
 }
 
-// Trigger with a button (user gesture required for showSaveFilePicker)
-const button = document.createElement("button");
-button.textContent = "Record and Save Video";
-button.onclick = startRecording;
-document.body.appendChild(button);
+startRecordingButton.addEventListener("click", startRecording);
+cancelRecordingButton.addEventListener("click", () => {
+  canceled = true;
+  cancelRecordingButton.disabled = true;
+});
 
 type SelectableTree = {
   description: string;
@@ -505,15 +516,20 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 // TODO when paused the number control should update the range control
 //  * (the reverse already works)
 //  * Also when we first start we are loading the number control but not the range control!
+//  * update both while recording
 // TODO The number control should be in seconds not milliseconds
 // TODO the number control should be precise to the 10th of a millisecond
-// TODO Add a button to load load current time into the save frame button.
+//  * Including when the user *or* the program updates that value.
+// TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
-//  * Disable an infinite save.
-//  * Add a way to record any range you want.  Essential for infinite items.
-
-// TODO fix gui for saving things.
-// * Add a stop button.
-// * Disable the other buttons.
-// * Reenable the other buttons when live again.
+//  * ~~Disable an infinite save.~~ No.  There is a cancel button.
+//  * Add a way to record any range you want.
+// TODO Reenable other buttons after recording.
+// TODO The Next button should be disabled sometimes.
+//  * Like the Previous button
+//  * Otherwise sometimes I get a bad exception.
+// TODO Hot Keys
+//  * Add documentation for option 0 and option space.
+//  * Add _ for Previous and Next buttons.
+//  * Add P and N as hotkeys.
