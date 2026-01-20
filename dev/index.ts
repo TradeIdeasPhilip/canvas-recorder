@@ -75,6 +75,10 @@ const continueRadioButton = querySelector(
   HTMLInputElement
 );
 
+function loadPlayPositionNumber(timeInMs: number) {
+  playPositionSeconds.value = (timeInMs / 1000).toFixed(4);
+}
+
 /**
  * The play head is located at (wall clock time - playOffset).
  *
@@ -97,7 +101,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
         !continueRadioButton.checked
       ) {
         // At the end.  Jump to the beginning.
-        playPositionSeconds.valueAsNumber  = sectionStartTime/1000;
+        loadPlayPositionNumber(sectionStartTime);
       }
       playOffset = timeInMS - playPositionSeconds.valueAsNumber * 1000;
     }
@@ -113,7 +117,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
         playPositionSeconds.disabled = false;
       }
     }
-    playPositionSeconds.valueAsNumber = timeInMS/1000;
+    loadPlayPositionNumber(timeInMS);
     playPositionRange.valueAsNumber = timeInMS;
   }
   showFrame(timeInMS, "live");
@@ -121,7 +125,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
 
 playPositionRange.addEventListener("input", () => {
   playOffset = NaN;
-  playPositionSeconds.valueAsNumber = playPositionRange.valueAsNumber / 1000;
+  loadPlayPositionNumber(playPositionRange.valueAsNumber);
 });
 
 addEventListener("keypress", (event) => {
@@ -135,7 +139,7 @@ addEventListener("keypress", (event) => {
       break;
     }
     case "Digit0": {
-      playPositionSeconds.valueAsNumber = sectionStartTime / 1000;
+      loadPlayPositionNumber(sectionStartTime);
       playOffset = NaN;
       event.preventDefault();
       break;
@@ -367,7 +371,7 @@ function updateFromSelect() {
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically limits you to the range of the currently selected chapter.
   // Make the number match in this case.
-  playPositionSeconds.valueAsNumber = playPositionRange.valueAsNumber / 1000;
+  loadPlayPositionNumber(playPositionRange.valueAsNumber);
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -517,9 +521,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * (the reverse already works)
 //  * Also when we first start we are loading the number control but not the range control!
 //  * update both while recording
-// TODO the number control should be precise to the 10th of a millisecond
-//  * Including when the user *or* the program updates that value.
-
 // TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
