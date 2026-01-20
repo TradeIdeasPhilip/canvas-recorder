@@ -348,7 +348,7 @@ function updateFromSelect() {
   playOffset = NaN;
   const info = debug[select.selectedIndex];
   previousButton.disabled = info.absolutePosition == 0;
-  nextButton.disabled = info.absolutePosition == debug.length;
+  nextButton.disabled = info.absolutePosition == debug.length - 1;
   updateRow(parentCells, info.parent);
   updateRow(thisCells, info);
   updateRow(firstChildCells, info.children.at(0));
@@ -526,9 +526,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * ~~Disable an infinite save.~~ No.  There is a cancel button.
 //  * Add a way to record any range you want.
 // TODO Reenable other buttons after recording.
-// TODO The Next button should be disabled sometimes.
-//  * Like the Previous button
-//  * Otherwise sometimes I get a bad exception.
 // TODO Hot Keys
 //  * Add documentation for option 0 and option space.
 //  * Add _ for Previous and Next buttons.
