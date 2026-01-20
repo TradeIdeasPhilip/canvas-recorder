@@ -520,6 +520,7 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 // TODO The number control should be in seconds not milliseconds
 // TODO the number control should be precise to the 10th of a millisecond
 //  * Including when the user *or* the program updates that value.
+
 // TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
@@ -527,6 +528,5 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Add a way to record any range you want.
 // TODO Reenable other buttons after recording.
 // TODO Hot Keys
-//  * Add documentation for option 0 and option space.
 //  * Add _ for Previous and Next buttons.
 //  * Add P and N as hotkeys.
