@@ -61,7 +61,7 @@ let sectionEndTime = 0;
 
 const playCheckBox = getById("play", HTMLInputElement);
 const playPositionRange = getById("playPositionRange", HTMLInputElement);
-const playPositionNumber = getById("playPositionNumber", HTMLInputElement);
+const playPositionSeconds = getById("playPositionSeconds", HTMLInputElement);
 const pauseRadioButton = querySelector(
   'input[name="playState"][value="pause"]',
   HTMLInputElement
@@ -84,22 +84,22 @@ let playOffset = NaN;
 const animationLoop = new AnimationLoop((timeInMS: number) => {
   if (!playCheckBox.checked) {
     // Paused.  Copy time from the numerical input.
-    playPositionNumber.disabled = false;
-    timeInMS = playPositionNumber.valueAsNumber;
+    playPositionSeconds.disabled = false;
+    timeInMS = playPositionSeconds.valueAsNumber * 1000;
     playOffset = NaN;
   } else {
     // Playing.  (Not paused.)
-    playPositionNumber.disabled = true;
+    playPositionSeconds.disabled = true;
     if (isNaN(playOffset)) {
       // Starting fresh.
       if (
-        playPositionNumber.valueAsNumber >= sectionEndTime &&
+        playPositionSeconds.valueAsNumber * 1000 >= sectionEndTime &&
         !continueRadioButton.checked
       ) {
         // At the end.  Jump to the beginning.
-        playPositionNumber.valueAsNumber = sectionStartTime;
+        playPositionSeconds.valueAsNumber  = sectionStartTime/1000;
       }
-      playOffset = timeInMS - playPositionNumber.valueAsNumber;
+      playOffset = timeInMS - playPositionSeconds.valueAsNumber * 1000;
     }
     timeInMS -= playOffset;
     if (timeInMS >= sectionEndTime && !continueRadioButton.checked) {
@@ -110,10 +110,10 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
       } else {
         timeInMS = sectionEndTime;
         playCheckBox.checked = false;
-        playPositionNumber.disabled = false;
+        playPositionSeconds.disabled = false;
       }
     }
-    playPositionNumber.valueAsNumber = timeInMS;
+    playPositionSeconds.valueAsNumber = timeInMS/1000;
     playPositionRange.valueAsNumber = timeInMS;
   }
   showFrame(timeInMS, "live");
@@ -121,7 +121,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
 
 playPositionRange.addEventListener("input", () => {
   playOffset = NaN;
-  playPositionNumber.valueAsNumber = playPositionRange.valueAsNumber;
+  playPositionSeconds.valueAsNumber = playPositionRange.valueAsNumber / 1000;
 });
 
 addEventListener("keypress", (event) => {
@@ -135,7 +135,7 @@ addEventListener("keypress", (event) => {
       break;
     }
     case "Digit0": {
-      playPositionNumber.valueAsNumber = sectionStartTime;
+      playPositionSeconds.valueAsNumber = sectionStartTime / 1000;
       playOffset = NaN;
       event.preventDefault();
       break;
@@ -367,7 +367,7 @@ function updateFromSelect() {
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically limits you to the range of the currently selected chapter.
   // Make the number match in this case.
-  playPositionNumber.valueAsNumber = playPositionRange.valueAsNumber;
+  playPositionSeconds.valueAsNumber = playPositionRange.valueAsNumber / 1000;
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -396,7 +396,7 @@ const saveImageSecondsInput = getById("saveImageSeconds", HTMLInputElement);
  */
 function saveState() {
   sessionStorage.setItem("index", select.selectedIndex.toString());
-  sessionStorage.setItem("time", playPositionNumber.value);
+  sessionStorage.setItem("timeInSeconds", playPositionSeconds.value);
   sessionStorage.setItem(
     "state",
     querySelector('input[name="playState"]:checked', HTMLInputElement).value
@@ -449,9 +449,9 @@ addEventListener("pagehide", (event) => {
 {
   try {
     const index = sessionStorage.getItem("index");
-    const time = sessionStorage.getItem("time");
+    const timeInSeconds = sessionStorage.getItem("timeInSeconds");
     const state = sessionStorage.getItem("state");
-    if (index && time && state) {
+    if (index && timeInSeconds && state) {
       select.selectedIndex = assertNonNullable(parseIntX(index));
       if (select.selectedIndex < 0) {
         // What if you save the state when row 13 is selected, but there are currently
@@ -460,7 +460,7 @@ addEventListener("pagehide", (event) => {
         select.selectedIndex = 0;
       }
       updateFromSelect();
-      playPositionNumber.value = time;
+      playPositionSeconds.value = timeInSeconds;
       querySelector(
         `input[name="playState"][value="${state}"]`,
         HTMLInputElement
@@ -517,7 +517,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * (the reverse already works)
 //  * Also when we first start we are loading the number control but not the range control!
 //  * update both while recording
-// TODO The number control should be in seconds not milliseconds
 // TODO the number control should be precise to the 10th of a millisecond
 //  * Including when the user *or* the program updates that value.
 
