@@ -75,8 +75,26 @@ const continueRadioButton = querySelector(
   HTMLInputElement
 );
 
-function loadPlayPositionNumber(timeInMs: number) {
+/**
+ * Update the input that shows the time as a number.
+ * @param timeInMs The time to display in the number control.
+ * This is *automatically* converted to seconds and rounded to the nearest ⅒ of a millisecond.
+ * We only use milliseconds, not seconds, inside the code.
+ */
+function loadPlayPositionSeconds(timeInMs: number) {
   playPositionSeconds.value = (timeInMs / 1000).toFixed(4);
+}
+
+/**
+ * Update the range input to show the same time as the number input.
+ *
+ * The range control will clamp the input within a certain range.
+ *
+ * The number input does not do any clamping and it is the only input that the program uses.
+ * If the user changes the range input, and the value is immediately copied to the number input for use in the program.
+ */
+function loadPlayPositionRange() {
+  playPositionRange.valueAsNumber = playPositionSeconds.valueAsNumber * 1000;
 }
 
 /**
@@ -101,7 +119,7 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
         !continueRadioButton.checked
       ) {
         // At the end.  Jump to the beginning.
-        loadPlayPositionNumber(sectionStartTime);
+        loadPlayPositionSeconds(sectionStartTime);
       }
       playOffset = timeInMS - playPositionSeconds.valueAsNumber * 1000;
     }
@@ -117,15 +135,18 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
         playPositionSeconds.disabled = false;
       }
     }
-    loadPlayPositionNumber(timeInMS);
-    playPositionRange.valueAsNumber = timeInMS;
+    loadPlayPositionSeconds(timeInMS);
+    loadPlayPositionRange();
   }
   showFrame(timeInMS, "live");
 });
 
 playPositionRange.addEventListener("input", () => {
   playOffset = NaN;
-  loadPlayPositionNumber(playPositionRange.valueAsNumber);
+  loadPlayPositionSeconds(playPositionRange.valueAsNumber);
+});
+playPositionSeconds.addEventListener("input", () => {
+  loadPlayPositionRange();
 });
 
 addEventListener("keypress", (event) => {
@@ -139,7 +160,7 @@ addEventListener("keypress", (event) => {
       break;
     }
     case "Digit0": {
-      loadPlayPositionNumber(sectionStartTime);
+      loadPlayPositionSeconds(sectionStartTime);
       playOffset = NaN;
       event.preventDefault();
       break;
@@ -210,6 +231,8 @@ async function startRecording() {
       break;
     }
     showFrame(timeInMS, "4k");
+    loadPlayPositionSeconds(timeInMS);
+    loadPlayPositionRange();
     // Push frame (timestamp/duration in seconds)
     const timestampSec = frameNumber / FPS;
     const durationSec = 1 / FPS;
@@ -371,7 +394,7 @@ function updateFromSelect() {
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically limits you to the range of the currently selected chapter.
   // Make the number match in this case.
-  loadPlayPositionNumber(playPositionRange.valueAsNumber);
+  loadPlayPositionSeconds(playPositionRange.valueAsNumber);
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -465,6 +488,7 @@ addEventListener("pagehide", (event) => {
       }
       updateFromSelect();
       playPositionSeconds.value = timeInSeconds;
+      loadPlayPositionRange();
       querySelector(
         `input[name="playState"][value="${state}"]`,
         HTMLInputElement
@@ -517,10 +541,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
 
-// TODO when paused the number control should update the range control
-//  * (the reverse already works)
-//  * Also when we first start we are loading the number control but not the range control!
-//  * update both while recording
 // TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
@@ -530,3 +550,5 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 // TODO Hot Keys
 //  * Add _ for Previous and Next buttons.
 //  * Add P and N as hotkeys.
+// TODO "Cancel recording" ==> "stop recording"
+// TODO Add ratio to the final time after recording.
