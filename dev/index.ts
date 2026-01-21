@@ -262,7 +262,8 @@ async function startRecording() {
   infoDiv.innerHTML = `
     <strong>Recording complete!</strong><br>
     Frames: ${frameNumber}<br>
-    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds
+    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
+    Recording Speed: ${(frameNumber / FPS / elapsedSeconds).toFixed(3)} × realtime
   `;
 }
 
@@ -550,5 +551,5 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 // TODO Hot Keys
 //  * Add _ for Previous and Next buttons.
 //  * Add P and N as hotkeys.
-// TODO "Cancel recording" ==> "stop recording"
-// TODO Add ratio to the final time after recording.
+//  * Maybe not.  This is possible but not very interesting.
+//  * Instead maybe flip between specific frames or scenes with a hot key.
