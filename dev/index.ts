@@ -64,15 +64,15 @@ const playPositionRange = getById("playPositionRange", HTMLInputElement);
 const playPositionSeconds = getById("playPositionSeconds", HTMLInputElement);
 const pauseRadioButton = querySelector(
   'input[name="playState"][value="pause"]',
-  HTMLInputElement
+  HTMLInputElement,
 );
 const repeatRadioButton = querySelector(
   'input[name="playState"][value="repeat"]',
-  HTMLInputElement
+  HTMLInputElement,
 );
 const continueRadioButton = querySelector(
   'input[name="playState"][value="continue"]',
-  HTMLInputElement
+  HTMLInputElement,
 );
 
 /**
@@ -290,7 +290,7 @@ function dump(
   prefix = "",
   start = 0,
   limit = Infinity,
-  parent?: SelectableTree
+  parent?: SelectableTree,
 ) {
   const end = Math.min(start + showable.duration, limit);
   const info: SelectableTree = {
@@ -326,16 +326,16 @@ debug.forEach((value) => {
 const parentCells = querySelectorAll("#parentRow td", HTMLTableCellElement);
 const previousSiblingCells = querySelectorAll(
   "#previousSiblingRow td",
-  HTMLTableCellElement
+  HTMLTableCellElement,
 );
 const thisCells = querySelectorAll("#thisRow td", HTMLTableCellElement);
 const firstChildCells = querySelectorAll(
   "#firstChildRow td",
-  HTMLTableCellElement
+  HTMLTableCellElement,
 );
 const nextSiblingCells = querySelectorAll(
   "#nextSiblingRow td",
-  HTMLTableCellElement
+  HTMLTableCellElement,
 );
 
 const buttonDestination = new Map<
@@ -345,14 +345,14 @@ const buttonDestination = new Map<
 
 function updateRow(
   cells: readonly HTMLTableCellElement[],
-  info: SelectableTree | undefined
+  info: SelectableTree | undefined,
 ) {
   const button = querySelectorAll(
     "button",
     HTMLButtonElement,
     0,
     1,
-    cells[0]
+    cells[0],
   ).at(0);
   if (button) {
     button.disabled = info == undefined;
@@ -427,12 +427,12 @@ function saveState() {
   sessionStorage.setItem("timeInSeconds", playPositionSeconds.value);
   sessionStorage.setItem(
     "state",
-    querySelector('input[name="playState"]:checked', HTMLInputElement).value
+    querySelector('input[name="playState"]:checked', HTMLInputElement).value,
   );
   sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
   sessionStorage.setItem(
     "play",
-    playCheckBox.checked ? "checked" : "unchecked"
+    playCheckBox.checked ? "checked" : "unchecked",
   );
 }
 
@@ -465,12 +465,12 @@ addEventListener("pagehide", (event) => {
     async () => {
       showFrame(
         assertNonNullable(parseFloatX(saveImageSecondsInput.value)) * 1000,
-        "4k"
+        "4k",
       );
       const filename = `frame-${saveImageSecondsInput.value}.png`;
       const blob = await getBlobFromCanvas(canvas);
       downloadBlob(filename, blob);
-    }
+    },
   );
 }
 
@@ -492,7 +492,7 @@ addEventListener("pagehide", (event) => {
       loadPlayPositionRange();
       querySelector(
         `input[name="playState"][value="${state}"]`,
-        HTMLInputElement
+        HTMLInputElement,
       ).checked = true;
       playOffset = NaN;
     }
@@ -501,7 +501,7 @@ addEventListener("pagehide", (event) => {
     const playCheckBoxState = sessionStorage.getItem("play");
     playCheckBox.checked = playCheckBoxState == "checked";
     const saveImageSeconds = parseFloatX(
-      sessionStorage.getItem("saveImageSeconds")
+      sessionStorage.getItem("saveImageSeconds"),
     );
     if (saveImageSeconds !== undefined) {
       saveImageSecondsInput.valueAsNumber = saveImageSeconds;
@@ -515,7 +515,7 @@ function getLocation(pointerEvent: PointerEvent): Point {
   return transform(
     pointerEvent.offsetX * devicePixelRatio,
     pointerEvent.offsetY * devicePixelRatio,
-    mainTransform().inverse()
+    mainTransform().inverse(),
   );
 }
 
@@ -545,11 +545,20 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 // TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
-//  * ~~Disable an infinite save.~~ No.  There is a cancel button.
 //  * Add a way to record any range you want.
 // TODO Reenable other buttons after recording.
+//  * Probably, but no rush.
+//  * It is so easy to hit refresh!
 // TODO Hot Keys
 //  * Add _ for Previous and Next buttons.
 //  * Add P and N as hotkeys.
 //  * Maybe not.  This is possible but not very interesting.
 //  * Instead maybe flip between specific frames or scenes with a hot key.
+// TODO Stop sooner
+//  * If a section goes from x to y
+//  * And the next section goes from y to z
+//  * The frame y will belong to the second group.
+//  * But currently we also display it at the end of the first group.
+//  * This is relevant when we pause at the end of a section.
+//  * This probably doesn't matter when we are saving the section because we will probably stop 1/2 frame before the end.
+//  * When pausing at the end we should pause at 0.1ms before the end of the range.

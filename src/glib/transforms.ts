@@ -7,7 +7,11 @@ import { ReadOnlyRect } from "phil-lib/misc";
  * @param matrix The transform to apply.
  * @returns The point in the transformed coordinate system.
  */
-export function transform(x: number, y: number, matrix: DOMMatrix): DOMPoint {
+export function transform(
+  x: number,
+  y: number,
+  matrix: DOMMatrixReadOnly,
+): DOMPoint {
   return new DOMPoint(x, y).matrixTransform(matrix);
 }
 
@@ -16,6 +20,22 @@ interface Rect {
   y: number;
   width: number;
   height: number;
+}
+
+export function transformRect(
+  initial: ReadOnlyRect,
+  matrix: DOMMatrixReadOnly,
+) {
+  const initialRight = initial.x + initial.width;
+  const initialTop = initial.y + initial.height;
+  const topLeft = transform(initial.x, initial.y, matrix);
+  const bottomRight = transform(initialRight, initialTop, matrix);
+  return {
+    x: topLeft.x,
+    y: topLeft.y,
+    width: bottomRight.x - topLeft.x,
+    height: bottomRight.y - topLeft.y,
+  };
 }
 
 /**
@@ -53,7 +73,7 @@ export function panAndZoom(
     | "srcRect fits completely into destRect"
     | "srcRect completely covers destRect",
   howFarRight = 0.5,
-  howFarDown = 0.5
+  howFarDown = 0.5,
 ): DOMMatrix {
   // Step 1: Compute the scaling factors to fit or fill the destination
   const srcAspect = srcRect.width / srcRect.height;
@@ -147,7 +167,7 @@ function runTests() {
         toPoint.y > testTo.y + testTo.height
       ) {
         throw new Error(
-          `Test 1 failed: Point (${toPoint.x}, ${toPoint.y}) is outside destination (${testTo.x}, ${testTo.y}, ${testTo.width}, ${testTo.height})`
+          `Test 1 failed: Point (${toPoint.x}, ${toPoint.y}) is outside destination (${testTo.x}, ${testTo.y}, ${testTo.width}, ${testTo.height})`,
         );
       }
     });
@@ -181,7 +201,7 @@ function runTests() {
         toPoint.y > testTo.y + testTo.height
       ) {
         throw new Error(
-          `Test 2 failed: Point (${toPoint.x}, ${toPoint.y}) is outside destination (${testTo.x}, ${testTo.y}, ${testTo.width}, ${testTo.height})`
+          `Test 2 failed: Point (${toPoint.x}, ${toPoint.y}) is outside destination (${testTo.x}, ${testTo.y}, ${testTo.width}, ${testTo.height})`,
         );
       }
     });
