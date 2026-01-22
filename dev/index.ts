@@ -391,6 +391,12 @@ function updateFromSelect() {
   updateRow(nextSiblingCells, nextSibling);
   sectionStartTime = info.start;
   sectionEndTime = info.end;
+  if (sectionEndTime < toShow.duration) {
+    // The exact time when one section ends and the next begins typically belongs to the
+    // next section.  MakeShowableInSeries ensures that we don't have a frame with
+    // both or neither.  This is only an issue when you pause at the very end of a section.
+    sectionEndTime -= 0.1;
+  }
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically limits you to the range of the currently selected chapter.
@@ -554,11 +560,3 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Add P and N as hotkeys.
 //  * Maybe not.  This is possible but not very interesting.
 //  * Instead maybe flip between specific frames or scenes with a hot key.
-// TODO Stop sooner
-//  * If a section goes from x to y
-//  * And the next section goes from y to z
-//  * The frame y will belong to the second group.
-//  * But currently we also display it at the end of the first group.
-//  * This is relevant when we pause at the end of a section.
-//  * This probably doesn't matter when we are saving the section because we will probably stop 1/2 frame before the end.
-//  * When pausing at the end we should pause at 0.1ms before the end of the range.

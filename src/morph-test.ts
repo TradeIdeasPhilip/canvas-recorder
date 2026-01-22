@@ -417,7 +417,7 @@ const hilbert = [
   ).reverse(),
 ];
 
-if (false) {
+if (true) {
   /**
    * Source:
    * https://upload.wikimedia.org/wikipedia/commons/a/a5/Hilbert_curve.svg
@@ -567,7 +567,7 @@ if (false) {
 }
 
 // MARK: Hilbert edging
-if (true) {
+if (false) {
   /*
   const screenCaptureInitial: ReadOnlyRect = {
     x: 0,
