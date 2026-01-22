@@ -127,7 +127,7 @@ export function fixCorners(path: PathShape) {
     }
     const difference = angleBetween(
       command.outgoingAngle,
-      nextCommand.incomingAngle
+      nextCommand.incomingAngle,
     );
     if (!isFinite(difference)) {
       return;
@@ -141,7 +141,7 @@ export function fixCorners(path: PathShape) {
       command.x,
       command.y,
       command.x,
-      command.y
+      command.y,
     );
     vertexCommands.add(vertexCommand);
     result.push(vertexCommand);
@@ -170,7 +170,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
   const bConnectedPieces = b.splitOnMove();
   function makeSecondLonger(
     alreadyLong: readonly PathShape[],
-    makeLonger: PathShape[]
+    makeLonger: PathShape[],
   ) {
     /**
      * This is an ideal first step because it typically looks better.
@@ -188,7 +188,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
           break;
         }
         const vertexIndex = last.commands.findLastIndex((command) =>
-          vertexCommands.has(command)
+          vertexCommands.has(command),
         );
         if (vertexIndex < 0) {
           // No corners in this path.
@@ -198,7 +198,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
           const commands = [...last.commands];
           const commandsAfterCorner = commands.splice(
             vertexIndex + 1,
-            Infinity
+            Infinity,
           );
           const vertex = commands.pop();
           if (!vertexCommands.has(vertex!)) {
@@ -359,14 +359,14 @@ export function matchShapes(a: PathShape, b: PathShape) {
   const finalBCommands = new Array<QCommand>();
   for (const [pathFromA, pathFromB] of zip(
     aConnectedPieces,
-    bReorientedPieces
+    bReorientedPieces,
   )) {
     // insert new point commands here and record them and spit any command between two points.
     const newACommands = pathFromA.commands.map((command) =>
-      makeQCommand(command)
+      makeQCommand(command),
     );
     const newBCommands = pathFromB.commands.map((command) =>
-      makeQCommand(command)
+      makeQCommand(command),
     );
     if (newACommands.length < newBCommands.length) {
       addCommands(newBCommands.length, newACommands);
@@ -421,7 +421,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
   function makeRoundedCorners(
     commands: readonly QCommand[],
     corners: readonly number[],
-    progress: number
+    progress: number,
   ): QCommand[] {
     const result = [...commands];
     corners.forEach((indexOfCorner) => {
@@ -446,7 +446,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
         beforeCornerOriginal.x,
         beforeCornerOriginal.y,
         afterCorner.x0,
-        afterCorner.y0
+        afterCorner.y0,
       );
       result[indexBeforeCorner] = beforeCorner;
       result[indexOfCorner] = corner;

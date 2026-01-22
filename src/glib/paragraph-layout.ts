@@ -104,7 +104,7 @@ export class ParagraphLayout {
   align(
     width = Infinity,
     alignment: "left" | "center" | "right" | "justify" = "left",
-    additionalLineHeight = 0
+    additionalLineHeight = 0,
   ) {
     const lines: WordInfo[][] = [[]];
     const hardLineBreakAt = new Set<number>();
@@ -305,7 +305,7 @@ export class ParagraphLayout {
     }
     function singlePathShape() {
       const allCommands = [...getAllLetters()].flatMap(
-        ({ translatedShape }) => translatedShape.commands
+        ({ translatedShape }) => translatedShape.commands,
       );
       return new PathShape(allCommands);
     }
@@ -339,7 +339,7 @@ export class ParagraphLayout {
     const laidOut = layout.align(
       options.width ?? Infinity,
       options.alignment ?? "left",
-      options.additionalLineHeight ?? 0
+      options.additionalLineHeight ?? 0,
     );
     return laidOut.singlePathShape();
   }

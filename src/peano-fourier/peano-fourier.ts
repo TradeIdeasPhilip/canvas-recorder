@@ -30,8 +30,8 @@ function createExample(
   keyframes: readonly number[],
   livePathChanges?: (
     timeInMS: number,
-    context: CanvasRenderingContext2D
-  ) => void
+    context: CanvasRenderingContext2D,
+  ) => void,
 ) {
   // Active element: [data-pf] and #pf2-container
   const path = createPeanoPath(iteration).transform(SIZE);
@@ -63,7 +63,7 @@ function createExample(
 
   // Reference elements:  [data-pf-ideal]
   const referencePath = new Path2D(
-    path.transform(positionOfReferencePath).rawPath
+    path.transform(positionOfReferencePath).rawPath,
   );
   const referenceShowable: Showable = {
     description: `reference path #${iteration}`,
@@ -93,7 +93,7 @@ createExample(
   3,
   "red",
   0.06,
-  keyframes
+  keyframes,
 );
 {
   const animationStartTime = 67500;
@@ -106,7 +106,7 @@ createExample(
   ];
   function animateTransform(
     timeInMS: number,
-    context: CanvasRenderingContext2D
+    context: CanvasRenderingContext2D,
   ): void {
     const relevant = timedKeyframes(timeInMS, transformKeyframes);
     if (relevant.single && relevant.value == 0) {
@@ -128,7 +128,7 @@ createExample(
   builder.addNotes(
     "⭐️ spin and translate",
     animationStartTime - animationDuration * 0.25,
-    animationDuration * 1.5
+    animationDuration * 1.5,
   );
   createExample(
     2,
@@ -137,7 +137,7 @@ createExample(
     "white",
     0.04,
     keyframes,
-    animateTransform
+    animateTransform,
   );
 }
 createExample(
@@ -146,7 +146,7 @@ createExample(
   13,
   BLUE,
   0.02,
-  keyframes
+  keyframes,
 );
 
 //const debuggerText = getById("peano-fourier-debugger", SVGTextElement);

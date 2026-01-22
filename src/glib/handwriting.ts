@@ -15,7 +15,7 @@ export function createHandwriting(
 ): (progress: number, context: CanvasRenderingContext2D) => void {
   let start = 0.0001;
   const allConnectedShapes = pathShapes.flatMap((pathShape) =>
-    pathShape.splitOnMove()
+    pathShape.splitOnMove(),
   );
   const allShapeInfo = allConnectedShapes.map((shape) => {
     const length = shape.getLength();

@@ -103,7 +103,7 @@ export function createPeanoPath(iteration: number) {
         previous.x0,
         previous.y0,
         command.x,
-        command.y
+        command.y,
       );
       terseCommands.pop();
       terseCommands.push(combined);

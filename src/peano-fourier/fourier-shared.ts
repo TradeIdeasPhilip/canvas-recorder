@@ -66,7 +66,7 @@ export function makePolygon(
   numberOfPoints: number,
   skip: number,
   random: (() => number) | string = "My seed 2025",
-  randomness = 0.25
+  randomness = 0.25,
 ) {
   const rotate = ((2 * Math.PI) / numberOfPoints) * (1 + skip);
   if (typeof random === "string") {
@@ -94,7 +94,7 @@ export type Complex = [real: number, imaginary: number];
 
 export function samplesFromParametric(
   func: ParametricFunction,
-  numSamples: number = 1024
+  numSamples: number = 1024,
 ): Complex[] {
   if (Math.log2(numSamples) % 1 !== 0) {
     throw new Error("numSamples must be a power of 2");
@@ -159,7 +159,7 @@ const cacheHealth = { miss: 0, hit: 0 };
 export function termsToParametricFunction(
   terms: readonly FourierTerm[],
   numTerms: number,
-  start = 0
+  start = 0,
 ): ParametricFunction {
   const end = Math.min(start + numTerms, terms.length);
   /**
@@ -222,7 +222,7 @@ export function hasFixedContribution(term: FourierTerm): Point | undefined {
 // examples, too.  The time grows slightly faster than linearly as the path gets longer.
 export function samplesFromPathOrig(
   pathString: string,
-  numberOfTerms: number
+  numberOfTerms: number,
 ): Complex[] {
   const path = new PathCaliper();
   path.d = pathString;
@@ -245,7 +245,7 @@ export function samplesFromPathOrig(
 //   Which is essential if one part of your path has a lot of detail.
 export function samplesFromPath(
   pathString: string,
-  numberOfTerms: number
+  numberOfTerms: number,
 ): Complex[] {
   const caliper = new PathCaliper();
   try {
@@ -262,18 +262,18 @@ export function samplesFromPath(
           command.x,
           command.y,
           nextCommand.x0,
-          nextCommand.y0
+          nextCommand.y0,
         );
         connectedCommands.push(newSegment);
       }
     });
     const subPaths = connectedCommands.map(
-      (command) => new PathShape([command])
+      (command) => new PathShape([command]),
     );
     const lengths = subPaths.map(
       (
         path,
-        originalIndex
+        originalIndex,
       ): {
         readonly path: PathShape;
         readonly length: number;
@@ -288,7 +288,7 @@ export function samplesFromPath(
           numberOfVertices: 0,
           originalIndex,
         };
-      }
+      },
     );
     {
       /**
@@ -314,7 +314,7 @@ export function samplesFromPath(
             (verticesAvailable / lengthAvailable) * segmentInfo.length;
           const numberOfVertices = Math.max(
             1,
-            Math.round(idealNumberOfVertices)
+            Math.round(idealNumberOfVertices),
           );
           segmentInfo.numberOfVertices = numberOfVertices;
           verticesAvailable -= numberOfVertices;
@@ -402,7 +402,7 @@ function makeEasing(x1: number, x2: number) {
  */
 export function getAnimationRules(
   terms: string | FourierTerm[],
-  keyframes: readonly number[]
+  keyframes: readonly number[],
 ): ((progress: number) => PathShape)[] {
   // In principal this could be adapted to transition from any curve to any other curve.
   // Currently this function has some details that are specific to Fourier.
@@ -426,7 +426,7 @@ export function getAnimationRules(
   const numberOfSteps = keyframes.length - 1;
   const getMaxFrequency = (numberOfTerms: number) => {
     const maxFrequency = Math.max(
-      ...terms.slice(0, numberOfTerms).map((term) => Math.abs(term.frequency))
+      ...terms.slice(0, numberOfTerms).map((term) => Math.abs(term.frequency)),
     );
     return maxFrequency;
   };
@@ -479,13 +479,13 @@ export function getAnimationRules(
       } else if (startingTermCount == endingTermCount) {
         const parametricFunction = termsToParametricFunction(
           terms,
-          startingTermCount
+          startingTermCount,
         );
         const numberOfDisplaySegments =
           recommendedNumberOfSegments(endingTermCount);
         const path = PathShape.glitchFreeParametric(
           parametricFunction,
-          numberOfDisplaySegments
+          numberOfDisplaySegments,
         );
         const result = path;
         return (_timeInMs: number): PathShape => {
@@ -494,7 +494,7 @@ export function getAnimationRules(
       } else {
         // TODO this should probably be the largest from the group that we are adding.
         const firstInterestingFrequency = Math.abs(
-          terms[startingTermCount].frequency
+          terms[startingTermCount].frequency,
         );
         const r = 0.2 / firstInterestingFrequency;
         /**
@@ -508,12 +508,12 @@ export function getAnimationRules(
         const tToCenter = makeBoundedLinear(0, -r, 1, 1 + r);
         const startingFunction = termsToParametricFunction(
           terms,
-          startingTermCount
+          startingTermCount,
         );
         const addingFunction = termsToParametricFunction(
           terms,
           endingTermCount - startingTermCount,
-          startingTermCount
+          startingTermCount,
         );
         const numberOfDisplaySegments =
           recommendedNumberOfSegments(endingTermCount);
@@ -538,14 +538,14 @@ export function getAnimationRules(
             if (safePartEnds <= 0) {
               // There is no safe part!
               return PathShape.fromRawString(
-                `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`
+                `M${startingPoint.x},${startingPoint.y} L${startingPoint.x},${startingPoint.y}`,
               );
             } else {
               const frugalSegmentCount = Math.ceil(
                 // TODO that 150 is crude.  The transition might require
                 // more detail than the before or the after.
                 // Or it might require less, not that we are glitch-free.
-                Math.max(numberOfDisplaySegments, 150) * safePartEnds
+                Math.max(numberOfDisplaySegments, 150) * safePartEnds,
               );
               function parametricFunction(t: number) {
                 t = t * safePartEnds;
@@ -563,7 +563,7 @@ export function getAnimationRules(
               }
               const path = PathShape.glitchFreeParametric(
                 parametricFunction,
-                frugalSegmentCount
+                frugalSegmentCount,
               );
               return path;
             }
@@ -574,7 +574,7 @@ export function getAnimationRules(
             const centerOfChange = tToCenter(timeInMs);
             const getFraction = makeEasing(
               centerOfChange - r,
-              centerOfChange + r
+              centerOfChange + r,
             );
             function parametricFunction(t: number) {
               const base = startingFunction(t);
@@ -591,13 +591,13 @@ export function getAnimationRules(
             }
             const path = PathShape.glitchFreeParametric(
               parametricFunction,
-              numberOfDisplaySegments
+              numberOfDisplaySegments,
             );
             return path;
           };
         }
       }
-    }
+    },
   );
   return result;
 }
@@ -618,7 +618,7 @@ const PAUSE_AFTER_LAST = 500;
  * @returns
  */
 export function createFourierAnimation(
-  animationRules: readonly ((t: number) => PathShape)[]
+  animationRules: readonly ((t: number) => PathShape)[],
 ): {
   getInfo(timeInMS: number): {
     pathShape: PathShape;
@@ -642,7 +642,7 @@ export function createFourierAnimation(
       index = Math.floor(unitized);
       progress = Math.min(
         1,
-        ((unitized - index) * (PLAY_DURATION + PAUSE_BETWEEN)) / PLAY_DURATION
+        ((unitized - index) * (PLAY_DURATION + PAUSE_BETWEEN)) / PLAY_DURATION,
       );
     }
     const pathShape = animationRules[index](progress);

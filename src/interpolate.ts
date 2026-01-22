@@ -20,7 +20,7 @@ export function interpolateColor(progress: number, from: string, to: string) {
 
 function equalWeights<T>(
   progress: number,
-  array: readonly T[]
+  array: readonly T[],
 ):
   | { single: true; value: T }
   | { single: false; progress: number; from: T; to: T } {
@@ -64,7 +64,7 @@ export type Keyframes<T> = readonly Keyframe<T>[];
  */
 export function timedKeyframes<T>(
   time: number,
-  keyframes: Keyframes<T>
+  keyframes: Keyframes<T>,
 ):
   | { single: true; value: T }
   | { single: false; progress: number; from: T; to: T } {
@@ -100,7 +100,7 @@ export function timedKeyframes<T>(
  */
 export function interpolateNumbers(
   time: number,
-  keyframes: Keyframes<number>
+  keyframes: Keyframes<number>,
 ): number {
   const relevant = timedKeyframes(time, keyframes);
   if (relevant.single) {
@@ -149,7 +149,7 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
           lerp(fromCommand.x0, toCommand.x0, progress),
           lerp(fromCommand.y0, toCommand.y0, progress),
           lerp(fromCommand.x, toCommand.x, progress),
-          lerp(fromCommand.y, toCommand.y, progress)
+          lerp(fromCommand.y, toCommand.y, progress),
         );
       }
       return makeLCommand;
@@ -166,7 +166,7 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
           lerp(from.x1, to.x1, progress),
           lerp(from.y1, to.y1, progress),
           lerp(from.x, to.x, progress),
-          lerp(from.y, to.y, progress)
+          lerp(from.y, to.y, progress),
         );
       }
       return makeQCommand;
@@ -198,7 +198,7 @@ export function makePathShapeInterpolator(from: PathShape, to: PathShape) {
 export function qCommandInterpolation(
   fromCommands: readonly QCommand[],
   toCommands: readonly QCommand[],
-  progress: number
+  progress: number,
 ) {
   if (fromCommands.length != toCommands.length) {
     throw new Error("wtf");
@@ -211,7 +211,7 @@ export function qCommandInterpolation(
       lerp(fromCommand.x1, toCommand.x1, progress),
       lerp(fromCommand.y1, toCommand.y1, progress),
       lerp(fromCommand.x, toCommand.x, progress),
-      lerp(fromCommand.y, toCommand.y, progress)
+      lerp(fromCommand.y, toCommand.y, progress),
     );
   });
   return result;

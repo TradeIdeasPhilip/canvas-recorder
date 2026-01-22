@@ -40,7 +40,7 @@ class DescriptionOfLetter {
      * Typically the "black" area of the character will start at x=0 and end at x=advance.
      */
     public readonly advance: number,
-    public readonly fontMetrics: FontMetrics
+    public readonly fontMetrics: FontMetrics,
   ) {
     if (shape instanceof PathShape) {
       this.#shapeFactory = () => shape;
@@ -111,7 +111,7 @@ export function makeLineFont(fontMetrics: number | LineFontMetrics): Font {
     strokeWidth,
     defaultKerning,
     mHeight,
-    fontMap
+    fontMap,
   );
   return result;
 }
@@ -124,7 +124,7 @@ export function makeLineFont(fontMetrics: number | LineFontMetrics): Font {
  * @returns A new font.
  */
 export function makeLineFontMap(
-  fontMetrics: number | LineFontMetrics
+  fontMetrics: number | LineFontMetrics,
 ): FontMap {
   const result = new Map<string, DescriptionOfLetter>();
   if (typeof fontMetrics === "number") {
@@ -136,7 +136,7 @@ export function makeLineFontMap(
       throw new Error(
         `duplicate letter: "${letter}", previous letter: "${
           [...result].at(-1)![0]
-        }"`
+        }"`,
       );
     }
     result.set(letter, description);
@@ -168,8 +168,8 @@ export function makeLineFontMap(
         0.1993461912459357 * scaleFactor,
         -0.4845653833822309 * scaleFactor,
         0.15178572549774305 * scaleFactor,
-        -0.5833333559985097 * scaleFactor
-      )
+        -0.5833333559985097 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -178,8 +178,8 @@ export function makeLineFontMap(
         0.07142858010885174 * scaleFactor,
         -0.7502096094253163 * scaleFactor,
         0.07142858010885174 * scaleFactor,
-        -0.8809523915616125 * scaleFactor
-      )
+        -0.8809523915616125 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -188,8 +188,8 @@ export function makeLineFontMap(
         0.07142858010885174 * scaleFactor,
         -1 * scaleFactor,
         0.18154763484090689 * scaleFactor,
-        -1 * scaleFactor
-      )
+        -1 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -198,8 +198,8 @@ export function makeLineFontMap(
         0.3125000278492327 * scaleFactor,
         -1 * scaleFactor,
         0.3125000278492327 * scaleFactor,
-        -0.8809523857747589 * scaleFactor
-      )
+        -0.8809523857747589 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -208,8 +208,8 @@ export function makeLineFontMap(
         0.3125000278492327 * scaleFactor,
         -0.795672021064033 * scaleFactor,
         0.14880952935525849 * scaleFactor,
-        -0.5863095347804337 * scaleFactor
-      )
+        -0.5863095347804337 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -218,8 +218,8 @@ export function makeLineFontMap(
         0 * scaleFactor,
         -0.39598002063544424 * scaleFactor,
         0 * scaleFactor,
-        -0.23511904966855834 * scaleFactor
-      )
+        -0.23511904966855834 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -228,8 +228,8 @@ export function makeLineFontMap(
         0 * scaleFactor,
         0 * scaleFactor,
         0.16369048113341364 * scaleFactor,
-        0 * scaleFactor
-      )
+        0 * scaleFactor,
+      ),
     );
     commands.push(
       QCommand.controlPoints(
@@ -238,8 +238,8 @@ export function makeLineFontMap(
         0.31699631330709954 * scaleFactor,
         0 * scaleFactor,
         0.45535713019840074 * scaleFactor,
-        -0.4583333263408854 * scaleFactor
-      )
+        -0.4583333263408854 * scaleFactor,
+      ),
     );
     add("&", new PathShape(commands), advance);
     /**
@@ -365,7 +365,7 @@ export function makeLineFontMap(
         QCommand.line4(right, top, left, middle),
         QCommand.line4(left, middle, right, bottom),
       ]),
-      advance
+      advance,
     );
     add(
       ">",
@@ -373,7 +373,7 @@ export function makeLineFontMap(
         QCommand.line4(left, top, right, middle),
         QCommand.line4(right, middle, left, bottom),
       ]),
-      advance
+      advance,
     );
   }
   // MARK: ?
@@ -389,7 +389,7 @@ export function makeLineFontMap(
       capitalTop + radius,
       center + sqrt,
       capitalTop + radius + sqrt,
-      "cw"
+      "cw",
     );
     pathBuilder.Q_angles(center, capitalBottomMiddle, dSouth);
     pathBuilder.M(center, baseline - dotHeight);
@@ -544,13 +544,13 @@ export function makeLineFontMap(
           center,
           middle - space - dotHeight,
           center,
-          middle - space
+          middle - space,
         ),
         new LCommand(
           center,
           middle + space,
           center,
-          middle + space + dotHeight
+          middle + space + dotHeight,
         ),
       ]);
       PathBuilder.M(left, capitalMiddle).H(advance).pathShape;
@@ -589,7 +589,7 @@ export function makeLineFontMap(
         point.y += middle;
       });
       const commands = geometry.map(
-        ([from, to]) => new LCommand(from.x, from.y, to.x, to.y)
+        ([from, to]) => new LCommand(from.x, from.y, to.x, to.y),
       );
       const shape = new PathShape(commands);
       const advance = Math.max(...allPoints.map(({ x }) => x));
@@ -1163,7 +1163,7 @@ export function makeLineFontMap(
     const topCircle = pathBuilder.pathShape;
     const bottomCircle = topCircle.translate(
       advance - radius * 2,
-      fontMetrics.mHeight - radius * 2
+      fontMetrics.mHeight - radius * 2,
     );
     pathBuilder.addCommands(bottomCircle.commands);
     // Finally the slash.
@@ -1176,7 +1176,7 @@ export function makeLineFontMap(
     const advance = digitWidth;
     const shape = PathBuilder.M(advance, capitalTop).L(
       left,
-      baseline
+      baseline,
     ).pathShape;
     add("/", shape, advance);
   }
@@ -1185,7 +1185,7 @@ export function makeLineFontMap(
     const advance = digitWidth;
     const shape = PathBuilder.M(left, capitalTop).L(
       advance,
-      baseline
+      baseline,
     ).pathShape;
     add("\\", shape, advance);
   }
@@ -1339,7 +1339,7 @@ export function makeLineFontMap(
   {
     const advance = 0;
     const shape = PathBuilder.M(left, baseline).V(
-      baseline - dotHeight
+      baseline - dotHeight,
     ).pathShape;
     add(".", shape, advance);
   }
@@ -1653,7 +1653,7 @@ export function makeLineFontMap(
     const shape = PathBuilder.M(radius, capitalTop).circle(
       radius,
       capitalTop + radius,
-      "cw"
+      "cw",
     ).pathShape;
     add("°", shape, advance);
   }
@@ -1664,7 +1664,7 @@ export function makeLineFontMap(
     const shape = PathBuilder.M(radius, capitalTop).circle(
       radius,
       capitalTop + radius,
-      "cw"
+      "cw",
     ).pathShape;
     add("◯", shape, advance);
   }
@@ -1678,7 +1678,7 @@ export function makeLineFontMap(
       middle,
       advance,
       middle,
-      "cw"
+      "cw",
     ).pathShape;
     add("◠", shape, advance);
   }
@@ -1692,7 +1692,7 @@ export function makeLineFontMap(
       middle,
       advance,
       middle,
-      "ccw"
+      "ccw",
     ).pathShape;
     add("◡", shape, advance);
   }
@@ -1802,7 +1802,7 @@ export function makeLineFontMap(
      */
     function forceFit(
       initial: { minX: number; maxX: number; minY: number; maxY: number },
-      final: { top: number; bottom: number }
+      final: { top: number; bottom: number },
     ) {
       const initialHeight = initial.maxY - initial.minY;
       const finalHeight = final.bottom - final.top;
@@ -1815,13 +1815,13 @@ export function makeLineFontMap(
         initial.minX,
         finalLeft,
         initial.maxX,
-        finalRight
+        finalRight,
       );
       const y = makeBoundedLinear(
         initial.minY,
         final.top,
         initial.maxY,
-        final.bottom
+        final.bottom,
       );
       return { x, y, advance: finalRight };
     }
@@ -1866,7 +1866,7 @@ export function makeLineFontMap(
         baseAngle + tweakAngle,
         next.x,
         next.y,
-        baseAngle - tweakAngle
+        baseAngle - tweakAngle,
       );
     });
     add("⭒", new PathShape(curves), translation.advance); // WHITE SMALL STAR
@@ -1881,7 +1881,7 @@ export function makeLineFontMap(
       } else {
         return 0;
       }
-    })
+    }),
   );
 }
 
@@ -1979,7 +1979,7 @@ export class LineFontMetrics implements FontMetrics {
    */
   constructor(
     public readonly fontSize: number,
-    public readonly strokeWidth = fontSize / 10
+    public readonly strokeWidth = fontSize / 10,
   ) {
     if (fontSize <= 0 || !isFinite(fontSize)) {
       throw new Error("wtf");

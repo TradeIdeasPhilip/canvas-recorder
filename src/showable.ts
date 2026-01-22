@@ -101,7 +101,7 @@ export class MakeShowableInParallel {
   addJustified(showable: Showable, startAtMs = 0) {
     this.add(
       addMargins(showable, { hiddenBefore: startAtMs, frozenAfter: Infinity }),
-      showable.duration + startAtMs
+      showable.duration + startAtMs,
     );
   }
   build(description: string): Showable {
@@ -262,7 +262,7 @@ export function addMargins(
     hiddenAfter?: number;
     frozenBefore?: number;
     frozenAfter?: number;
-  }
+  },
 ): Showable {
   const builder = new MakeShowableInSeries();
   if (extra.hiddenBefore !== undefined) {
@@ -311,7 +311,7 @@ export function addMargins(
 export function reschedule(
   base: Showable,
   duration: number,
-  offset = 0
+  offset = 0,
 ): Showable {
   return {
     description: `${base.description} » rescheduled`,

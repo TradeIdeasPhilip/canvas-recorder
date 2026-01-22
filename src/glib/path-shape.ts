@@ -34,7 +34,7 @@ export class PathCaliper {
   readonly #svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   readonly #path = document.createElementNS(
     "http://www.w3.org/2000/svg",
-    "path"
+    "path",
   );
   constructor() {
     this.#svg.style.width = "0";
@@ -209,23 +209,23 @@ export type Command = {
 
 // MARK: LCommand
 export class LCommand implements Command {
-    multiSplit(count: number): LCommand[] {
-      if (count == 1) {
-        return [this];
-      }
+  multiSplit(count: number): LCommand[] {
+    if (count == 1) {
+      return [this];
+    }
     if (count < 1 || !Number.isSafeInteger(count)) {
       throw new Error("wtf");
     }
     return initializedArray(count, (index) => {
-      return this.split1(index / count, (index+1)/count)      
-    })
+      return this.split1(index / count, (index + 1) / count);
+    });
   }
   split1(from: number, to: number): LCommand {
     return new LCommand(
       lerp(this.x0, this.x, from),
       lerp(this.y0, this.y, from),
       lerp(this.x0, this.x, to),
-      lerp(this.y0, this.y, to)
+      lerp(this.y0, this.y, to),
     );
   }
   at(progress: number): Point {
@@ -240,7 +240,7 @@ export class LCommand implements Command {
   getBezier(): Bezier {
     return Bezier.getUtils().makeline(
       { x: this.x0, y: this.y0 },
-      { x: this.x, y: this.y }
+      { x: this.x, y: this.y },
     );
   }
   reverse(): LCommand {
@@ -258,7 +258,7 @@ export class LCommand implements Command {
     public readonly x0: number,
     public readonly y0: number,
     public readonly x: number,
-    public readonly y: number
+    public readonly y: number,
   ) {
     assertFinite(x0, y0, x, y);
     this.asString = `L ${formatForSvg(x)},${formatForSvg(y)}`;
@@ -292,7 +292,7 @@ export class LCommand implements Command {
       lerp(this.x0, this.x, 2 / 3),
       lerp(this.y0, this.y, 2 / 3),
       this.x,
-      this.y
+      this.y,
     );
   }
   transform(matrix: DOMMatrix): LCommand {
@@ -352,7 +352,7 @@ export class QCommand implements Command {
       this.x1,
       this.y1,
       this.x0,
-      this.y0
+      this.y0,
     );
   }
   /**
@@ -369,7 +369,7 @@ export class QCommand implements Command {
     y0: number,
     x: number,
     y: number,
-    creationInfo: QCreationInfo
+    creationInfo: QCreationInfo,
   ) {
     return new this(x0, y0, (x0 + x) / 2, (y0 + y) / 2, x, y, creationInfo);
   }
@@ -433,7 +433,7 @@ export class QCommand implements Command {
     angle0: number,
     x: number,
     y: number,
-    angle: number
+    angle: number,
   ) {
     assertFinite(x0, y0, angle0, x, y, angle);
     const controlPoint = findIntersection(
@@ -446,7 +446,7 @@ export class QCommand implements Command {
         x0: x,
         y0: y,
         angle: angle + Math.PI,
-      }
+      },
     );
     if (!controlPoint) {
       // Ignore the requested angles and just draw a line segment.
@@ -477,7 +477,7 @@ export class QCommand implements Command {
    */
   newAngles(
     incomingAngle: number | undefined,
-    outgoingAngle: number | undefined
+    outgoingAngle: number | undefined,
   ) {
     incomingAngle ??= this.requestedIncomingAngle;
     outgoingAngle ??= this.requestedOutgoingAngle;
@@ -487,7 +487,7 @@ export class QCommand implements Command {
       incomingAngle,
       this.x,
       this.y,
-      outgoingAngle
+      outgoingAngle,
     );
   }
   /**
@@ -512,7 +512,7 @@ export class QCommand implements Command {
     x1: number,
     y1: number,
     x: number,
-    y: number
+    y: number,
   ) {
     return new this(x0, y0, x1, y1, x, y, { source: "controlPoints" });
   }
@@ -533,7 +533,7 @@ export class QCommand implements Command {
     dx1: number,
     dy1: number,
     dx: number,
-    dy: number
+    dy: number,
   ) {
     return this.controlPoints(x0, y0, dx1 + x0, dy1 + y0, dx + x0, dy + y0);
   }
@@ -544,11 +544,11 @@ export class QCommand implements Command {
     public readonly y1: number,
     public readonly x: number,
     public readonly y: number,
-    public readonly creationInfo: QCreationInfo
+    public readonly creationInfo: QCreationInfo,
   ) {
     assertFinite(x0, y0, x1, y1, x, y);
     this.asString = `Q ${formatForSvg(x1)},${formatForSvg(y1)} ${formatForSvg(
-      x
+      x,
     )},${formatForSvg(y)}`;
   }
   get incomingAngle() {
@@ -580,7 +580,7 @@ export class QCommand implements Command {
       this.x1 + Δx,
       this.y1 + Δy,
       this.x + Δx,
-      this.y + Δy
+      this.y + Δy,
     );
   }
   transform(matrix: DOMMatrix): QCommand {
@@ -599,7 +599,7 @@ export class QCommand implements Command {
       lerp(this.x, this.x1, 2 / 3),
       lerp(this.y, this.y1, 2 / 3),
       this.x,
-      this.y
+      this.y,
     );
   }
   /**
@@ -622,7 +622,7 @@ export class QCommand implements Command {
       x1_first,
       y1_first,
       x_first,
-      y_first
+      y_first,
     );
     const x0_second = x_first;
     const y0_second = y_first;
@@ -636,7 +636,7 @@ export class QCommand implements Command {
       x1_second,
       y1_second,
       x_second,
-      y_second
+      y_second,
     );
     return [first_command, second_command];
   }
@@ -682,7 +682,7 @@ class CCommand implements Command {
       this.x2,
       this.y2,
       this.x,
-      this.y
+      this.y,
     );
   }
   getLength() {
@@ -698,7 +698,7 @@ class CCommand implements Command {
       this.x1,
       this.y1,
       this.x0,
-      this.y0
+      this.y0,
     );
   }
   constructor(
@@ -709,11 +709,11 @@ class CCommand implements Command {
     public readonly x2: number,
     public readonly y2: number,
     public readonly x: number,
-    public readonly y: number
+    public readonly y: number,
   ) {
     assertFinite(x0, y0, x1, y1, x2, y2, x, y);
     this.asString = `C ${formatForSvg(x1)},${formatForSvg(y1)} ${formatForSvg(
-      x2
+      x2,
     )},${formatForSvg(y2)} ${formatForSvg(x)},${formatForSvg(y)}`;
   }
   /**
@@ -737,7 +737,7 @@ class CCommand implements Command {
     x2: number,
     y2: number,
     x: number,
-    y: number
+    y: number,
   ) {
     return new this(x0, y0, x1 + x0, y1 + y0, x2 + x0, y2 + y0, x + x0, y + y0);
   }
@@ -758,7 +758,7 @@ class CCommand implements Command {
       this.x2 + Δx,
       this.y2 + Δy,
       this.x + Δx,
-      this.y + Δy
+      this.y + Δy,
     );
   }
   transform(matrix: DOMMatrix): CCommand {
@@ -784,7 +784,7 @@ export function fromBezier(bezier: Bezier): Command {
         bezier.points[1].x,
         bezier.points[1].y,
         bezier.points[2].x,
-        bezier.points[2].y
+        bezier.points[2].y,
       );
     }
     case 3: {
@@ -796,7 +796,7 @@ export function fromBezier(bezier: Bezier): Command {
         bezier.points[2].x,
         bezier.points[2].y,
         bezier.points[3].x,
-        bezier.points[3].y
+        bezier.points[3].y,
       );
     }
   }
@@ -1016,7 +1016,7 @@ export class PathBuilder {
   Q(x1: number, y1: number, x: number, y: number) {
     const previous = this.previous()!;
     this.addCommand(
-      QCommand.controlPoints(previous.x, previous.y, x1, y1, x, y)
+      QCommand.controlPoints(previous.x, previous.y, x1, y1, x, y),
     );
     return this;
   }
@@ -1060,7 +1060,7 @@ export class PathBuilder {
       throw new Error("wtf");
     }
     this.addCommand(
-      QCommand.angles(previous.x, previous.y, initialAngle, x, y, finalAngle)
+      QCommand.angles(previous.x, previous.y, initialAngle, x, y, finalAngle),
     );
     return this;
   }
@@ -1197,7 +1197,7 @@ export class PathBuilder {
         samples.some((sample) => sample.point.x != x || sample.point.y != y)
       ) {
         throw new Error(
-          "Unable to create a path from this function.  Unable to compute the derivative."
+          "Unable to create a path from this function.  Unable to compute the derivative.",
         );
       }
       // All of the points are identical so none of the derivatives exist.
@@ -1214,7 +1214,7 @@ export class PathBuilder {
           segment.to.point.x,
           segment.to.point.y,
           segment.to.direction,
-          segment.from.direction
+          segment.from.direction,
         );
       });
     }
@@ -1285,19 +1285,19 @@ const number = "(-?[0-9]+\\.?[0-9]*(?:[eE][-+]?[0-9]+)?)";
  */
 const between = "(?: *[, ] *|(?=-))";
 const mCommand = new RegExp(
-  `^M${afterCommand}${number}${between}${number}(.*)$`
+  `^M${afterCommand}${number}${between}${number}(.*)$`,
 );
 const mCommandRelative = new RegExp(
-  `^m${afterCommand}${number}${between}${number}(.*)$`
+  `^m${afterCommand}${number}${between}${number}(.*)$`,
 );
 const lCommand = new RegExp(
-  `^L${afterCommand}${number}${between}${number}(.*)$`
+  `^L${afterCommand}${number}${between}${number}(.*)$`,
 );
 const lCommandContinuation = new RegExp(
-  `^${between}${number}${between}${number}(.*)$`
+  `^${between}${number}${between}${number}(.*)$`,
 );
 const lCommandRelative = new RegExp(
-  `^l${afterCommand}${number}${between}${number}(.*)$`
+  `^l${afterCommand}${number}${between}${number}(.*)$`,
 );
 const hCommand = new RegExp(`^H${afterCommand}${number}(.*)$`);
 const hCommandRelative = new RegExp(`^h${afterCommand}${number}(.*)$`);
@@ -1306,22 +1306,22 @@ const vCommandRelative = new RegExp(`^v${afterCommand}${number}(.*)$`);
 const vCommandContinuation = new RegExp(`^${between}${number}(.*)$`);
 const hCommandContinuation = vCommandContinuation;
 const qCommand = new RegExp(
-  `^Q${afterCommand}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^Q${afterCommand}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const qCommandContinuation = new RegExp(
-  `^${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const qCommandRelative = new RegExp(
-  `^q${afterCommand}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^q${afterCommand}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const cCommand = new RegExp(
-  `^C${afterCommand}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^C${afterCommand}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const cCommandContinuation = new RegExp(
-  `^${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const cCommandRelative = new RegExp(
-  `^c${afterCommand}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`
+  `^c${afterCommand}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
 const zCommand = new RegExp("^[zZ](.*)$");
 
@@ -1330,7 +1330,10 @@ const zCommand = new RegExp("^[zZ](.*)$");
  * we want to give a good error message back to the user.
  */
 export class PathShapeError extends Error {
-  constructor(message: string, readonly where: string) {
+  constructor(
+    message: string,
+    readonly where: string,
+  ) {
     super(message);
   }
 }
@@ -1366,7 +1369,7 @@ export class PathShape {
    */
   reverse() {
     return new PathShape(
-      this.commands.toReversed().map((command) => command.reverse())
+      this.commands.toReversed().map((command) => command.reverse()),
     );
   }
   /**
@@ -1445,7 +1448,7 @@ export class PathShape {
             x0,
             y0,
             parseOrThrow(found[1]),
-            parseOrThrow(found[2])
+            parseOrThrow(found[2]),
           );
           push(current);
           remaining = found[3];
@@ -1651,14 +1654,14 @@ export class PathShape {
               }
               default: {
                 throw new Error(
-                  `Unknown source: "${(creationInfo as QCreationInfo).source}"`
+                  `Unknown source: "${(creationInfo as QCreationInfo).source}"`,
                 );
               }
             }
           }
           default: {
             throw new Error(
-              `Unknown command: "${(sourceCommand as any).command}"`
+              `Unknown command: "${(sourceCommand as any).command}"`,
             );
           }
         }
@@ -1716,7 +1719,7 @@ export class PathShape {
     }
     function fullSplit(commands: readonly Command[]) {
       return PathShape.cssifyPath(
-        commands.map((command) => new PathShape([command]).rawPath).join()
+        commands.map((command) => new PathShape([command]).rawPath).join(),
       );
     }
     const pathForThis = fullSplit(commandsForThis);
@@ -1750,7 +1753,7 @@ export class PathShape {
   makeElement(useCss = true) {
     const pathElement = document.createElementNS(
       "http://www.w3.org/2000/svg",
-      "path"
+      "path",
     );
     if (useCss) {
       const cssPath = this.cssPath;
@@ -1783,7 +1786,7 @@ export class PathShape {
    */
   static needAnM(
     before: Command | undefined,
-    after: Command | undefined
+    after: Command | undefined,
   ): boolean {
     if (!after) {
       // If there is no command `after` the `M` command, then the `M` command would clearly be unnecessary.
@@ -1850,7 +1853,7 @@ export class PathShape {
           readonly startY: number;
           readonly endX: number;
           readonly endY: number;
-        }
+        },
     );
   }
   /**
@@ -1858,10 +1861,10 @@ export class PathShape {
    * @returns A single shape that includes all of the input shapes
    */
   static join(
-    pieces: { Δx: number; Δy: number; shape: PathShape }[]
+    pieces: { Δx: number; Δy: number; shape: PathShape }[],
   ): PathShape {
     return new PathShape(
-      pieces.flatMap(({ Δx, Δy, shape }) => shape.translate(Δx, Δy).commands)
+      pieces.flatMap(({ Δx, Δy, shape }) => shape.translate(Δx, Δy).commands),
     );
   }
   convertToCubics(): PathShape {
@@ -1869,12 +1872,12 @@ export class PathShape {
   }
   translate(Δx: number, Δy: number): PathShape {
     return new PathShape(
-      this.commands.map((command) => command.translate(Δx, Δy))
+      this.commands.map((command) => command.translate(Δx, Δy)),
     );
   }
   transform(matrix: DOMMatrixReadOnly): PathShape {
     return new PathShape(
-      this.commands.map((command) => command.transform(matrix))
+      this.commands.map((command) => command.transform(matrix)),
     );
   }
   /**
@@ -1903,7 +1906,7 @@ export class PathShape {
       | "srcRect fits completely into destRect"
       | "srcRect completely covers destRect",
     howFarRight = 0.5,
-    howFarDown = 0.5
+    howFarDown = 0.5,
   ) {
     const bBox = this.getBBox();
     const srcRect: ReadOnlyRect = {
@@ -1917,7 +1920,7 @@ export class PathShape {
       destRect,
       aspect,
       howFarRight,
-      howFarDown
+      howFarDown,
     );
     const result = this.transform(transform);
     return result;
@@ -1934,12 +1937,12 @@ export class PathShape {
    */
   static parametric(
     f: ParametricFunction,
-    numberOfSegments: number
+    numberOfSegments: number,
   ): PathShape {
     const start = f(0);
     const result = PathBuilder.M(start.x, start.y).addParametricPath(
       f,
-      numberOfSegments
+      numberOfSegments,
     ).pathShape;
     return result;
   }
@@ -1960,7 +1963,7 @@ export class PathShape {
    */
   static glitchFreeParametric(
     f: ParametricFunction,
-    initialSegments: number
+    initialSegments: number,
   ): PathShape {
     const result = this.#glitchFreeParametric(f, initialSegments, 0);
     return assertNonNullable(result);
@@ -1977,7 +1980,7 @@ export class PathShape {
   static #glitchFreeParametric(
     f: ParametricFunction,
     initialSegments: number,
-    recursionCount: number
+    recursionCount: number,
   ): PathShape | undefined {
     if (recursionCount > 2) {
       console.log(recursionCount);
@@ -2000,7 +2003,7 @@ export class PathShape {
       const actualLength = this.#caliper.length;
       const shortestLength = Math.hypot(
         command.x0 - command.x,
-        command.y0 - command.y
+        command.y0 - command.y,
       );
       const ratio = actualLength / shortestLength;
       // !isFinite(ratio) is because of that silly degenerate case where we get a point, a circle of radius 0.
@@ -2032,7 +2035,7 @@ export class PathShape {
         const replacement = this.#glitchFreeParametric(
           newF,
           numberOfReplacementCommands,
-          recursionCount + 1
+          recursionCount + 1,
         );
         if (replacement === undefined) {
           // We hit a limit on our recursion.
@@ -2057,7 +2060,7 @@ export class PathShape {
               (
                 command,
                 index,
-                array
+                array,
               ): {
                 command: Command;
                 initialT: number;
@@ -2066,8 +2069,8 @@ export class PathShape {
                 const initialT = localTime(index / array.length);
                 const finalT = localTime((index + 1) / array.length);
                 return { command, initialT, finalT };
-              }
-            )
+              },
+            ),
           );
           index += numberOfReplacementCommands;
         }
@@ -2161,7 +2164,7 @@ export class PathShape {
       } = command;
       const element = document.createElementNS(
         "http://www.w3.org/2000/svg",
-        "path"
+        "path",
       );
       element.setAttribute("d", new PathShape([command]).rawPath);
       const length = element.getTotalLength();
@@ -2171,7 +2174,7 @@ export class PathShape {
         ? {}
         : {
             difference: PathShape.toDegrees(
-              angleBetween(previous.outgoingAngle, incomingAngle)
+              angleBetween(previous.outgoingAngle, incomingAngle),
             ),
           };
       return {
@@ -2372,7 +2375,7 @@ export class ParametricToPath {
   constructor(
     readonly f: ParametricFunction,
     initialSegmentCount = 16,
-    diagonal?: number | RealSvgRect
+    diagonal?: number | RealSvgRect,
   ) {
     const initialPath = PathShape.parametric(f, initialSegmentCount);
     this.#commands = initialPath.commands
@@ -2401,16 +2404,16 @@ export class ParametricToPath {
   #insert(newCommandInfo: CommandInfo) {
     this.#commands.splice(
       this.#commands.findLastIndex(
-        (commandInfo) => commandInfo.metric <= newCommandInfo.metric
+        (commandInfo) => commandInfo.metric <= newCommandInfo.metric,
       ) + 1,
       0,
-      newCommandInfo
+      newCommandInfo,
     );
   }
   #createCommandInfo(
     startT: number,
     endT: number,
-    command: QCommandFromAngles
+    command: QCommandFromAngles,
   ): CommandInfo {
     const subSegmentCount = 4;
     let polyLineLength = 0;
@@ -2492,12 +2495,12 @@ export class ParametricToPath {
       toSplit.command.requestedIncomingAngle,
       midPoint.x,
       midPoint.y,
-      midPointAngle
+      midPointAngle,
     );
     const firstCommandInfo = this.#createCommandInfo(
       startT,
       midpointT,
-      firstCommand
+      firstCommand,
     );
     this.#insert(firstCommandInfo);
     const secondCommand = QCommand.angles(
@@ -2506,12 +2509,12 @@ export class ParametricToPath {
       midPointAngle,
       toSplit.command.x,
       toSplit.command.y,
-      toSplit.command.requestedOutgoingAngle
+      toSplit.command.requestedOutgoingAngle,
     );
     const secondCommandInfo = this.#createCommandInfo(
       midpointT,
       endT,
-      secondCommand
+      secondCommand,
     );
     this.#insert(secondCommandInfo);
     return { toSplit, firstCommandInfo, secondCommandInfo };
@@ -2542,7 +2545,7 @@ export class ParametricToPath {
     return new PathShape(
       this.#commands
         .toSorted((a, b) => a.startT - b.startT)
-        .map(({ command }) => command)
+        .map(({ command }) => command),
     );
   }
   /**
@@ -2578,7 +2581,7 @@ export class ParametricToPath {
       });
       const mean = sx / count;
       const standardDeviation = Math.sqrt(
-        (sxx - count * mean * mean) / (count - 1)
+        (sxx - count * mean * mean) / (count - 1),
       );
       return {
         quartiles,
@@ -2588,17 +2591,17 @@ export class ParametricToPath {
     }
     return {
       polyLineLength: summarizeArray(
-        this.#commands.map(({ polyLineLength }) => polyLineLength)
+        this.#commands.map(({ polyLineLength }) => polyLineLength),
       ),
       curveLength: summarizeArray(
-        this.#commands.map(({ curveLength }) => curveLength)
+        this.#commands.map(({ curveLength }) => curveLength),
       ),
       metric: summarizeArray(this.#commands.map(({ metric }) => metric)),
       tCoverage: summarizeArray(
-        this.#commands.map(({ startT, endT }) => endT - startT)
+        this.#commands.map(({ startT, endT }) => endT - startT),
       ),
       generation: summarizeArray(
-        this.#commands.map(({ startT, endT }) => -Math.log2(endT - startT))
+        this.#commands.map(({ startT, endT }) => -Math.log2(endT - startT)),
       ),
       count: this.#commands.length,
     };
@@ -2617,7 +2620,7 @@ export class ParametricToPath {
           metric,
           curveLength,
         };
-      })
+      }),
     );
   }
   /**

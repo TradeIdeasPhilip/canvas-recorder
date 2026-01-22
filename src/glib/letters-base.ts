@@ -101,7 +101,7 @@ export class Font {
      * A map from characters to DescriptionOfLetter objects.
      * More precisely, enough information to create our own initialized map.
      */
-    letters: Iterable<readonly [string, DescriptionOfLetter]>
+    letters: Iterable<readonly [string, DescriptionOfLetter]>,
   ) {
     this.#letters = new Map(letters);
   }
@@ -146,7 +146,7 @@ export class Font {
       strokeWidth,
       kerning,
       mHeight,
-      []
+      [],
     );
     const letters = assertClass(input.letters, Array<any>);
     letters.forEach((letter) => {
@@ -178,7 +178,7 @@ export class Font {
       ratio * this.strokeWidth,
       ratio * this.kerning,
       newSize,
-      []
+      [],
     );
     const matrix = new DOMMatrix();
     matrix.scaleSelf(ratio);

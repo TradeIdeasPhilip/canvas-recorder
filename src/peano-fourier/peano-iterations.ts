@@ -27,7 +27,7 @@ function makeHandwritingForText(
   text: string,
   left: number,
   top: number,
-  color: string
+  color: string,
 ): Showable {
   const layout = new ParagraphLayout(font);
   const wordInfo = layout.addText(text);
@@ -49,17 +49,17 @@ function makeHandwritingForText(
 const CHAPTER_TITLE_DELAY = 500;
 
 const PEANO_HANDWRITING_TRANSFORM = new DOMMatrixReadOnly(
-  "translate(8.5px, 1.5px) scale(7)"
+  "translate(8.5px, 1.5px) scale(7)",
 );
 
 function makeHandwritingForPeano(
   iteration: number,
   duration: number,
   color: string,
-  lineWidth: number
+  lineWidth: number,
 ): Showable {
   const shape = createPeanoPath(iteration).transform(
-    PEANO_HANDWRITING_TRANSFORM
+    PEANO_HANDWRITING_TRANSFORM,
   );
   const handwriting = createHandwriting(shape);
   return {
@@ -96,7 +96,7 @@ function createExpander(
   frozenAfter: number,
   from: { iteration: number; color: string; strokeWidth: number },
   to: { iteration: number; color: string; strokeWidth: number },
-  midColors: string[] = []
+  midColors: string[] = [],
 ): Showable {
   assertFinite(from.iteration, to.iteration);
   if (
@@ -167,7 +167,7 @@ function createExpander(
       toSectionBottom,
       fromSectionBottom / fromCountVertical,
       toSectionTop,
-      fromSectionTop / fromCountVertical
+      fromSectionTop / fromCountVertical,
     );
     for (let j = 0; j <= toSectionSize; j++) {
       fromY.push(getY(toSectionBottom + j));
@@ -189,9 +189,9 @@ function createExpander(
         translateX(command.x0),
         translateY(command.y0),
         translateX(command.x),
-        translateY(command.y)
+        translateY(command.y),
       );
-    })
+    }),
   );
   const baseDuration = duration - frozenBefore - frozenAfter;
   const colors = [from.color, ...midColors, to.color];
@@ -246,7 +246,7 @@ builder.addJustified(blackBackground);
     "First iteration of Peano curve",
     0.5,
     0.375,
-    "red"
+    "red",
   );
 
   builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
@@ -261,7 +261,7 @@ builder.addJustified(blackBackground);
     "Second iteration",
     7.9375,
     0.375,
-    "white"
+    "white",
   );
   builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
   builder.addJustified(peanoShowable, inSeries.duration);
@@ -272,7 +272,7 @@ builder.addJustified(blackBackground);
     initialPause,
     finalPause,
     state1,
-    state2
+    state2,
   );
 
   inSeries.add(expander);
@@ -284,7 +284,7 @@ builder.addJustified(blackBackground);
     "Third iteration",
     12,
     0.375,
-    BLUE
+    BLUE,
   );
   builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
   builder.addJustified(peanoShowable, inSeries.duration);
