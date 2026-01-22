@@ -1679,6 +1679,8 @@ export class PathShape {
    * This function is very generic and works in a lot of cases.  However, it don't
    * work well.  This is a great prototype.  But in general you should use a
    * smarter version of this.
+   * 
+   * Look at matchShapes() in morph-animation.ts for a smarter version.
    * @param other You want to morph from `this` to `other`.
    * @returns A new pair of path strings.  The first looks like `this` and the second
    * looks like `other`.  However, these might use different commands to get the same

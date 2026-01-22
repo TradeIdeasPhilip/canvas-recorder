@@ -2,7 +2,7 @@ import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 import { LCommand, PathShape, QCommand } from "./glib/path-shape";
 
 /**
- * If the old code used element.animate(), this will help build the new code.
+ * If the old code used element.animate(), this file will help build the new code.
  * This code knows how to interpolate between one value and another.
  */
 
@@ -13,11 +13,23 @@ import { LCommand, PathShape, QCommand } from "./glib/path-shape";
  * @param to A valid css color.  The result is this when progress = 1.
  * @returns A valid css color.  Something in between the two inputs.
  */
-
 export function interpolateColor(progress: number, from: string, to: string) {
   return `color-mix(in srgb, ${to} ${progress * 100}%, ${from})`;
 }
 
+/**
+ * This is a helper for interpolating between a list full of items.
+ * After calling this you probably need a more specific function that
+ * understands the datatype of the items in the list.
+ *
+ * See {@link timedKeyframes} for a more powerful alternative.
+ * @param progress 0 for the beginning, 1 for the end.
+ * @param array A list of items to interpolate between.
+ * The amount of time between each adjacent pair of items is the same.
+ * @returns The item to use at the given time.
+ * Or the two items nearest to the time,
+ * and how much progress we have made between the first and second item.
+ */
 function equalWeights<T>(
   progress: number,
   array: readonly T[],
@@ -48,9 +60,26 @@ function equalWeights<T>(
   };
 }
 
+/**
+ * Similar to the build in Keyframe from Element.animate(), but it only works on a single value.
+ * If you need to animate multiple properties, do them each separately.
+ */
 export type Keyframe<T> = {
+  /**
+   * This can be any value, not necessarily between 0 and 1.
+   */
   time: number;
   value: T;
+  /**
+   * This adjusts the progress variable when easing between consecutive
+   * items in the keyframe list.
+   *
+   * The default is the identity function for linear interpolation.
+   *
+   * See {@link ease}, {@link easeIn}, and {@link easeOut} for some standard values.
+   * @param progress A value between 0 and 1.
+   * @returns A value between 0 and 1.
+   */
   easeAfter?: (progress: number) => number;
 };
 
@@ -60,7 +89,11 @@ export type Keyframes<T> = readonly Keyframe<T>[];
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
  * @param keyframes Inputs should come in order.
- * @returns
+ * @returns The item to use at the given time.
+ * Or the two items nearest to the time,
+ * and how much progress we have made between the first and second item.
+ * Inputs before the first keyframe will return the value of the first keyframe.
+ * Inputs before the last keyframe will return the value of the last keyframe.
  */
 export function timedKeyframes<T>(
   time: number,
@@ -96,7 +129,7 @@ export function timedKeyframes<T>(
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
  * @param array Inputs should come in order.
- * @returns
+ * @returns The value associated with the given time.
  */
 export function interpolateNumbers(
   time: number,

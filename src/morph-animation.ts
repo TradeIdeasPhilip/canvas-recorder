@@ -6,6 +6,9 @@ import { qCommandInterpolation } from "./interpolate";
  * If the angle between two pieces is less than 1/2°, so we'll call it good enough.
  */
 export const ALMOST_STRAIGHT = radiansPerDegree / 2;
+/**
+ * These are the commands the we inserted at a corner to help the rounding process.
+ */
 export const vertexCommands = new WeakSet<Command>();
 /**
  * Convert to QCommand.
@@ -114,6 +117,12 @@ function addCommands(desiredLength: number, commands: QCommand[]) {
   });
 }
 
+/**
+ * Alter a path so it doesn't immediately look different,
+ * but the morphing progress will be smoother.
+ * @param path
+ * @returns
+ */
 export function fixCorners(path: PathShape) {
   const result = new Array<Command>();
   path.commands.forEach((command, index, array) => {
@@ -160,6 +169,7 @@ export function fixCorners(path: PathShape) {
   return new PathShape(result);
 }
 /**
+ * Consider calling fixCorners() on the inputs before calling this.
  * @param a
  * @param b
  * @returns A new function that will interpolate between a (when its input is 0)
@@ -169,7 +179,7 @@ export function matchShapes(a: PathShape, b: PathShape) {
   const aConnectedPieces = a.splitOnMove();
   const bConnectedPieces = b.splitOnMove();
   function makeSecondLonger(
-    alreadyLong: readonly PathShape[],
+    alreadyLong: { readonly length: number },
     makeLonger: PathShape[],
   ) {
     /**

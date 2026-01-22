@@ -28,17 +28,36 @@ import { transform } from "../src/glib/transforms.ts";
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
+/**
+ * The top level item that we are viewing and/or saving.
+ */
 const toShow = morphTest;
 
+/**
+ * By analogy to an SVG view box, we always focus on the ideal coordinates.
+ * We can save or view in any coordinates we want.  I usually save to 4k
+ * for the sake of YouTube.  I usually draw the biggest canvas I can, not going
+ * off the screen, keeping the aspect ratio.  Those are implementation details
+ * that the drawing code doesn't have to care about.
+ * @returns A matrix converting from the 16x9 ideal coordinates to the actual canvas coordinates.
+ */
 function mainTransform() {
   return new DOMMatrixReadOnly().scale(canvas.width / 16, canvas.height / 9);
 }
 
+/**
+ *
+ * @param timeInMs Draw the animation at this time.  The drawing code doesn't
+ * know or care about the frame rate.  When saving I typically use 60 fps.  When
+ * displaying live the framerate can vary depending how busy your computer is
+ * and if it's plugged in or on battery.  The frames might all cover slightly
+ * different amounts of time.
+ * @param size How many pixels
+ * * "live" means the right number of pixels to perfectly fill the canvas.
+ * This can change if you resize the window.
+ * * 4k and hd hav their normal meaning.
+ */
 function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
-  const newTimeString = (timeInMs / 1000).toLocaleString(undefined, {
-    minimumFractionDigits: 3,
-    maximumFractionDigits: 6,
-  });
   if (size == "live") {
     const clientRect = canvas.getClientRects()[0];
     canvas.width = Math.round(clientRect.width * devicePixelRatio);
@@ -56,22 +75,66 @@ function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
 }
 (window as any).showFrame = showFrame;
 
+/**
+ * You can select an individual section to display.
+ *
+ * Dragging the slider all the way to the left will set the time to this time.
+ * If you select repeat, each time you get to the end you will be sent back
+ * to this time.
+ */
 let sectionStartTime = 0;
+
+/**
+ * You can select an individual section to display.
+ *
+ * Dragging the slider all the way to the right will set the time to this time.
+ * If you select repeat or pause, that action will file when you get to this
+ * time.
+ */
 let sectionEndTime = 0;
 
+/**
+ * Play or pause.  Option space will toggle this.
+ */
 const playCheckBox = getById("play", HTMLInputElement);
+
+/**
+ * The slider that lets you see or adjust the current time, relative to the
+ * section we are displaying.  If the user changes this, the changes will
+ * automatically be sent to playPositionSeconds.  playPositionSeconds is the
+ * primary source of this information.
+ */
 const playPositionRange = getById("playPositionRange", HTMLInputElement);
+
+/**
+ * This lets you see or adjust the current time.  The user can only edit this
+ * when paused; otherwise this control would be moving to quickly to be used.
+ *
+ * This can be a number outside of the normal range of the current section.
+ * This, like all user visible number, is measured in seconds.  Internal
+ * things measure time in milliseconds.
+ */
 const playPositionSeconds = getById("playPositionSeconds", HTMLInputElement);
+/**
+ * When we get to the end of the section, pause.
+ */
 const pauseRadioButton = querySelector(
-  'input[name="playState"][value="pause"]',
+  'input[name="onSectionEnd"][value="pause"]',
   HTMLInputElement,
 );
+/**
+ * When we get to the end of the section, automatically jump back to the
+ * beginning of the section.
+ */
 const repeatRadioButton = querySelector(
-  'input[name="playState"][value="repeat"]',
+  'input[name="onSectionEnd"][value="repeat"]',
   HTMLInputElement,
 );
+/**
+ * When we get to the end of the section just keep going.
+ */
 const continueRadioButton = querySelector(
-  'input[name="playState"][value="continue"]',
+  'input[name="onSectionEnd"][value="continue"]',
   HTMLInputElement,
 );
 
@@ -100,9 +163,15 @@ function loadPlayPositionRange() {
 /**
  * The play head is located at (wall clock time - playOffset).
  *
- * NaN means uninitialized.
+ * NaN means uninitialized.  Use playPositionSeconds to reload this when needed.
  */
 let playOffset = NaN;
+
+/**
+ * Redraw the canvas and update some other controls.
+ *
+ * This is for live / realtime drawing.  This is disabled when we are saving the file.
+ */
 const animationLoop = new AnimationLoop((timeInMS: number) => {
   if (!playCheckBox.checked) {
     // Paused.  Copy time from the numerical input.
@@ -168,15 +237,35 @@ addEventListener("keypress", (event) => {
   }
 });
 
+/**
+ * Frames per second.
+ *
+ * This is only used when saving.  We rely on chrome to tell us when to draw frames
+ * for the live/realtime display.  Than can vary significantly.
+ */
 const FPS = 60;
 
+/**
+ * This is the status of the save.  It has no purpose during live / realtime operation
+ * so it initialize it to blank.
+ */
 const infoDiv = getById("info", HTMLDivElement);
 infoDiv.innerHTML = "";
 
 const startRecordingButton = getById("startRecording", HTMLButtonElement);
 const cancelRecordingButton = getById("cancelRecording", HTMLButtonElement);
+
+/**
+ * Play, pause, repeat, current time etc.
+ *
+ * When we save, these are all disabled.
+ * Some of these display the right data, but you can't change them.
+ */
 const liveControls = getById("liveControls", HTMLFieldSetElement);
 
+/**
+ * Someone hit the stop button.
+ */
 let canceled = false;
 
 async function startRecording() {
@@ -273,6 +362,9 @@ cancelRecordingButton.addEventListener("click", () => {
   cancelRecordingButton.disabled = true;
 });
 
+/**
+ * This powers the GUI that lets you select and display a specific section of the video.
+ */
 type SelectableTree = {
   description: string;
   prefix: string;
@@ -284,7 +376,23 @@ type SelectableTree = {
   siblingPosition: number;
 };
 
+/**
+ * The list of sections that you can display.
+ */
 const debug = new Array<SelectableTree>();
+/**
+ * Initialize the `debug` list with all the sections of the video.
+ * @param showable Add this and its children.
+ * @param prefix Draw the sections like an outline.
+ * Each section is indented a little more than its parent.
+ * @param start What time does the section start?
+ * Each showable only knows its duration.
+ * We compute the start time as we build the tree.
+ * @param limit The last time that is available for this section to run.
+ * A section will not run past the end of any of its ancestors.
+ * This is measured from the beginning of the entire video.
+ * @param parent
+ */
 function dump(
   showable: Selectable,
   prefix = "",
@@ -315,6 +423,9 @@ function dump(
 dump(toShow);
 //console.table(debug);
 
+/**
+ * The drop down list containing the complete list of sections.
+ */
 const select = querySelector("select", HTMLSelectElement);
 debug.forEach((value) => {
   const option = document.createElement("option");
@@ -323,16 +434,31 @@ debug.forEach((value) => {
   select.append(option);
 });
 
+/**
+ * These describe the parent of the currently selected section.
+ */
 const parentCells = querySelectorAll("#parentRow td", HTMLTableCellElement);
+/**
+ * These describe the section immediately before this section, sharing the same parent.
+ */
 const previousSiblingCells = querySelectorAll(
   "#previousSiblingRow td",
   HTMLTableCellElement,
 );
+/**
+ * These describe the current section of the video.
+ */
 const thisCells = querySelectorAll("#thisRow td", HTMLTableCellElement);
+/**
+ * These describe the first subsection of the current section.
+ */
 const firstChildCells = querySelectorAll(
   "#firstChildRow td",
   HTMLTableCellElement,
 );
+/**
+ * These describe the section immediately after the current section, sharing the same parent.
+ */
 const nextSiblingCells = querySelectorAll(
   "#nextSiblingRow td",
   HTMLTableCellElement,
@@ -343,10 +469,20 @@ const buttonDestination = new Map<
   SelectableTree | undefined
 >();
 
+/**
+ * Fill in the table that shows information about a handful or relevant sections.
+ * @param cells The row to update
+ * @param info Describes the relevant section.
+ */
 function updateRow(
   cells: readonly HTMLTableCellElement[],
   info: SelectableTree | undefined,
 ) {
+  /**
+   * Pressing this button will jump to the section described by this row.
+   *
+   * The row for the current section has no button because we are already there.
+   */
   const button = querySelectorAll(
     "button",
     HTMLButtonElement,
@@ -369,9 +505,25 @@ function updateRow(
   }
 }
 
+/**
+ * Go to the previous section.
+ *
+ * This is based on an in order traversal of the tree.
+ * This might be a sibling or the parent of the current element.
+ */
 const previousButton = getById("previousButton", HTMLButtonElement);
+
+/**
+ * Go to the next section.
+ *
+ * This is based on an in order traversal of the tree.
+ */
 const nextButton = getById("nextButton", HTMLButtonElement);
 
+/**
+ * Change the GUI to match the current section.
+ * Read the current section out of the <select> (drop down) element.
+ */
 function updateFromSelect() {
   playOffset = NaN;
   const info = debug[select.selectedIndex];
@@ -433,7 +585,7 @@ function saveState() {
   sessionStorage.setItem("timeInSeconds", playPositionSeconds.value);
   sessionStorage.setItem(
     "state",
-    querySelector('input[name="playState"]:checked', HTMLInputElement).value,
+    querySelector('input[name="onSectionEnd"]:checked', HTMLInputElement).value,
   );
   sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
   sessionStorage.setItem(
@@ -480,7 +632,11 @@ addEventListener("pagehide", (event) => {
   );
 }
 
+// MARK: Load previous state.
 {
+  // When first loading this page, try to restore the settings from the last session.
+  // So when you configure the web page, and you hit refresh, or the page automatically
+  // refreshes, you don't lose your settings.
   try {
     const index = sessionStorage.getItem("index");
     const timeInSeconds = sessionStorage.getItem("timeInSeconds");
@@ -497,13 +653,11 @@ addEventListener("pagehide", (event) => {
       playPositionSeconds.value = timeInSeconds;
       loadPlayPositionRange();
       querySelector(
-        `input[name="playState"][value="${state}"]`,
+        `input[name="onSectionEnd"][value="${state}"]`,
         HTMLInputElement,
       ).checked = true;
       playOffset = NaN;
     }
-    // TODO better names.  THIS should be playState, not the radio buttons!
-    //sessionStorage.setItem("play", playCheckBox.checked?"checked":"unchecked");
     const playCheckBoxState = sessionStorage.getItem("play");
     playCheckBox.checked = playCheckBoxState == "checked";
     const saveImageSeconds = parseFloatX(
@@ -517,6 +671,14 @@ addEventListener("pagehide", (event) => {
   }
 }
 
+// MARK: User interactions with the canvas.
+
+/**
+ * When you click on the canvas, convert the coordinates into the same coordinates
+ * that we use for drawing.
+ * @param pointerEvent The source of the location.
+ * @returns The location converted into our ideal units.
+ */
 function getLocation(pointerEvent: PointerEvent): Point {
   return transform(
     pointerEvent.offsetX * devicePixelRatio,
@@ -525,16 +687,45 @@ function getLocation(pointerEvent: PointerEvent): Point {
   );
 }
 
+/**
+ *
+ * @param point Probably the output of {@link getLocation}
+ * @returns The same info in a format that's easy to ready and could be
+ * copied and pasted directly into code.
+ */
 function pointToString(point: Point) {
   return `{x: ${point.x.toFixed(3)}, y:${point.y.toFixed(3)}}`;
 }
 
+/**
+ *
+ * @param pointerEvent Grab the point from here.
+ * @returns The point converted into the right coordinate system.
+ * It is in a format that is user readable and could be copied and pasted
+ * directly into code.
+ */
 function locationString(pointerEvent: PointerEvent) {
   return pointToString(getLocation(pointerEvent));
 }
 
+/**
+ * Show the position right under the mouse.
+ * Updates as the mouse moves over the canvas.
+ */
 const currentPositionSpan = getById("currentPosition", HTMLSpanElement);
+
+/**
+ * Show the position right under the mouse.
+ * Only updates when you click the mouse.
+ * This is a good way to see something on the screen and copy it to the code.
+ */
 const lastDownSpan = getById("lastDown", HTMLSpanElement);
+
+/**
+ * Show the position right under the mouse.
+ * Only updates when you release the mouse.
+ * This, combined with {@link lastDownSpan} is a good way to draw a line or rectangle.
+ */
 const lastUpSpan = getById("lastUp", HTMLSpanElement);
 
 canvas.addEventListener("pointermove", (pointerEvent) => {

@@ -34,9 +34,26 @@ export type Selectable = {
   }[];
 };
 
+/**
+ * All of the information available to {@link Showable.show}.
+ */
 export type ShowOptions = {
+  /**
+   * The current time.  Typically you draw the state based on this number.
+   * 
+   * This value might be frozen and might not change from one call to the next.
+   */
   readonly timeInMs: number;
+  /**
+   * Draw on this.
+   */
   readonly context: CanvasRenderingContext2D;
+  /**
+   * This is the number of milliseconds from the start of the program.
+   * This is useful for drawing certain types of animations.
+   * In particular, if the colors are cycling constantly, as a background effect,
+   * and you freeze or repeat a section, you might want the colors to keep cycling. 
+   */
   readonly globalTime: number;
 };
 
@@ -71,17 +88,50 @@ function notNegative(value: number) {
   }
 }
 
+/**
+ * Creates a new Showable object which passes each show() call to all of its children.
+ * 
+ * You might have multiple things all running at the same time.
+ * You might have things that overlap arbitrarily.
+ * For example, the background is **always** showing.
+ */
 export class MakeShowableInParallel {
   readonly #all: Showable[] = [];
   readonly #children: {
+    /**
+     * Wait this many milliseconds after the parent starts before starting this child.
+     */
     readonly start: number;
     readonly child: Selectable;
   }[] = [];
+  /** 
+   * How long should this new showable run?
+   */
   #duration = 0;
+  /**
+   * You can add to this as much as needed.
+   * You can only "use" it to build a showable once.
+   * You cannot make any more changes to this object after building the result. 
+   */
   #used = false;
+  /**
+   * Display something in the list but don't actually draw anything on the screen.
+   * @param description What do display to the user.
+   * @param start How many millisecond after the built Showable before this takes effect.
+   * @param duration How long in milliseconds this will be in effect.
+   */
   addNotes(description: string, start: number, duration: number) {
     this.#children.push({ start, child: { description, duration } });
   }
+  /**
+   * 
+   * @param showable Add this child.
+   * @param minDuration Request this much time.
+   * All children are displayed for the entire time that the parent is shown.
+   * The parent's duration is the largest of these values.
+   * 
+   * Defaults to the `showable`'s duration.
+   */
   add(showable: Showable, minDuration = showable.duration) {
     if (this.#used) {
       throw new Error("wtf");
@@ -91,6 +141,10 @@ export class MakeShowableInParallel {
     this.#duration = Math.max(this.#duration, minDuration);
     this.#children.push({ start: 0, child: showable });
   }
+  /**
+   * Add time to the resulting Showable's time, without adding any children.
+   * @param minDuration The final duration will be at least this big.
+   */
   reserve(minDuration: number) {
     this.#duration = Math.max(this.#duration, minDuration);
   }
@@ -104,6 +158,12 @@ export class MakeShowableInParallel {
       showable.duration + startAtMs,
     );
   }
+  /**
+   * Create a new Showable that includes all of the added Showable children
+   * and notes.
+   * @param description Display this to the user.
+   * @returns The newly created Showable.
+   */
   build(description: string): Showable {
     if (this.#used) {
       throw new Error("wtf");
@@ -141,8 +201,23 @@ export class MakeShowableInParallel {
   }
 }
 
+/**
+ * Build a new Showable that contains a set of Showable children.
+ * Each one runs right after the previous one.
+ */
 export class MakeShowableInSeries {
+  /**
+   * How long will this last?
+   * This gets updated as we add more children.
+   */
   #duration = 0;
+  /**
+   * How long will the last?
+   * This gets updated as we add more children.
+   * 
+   * The *next* child to be added will start at this time.
+   * In case you need to coordinate different items. 
+   */
   get duration() {
     return this.#duration;
   }
@@ -150,6 +225,11 @@ export class MakeShowableInSeries {
     start: number;
     child: Showable;
   }>();
+  /**
+   * You can add to this as much as needed.
+   * You can only "use" it to build a showable once.
+   * You cannot make any more changes to this object after building the result. 
+   */
   #used = false;
   add(child: Showable) {
     if (this.#used) {
@@ -163,6 +243,10 @@ export class MakeShowableInSeries {
     this.#duration += child.duration;
     this.#script.push(newEntry);
   }
+  /**
+   * Reserve time without actually drawing anything.
+   * @param duration Reserve this many milliseconds before displaying the next child.
+   */
   skip(duration: number) {
     if (this.#used) {
       throw new Error("wtf");
@@ -170,6 +254,11 @@ export class MakeShowableInSeries {
     notNegative(duration);
     this.#duration += duration;
   }
+    /**
+   * Create a new Showable that includes all of the added Showable children.
+   * @param description Display this to the user.
+   * @returns The newly created Showable.
+   */
   build(description: string): Showable {
     if (this.#used) {
       throw new Error("wtf");
@@ -232,7 +321,6 @@ export function makeRepeater(showable: Showable, count = Infinity): Showable {
   const period = showable.duration;
   const repeaterDuration = count * period;
   function show(options: ShowOptions) {
-    const iteration = Math.floor(options.timeInMs / period);
     const timeWithinPeriod = positiveModulo(options.timeInMs, period);
     showable.show({ ...options, timeInMs: timeWithinPeriod });
   }
