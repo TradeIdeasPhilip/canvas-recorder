@@ -608,6 +608,7 @@ addEventListener("pagehide", (event) => {
   saveState();
 });
 
+// MARK: Save Image
 {
   const saveButton = getById("saveImage", HTMLButtonElement);
   saveImageSecondsInput.addEventListener("input", () => {
@@ -630,6 +631,13 @@ addEventListener("pagehide", (event) => {
       const filename = `frame-${saveImageSecondsInput.value}.png`;
       const blob = await getBlobFromCanvas(canvas);
       downloadBlob(filename, blob);
+    },
+  );
+
+  getById("currentTimeToSaveImage", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      saveImageSecondsInput.value = playPositionSeconds.value;
     },
   );
 }
@@ -741,7 +749,6 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
 
-// TODO Add a button to load the current time into the save frame button.
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
 //  * Add a way to record any range you want.
