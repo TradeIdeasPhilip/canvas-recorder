@@ -695,7 +695,7 @@ function getLocation(pointerEvent: PointerEvent): Point {
  * copied and pasted directly into code.
  */
 function pointToString(point: Point) {
-  return `{x: ${point.x.toFixed(3)}, y:${point.y.toFixed(3)}}`;
+  return `{x: ${point.x.toFixed(3)}, y: ${point.y.toFixed(3)}}`;
 }
 
 /**
