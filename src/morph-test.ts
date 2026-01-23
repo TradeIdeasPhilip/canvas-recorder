@@ -1,6 +1,5 @@
 import {
   angleBetween,
-  assertNonNullable,
   count,
   FULL_CIRCLE,
   initializedArray,
@@ -262,8 +261,8 @@ if (false) {
     const originalRect: ReadOnlyRect = {
       x: originalBBox.x.min,
       y: originalBBox.y.min,
-      height: assertNonNullable(originalBBox.y.size),
-      width: assertNonNullable(originalBBox.x.size),
+      height: originalBBox.y.size,
+      width: originalBBox.x.size,
     };
     const transform = panAndZoom(
       originalRect,
@@ -601,9 +600,9 @@ if (false) {
 
   const sizeRect: ReadOnlyRect = {
     x: bBox.x.min,
-    width: assertNonNullable(bBox.x.size),
+    width: bBox.x.size,
     y: bBox.y.min,
-    height: assertNonNullable(bBox.y.size),
+    height: bBox.y.size,
   };
   console.log(sizeRect);
   const between = basePath.commands[0].getLength();
@@ -712,7 +711,7 @@ if (false) {
     const textBBox = baseText.getBBox();
     const transform = new DOMMatrix();
     transform.translateSelf(x, y);
-    transform.scaleSelf(width / assertNonNullable(textBBox.x.size));
+    transform.scaleSelf(width / textBBox.x.size);
     const initialPath = baseText.transform(transform);
     const finalPath = triangle.translate(x, y);
     const interpolator = matchShapes(initialPath, finalPath);
@@ -1196,8 +1195,8 @@ if (false) {
     const originalRect: ReadOnlyRect = {
       x: originalBBox.x.min,
       y: originalBBox.y.min,
-      height: assertNonNullable(originalBBox.y.size),
-      width: assertNonNullable(originalBBox.x.size),
+      height: originalBBox.y.size,
+      width: originalBBox.x.size,
     };
     const makeItFit = panAndZoom(
       originalRect,

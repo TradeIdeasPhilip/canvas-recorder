@@ -49,7 +49,6 @@ export class PathShapeSplitter {
     this.whole = path;
     let start = 0;
     this.#allCommandInfo = path.commands.map((command) => {
-      const bezier = command.getBezier();
       const length = command.getLength();
       const end = start + length;
       const result = { command, start, length, end };
@@ -139,5 +138,3 @@ export class PathShapeSplitter {
     }
   }
 }
-
-// TODO can I finally get rid of PathCaliper❓😀

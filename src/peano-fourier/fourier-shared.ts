@@ -4,7 +4,6 @@ import {
   LCommand,
   ParametricFunction,
   PathShape,
-  PathCaliper,
   Point,
 } from "../glib/path-shape";
 import {
@@ -17,8 +16,7 @@ import {
   sum,
 } from "phil-lib/misc";
 import { ease } from "../interpolate";
-
-const sharedCaliper = new PathCaliper();
+import { PathShapeSplitter } from "../glib/path-shape-splitter";
 
 /**
  * Transform a path.
@@ -45,11 +43,9 @@ const sharedCaliper = new PathCaliper();
 export function recenter(path: PathShape | string, x = 0.5, y = 0.5) {
   const pathShape =
     path instanceof PathShape ? path : PathShape.fromRawString(path);
-  const pathString = typeof path === "string" ? path : path.rawPath;
-  sharedCaliper.d = pathString;
-  const bBox = sharedCaliper.getBBox();
-  const Δx = -lerp(bBox.x, bBox.x + bBox.width, x);
-  const Δy = -lerp(bBox.y, bBox.y + bBox.height, y);
+  const bBox = pathShape.getBBox();
+  const Δx = -lerp(bBox.x.min, bBox.x.max, x);
+  const Δy = -lerp(bBox.y.min, bBox.y.max, y);
   const result = pathShape.translate(Δx, Δy);
   return result;
 }
@@ -217,37 +213,33 @@ export function hasFixedContribution(term: FourierTerm): Point | undefined {
   }
 }
 
-// TODO This can get noticeably slow for a complex path.  It takes about 1.3 seconds to
-// decode the samples.likeShareAndSubscribe.  It took noticeable time for some of the other
-// examples, too.  The time grows slightly faster than linearly as the path gets longer.
-export function samplesFromPathOrig(
+function samplesFromPathOrig(
   pathString: string,
   numberOfTerms: number,
 ): Complex[] {
-  const path = new PathCaliper();
-  path.d = pathString;
+  const splitter = new PathShapeSplitter(pathString);
   const sampleCount = numberOfTerms;
   const segmentCount = sampleCount - 1;
-  const totalLength = path.length;
   return initializedArray(sampleCount, (index) => {
-    const point = path.getPoint((totalLength / segmentCount) * index);
+    const point = splitter.at((splitter.length / segmentCount) * index);
     return [point.x, point.y];
   });
 }
 
-// This is more complicated than samplesFromPathOrig but it give you 3 things:
-// * It is faster.  I was thinking about doing this just for the performance gain.
-//   There is an issue where calling getPoint() on a long and complicated path gets slow.
+// This is more complicated than samplesFromPathOrig but it give you 2 things:
 // * It fills in the jumps.
 //   They are replaced with straight lines.
 //   That would have happened anyway, but this avoids the crazy oscillations.
 // * This makes sure that every point named explicitly in the path string will be sampled.
 //   Which is essential if one part of your path has a lot of detail.
+// Originally this was a lot faster, too, but since removing PathCaliper that does not
+// seem to be an issue.
 export function samplesFromPath(
   pathString: string,
   numberOfTerms: number,
 ): Complex[] {
-  const caliper = new PathCaliper();
+  // I added the following line just to test samplesFromPathOrig().
+  //return samplesFromPathOrig(pathString, numberOfTerms);
   try {
     const commands = PathShape.fromRawString(pathString).commands;
     if (commands.length == 0) {
@@ -267,23 +259,19 @@ export function samplesFromPath(
         connectedCommands.push(newSegment);
       }
     });
-    const subPaths = connectedCommands.map(
-      (command) => new PathShape([command]),
-    );
-    const lengths = subPaths.map(
+    const lengths = connectedCommands.map(
       (
-        path,
+        command,
         originalIndex,
       ): {
-        readonly path: PathShape;
+        readonly command: Command;
         readonly length: number;
         readonly originalIndex: number;
         numberOfVertices: number;
       } => {
-        caliper.d = path.rawPath;
-        const length = caliper.length;
+        const length = command.getLength();
         return {
-          path,
+          command,
           length: length,
           numberOfVertices: 0,
           originalIndex,
@@ -324,12 +312,11 @@ export function samplesFromPath(
     }
     const result = new Array<Complex>();
     //console.log(lengths);
-    lengths.forEach(({ length, numberOfVertices, path }) => {
+    lengths.forEach(({ numberOfVertices, command }) => {
       if (numberOfVertices > 0) {
-        caliper.d = path.rawPath;
         for (let i = 0; i < numberOfVertices; i++) {
-          const distance = (i / numberOfVertices) * length;
-          const { x, y } = caliper.getPoint(distance);
+          const progress = (i / numberOfVertices);
+          const { x, y } =  command.at(progress);
           result.push([x, y]);
         }
       }

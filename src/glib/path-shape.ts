@@ -16,124 +16,7 @@ import {
 } from "phil-lib/misc";
 import { panAndZoom, transform } from "./transforms";
 
-import { Bezier } from "bezier-js";
-
-/**
- * This is a wrapper around an `SVGPathElement`.
- *
- * You cannot call `getPointAtLength()` or `getTotalLength()` on a `<path>` object without doing some extra work.
- *
- * @deprecated See {@link PathShape} for the bounding box and length.
- * See {@link PathShapeSplitter} for getPoint().
- */
-export class PathCaliper {
-  /**
-   * The path needs to be attached to an SVG and both need to be visible,
-   * Otherwise a call to `this.length` or `this.getPoint()` will return incorrect values.
-   */
-  readonly #svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  readonly #path = document.createElementNS(
-    "http://www.w3.org/2000/svg",
-    "path",
-  );
-  constructor() {
-    this.#svg.style.width = "0";
-    this.#svg.style.height = "0";
-    this.#svg.style.position = "absolute";
-    this.#svg.appendChild(this.#path);
-    document.body.appendChild(this.#svg);
-  }
-  getBBox(): RealSvgRect {
-    // bBox explicitly does not require the path to be visible.
-    // I've just included it here for convenience.
-    // Put all the related tools together.
-    return this.#path.getBBox();
-  }
-  get d(): string {
-    return this.#path.getAttribute("d") ?? "";
-  }
-  /**
-   * Read or set the value of the `d` attribute of the path.
-   *
-   * The default value is "".
-   *
-   * Attempting to set `d` to an invalid value with throw an `Error`.
-   * The value of `d` will remain unchanged.
-   */
-  set d(newValue: string) {
-    this.#path.style.d = "";
-    this.#path.style.d = PathShape.cssifyPath(newValue);
-    /**
-     * Error checking is complicated.
-     * If you set the d attribute to a bad value it will print an error message on the console, but it will not report anything to the program.
-     * The attribute will be set to the bad value.
-     * Attempting to call `this.length` or `this.getPoint()` will throw an error.
-     * If you set the d style property to a bad value, nothing will be reported, but the property value will not change.
-     * On success,the new value will change, but **not** necessarily to an exact copy of the requested value.
-     */
-    const success = this.#path.style.d != "";
-    this.#path.style.d = "";
-    if (success) {
-      this.#path.setAttribute("d", newValue);
-    } else {
-      throw new Error("Invalid path");
-    }
-  }
-  /**
-   * Returns true if this is in the default state, `d == ""`.
-   */
-  get empty() {
-    return this.d == "";
-  }
-  /**
-   * Returns this to the default state, `d == ""`.
-   */
-  clear() {
-    this.d = "";
-  }
-  /**
-   * Returns the length of the path.  0 for an empty path.
-   */
-  get length() {
-    return this.#path.getTotalLength();
-  }
-  /**
-   * Find a point along the path.
-   * @param distance 0 for the start of the path.
-   * this.length for the end of the path.
-   * Values below 0 return the start of the path.
-   * Values above this.length return the end of the path.
-   * @returns The point at `distance` from the start of the path.
-   */
-  getPoint(distance: number) {
-    return this.#path.getPointAtLength(distance);
-  }
-  /**
-   * A way of setting the `d` property.
-   * This automatically converts from other formats to a string.
-   * @param path Set `this.d` to this value.
-   */
-  load(path: string | Command | PathShape) {
-    if (typeof path !== "string") {
-      if (!(path instanceof PathShape)) {
-        path = new PathShape([path]);
-      }
-      path = path.rawPath;
-    }
-    this.d = path;
-  }
-  /**
-   * This is a wrapper around `this.load()` and `this.length`.
-   *
-   * This is a convenience in a lot of place where you just want a function call, not an object.
-   * @param path To be measured.
-   * @returns The length of the path.
-   */
-  measure(path: string | Command | PathShape) {
-    this.load(path);
-    return this.length;
-  }
-}
+import { Bezier, MinMax } from "bezier-js";
 
 const formatForSvg = new Intl.NumberFormat("en-US", {
   maximumSignificantDigits: 8,
@@ -1340,6 +1223,20 @@ export class PathShapeError extends Error {
 
 // MARK: PathShape
 
+//
+/**
+ * A rectangle.
+ * This is based on the BBox type in bezier.js.
+ *
+ * I got rid of `z` because it was never relevant.
+ * PathShape is strictly 2 dimensional.
+ *
+ * I marked all of the fields as available.
+ * I don't know why min and size were marked as optional.
+ * The code shows they are always computed.
+ */
+export type FullBBox = { x: Required<MinMax>; y: Required<MinMax> };
+
 /**
  * This is a way to manipulate a path shape.
  * I.e. to create a string like "path('M 1,2 L 3,5')".
@@ -1353,7 +1250,7 @@ export class PathShape {
     const utils = Bezier.getUtils();
     const sections = this.commands.map((command) => command.getBezier());
     const result = utils.findbbox(sections);
-    return result;
+    return result as FullBBox;
   }
   getLength() {
     let sum = 0;
@@ -1679,7 +1576,7 @@ export class PathShape {
    * This function is very generic and works in a lot of cases.  However, it don't
    * work well.  This is a great prototype.  But in general you should use a
    * smarter version of this.
-   * 
+   *
    * Look at matchShapes() in morph-animation.ts for a smarter version.
    * @param other You want to morph from `this` to `other`.
    * @returns A new pair of path strings.  The first looks like `this` and the second
@@ -1970,7 +1867,6 @@ export class PathShape {
     const result = this.#glitchFreeParametric(f, initialSegments, 0);
     return assertNonNullable(result);
   }
-  static #caliper = new PathCaliper();
   /**
    * This is a helper function for glitchFreeParametric().
    * @param f The function to turn into a path.
@@ -2000,9 +1896,7 @@ export class PathShape {
     });
     let index = 0;
     const isGood = (command: Command): boolean => {
-      const subPath = new this([command]);
-      this.#caliper.d = subPath.rawPath;
-      const actualLength = this.#caliper.length;
+      const actualLength = command.getLength();
       const shortestLength = Math.hypot(
         command.x0 - command.x,
         command.y0 - command.y,
@@ -2344,7 +2238,6 @@ type CommandInfo = {
  * This makes it easy for me to step through and see what's going on.
  */
 export class ParametricToPath {
-  static readonly #caliper = new PathCaliper();
   /**
    * Invariant:
    * * This array is sorted by the metric field, highest values at the end.
@@ -2377,7 +2270,7 @@ export class ParametricToPath {
   constructor(
     readonly f: ParametricFunction,
     initialSegmentCount = 16,
-    diagonal?: number | RealSvgRect,
+    diagonal?: number | { readonly width: number; readonly height: number },
   ) {
     const initialPath = PathShape.parametric(f, initialSegmentCount);
     this.#commands = initialPath.commands
@@ -2388,10 +2281,10 @@ export class ParametricToPath {
       })
       .sort((a, b) => a.metric - b.metric);
     if (diagonal === undefined) {
-      ParametricToPath.#caliper.load(initialPath);
-      diagonal = ParametricToPath.#caliper.getBBox();
-    }
-    if (typeof diagonal != "number") {
+      const bBox = initialPath.getBBox();
+
+      diagonal = Math.hypot(bBox.x.size, bBox.y.size);
+    } else if (typeof diagonal != "number") {
       diagonal = Math.hypot(diagonal.height, diagonal.width);
     }
     this.#cutoff = 0.001 * diagonal;
@@ -2434,7 +2327,7 @@ export class ParametricToPath {
         }
       });
     }
-    const curveLength = ParametricToPath.#caliper.measure(command);
+    const curveLength = command.getLength();
     const metric = Math.abs(polyLineLength - curveLength);
     if (!command.creationInfo.success) {
       // TODO add additional penalties for the corners.

@@ -40,7 +40,7 @@ export type Selectable = {
 export type ShowOptions = {
   /**
    * The current time.  Typically you draw the state based on this number.
-   * 
+   *
    * This value might be frozen and might not change from one call to the next.
    */
   readonly timeInMs: number;
@@ -52,7 +52,7 @@ export type ShowOptions = {
    * This is the number of milliseconds from the start of the program.
    * This is useful for drawing certain types of animations.
    * In particular, if the colors are cycling constantly, as a background effect,
-   * and you freeze or repeat a section, you might want the colors to keep cycling. 
+   * and you freeze or repeat a section, you might want the colors to keep cycling.
    */
   readonly globalTime: number;
 };
@@ -90,7 +90,7 @@ function notNegative(value: number) {
 
 /**
  * Creates a new Showable object which passes each show() call to all of its children.
- * 
+ *
  * You might have multiple things all running at the same time.
  * You might have things that overlap arbitrarily.
  * For example, the background is **always** showing.
@@ -104,14 +104,14 @@ export class MakeShowableInParallel {
     readonly start: number;
     readonly child: Selectable;
   }[] = [];
-  /** 
+  /**
    * How long should this new showable run?
    */
   #duration = 0;
   /**
    * You can add to this as much as needed.
    * You can only "use" it to build a showable once.
-   * You cannot make any more changes to this object after building the result. 
+   * You cannot make any more changes to this object after building the result.
    */
   #used = false;
   /**
@@ -124,12 +124,12 @@ export class MakeShowableInParallel {
     this.#children.push({ start, child: { description, duration } });
   }
   /**
-   * 
+   *
    * @param showable Add this child.
    * @param minDuration Request this much time.
    * All children are displayed for the entire time that the parent is shown.
    * The parent's duration is the largest of these values.
-   * 
+   *
    * Defaults to the `showable`'s duration.
    */
   add(showable: Showable, minDuration = showable.duration) {
@@ -214,9 +214,9 @@ export class MakeShowableInSeries {
   /**
    * How long will the last?
    * This gets updated as we add more children.
-   * 
+   *
    * The *next* child to be added will start at this time.
-   * In case you need to coordinate different items. 
+   * In case you need to coordinate different items.
    */
   get duration() {
     return this.#duration;
@@ -228,7 +228,7 @@ export class MakeShowableInSeries {
   /**
    * You can add to this as much as needed.
    * You can only "use" it to build a showable once.
-   * You cannot make any more changes to this object after building the result. 
+   * You cannot make any more changes to this object after building the result.
    */
   #used = false;
   add(child: Showable) {
@@ -254,7 +254,7 @@ export class MakeShowableInSeries {
     notNegative(duration);
     this.#duration += duration;
   }
-    /**
+  /**
    * Create a new Showable that includes all of the added Showable children.
    * @param description Display this to the user.
    * @returns The newly created Showable.
@@ -384,9 +384,6 @@ export function addMargins(
 
 /**
  * Create a new showable that is similar to another, but change the duration and possibly the start time.
- *
- * Example, you want to record the first 60 seconds of a longer, possibly infinite Showable.
- * Or the second 60 seconds.
  *
  * This may call the base with times before 0 or after base.duration.
  * If that's a problem, consider {@link addMargins}.

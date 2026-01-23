@@ -24,6 +24,7 @@ import { morphTest } from "../src/morph-test.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { Point } from "../src/glib/path-shape.ts";
 import { transform } from "../src/glib/transforms.ts";
+import { top } from "../src/peano-fourier/top.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -31,7 +32,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = morphTest;
+const toShow = top;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.
@@ -751,3 +752,8 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Add P and N as hotkeys.
 //  * Maybe not.  This is possible but not very interesting.
 //  * Instead maybe flip between specific frames or scenes with a hot key.
+// TODO Bug!
+//  * Run to the middle of the current section.
+//  * Pause it.
+//  * Hit option 0 to move to the beginning.
+//  * That will update everything BUT the range slider.
