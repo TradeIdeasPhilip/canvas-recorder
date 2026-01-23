@@ -1246,11 +1246,33 @@ export type FullBBox = { x: Required<MinMax>; y: Required<MinMax> };
  * If you wan to make more complicated changes, work on an array of `Command` objects.
  */
 export class PathShape {
+  /**
+   * @returns A tight bounding box for this shape.
+   * 
+   * The format is based on the underlying tools.
+   * See {@link getBBoxRect} for the same thing in a different format.
+   */
   getBBox() {
     const utils = Bezier.getUtils();
     const sections = this.commands.map((command) => command.getBezier());
     const result = utils.findbbox(sections);
     return result as FullBBox;
+  }
+  /**
+   * @returns A tight bounding box for this shape.
+   * 
+   * The format is a compatible with a ReadOnlyRect and works with a lot of related tools.
+   * Consider {@link getBBox} if you are interested in the bottom, right, or center of the rectangle.
+   */
+  getBBoxRect() {
+    const bBox = this.getBBox();
+    const result = {
+      x: bBox.x.min,
+      y: bBox.y.min,
+      height: bBox.y.size,
+      width: bBox.x.size,
+    };
+    return result;
   }
   getLength() {
     let sum = 0;
@@ -1807,15 +1829,8 @@ export class PathShape {
     howFarRight = 0.5,
     howFarDown = 0.5,
   ) {
-    const bBox = this.getBBox();
-    const srcRect: ReadOnlyRect = {
-      x: bBox.x.min,
-      y: bBox.y.min,
-      height: bBox.y.size!,
-      width: bBox.x.size!,
-    };
     const transform = panAndZoom(
-      srcRect,
+      this.getBBoxRect(),
       destRect,
       aspect,
       howFarRight,

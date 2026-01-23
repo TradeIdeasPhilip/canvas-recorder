@@ -25,6 +25,7 @@ import { downloadBlob } from "../src/utility.ts";
 import { Point } from "../src/glib/path-shape.ts";
 import { transform } from "../src/glib/transforms.ts";
 import { top } from "../src/peano-fourier/top.ts";
+import { showcase } from "../src/peano-fourier/showcase.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -32,7 +33,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = top;
+const toShow = showcase;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.

@@ -19,14 +19,26 @@ export function downloadBlob(filename: string, blob: Blob) {
  * This adds some green for a much brighter color.
  * Out of context I'd call this color blue.
  * And it looks good with css "red" and "white".
+ * #ff0000 #ffffff #007fff
  */
 export const BLUE = "#007fff";
 
 export const blackBackground: Showable = {
   description: "background",
+  /**
+   * The intent is to use this in a MakeShowableInParallel.
+   * It will run as long as it needs to.
+   */
   duration: 0,
   show({ context }) {
     context.fillStyle = "black";
     context.fillRect(0, 0, 16, 9);
   },
 };
+
+export function applyTransform(
+  context: CanvasRenderingContext2D,
+  matrix: DOMMatrixReadOnly,
+) {
+  context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+}

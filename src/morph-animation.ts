@@ -9,7 +9,7 @@ export const ALMOST_STRAIGHT = radiansPerDegree / 2;
 /**
  * These are the commands the we inserted at a corner to help the rounding process.
  */
-export const vertexCommands = new WeakSet<Command>();
+const vertexCommands = new WeakSet<Command>();
 /**
  * Convert to QCommand.
  * * QCommand inputs are returned as is.

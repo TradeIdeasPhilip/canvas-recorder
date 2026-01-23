@@ -98,6 +98,12 @@ const builder = new MakeShowableInParallel();
 
 builder.addJustified(blackBackground);
 
+/**
+ * Dark Rainbow!
+ *
+ * These colors are all bright and distinct and all look good against a dark background.
+ * I hand picked these.
+ */
 const colors = [
   "rgb(255, 0, 0)",
   "rgb(255, 128, 0)",
