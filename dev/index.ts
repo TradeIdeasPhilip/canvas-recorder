@@ -231,6 +231,7 @@ addEventListener("keypress", (event) => {
     }
     case "Digit0": {
       loadPlayPositionSeconds(sectionStartTime);
+      loadPlayPositionRange();
       playOffset = NaN;
       event.preventDefault();
       break;
@@ -752,8 +753,3 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Add P and N as hotkeys.
 //  * Maybe not.  This is possible but not very interesting.
 //  * Instead maybe flip between specific frames or scenes with a hot key.
-// TODO Bug!
-//  * Run to the middle of the current section.
-//  * Pause it.
-//  * Hit option 0 to move to the beginning.
-//  * That will update everything BUT the range slider.
