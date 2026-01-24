@@ -1,5 +1,5 @@
 import { ReadOnlyRect } from "phil-lib/misc";
-import { makeLineFont } from "../glib/line-font";
+import { LineFontMetrics, makeLineFont } from "../glib/line-font";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { easeAndBack } from "../interpolate";
 import {
@@ -9,11 +9,19 @@ import {
 } from "../showable";
 import { applyTransform, blackBackground, BLUE } from "../utility";
 import { panAndZoom } from "../glib/transforms";
+import { Font } from "../glib/letters-base";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
 
+// "Notice timeInMs vs globalTime.  " +
+// "timeInMs starts at 0 when the Showable starts.  " +
+// "addMargins() will freeze that value at the beginning and end.  " +
+// "globalTime is the number of milliseconds from the start of the video.  " +
+// "It never freezes (unless you pause the video).";
+
 const titleFont = makeLineFont(0.7);
+const margin = 0.25;
 
 const sceneList = new MakeShowableInSeries("Scene List");
 {
@@ -42,16 +50,9 @@ const sceneList = new MakeShowableInSeries("Scene List");
     scene.add(showable);
   }
 
-  // "Notice timeInMs vs globalTime.  " +
-  // "timeInMs starts at 0 when the Showable starts.  " +
-  // "addMargins() will freeze that value at the beginning and end.  " +
-  // "globalTime is the number of milliseconds from the start of the video.  " +
-  // "It never freezes (unless you pause the video).";
-
   {
     const font = makeLineFont(0.25);
     const period = 60_000;
-    const margin = 0.25;
     const top = 1.5;
     const dynamicText =
       "Dynamic Text:  " +
@@ -136,19 +137,35 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
   sceneList.add(scene.build());
 }
-
 {
   const scene = new MakeShowableInParallel("Strokable Font List");
   {
-    const pathShape = ParagraphLayout.singlePathShape({
-      text: scene.description,
-      font: titleFont,
-      alignment: "center",
-      width: 16,
-    });
-    const path = new Path2D(pathShape.rawPath);
+    const titlePath = new Path2D(
+      ParagraphLayout.singlePathShape({
+        text: scene.description,
+        font: titleFont,
+        alignment: "center",
+        width: 16,
+      }).rawPath,
+    );
+    const futuraPath = new Path2D(
+      ParagraphLayout.singlePathShape({
+        text: "There are currently 3 fonts available.  This is Futura L at size 0.5.",
+        font: Font.futuraL(0.5),
+        alignment: "right",
+        width: 16 - 2 * margin,
+      }).translate(margin, 1.5).rawPath,
+    );
+    const cursivePath = new Path2D(
+      ParagraphLayout.singlePathShape({
+        text: "This is Cursive at size 0.5.  This works especially well with the handwriting effect.",
+        font: Font.cursive(0.5),
+        alignment: "center",
+        width: 16 - 2 * margin,
+      }).translate(margin, 3.25).rawPath,
+    );
     const showable: Showable = {
-      description: scene.description,
+      description: "simple parts",
       duration: 0,
       show({ context }) {
         {
@@ -156,11 +173,36 @@ const sceneList = new MakeShowableInSeries("Scene List");
           context.lineJoin = "round";
           context.lineWidth = 0.07;
           context.strokeStyle = "magenta";
-          context.stroke(path);
+          context.stroke(titlePath);
+          context.lineWidth = 0.04;
+          context.strokeStyle = "rgb(128, 0, 255)";
+          context.stroke(futuraPath);
+          context.strokeStyle = "rgb(0, 0, 255)";
+          context.stroke(cursivePath);
         }
       },
     };
-    scene.reserve(5_000);
+    scene.add(showable);
+  }
+  {
+    const showable: Showable = {
+      description: "Line Font",
+      duration: 30_000,
+      show({ context, timeInMs }) {
+        const progress = easeAndBack(timeInMs / this.duration);
+        context.lineWidth = 0.04 + progress * 0.06;
+        const path = new Path2D(
+          ParagraphLayout.singlePathShape({
+            text: "This is Line Font.  It has the most characters.  And it can adjust to different line thicknesses.",
+            font: makeLineFont(new LineFontMetrics(0.5, context.lineWidth)),
+            alignment: "left",
+            width: 16 - 2 * margin,
+          }).translate(margin, 5.5).rawPath,
+        );
+        context.strokeStyle = BLUE;
+        context.stroke(path);
+      },
+    };
     scene.add(showable);
   }
   sceneList.add(scene.build());
