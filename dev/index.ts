@@ -381,11 +381,14 @@ type SelectableTree = {
 
 /**
  * The list of sections that you can display.
+ *
+ * "Debug" because this is not part of the video.
+ * This is used in the editor to help you create the video.
  */
 const debug = new Array<SelectableTree>();
 /**
  * Initialize the `debug` list with all the sections of the video.
- * @param showable Add this and its children.
+ * @param current Add this and its children.
  * @param prefix Draw the sections like an outline.
  * Each section is indented a little more than its parent.
  * @param start What time does the section start?
@@ -394,34 +397,61 @@ const debug = new Array<SelectableTree>();
  * @param limit The last time that is available for this section to run.
  * A section will not run past the end of any of its ancestors.
  * This is measured from the beginning of the entire video.
+ * @param descriptionPrefix Used when we are combining nodes.
  * @param parent
  */
 function dump(
-  showable: Selectable,
+  current: Selectable,
   prefix = "",
   start = 0,
   limit = Infinity,
+  descriptionPrefix = "",
   parent?: SelectableTree,
 ) {
-  const end = Math.min(start + showable.duration, limit);
-  const info: SelectableTree = {
-    prefix,
-    description: showable.description,
-    start,
-    end,
-    parent,
-    children: [],
-    absolutePosition: debug.length,
-    siblingPosition: parent ? parent.children.length : NaN,
-  };
-  if (parent) {
-    parent.children.push(info);
+  /**
+   * Remove any children with a duration of 0.
+   * The point of this list is to let the user select a section of the video to view.
+   * Things with a duration of 0 add nothing of value to this list.
+   */
+  const interestingChildren = (current.children ?? []).filter(
+    ({ child }) => child.duration,
+  );
+  if (
+    interestingChildren.length == 1 &&
+    interestingChildren[0].start == 0 &&
+    interestingChildren[0].child.duration == current.duration
+  ) {
+    // Merge this node with its only interesting child to flatten the tree.
+    dump(
+      interestingChildren[0].child,
+      prefix,
+      start,
+      limit,
+      descriptionPrefix + current.description + " ⏵ ",
+      parent,
+    );
+  } else {
+    // Add this node to the tree then process its children recursively.
+    const end = Math.min(start + current.duration, limit);
+    const info: SelectableTree = {
+      prefix,
+      description: descriptionPrefix + current.description,
+      start,
+      end,
+      parent,
+      children: [],
+      absolutePosition: debug.length,
+      siblingPosition: parent ? parent.children.length : NaN,
+    };
+    if (parent) {
+      parent.children.push(info);
+    }
+    debug.push(info);
+    interestingChildren.forEach((next) => {
+      const absoluteStart = start + next.start;
+      dump(next.child, FIGURE_SPACE + prefix, absoluteStart, end, "", info);
+    });
   }
-  debug.push(info);
-  showable.children?.forEach((next) => {
-    const absoluteStart = start + next.start;
-    dump(next.child, FIGURE_SPACE + prefix, absoluteStart, end, info);
-  });
 }
 dump(toShow);
 //console.table(debug);
