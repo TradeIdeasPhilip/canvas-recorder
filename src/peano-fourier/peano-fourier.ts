@@ -15,9 +15,9 @@ import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 // Display 3 complete iterations of the peano curve.
 // And for each one a fourier series trying to approximate it.
 
-const builder = new MakeShowableInParallel();
+const builder = new MakeShowableInParallel("Peano Fourier");
 
-builder.addJustified(blackBackground);
+builder.add(blackBackground);
 
 const SIZE = new DOMMatrix("translate(-2px, -2px) scale(4)");
 
@@ -185,4 +185,4 @@ builder.addJustified(
 );
 */
 
-export const peanoFourier: Showable = builder.build("Peano Fourier");
+export const peanoFourier: Showable = builder.build();

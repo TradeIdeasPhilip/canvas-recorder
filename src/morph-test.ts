@@ -94,9 +94,9 @@ function dumpBigCorners(shape: PathShape) {
 //dumpBigCorners(after);
 //console.log(after);
 
-const builder = new MakeShowableInParallel();
+const builder = new MakeShowableInParallel("Morph Test");
 
-builder.addJustified(blackBackground);
+builder.add(blackBackground);
 
 /**
  * Dark Rainbow!
@@ -255,7 +255,7 @@ if (false) {
     endScreen.x + endScreen.width / 2,
     2,
   );
-  const eachOne = new MakeShowableInSeries();
+  const eachOne = new MakeShowableInSeries("flashing ☆ list");
   [
     "Thanks\nfor\nwatching!",
     "More\nto\ncome...",
@@ -282,7 +282,7 @@ if (false) {
     const rocker = createRocker(interpolator, `“${word}”`);
     eachOne.add(rocker);
   });
-  builder.add(eachOne.build("flashing ☆ list"));
+  builder.add(eachOne.build());
 }
 
 // MARK: Morphing AND rolling
@@ -319,7 +319,7 @@ if (false) {
     },
   };
 
-  const eachOne = new MakeShowableInSeries();
+  const eachOne = new MakeShowableInSeries("flashing ☆ list");
   [
     { word: "ZZZzZZZzZZZ", font: cursive },
     { word: "The number of colored segments is now constant.", font: lineFont },
@@ -361,7 +361,7 @@ if (false) {
     };
     eachOne.add(rocker);
   });
-  builder.add(eachOne.build("flashing ☆ list"));
+  builder.add(eachOne.build());
 }
 
 // MARK: Peano
@@ -379,7 +379,7 @@ if (false) {
     matchShapes(paths[1], paths[2]),
   ];
   const duration = 10000;
-  const inSeries = new MakeShowableInSeries();
+  const inSeries = new MakeShowableInSeries("Peano top");
   interpolators.forEach((interpolator, index) => {
     const showable: Showable = {
       description: `Peano ${index}`,
@@ -398,7 +398,7 @@ if (false) {
     };
     inSeries.add(showable);
   });
-  builder.add(inSeries.build("Peano top"));
+  builder.add(inSeries.build());
 }
 
 // MARK: Hilbert
@@ -526,7 +526,7 @@ if (true) {
     changeToColorSpectrum();
     return interpolators;
   });
-  const inOrder = new MakeShowableInSeries();
+  const inOrder = new MakeShowableInSeries("Hilbert all");
   steps.forEach((step, index) => {
     const thisStep: Showable = {
       duration: 4000,
@@ -568,7 +568,7 @@ if (true) {
     };
     inOrder.add(toShow);
   }
-  builder.add(inOrder.build("Hilbert all"));
+  builder.add(inOrder.build());
 }
 
 // MARK: Hilbert edging
@@ -661,13 +661,13 @@ if (false) {
 }
 
 if (false) {
-  const eachOne = new MakeShowableInSeries();
+  const eachOne = new MakeShowableInSeries("growing list");
   for (let length = 1; length <= 15; length++) {
     const after = makeLayout("7".repeat(length));
     const rocker = createRocker(matchShapes(before, after), `${length} × “7”`);
     eachOne.add(rocker);
   }
-  builder.add(eachOne.build("growing list"));
+  builder.add(eachOne.build());
 }
 
 {
@@ -748,7 +748,7 @@ if (false) {
 
 {
   const font = makeLineFont(0.75);
-  const inOrder = new MakeShowableInSeries();
+  const inOrder = new MakeShowableInSeries("algebra");
   function animateTransition(from: readonly string[], to: readonly string[]) {
     if (from.length != to.length) {
       throw new Error("wtf");
@@ -822,7 +822,7 @@ if (false) {
   animateTransition("(2 + 1)§ × §(16 - 7)".split("§"), "3§ × §9".split("§"));
   animateTransition(["3 × 9"], ["27"]);
   if (false) {
-    builder.add(inOrder.build("algebra"));
+    builder.add(inOrder.build());
   }
 }
 
@@ -1369,7 +1369,7 @@ if (false) {
 }
 
 //builder.reserve(Infinity);
-export const morphTest = builder.build("Morph Test");
+export const morphTest = builder.build();
 
 /**
  * Need to convert to parametric functions.

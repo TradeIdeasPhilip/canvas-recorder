@@ -231,10 +231,10 @@ const state3 = {
   strokeWidth: 0.015,
 };
 
-const builder = new MakeShowableInParallel();
-const inSeries = new MakeShowableInSeries();
+const builder = new MakeShowableInParallel("Peano Iterations");
+const inSeries = new MakeShowableInSeries("in series");
 
-builder.addJustified(blackBackground);
+builder.add(blackBackground);
 
 {
   // Script:
@@ -295,9 +295,9 @@ builder.addJustified(blackBackground);
   inSeries.add(expander2);
 }
 
-builder.add(inSeries.build("in series"));
+builder.add(inSeries.build());
 
 /**
  * This section of the video shows the first 3 iterations of the Peano curve and how each compares to the others.
  */
-export const peanoIterations = builder.build("Peano Iterations");
+export const peanoIterations = builder.build();

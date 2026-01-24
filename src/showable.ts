@@ -96,6 +96,7 @@ function notNegative(value: number) {
  * For example, the background is **always** showing.
  */
 export class MakeShowableInParallel {
+  constructor(readonly description: string) {}
   readonly #all: Showable[] = [];
   readonly #children: {
     /**
@@ -164,7 +165,7 @@ export class MakeShowableInParallel {
    * @param description Display this to the user.
    * @returns The newly created Showable.
    */
-  build(description: string): Showable {
+  build(): Showable {
     if (this.#used) {
       throw new Error("wtf");
     }
@@ -180,7 +181,7 @@ export class MakeShowableInParallel {
     return {
       duration,
       show,
-      description,
+      description: this.description,
       children: this.#children,
     };
   }
@@ -193,11 +194,11 @@ export class MakeShowableInParallel {
    * @returns A new Showable object which passes each show() call to all of its children.
    */
   static all(description: string, children: Showable[]) {
-    const builder = new this();
+    const builder = new this(description);
     children.forEach((child) => {
       builder.add(child);
     });
-    return builder.build(description);
+    return builder.build();
   }
 }
 
@@ -206,6 +207,7 @@ export class MakeShowableInParallel {
  * Each one runs right after the previous one.
  */
 export class MakeShowableInSeries {
+  constructor(readonly description: string) {}
   /**
    * How long will this last?
    * This gets updated as we add more children.
@@ -259,7 +261,7 @@ export class MakeShowableInSeries {
    * @param description Display this to the user.
    * @returns The newly created Showable.
    */
-  build(description: string): Showable {
+  build(): Showable {
     if (this.#used) {
       throw new Error("wtf");
     }
@@ -281,7 +283,12 @@ export class MakeShowableInSeries {
         }
       }
     };
-    return { description, duration, show, children: this.#script };
+    return {
+      description: this.description,
+      duration,
+      show,
+      children: this.#script,
+    };
   }
   /**
    * Create a new showable that contains all of the inputs as children.
@@ -298,11 +305,11 @@ export class MakeShowableInSeries {
    * @returns A new showable.
    */
   static all(description: string, children: Showable[]): Showable {
-    const builder = new this();
+    const builder = new this(description);
     children.forEach((child) => {
       builder.add(child);
     });
-    return builder.build(description);
+    return builder.build();
   }
 }
 
@@ -352,7 +359,7 @@ export function addMargins(
     frozenAfter?: number;
   },
 ): Showable {
-  const builder = new MakeShowableInSeries();
+  const builder = new MakeShowableInSeries(`${base.description} » margins`);
   if (extra.hiddenBefore !== undefined) {
     builder.skip(extra.hiddenBefore);
   }
@@ -378,8 +385,7 @@ export function addMargins(
   if (extra.hiddenAfter !== undefined) {
     builder.skip(extra.hiddenAfter);
   }
-  const description = `${base.description} » margins`;
-  return builder.build(description);
+  return builder.build();
 }
 
 /**

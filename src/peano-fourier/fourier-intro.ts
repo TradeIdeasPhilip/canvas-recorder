@@ -11,9 +11,9 @@ import {
 } from "./fourier-shared";
 import { blackBackground, BLUE } from "../utility";
 
-const builder = new MakeShowableInParallel();
+const builder = new MakeShowableInParallel("Fourier intro");
 
-builder.addJustified(blackBackground);
+builder.add(blackBackground);
 
 const font = Font.cursive(0.5);
 function makeHandwriting(
@@ -86,4 +86,4 @@ addAnimation("man on left", [2, 3, 6, 9, 12], "red", 0, 1.25, 0.06);
 addAnimation("man in center", [12, 25, 31, 43, 50], "white", 5.5, 1.25, 0.04);
 addAnimation("man on right", [50, 75, 100, 150, 1000], BLUE, 11, 1.25, 0.02);
 
-export const fourierIntro: Showable = builder.build("Fourier intro");
+export const fourierIntro: Showable = builder.build();
