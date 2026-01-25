@@ -30,7 +30,7 @@ import {
   makeQCommand,
   matchShapes,
 } from "./morph-animation";
-import { blackBackground, BLUE } from "./utility";
+import { blackBackground, BLUE, darkRainbow, strokeColors } from "./utility";
 import {
   ease,
   easeAndBack,
@@ -98,26 +98,8 @@ const builder = new MakeShowableInParallel("Morph Test");
 
 builder.add(blackBackground);
 
-/**
- * Dark Rainbow!
- *
- * These colors are all bright and distinct and all look good against a dark background.
- * I hand picked these.
- */
-const colors = [
-  "rgb(255, 0, 0)",
-  "rgb(255, 128, 0)",
-  "rgb(255, 255, 0)",
-  "rgb(0, 255, 0)",
-  "rgb(0, 255, 255)",
-  "rgb(0, 128, 255)",
-  "rgb(0, 0, 255)",
-  "rgb(128, 0, 255)",
-  "rgb(255, 0, 255)",
-];
-
 function getColor(index: number) {
-  return colors[index % colors.length];
+  return darkRainbow[index % darkRainbow.length];
 }
 
 function byLine(from: string, to: string) {
@@ -502,7 +484,7 @@ if (true) {
       }
     }
     while (true) {
-      const color = colors[colorIndex % colors.length];
+      const color = getColor(colorIndex);
       colorIndex++;
       grab(3, 15, color, false);
       if (fromCommands.length == 0) {
@@ -519,7 +501,7 @@ if (true) {
       );
       allChanges.forEach((toChange, index, array) => {
         const progress = array.length < 2 ? 0.5 : index / (array.length - 1);
-        const newColor = interpolateColors(progress, colors);
+        const newColor = interpolateColors(progress, darkRainbow);
         array[index].color = newColor;
       });
     }
@@ -928,127 +910,6 @@ function fixCursive(input: PathShape, fudgeFactor = 0.0001) {
   );
 }
 
-function countNotNullable(items: readonly unknown[]) {
-  let result = 0;
-  items.forEach((item) => {
-    if (item !== undefined && item !== null) {
-      result++;
-    }
-  });
-  return result;
-}
-
-type StrokeColorsOptions = {
-  /** Stroke this path. */
-  readonly pathShape: PathShape;
-  /** Draw everything here. */
-  readonly context: CanvasRenderingContext2D;
-  /**
-   * A list of CSS color strings to use when stroking the path.
-   */
-  readonly colors?: ReadonlyArray<string>;
-  /**
-   * How far ahead to jump in the colors.
-   * This is measured in userspace units, same as pathShape.getLength().
-   * A small, positive number means to make the first section a little bit smaller,
-   * move all of the other sections forward to fill in the gap,
-   * and make the last section larger and/or add a new section at the end.
-   * As if you added a small section to the beginning of the curve, and later covered it up.
-   * Larger number and negative numbers will work.
-   *
-   * For example, consider a line segment going from left to right.
-   * Animate this property so it slowly grows.
-   * The colored segments will slowly move to the left.
-   *
-   * At most one of offset and relative offset may be set.
-   * If neither is set, the default is offset=0.
-   */
-  offset?: number;
-  /**
-   * This is an alternative to setting the offset.
-   * 0 and small positive and negative values work as with offset.
-   * But the scale is different.
-   * A value of 1 means to rotate once all the way through the colors.
-   * Jumping directly between 0 and 1 will have no visible effect.
-   * Gradually animating the change between 0 and 1 will cause the colors to move one complete cycle.
-   *
-   * If the length of the path is changing over time,
-   * I often find it's better to use relativeOffset and offset.
-   */
-  relativeOffset?: number;
-  /**
-   * sectionLength says how far to go before changing colors.
-   * It is measured in userspace units, just like pathShape.getLength().
-   *
-   * At most one of sectionLength, repeatCount and colorCount can be used.
-   * Setting none of these is the same as setting repeatCount to 1.
-   */
-  sectionLength?: number;
-  /**
-   * repeatCount says how many times to display the entire list of colors.
-   *
-   * At most one of sectionLength, repeatCount and colorCount can be used.
-   * Setting none of these is the same as setting repeatCount to 1.
-   */
-  repeatCount?: number;
-  /**
-   * colorCount says how many different colored segments to draw.
-   * If offset == 0 (and round off error is not a problem) then you will have exactly colorCount sections.
-   * Otherwise the first and last segments might be smaller,
-   * adding up to single segment.
-   *
-   * At most one of sectionLength, repeatCount and colorCount can be used.
-   * Setting none of these is the same as setting repeatCount to 1.
-   */
-  colorCount?: number;
-};
-
-function strokeColors(options: StrokeColorsOptions) {
-  const splitter = new PathShapeSplitter(options.pathShape);
-  const colorsToUse = options.colors ?? colors;
-  if (
-    countNotNullable([
-      options.sectionLength,
-      options.repeatCount,
-      options.colorCount,
-    ]) > 1
-  ) {
-    throw new Error("wtf");
-  }
-  const sectionLength: number =
-    options.sectionLength ??
-    splitter.length /
-      (options.colorCount ?? (options.repeatCount ?? 1) * colorsToUse.length);
-  if (options.relativeOffset !== undefined && options.offset !== undefined) {
-    throw new Error("wtf");
-  }
-  if (options.offset == undefined) {
-    if (options.relativeOffset == undefined) {
-      options.offset = 0;
-    } else {
-      options.offset =
-        options.relativeOffset * sectionLength * colorsToUse.length;
-    }
-  }
-  if (options.offset < 0) {
-    options.offset = positiveModulo(
-      options.offset,
-      colorsToUse.length * sectionLength,
-    );
-  }
-  let colorIndex = 0;
-  let startPosition = -options.offset;
-  while (startPosition < splitter.length) {
-    const endPosition = startPosition + sectionLength;
-    const section = splitter.get(startPosition, endPosition);
-    const color = colorsToUse[colorIndex % colorsToUse.length];
-    options.context.strokeStyle = color;
-    options.context.stroke(new Path2D(section.rawPath));
-    startPosition = endPosition;
-    colorIndex++;
-  }
-}
-
 // MARK: slidingColors()
 if (false) {
   function slidingColors(
@@ -1128,7 +989,7 @@ if (false) {
       font,
       text: "Rainbow",
     }).translate(4.25, 2),
-    colors,
+    darkRainbow,
   );
   slidingColors(
     "Grayscale",
@@ -1154,7 +1015,7 @@ if (false) {
       font,
       text: "Fast",
     }).translate(1, 3.75),
-    colors,
+    darkRainbow,
     0.001242,
   );
   slidingColors(
@@ -1163,7 +1024,7 @@ if (false) {
       font,
       text: "Slow",
     }).translate(4.5, 3.75),
-    colors,
+    darkRainbow,
     0.001242 / 10,
   );
   slidingColors(
@@ -1224,7 +1085,7 @@ if (false) {
       font,
     );
     const splitter = new PathShapeSplitter(initialShape);
-    const layers = colors.map((color, index, array) => {
+    const layers = darkRainbow.map((color, index, array) => {
       const startTime = (duration / array.length) * index;
       const endTime = (duration / array.length) * (index + 1);
       const finalPathStart = (splitter.length / 2 / array.length) * index;

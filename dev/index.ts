@@ -791,3 +791,10 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * Add P and N as hotkeys.
 //  * Maybe not.  This is possible but not very interesting.
 //  * Instead maybe flip between specific frames or scenes with a hot key.
+// TODO Why is one corner of my star rounded while the rest are mitered?
+//  * Suggestion:  If the end and the start are the same, add a Z when converting to Raw.
+//  * No.  That might work for a single shape.  But I'm breaking this into small pieces.
+//  * I'm looking at "Simple animated colors" in the showcase.
+//  * Try creating the star somewhere other than the middle.
+// TODO add PathShape.canvasPath.
+//  * So you don't have to call new Path2D() explicitly.

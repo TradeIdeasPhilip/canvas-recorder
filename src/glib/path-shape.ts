@@ -1206,7 +1206,27 @@ const cCommandContinuation = new RegExp(
 const cCommandRelative = new RegExp(
   `^c${afterCommand}${number}${between}${number}${between}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
 );
+/**
+ * Four numbers:  dx2, dy2, dx3, dy3
+ * x1 and y1 are computed based on the previous command.
+ * Example:  s4.187,5.581,5.582,5.581
+ */
+const sCommandRelative = new RegExp(
+  `^s${afterCommand}${number}${between}${number}${between}${number}${between}${number}(.*)$`,
+);
+/**
+ * Four more numbers: (x2, y2, x3, y3) or (dx2, dy2, dx3, dy3)
+ * x1 and y1 are computed based on the previous command.
+ */
+const sCommandContinuation = qCommandContinuation;
 const zCommand = new RegExp("^[zZ](.*)$");
+
+function reflect(reflectThis: number, overThis: number) {
+  return overThis + (overThis - reflectThis);
+  // Example:
+  // reflectThis = 2, overThis= 3, motion = (overThis - reflectThis) = (3-2) = 1,
+  // result = start + motion = 3 + 1 = 4
+}
 
 /**
  * If the user enters a path string (like in `path-debugger.html`) that is invalid
@@ -1248,7 +1268,7 @@ export type FullBBox = { x: Required<MinMax>; y: Required<MinMax> };
 export class PathShape {
   /**
    * @returns A tight bounding box for this shape.
-   * 
+   *
    * The format is based on the underlying tools.
    * See {@link getBBoxRect} for the same thing in a different format.
    */
@@ -1260,7 +1280,7 @@ export class PathShape {
   }
   /**
    * @returns A tight bounding box for this shape.
-   * 
+   *
    * The format is a compatible with a ReadOnlyRect and works with a lot of related tools.
    * Consider {@link getBBox} if you are interested in the bottom, right, or center of the rectangle.
    */
@@ -1338,10 +1358,18 @@ export class PathShape {
     let x0 = 0;
     let y0 = 0;
     const commands: Command[] = [];
+    /**
+     * Some commands depend on the previous command.
+     *
+     * This will be undefine if there were no previous commands
+     * or if the previous command did not create a `Command` object.
+     */
+    let previousCommand: Command | undefined;
     const push = (command: Command) => {
       commands.push(command);
       x0 = command.x;
       y0 = command.y;
+      previousCommand = command;
     };
     let recentMove: { readonly x0: number; readonly y0: number } | undefined;
     while (true) {
@@ -1355,6 +1383,8 @@ export class PathShape {
         y0 = parseOrThrow(found[2]);
         recentMove = { x0, y0 };
         remaining = found[3];
+        previousCommand = undefined;
+        // TODO remaining arguments should be interpreted as L command arguments.
         continue;
       }
       if ((found = mCommandRelative.exec(remaining))) {
@@ -1362,6 +1392,7 @@ export class PathShape {
         y0 += parseOrThrow(found[2]);
         recentMove = { x0, y0 };
         remaining = found[3];
+        previousCommand = undefined;
         while ((found = lCommandContinuation.exec(remaining))) {
           const current = LCommand.relative(
             x0,
@@ -1383,6 +1414,7 @@ export class PathShape {
           push(current);
         }
         remaining = found[1];
+        previousCommand = undefined;
         continue;
       }
       if ((found = lCommand.exec(remaining))) {
@@ -1488,6 +1520,26 @@ export class PathShape {
           push(current);
           remaining = found[7];
           found = cCommandContinuation.exec(remaining);
+        }
+        continue;
+      }
+      if ((found = sCommandRelative.exec(remaining))) {
+        while (found) {
+          const [x1, y1] =
+            previousCommand instanceof CCommand
+              ? [
+                  reflect(previousCommand.x2, x0),
+                  reflect(previousCommand.y2, y0),
+                ]
+              : [x0, y0];
+          const x2 = x0 + parseOrThrow(found[1]);
+          const y2 = y0 + parseOrThrow(found[2]);
+          const x3 = x0 + parseOrThrow(found[3]);
+          const y3 = y0 + parseOrThrow(found[4]);
+          const current = new CCommand(x0, y0, x1, y1, x2, y2, x3, y3);
+          push(current);
+          remaining = found[5];
+          found = sCommandContinuation.exec(remaining);
         }
         continue;
       }
