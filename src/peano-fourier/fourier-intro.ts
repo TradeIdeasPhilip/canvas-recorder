@@ -69,7 +69,7 @@ function addAnimation(
   );
   function show({ timeInMs, context }: ShowOptions) {
     const { pathShape } = getInfo(timeInMs);
-    const path = new Path2D(pathShape.rawPath);
+    const path = pathShape.canvasPath;
     const originalTransform = context.getTransform();
     context.translate(x, y);
     context.lineJoin = "round";

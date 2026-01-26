@@ -151,7 +151,7 @@ function byLine(from: string, to: string) {
       for (const [color, interpolator] of zip(colors, interpolators)) {
         const completePath = interpolator(progress);
         context.strokeStyle = color;
-        context.stroke(new Path2D(completePath.rawPath));
+        context.stroke(completePath.canvasPath);
       }
       context.setTransform(initialTransform);
     },
@@ -181,7 +181,7 @@ function createRocker(
         paths.forEach((path, index) => {
           const color = getColor(index);
           context.strokeStyle = color;
-          context.stroke(new Path2D(path.rawPath));
+          context.stroke(path.canvasPath);
         });
       }
       context.lineWidth = 0.18;
@@ -338,7 +338,7 @@ if (false) {
         */
         context.lineWidth = 0.03;
         context.strokeStyle = "#404040";
-        context.stroke(new Path2D(completePath.rawPath));
+        context.stroke(completePath.canvasPath);
       },
     };
     eachOne.add(rocker);
@@ -375,7 +375,7 @@ if (false) {
         strokeColors({ pathShape, context });
         context.lineWidth = 0.03;
         context.strokeStyle = "#404040";
-        context.stroke(new Path2D(pathShape.rawPath));
+        context.stroke(pathShape.canvasPath);
       },
     };
     inSeries.add(showable);
@@ -521,7 +521,7 @@ if (true) {
           context.lineCap = segment.isConnector ? "round" : "square";
           context.strokeStyle = segment.color;
           const shape = segment.interpolator(progress);
-          context.stroke(new Path2D(shape.rawPath));
+          context.stroke(shape.canvasPath);
         });
       },
     };
@@ -545,7 +545,7 @@ if (true) {
         });
         context.lineWidth /= 3;
         context.strokeStyle = "#404040";
-        context.stroke(new Path2D(pathShape.rawPath));
+        context.stroke(pathShape.canvasPath);
       },
     };
     inOrder.add(toShow);
@@ -668,7 +668,7 @@ if (false) {
       context.lineWidth = 0.08;
       context.strokeStyle = BLUE;
       const shape = interpolator(progress);
-      context.stroke(new Path2D(shape.rawPath));
+      context.stroke(shape.canvasPath);
     },
   };
   if (false) {
@@ -713,7 +713,7 @@ if (false) {
         context.lineWidth = lineWidth;
         context.strokeStyle = color;
         const shape = interpolator(progress);
-        context.stroke(new Path2D(shape.rawPath));
+        context.stroke(shape.canvasPath);
       },
     };
     builder.add(showable);
@@ -784,7 +784,7 @@ if (false) {
         context.strokeStyle = "magenta";
         interpolators.forEach((interpolator) => {
           const shape = interpolator(progress);
-          context.stroke(new Path2D(shape.rawPath));
+          context.stroke(shape.canvasPath);
         });
         context.setTransform(originalTransform);
       },
@@ -845,7 +845,7 @@ if (false) {
           "#9eff9eff",
         );
         const shape = interpolator(progress);
-        context.stroke(new Path2D(shape.rawPath));
+        context.stroke(shape.canvasPath);
       },
     };
     const startTime = 500 * i;
@@ -918,7 +918,7 @@ if (false) {
     colors: readonly string[],
     speed = 0.001242 / 2.5,
   ) {
-    const fullPath = new Path2D(pathShape.rawPath);
+    const fullPath = pathShape.canvasPath;
     const sectionLength = 0.23;
     const duration = (sectionLength * colors.length) / speed;
     const toShow: Showable = {
@@ -1112,7 +1112,7 @@ if (false) {
             const from = layer.pathStart(timeInMs);
             const path = splitter.get(from, to);
             context.strokeStyle = layer.color;
-            context.stroke(new Path2D(path.rawPath));
+            context.stroke(path.canvasPath);
           }
         });
       },
@@ -1149,7 +1149,7 @@ if (false) {
         context.lineWidth = 0.05;
         context.strokeStyle = color;
         const path = interpolator(progress);
-        context.stroke(new Path2D(path.rawPath));
+        context.stroke(path.canvasPath);
       },
     };
     builder.add(toShow);

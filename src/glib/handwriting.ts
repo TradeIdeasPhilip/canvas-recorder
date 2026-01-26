@@ -20,7 +20,7 @@ export function createHandwriting(
   const allShapeInfo = allConnectedShapes.map((shape) => {
     const length = shape.getLength();
     const end = start + length;
-    const path = new Path2D(shape.rawPath);
+    const path = shape.canvasPath;
     const result = { path, start, length, end };
     start = end;
     return result;

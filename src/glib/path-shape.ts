@@ -1781,6 +1781,14 @@ export class PathShape {
     return false;
   }
   /**
+   * Creates a Path2D based on this PathShape.
+   *
+   * This format is used by the canvas for stroking, filling and otherwise using a path.
+   */
+  get canvasPath() {
+    return new Path2D(this.rawPath);
+  }
+  /**
    * Something that you might feed to the `d` __attribute__ of a `<path>` element.
    */
   get rawPath() {

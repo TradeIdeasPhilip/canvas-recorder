@@ -255,7 +255,7 @@ export class ParagraphLayout {
       context.lineCap = "round";
       context.lineJoin = "round";
       for (const info of getAllLetters(left, top)) {
-        const path = new Path2D(info.translatedShape.rawPath);
+        const path = info.translatedShape.canvasPath;
         context.stroke(path);
       }
     }
@@ -275,7 +275,7 @@ export class ParagraphLayout {
         .map((shape) => {
           const length = shape.getLength();
           const end = start + length;
-          const path = new Path2D(shape.rawPath);
+          const path = shape.canvasPath;
           const result = { path, start, length, end };
           start = end;
           return result;

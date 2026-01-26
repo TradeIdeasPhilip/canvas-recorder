@@ -177,7 +177,7 @@ export function strokeColors(options: StrokeColorsOptions) {
     const section = splitter.get(startPosition, endPosition);
     const color = colorsToUse[colorIndex % colorsToUse.length];
     options.context.strokeStyle = color;
-    options.context.stroke(new Path2D(section.rawPath));
+    options.context.stroke(section.canvasPath);
     startPosition = endPosition;
     colorIndex++;
   }

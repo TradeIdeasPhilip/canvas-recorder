@@ -796,5 +796,3 @@ canvas.addEventListener("pointerup", (pointerEvent) => {
 //  * No.  That might work for a single shape.  But I'm breaking this into small pieces.
 //  * I'm looking at "Simple animated colors" in the showcase.
 //  * Try creating the star somewhere other than the middle.
-// TODO add PathShape.canvasPath.
-//  * So you don't have to call new Path2D() explicitly.

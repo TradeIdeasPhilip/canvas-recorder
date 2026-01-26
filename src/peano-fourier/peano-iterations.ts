@@ -211,7 +211,7 @@ function createExpander(
       context.lineJoin = "miter";
       context.lineWidth = strokeWidth;
       context.strokeStyle = color;
-      const path = new Path2D(pathShape.rawPath);
+      const path = pathShape.canvasPath;
       context.stroke(path);
       context.setTransform(originalTransform);
     },

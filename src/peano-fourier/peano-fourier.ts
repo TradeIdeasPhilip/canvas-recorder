@@ -42,7 +42,7 @@ function createExample(
     const { getInfo, duration } = createFourierAnimation(animationRules);
     function show({ context, timeInMs }: ShowOptions) {
       const { pathShape } = getInfo(timeInMs);
-      const path = new Path2D(pathShape.rawPath);
+      const path = pathShape.canvasPath;
       const originalTransform = context.getTransform();
       //context.transform(positionOfLivePath.a, positionOfLivePath.b, positionOfLivePath.c, positionOfLivePath.d, positionOfLivePath.e, positionOfLivePath.f)
       context.translate(livePathX, 6.5);
@@ -62,9 +62,7 @@ function createExample(
   }
 
   // Reference elements:  [data-pf-ideal]
-  const referencePath = new Path2D(
-    path.transform(positionOfReferencePath).rawPath,
-  );
+  const referencePath = path.transform(positionOfReferencePath).canvasPath;
   const referenceShowable: Showable = {
     description: `reference path #${iteration}`,
     duration: 0,

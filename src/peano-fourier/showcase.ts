@@ -40,7 +40,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "center",
       width: 16,
     });
-    const path = new Path2D(pathShape.rawPath);
+    const path = pathShape.canvasPath;
     const showable: Showable = {
       description: scene.description,
       duration: 0,
@@ -87,7 +87,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "justify",
       width: 8 - 2 * margin,
     });
-    const completelyFixedPath = new Path2D(completelyFixedPathShape.rawPath);
+    const completelyFixedPath = completelyFixedPathShape.canvasPath;
     const showable: Showable = {
       description: "Make it fit",
       duration: period,
@@ -100,7 +100,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           alignment: "justify",
           width: centerLine - 2 * margin,
         }).translate(margin, top);
-        const dynamicPath = new Path2D(dynamicPathShape.rawPath);
+        const dynamicPath = dynamicPathShape.canvasPath;
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = font.strokeWidth;
@@ -113,14 +113,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
           width: 16 - centerLine - 2 * margin,
           height: 9 - top - margin,
         };
-        const fixedPath = new Path2D(
-          fixedPathShape.makeItFit(
-            rightSide,
-            "srcRect fits completely into destRect",
-            0.5,
-            0,
-          ).rawPath,
-        );
+        const fixedPath = fixedPathShape.makeItFit(
+          rightSide,
+          "srcRect fits completely into destRect",
+          0.5,
+          0,
+        ).canvasPath;
         context.strokeStyle = "orange";
         context.stroke(fixedPath);
 
@@ -147,30 +145,24 @@ const sceneList = new MakeShowableInSeries("Scene List");
 {
   const scene = new MakeShowableInParallel("Strokable Font List");
   {
-    const titlePath = new Path2D(
-      ParagraphLayout.singlePathShape({
-        text: scene.description,
-        font: titleFont,
-        alignment: "center",
-        width: 16,
-      }).rawPath,
-    );
-    const futuraPath = new Path2D(
-      ParagraphLayout.singlePathShape({
-        text: "There are currently 3 fonts available.  This is Futura L at size 0.5.",
-        font: Font.futuraL(0.5),
-        alignment: "right",
-        width: 16 - 2 * margin,
-      }).translate(margin, 1.75).rawPath,
-    );
-    const cursivePath = new Path2D(
-      ParagraphLayout.singlePathShape({
-        text: "This is Cursive at size 0.5.  This works especially well with the handwriting effect.",
-        font: Font.cursive(0.5),
-        alignment: "center",
-        width: 16 - 2 * margin,
-      }).translate(margin, 4).rawPath,
-    );
+    const titlePath = ParagraphLayout.singlePathShape({
+      text: scene.description,
+      font: titleFont,
+      alignment: "center",
+      width: 16,
+    }).canvasPath;
+    const futuraPath = ParagraphLayout.singlePathShape({
+      text: "There are currently 3 fonts available.  This is Futura L at size 0.5.",
+      font: Font.futuraL(0.5),
+      alignment: "right",
+      width: 16 - 2 * margin,
+    }).translate(margin, 1.75).canvasPath;
+    const cursivePath = ParagraphLayout.singlePathShape({
+      text: "This is Cursive at size 0.5.  This works especially well with the handwriting effect.",
+      font: Font.cursive(0.5),
+      alignment: "center",
+      width: 16 - 2 * margin,
+    }).translate(margin, 4).canvasPath;
     const showable: Showable = {
       description: "simple parts",
       duration: 0,
@@ -198,14 +190,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
       show({ context, timeInMs }) {
         const progress = easeAndBack(timeInMs / this.duration);
         context.lineWidth = 0.04 + progress * 0.08;
-        const path = new Path2D(
-          ParagraphLayout.singlePathShape({
-            text: "This is Line Font.  It has the most characters.  And it can adjust to different line thicknesses.",
-            font: makeLineFont(new LineFontMetrics(0.5, context.lineWidth)),
-            alignment: "left",
-            width: 16 - 2 * margin,
-          }).translate(margin, 6.25).rawPath,
-        );
+        const path = ParagraphLayout.singlePathShape({
+          text: "This is Line Font.  It has the most characters.  And it can adjust to different line thicknesses.",
+          font: makeLineFont(new LineFontMetrics(0.5, context.lineWidth)),
+          alignment: "left",
+          width: 16 - 2 * margin,
+        }).translate(margin, 6.25).canvasPath;
         context.strokeStyle = BLUE;
         context.stroke(path);
       },
@@ -291,7 +281,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "center",
       width: 16,
     });
-    const path = new Path2D(pathShape.rawPath);
+    const path = pathShape.canvasPath;
     const showable: Showable = {
       description: scene.description,
       duration: 0,
