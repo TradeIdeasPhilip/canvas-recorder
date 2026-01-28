@@ -1,4 +1,4 @@
-import { ReadOnlyRect } from "phil-lib/misc";
+import { FULL_CIRCLE, lerp, ReadOnlyRect } from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "../glib/line-font";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { easeAndBack } from "../interpolate";
@@ -16,7 +16,7 @@ import {
 import { panAndZoom } from "../glib/transforms";
 import { Font } from "../glib/letters-base";
 import { makePolygon } from "./fourier-shared";
-import { PathShape } from "../glib/path-shape";
+import { fromBezier, PathShape, QCommand } from "../glib/path-shape";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -205,6 +205,35 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+/**
+ * assume the path is a single connected path,
+ * and it is a closed path
+ * aimed at the start
+ * break the first command into two halves.
+ * move the first half to the end of the path
+ * it will mostly look the same
+ * but now it starts and ends in the middle of smooth piece.
+ * It was starting and ending at a vertex.
+ * All of the other vertices has mitered joints
+ * but the start/end did not.
+ * @param original
+ * @returns
+ */
+function breakFirst(original: PathShape) {
+  const newCommands = [...original.commands];
+  const originalFirstCommand = newCommands.shift();
+  if (!originalFirstCommand) {
+    // Empty path.
+    return original;
+  }
+  const pieces = originalFirstCommand.getBezier().split(0.5);
+  const firstHalf = fromBezier(pieces.left);
+  const secondHalf = fromBezier(pieces.right);
+  newCommands.unshift(secondHalf);
+  newCommands.push(firstHalf);
+  return new PathShape(newCommands);
+}
+
 {
   const scene = new MakeShowableInParallel("Simple Animated Colors");
   {
@@ -214,7 +243,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "center",
       width: 16,
     });
-    const starPath = makePolygon(5, 1).makeItFit(
+    const starPath = breakFirst(makePolygon(5, 1)).makeItFit(
       { x: 0.5, y: 1.5, width: 3, height: 3 },
       "srcRect fits completely into destRect",
     );
@@ -227,6 +256,16 @@ const sceneList = new MakeShowableInSeries("Scene List");
       statueOfLiberty,
     ).makeItFit(
       { x: 11.5, width: 4, y: 1.5, height: 7 },
+      "srcRect fits completely into destRect",
+    );
+
+    const sineWaveBase = PathShape.parametric((progress) => {
+      const x = lerp(-FULL_CIRCLE, FULL_CIRCLE, progress);
+      // Negative sign because math graphs say +y is up and computer graphics say +y is down.
+      const y = -Math.sin(x);
+      return { x, y };
+    }, 21).makeItFit(
+      { x: 4, y: 1.5, height: 3, width: 8 },
       "srcRect fits completely into destRect",
     );
 
@@ -246,6 +285,20 @@ const sceneList = new MakeShowableInSeries("Scene List");
             repeatCount: 3,
             relativeOffset: -progress * 3,
           });
+          context.lineCap = "butt";
+          strokeColors({
+            context,
+            pathShape: sineWaveBase,
+            colors: ["rgb(0, 128, 255)", "rgb(0, 64, 255)", "rgb(0, 0, 255)"],
+            sectionLength: 0.125,
+            relativeOffset: -progress * 10,
+          });
+          context.strokeStyle = "pink";
+          context.setLineDash([0.125]);
+          ((context.lineDashOffset = (-progress * 10) / 3),
+            context.stroke(sineWaveBase.translate(0, 1).canvasPath));
+          context.setLineDash([]);
+          context.lineCap = "round";
           context.lineJoin = "miter";
           strokeColors({
             context,

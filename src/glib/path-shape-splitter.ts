@@ -1,4 +1,4 @@
-import { Command, PathShape, Point } from "./path-shape";
+import { Command, CommandSplitter, PathShape, Point } from "./path-shape";
 
 /**
  * Lets you look up a specific point along a path, or split a path into smaller pieces.
@@ -11,6 +11,7 @@ export class PathShapeSplitter {
   readonly length: number;
   readonly #allCommandInfo: readonly {
     command: Command;
+    splitter: CommandSplitter;
     start: number;
     length: number;
     end: number;
@@ -51,7 +52,13 @@ export class PathShapeSplitter {
     this.#allCommandInfo = path.commands.map((command) => {
       const length = command.getLength();
       const end = start + length;
-      const result = { command, start, length, end };
+      const result = {
+        command,
+        splitter: command.makeSplitter(),
+        start,
+        length,
+        end,
+      };
       start = end;
       return result;
     });
@@ -59,18 +66,18 @@ export class PathShapeSplitter {
   }
   /**
    *
-   * @param position
+   * @param distance
    * * 0 for the start.
    * * this.length for the end.
    * * Values are automatically clamped to this range.
    * @returns The point at the given position along this curve.
    */
-  at(position: number): Point {
-    position = Math.min(this.length, Math.max(0, position));
-    const index = this.#findCommandAt(position);
+  at(distance: number): Point {
+    distance = Math.min(this.length, Math.max(0, distance));
+    const index = this.#findCommandAt(distance);
     const info = this.#allCommandInfo[index];
-    const progress = (position - info.start) / info.length;
-    return info.command.at(progress);
+    const relativeToCommand = distance - info.start;
+    return info.splitter.at(relativeToCommand);
   }
   /**
    * Create a subpath starting at from and ending at to.
@@ -80,23 +87,23 @@ export class PathShapeSplitter {
    * this.length is the end.
    *
    * If to <= from, this will return a path with a single point, the point at to.
-   * @param from Start here.
-   * @param to End here.
+   * @param fromDistance Start here.
+   * @param toDistance End here.
    * @returns
    */
-  get(from: number, to: number) {
-    from = Math.max(0, from);
-    to = Math.min(this.length, to);
-    if (from >= to) {
-      to = from;
+  get(fromDistance: number, toDistance: number) {
+    fromDistance = Math.max(0, fromDistance);
+    toDistance = Math.min(this.length, toDistance);
+    if (fromDistance >= toDistance) {
+      toDistance = fromDistance;
     }
-    const fromIndex = this.#findCommandAt(from);
-    const toIndex = this.#findCommandAt(to);
+    const fromIndex = this.#findCommandAt(fromDistance);
+    const toIndex = this.#findCommandAt(toDistance);
     if (fromIndex == toIndex) {
       const info = this.#allCommandInfo[fromIndex];
-      const command = info.command.split1(
-        (from - info.start) / info.length,
-        (to - info.start) / info.length,
+      const command = info.splitter.split(
+        fromDistance - info.start,
+        toDistance - info.start,
       );
       return new PathShape([command]);
     } else {
@@ -104,15 +111,15 @@ export class PathShapeSplitter {
       {
         // Handle first command
         const info = this.#allCommandInfo[fromIndex];
-        const progress = (from - info.start) / info.length;
-        if (progress <= 0) {
+        const localDistance = fromDistance - info.start;
+        if (localDistance <= 0) {
           // Keep the entire thing
           commands.push(info.command);
-        } else if (progress >= 1) {
+        } else if (localDistance >= info.length) {
           // Skip the entire thing.
         } else {
           // Split it.
-          commands.push(info.command.split1(progress, 1));
+          commands.push(info.splitter.split(localDistance, info.length));
         }
       }
       // Copy the middle commands as is.
@@ -122,16 +129,16 @@ export class PathShapeSplitter {
       {
         // Handle last command
         const info = this.#allCommandInfo[toIndex];
-        const progress = (to - info.start) / info.length;
-        if (progress >= 1) {
+        const localDistance = toDistance - info.start;
+        if (localDistance >= info.length) {
           // > 1 is possible because of round-off error.
           // Keep the entire thing
           commands.push(info.command);
-        } else if (progress <= 0) {
+        } else if (localDistance <= 0) {
           // Skip the entire thing.
         } else {
           // Split it.
-          commands.push(info.command.split1(0, progress));
+          commands.push(info.splitter.split(0, localDistance));
         }
       }
       return new PathShape(commands);

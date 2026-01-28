@@ -182,3 +182,26 @@ export function strokeColors(options: StrokeColorsOptions) {
     colorIndex++;
   }
 }
+
+/**
+ * Like {@link Array.map}(), but
+ * 1. The callback function is given __two__ adjacent values each time.
+ * 2. The callback function is called array.length **- 1** times.
+ * @param array To walk over
+ * @param f
+ * @returns A collection of the results
+ */
+export function mapEachPair<T, U>(
+  array: readonly T[],
+  f: (a: T, b: T, indexOfFirst: number, array: readonly T[]) => U,
+) {
+  const result = new Array<U>();
+  array.forEach((second, index) => {
+    if (index != 0) {
+      const first = array[index - 1];
+      const u = f(first, second, index - 1, array);
+      result.push(u);
+    }
+  });
+  return result;
+}

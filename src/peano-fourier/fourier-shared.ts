@@ -313,10 +313,13 @@ export function samplesFromPath(
     const result = new Array<Complex>();
     //console.log(lengths);
     lengths.forEach(({ numberOfVertices, command }) => {
-      if (numberOfVertices > 0) {
+      if (numberOfVertices == 1) {
+        result.push([command.x0, command.y0]);
+      } else if (numberOfVertices > 1) {
+        const splitter = command.makeSplitter();
         for (let i = 0; i < numberOfVertices; i++) {
-          const progress = (i / numberOfVertices);
-          const { x, y } =  command.at(progress);
+          const distance = (splitter.length * i) / numberOfVertices;
+          const { x, y } = splitter.at(distance);
           result.push([x, y]);
         }
       }

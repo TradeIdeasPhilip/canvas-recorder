@@ -6,6 +6,7 @@ import {
   FULL_CIRCLE,
   initializedArray,
   lerp,
+  makeBoundedLinear,
   makeLinear,
   parseFloatX,
   polarToRectangular,
@@ -13,39 +14,57 @@ import {
   radiansPerDegree,
   ReadOnlyRect,
   RealSvgRect,
+  sum,
 } from "phil-lib/misc";
 import { panAndZoom, transform } from "./transforms";
 
 import { Bezier, MinMax } from "bezier-js";
+import { mapEachPair } from "../utility";
 
 const formatForSvg = new Intl.NumberFormat("en-US", {
   maximumSignificantDigits: 8,
   useGrouping: false,
 }).format;
 
+// MARK: CommandSplitter
+
+/**
+ * This caches some values useful for splitting commands.
+ *
+ * Bezier.split() and other functions take an input that is the t parameter used to trace out the curve.
+ * This value is not directly available.
+ * Instead the main program supplies a distance, and this class converts that into a t value as needed.
+ */
+export type CommandSplitter = {
+  get length(): number;
+  /**
+   * Create a command that is a piece of the original command.
+   *
+   * Inputs should be between 0 and length.
+   * Out of range values will lead to undefined results.
+   * @param fromDistance
+   * @param toDistance
+   */
+  split(fromDistance: number, toDistance: number): Command;
+  /**
+   * Return a point along the command.
+   * @param distance 0 for the start, length for the end.
+   */
+  at(distance: number): Point;
+  /**
+   *Convert from a distance number (0 to the length of the command)
+   * into the parametric number (0 to 1) expected by the Bezier.js API.
+   * This is _not_ linear! Values are clamped in range.
+   * @param distance
+   */
+  distanceToParametric(distance: number): number;
+};
+
 // MARK: Command
 export type Command = {
   getLength(): number;
   getBezier(): Bezier;
-  /**
-   * Create a command that is a piece of the original command.
-   *
-   * Inputs should be between 0 and 1.
-   * Out of range values will lead to undefined results.
-   * @param from
-   * @param to
-   */
-  split1(from: number, to: number): Command;
-  /**
-   * Return a point along the command.
-   * @param progress 0 for the start, 1 for the end.
-   */
-  at(progress: number): Point;
-  /**
-   * Create another command that will follow the same path, but backwards.
-   * If you stroke or fill the path, it will look just like the original.
-   * But some animations can tell the difference.
-   */
+  makeSplitter(): CommandSplitter;
   reverse(): Command;
   /**
    * The initial x value.
@@ -86,6 +105,19 @@ export type Command = {
    */
   readonly asString: string;
   translate(Δx: number, Δy: number): Command;
+  /**
+   * Return a CCommand equivalent to the current command.
+   * A CCommand is the most general of the commands.
+   * All commands can become CCommands without any loss.
+   * This can be useful if you want all commands to be the same,
+   * like when interpolating between two paths.
+   *
+   * It's more common in the outside world than it is in my code.
+   * I try to focus on QCommands because they are simpler.
+   * I'm treating every command as just an estimate of reality.
+   * So I might need more QCommand objects than CCommand objects to get similar results.
+   * But neither can claim to be lossless.
+   */
   toCubic(): CCommand;
   transform(matrix: DOMMatrixReadOnly): Command;
 };
@@ -99,22 +131,39 @@ export class LCommand implements Command {
     if (count < 1 || !Number.isSafeInteger(count)) {
       throw new Error("wtf");
     }
+    const makeX = makeLinear(0, this.x0, count, this.x);
+    const makeY = makeLinear(0, this.y0, count, this.y);
     return initializedArray(count, (index) => {
-      return this.split1(index / count, (index + 1) / count);
+      return new LCommand(
+        makeX(index),
+        makeY(index),
+        makeX(index + 1),
+        makeY(index + 1),
+      );
     });
   }
-  split1(from: number, to: number): LCommand {
-    return new LCommand(
-      lerp(this.x0, this.x, from),
-      lerp(this.y0, this.y, from),
-      lerp(this.x0, this.x, to),
-      lerp(this.y0, this.y, to),
-    );
-  }
-  at(progress: number): Point {
+  makeSplitter() {
+    const { x0, y0, x, y } = this;
+    const length = this.getLength();
+    const xAt = makeBoundedLinear(0, x0, length, x);
+    const yAt = makeBoundedLinear(0, y0, length, y);
     return {
-      x: lerp(this.x0, this.x, progress),
-      y: lerp(this.y0, this.y, progress),
+      length,
+      split(fromDistance: number, toDistance: number): LCommand {
+        return new LCommand(
+          xAt(fromDistance),
+          yAt(fromDistance),
+          xAt(toDistance),
+          yAt(toDistance),
+        );
+      },
+      at(distance: number): Point {
+        return {
+          x: xAt(distance),
+          y: yAt(distance),
+        };
+      },
+      distanceToParametric: makeBoundedLinear(0, 0, length, 1),
     };
   }
   getLength(): number {
@@ -204,6 +253,86 @@ export type QCommandFromAngles = QCommand & {
   creationInfo: { source: "angles" };
 };
 
+class BezierCommandSplitter implements CommandSplitter {
+  readonly length: number;
+  #distances = new Array<number>();
+  constructor(readonly bezier: Bezier) {
+    this.length = bezier.length();
+    const LUT = bezier.getLUT();
+    const lengths = mapEachPair(LUT, (a, b) => {
+      return Math.hypot(a.x - b.x, a.y - b.y);
+    });
+    const totalLinearDistance = sum(lengths);
+    const adjustmentFactor = this.length / totalLinearDistance;
+    let next = 0;
+    lengths.map((length) => {
+      this.#distances.push(next);
+      next += length * adjustmentFactor;
+    });
+    // this.length should be very close to next, but maybe not equal due to round off.
+    this.#distances.push(this.length);
+  }
+  distanceToParametric(distance: number): number {
+    // The look up table (LUT) has a lot of points along the curve.
+    // These are spread evenly throughout the 0 to 1 range of the parameter.
+    // I look at the linear distance between each pair of adjacent points as as estimate of the actual distance between them.
+    // When you ask for a specific distance, I use a binary search to find the indexes closest to this distance.
+    // If you ask for a distance between two values in the list, I linearly interpolate to find the appropriate parameter.
+    if (distance <= 0) {
+      return 0;
+    }
+    if (distance >= this.length) {
+      return 1;
+    }
+    let low = 0;
+    let high = this.#distances.length - 1;
+    while (low <= high) {
+      const mid = Math.floor(low + (high - low) / 2);
+      const atLowerBound = this.#distances[mid];
+      const atUpperBound = this.#distances[mid + 1];
+      if (distance < atLowerBound) {
+        // Target is before this item's range
+        high = mid - 1;
+      } else if (distance >= atUpperBound) {
+        // Target is after this item's range
+        low = mid + 1;
+      } else if (distance == atLowerBound) {
+        // Exact match found.
+        return mid / (this.#distances.length - 1);
+      } else {
+        // Range found. lowerBound < distance < upperBound
+        // todo more efficient!!  lerp5()?
+        return makeLinear(
+          atLowerBound,
+          mid / (this.#distances.length - 1),
+          atUpperBound,
+          (mid + 1) / (this.#distances.length - 1),
+        )(distance);
+      }
+    }
+    throw new Error("wtf");
+  }
+  split(fromDistance: number, toDistance: number): Command {
+    const fromParametric = this.distanceToParametric(fromDistance);
+    const toParametric = this.distanceToParametric(toDistance);
+    const smallerBezier = safeSplit(this.bezier, fromParametric, toParametric);
+    return fromBezier(smallerBezier);
+  }
+  at(distance: number): Point {
+    return this.bezier.get(this.distanceToParametric(distance));
+  }
+}
+
+/**
+ * This is a simple wrapper around bezier.split(from,to).
+ *
+ * That code was breaking at the degenerate case of asking for a 0 length segment.
+ * It Bezier.js thinks I'm calling the single argument version of split() if the second argument is 0.
+ * @param bezier To Split
+ * @param from 0 for the beginning, 1 for the end.
+ * @param to 0 for the beginning, 1 for the end.
+ * @returns A portion of the original curve.
+ */
 function safeSplit(bezier: Bezier, from: number, to: number) {
   if (to == 0) {
     if (from != 0) {
@@ -215,12 +344,12 @@ function safeSplit(bezier: Bezier, from: number, to: number) {
   }
 }
 
+/**
+ * A quadratic Bezier segment.
+ */
 export class QCommand implements Command {
-  at(progress: number): Point {
-    return this.getBezier().get(progress);
-  }
-  split1(from: number, to: number): Command {
-    return fromBezier(safeSplit(this.getBezier(), from, to));
+  makeSplitter(): CommandSplitter {
+    return new BezierCommandSplitter(this.getBezier());
   }
   getBezier(): Bezier {
     return new Bezier(this.x0, this.y0, this.x1, this.y1, this.x, this.y);
@@ -550,11 +679,8 @@ export class QCommand implements Command {
  * It's mostly aimed at imported curves.
  */
 class CCommand implements Command {
-  at(progress: number): Point {
-    return this.getBezier().get(progress);
-  }
-  split1(from: number, to: number): Command {
-    return fromBezier(safeSplit(this.getBezier(), from, to));
+  makeSplitter(): CommandSplitter {
+    return new BezierCommandSplitter(this.getBezier());
   }
   getBezier(): Bezier {
     return new Bezier(
