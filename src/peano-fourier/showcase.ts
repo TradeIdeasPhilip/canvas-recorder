@@ -7,7 +7,7 @@ import {
 } from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "../glib/line-font";
 import { ParagraphLayout } from "../glib/paragraph-layout";
-import { easeAndBack } from "../interpolate";
+import { easeAndBack, easeIn } from "../interpolate";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
@@ -24,6 +24,7 @@ import { panAndZoom } from "../glib/transforms";
 import { Font } from "../glib/letters-base";
 import { makePolygon } from "./fourier-shared";
 import { fromBezier, PathShape, QCommand } from "../glib/path-shape";
+import { PathShapeSplitter } from "../glib/path-shape-splitter";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -245,10 +246,15 @@ const sceneList = new MakeShowableInSeries("Scene List");
       duration: 20000,
       show({ context, timeInMs }) {
         const layout = new ParagraphLayout(baseFont);
-        layout.addText("One, two three. ");
-        layout.addText(
-          "ParagraphLayout is a way to place letters relative to each other. ",
-        );
+        {
+          const possible = "One, two three.";
+          const progress =easeIn( timeInMs/this.duration);
+          const numberOfChars = possible.length * progress*2
+
+           layout.addText(possible.substring(0, numberOfChars));
+           layout.addWord("|",undefined, "cursor")
+        }
+        layout.addText("ParagraphLayout lets you format text: ");
         layout.addText("Bold", undefined, "bold");
         layout.addText(", ");
         layout.addText("oblique", undefined, "oblique");
@@ -268,6 +274,8 @@ const sceneList = new MakeShowableInSeries("Scene List");
         layout.addText(", ");
         layout.addText("redacted", undefined, "redacted");
         layout.addText(", ");
+        layout.addText("handwriting", cursiveFont, "handwriting");
+        layout.addText(", ");
         layout.addText("and more.");
         const layoutInfo = layout.align(15.5, "justify", -0.1);
         context.lineCap = "round";
@@ -278,6 +286,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.stroke(
           pathByTag.get(undefined)!.translate(0.25, 1.5).canvasPath,
         );
+   if (timeInMs % 1000 > 500)     {
+        context.strokeStyle = "white";
+        context.stroke(pathByTag.get("cursor")!.translate(0.25, 1.5).canvasPath);
+        context.strokeStyle =BLUE;}
         context.lineWidth = 0.08;
         context.stroke(pathByTag.get("bold")!.translate(0.25, 1.5).canvasPath);
         context.lineWidth = 0.04;
@@ -325,10 +337,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
           context.strokeStyle = rainbow;
           context.stroke(rainbowPathShape.canvasPath);
         }
-        context.fillStyle = "blue";
         {
           //   const wordInfo=      layoutInfo.getAllLetters().find((wordInfo) => {wordInfo.word.wordInfo.tag=="redacted"})!;
           const bBox = pathByTag.get("redacted")!.getBBox();
+          context.fillStyle = "blue";
           context.fillRect(
             bBox.x.min + 0.25,
             bBox.y.min + 1.5,
@@ -337,6 +349,14 @@ const sceneList = new MakeShowableInSeries("Scene List");
           );
         }
         context.strokeStyle = BLUE;
+        {
+          const basePath = pathByTag.get("handwriting")!.translate(0.25, 1.5);
+          const splitter = new PathShapeSplitter(basePath); // TODO hmm, this was meant to be reused.  I could optimize this differently.
+          const progress = (timeInMs / this.duration) * 2;
+          const distance = progress * splitter.length;
+          const pathShape = splitter.get(0, distance);
+          context.stroke(pathShape.canvasPath);
+        }
         const fullPathShape = layoutInfo.singlePathShape().translate(0.25, 5.4);
         context.stroke(fullPathShape.canvasPath);
       },
