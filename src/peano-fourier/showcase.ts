@@ -248,11 +248,11 @@ const sceneList = new MakeShowableInSeries("Scene List");
         const layout = new ParagraphLayout(baseFont);
         {
           const possible = "One, two three.";
-          const progress =easeIn( timeInMs/this.duration);
-          const numberOfChars = possible.length * progress*2
+          const progress = easeIn(timeInMs / this.duration);
+          const numberOfChars = possible.length * progress * 2;
 
-           layout.addText(possible.substring(0, numberOfChars));
-           layout.addWord("|",undefined, "cursor")
+          layout.addText(possible.substring(0, numberOfChars));
+          layout.addWord("|", undefined, "cursor");
         }
         layout.addText("ParagraphLayout lets you format text: ");
         layout.addText("Bold", undefined, "bold");
@@ -276,6 +276,8 @@ const sceneList = new MakeShowableInSeries("Scene List");
         layout.addText(", ");
         layout.addText("handwriting", cursiveFont, "handwriting");
         layout.addText(", ");
+        layout.addText("flashing", undefined, "flashing");
+        layout.addText(", ");
         layout.addText("and more.");
         const layoutInfo = layout.align(15.5, "justify", -0.1);
         context.lineCap = "round";
@@ -286,10 +288,13 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.stroke(
           pathByTag.get(undefined)!.translate(0.25, 1.5).canvasPath,
         );
-   if (timeInMs % 1000 > 500)     {
-        context.strokeStyle = "white";
-        context.stroke(pathByTag.get("cursor")!.translate(0.25, 1.5).canvasPath);
-        context.strokeStyle =BLUE;}
+        if (timeInMs % 1000 > 500) {
+          context.strokeStyle = "white";
+          context.stroke(
+            pathByTag.get("cursor")!.translate(0.25, 1.5).canvasPath,
+          );
+          context.strokeStyle = BLUE;
+        }
         context.lineWidth = 0.08;
         context.stroke(pathByTag.get("bold")!.translate(0.25, 1.5).canvasPath);
         context.lineWidth = 0.04;
@@ -357,8 +362,17 @@ const sceneList = new MakeShowableInSeries("Scene List");
           const pathShape = splitter.get(0, distance);
           context.stroke(pathShape.canvasPath);
         }
-        const fullPathShape = layoutInfo.singlePathShape().translate(0.25, 5.4);
-        context.stroke(fullPathShape.canvasPath);
+        if (timeInMs % 1000 > 500) {
+          context.stroke(
+            pathByTag.get("flashing")!.translate(0.25, 1.5).canvasPath,
+          );
+        }
+        {
+          const fullPathShape = layoutInfo
+            .singlePathShape()
+            .translate(0.25, 5.4);
+          context.stroke(fullPathShape.canvasPath);
+        }
       },
     };
     scene.add(showable);
