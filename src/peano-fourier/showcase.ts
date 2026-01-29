@@ -7,7 +7,7 @@ import {
 } from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "../glib/line-font";
 import { ParagraphLayout } from "../glib/paragraph-layout";
-import { easeAndBack, easeIn } from "../interpolate";
+import { easeAndBack, easeIn, interpolateNumbers } from "../interpolate";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
@@ -247,12 +247,16 @@ const sceneList = new MakeShowableInSeries("Scene List");
       show({ context, timeInMs }) {
         const layout = new ParagraphLayout(baseFont);
         {
-          const possible = "One, two three.";
-          const progress = easeIn(timeInMs / this.duration);
-          const numberOfChars = possible.length * progress * 2;
+          const possible = "One, two, three.";
+          const numberOfChars = Math.round(
+            interpolateNumbers(timeInMs, [
+              { time: this.duration / 8, value: 0, easeAfter: easeIn },
+              { time: this.duration * 0.75, value: possible.length },
+            ]),
+          );
 
           layout.addText(possible.substring(0, numberOfChars));
-          layout.addWord("|", undefined, "cursor");
+          layout.addWord("| ", undefined, "cursor");
         }
         layout.addText("ParagraphLayout lets you format text: ");
         layout.addText("Bold", undefined, "bold");
@@ -276,10 +280,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
         layout.addText(", ");
         layout.addText("handwriting", cursiveFont, "handwriting");
         layout.addText(", ");
+        layout.addText("dashes", undefined, "dashes");
+        layout.addText(", ");
         layout.addText("flashing", undefined, "flashing");
         layout.addText(", ");
         layout.addText("and more.");
-        const layoutInfo = layout.align(15.5, "justify", -0.1);
+        const layoutInfo = layout.align(15.5, "left", -0.1);
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.04;
@@ -361,6 +367,18 @@ const sceneList = new MakeShowableInSeries("Scene List");
           const distance = progress * splitter.length;
           const pathShape = splitter.get(0, distance);
           context.stroke(pathShape.canvasPath);
+        }
+        {
+          const path = pathByTag.get("dashes")!.translate(0.25, 1.5).canvasPath;
+          context.strokeStyle = "blue";
+          context.stroke(path);
+          context.strokeStyle = BLUE;
+          context.setLineDash([0.1]);
+          context.lineDashOffset = timeInMs / 5000;
+          context.lineCap = "butt";
+          context.stroke(path);
+          context.lineCap = "round";
+          context.setLineDash([]);
         }
         if (timeInMs % 1000 > 500) {
           context.stroke(
