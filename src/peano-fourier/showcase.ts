@@ -1,4 +1,10 @@
-import { FULL_CIRCLE, lerp, ReadOnlyRect } from "phil-lib/misc";
+import {
+  FULL_CIRCLE,
+  lerp,
+  MAX_DATE,
+  radiansPerDegree,
+  ReadOnlyRect,
+} from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "../glib/line-font";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { easeAndBack } from "../interpolate";
@@ -11,6 +17,7 @@ import {
   applyTransform,
   blackBackground,
   BLUE,
+  darkRainbow,
   strokeColors,
 } from "../utility";
 import { panAndZoom } from "../glib/transforms";
@@ -205,6 +212,140 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+{
+  const scene = new MakeShowableInParallel("Highlighting Pieces of Text");
+  {
+    const pathShape = ParagraphLayout.singlePathShape({
+      text: scene.description,
+      font: titleFont,
+      alignment: "center",
+      width: 16,
+    });
+    const path = pathShape.canvasPath;
+    const showable: Showable = {
+      description: scene.description,
+      duration: 0,
+      show({ context }) {
+        {
+          context.lineCap = "round";
+          context.lineJoin = "round";
+          context.lineWidth = 0.07;
+          context.strokeStyle = BLUE;
+          context.stroke(path);
+        }
+      },
+    };
+    scene.add(showable);
+  }
+  {
+    const baseFont = makeLineFont(0.5);
+    const cursiveFont = Font.cursive(0.5);
+    const showable: Showable = {
+      description: "action",
+      duration: 20000,
+      show({ context, timeInMs }) {
+        const layout = new ParagraphLayout(baseFont);
+        layout.addText("One, two three. ");
+        layout.addText(
+          "ParagraphLayout is a way to place letters relative to each other. ",
+        );
+        layout.addText("Bold", undefined, "bold");
+        layout.addText(", ");
+        layout.addText("oblique", undefined, "oblique");
+        layout.addText(", ");
+        layout.addText("red", undefined, "red");
+        layout.addText(", ");
+        layout.addText("shaking", undefined, "shaking");
+        layout.addText(", ");
+        const rainbowWordInfo = layout.addText(
+          "rainbow",
+          undefined,
+          "rainbow",
+        )[0];
+        layout.addText(", ");
+        layout.addText("cursive, ", cursiveFont);
+        layout.addText("BIG", titleFont);
+        layout.addText(", ");
+        layout.addText("redacted", undefined, "redacted");
+        layout.addText(", ");
+        layout.addText("and more.");
+        const layoutInfo = layout.align(15.5, "justify", -0.1);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.04;
+        context.strokeStyle = BLUE;
+        const pathByTag = layoutInfo.pathShapeByTag();
+        context.stroke(
+          pathByTag.get(undefined)!.translate(0.25, 1.5).canvasPath,
+        );
+        context.lineWidth = 0.08;
+        context.stroke(pathByTag.get("bold")!.translate(0.25, 1.5).canvasPath);
+        context.lineWidth = 0.04;
+        {
+          const basePathShape = pathByTag.get("oblique")!.translate(0.25, 1.5);
+          const baseline = basePathShape.getBBox().y.max;
+          const matrix = new DOMMatrixReadOnly()
+            .translate(
+              baseline * Math.sin(15 * radiansPerDegree) * 2,
+              -baseline,
+            )
+            .skewX(-15)
+            .translate(0, baseline);
+          const finalPathShape = basePathShape.transform(matrix);
+          context.stroke(finalPathShape.canvasPath);
+        }
+        context.strokeStyle = "red";
+        context.stroke(pathByTag.get("red")!.translate(0.25, 1.5).canvasPath);
+        context.strokeStyle = BLUE;
+        context.stroke(
+          pathByTag
+            .get("shaking")!
+            .translate(0.25, 1.4 + Math.abs((timeInMs % 200) / 200 - 0.5) / 2)
+            .canvasPath,
+        );
+        {
+          const rainbowPathShape = pathByTag
+            .get("rainbow")!
+            .translate(0.25, 1.5);
+          const rainbowBBox = rainbowPathShape.getBBox();
+          const rainbow = context.createRadialGradient(
+            rainbowBBox.x.mid,
+            rainbowBBox.y.max,
+            0,
+            rainbowBBox.x.mid,
+            rainbowBBox.y.max,
+            (rainbowBBox.x.size / 2) * 1.1,
+          );
+          darkRainbow
+            .slice(0, 7)
+            .reverse()
+            .forEach((color, index, array) => {
+              rainbow.addColorStop(index / (array.length - 1), color);
+            });
+          context.strokeStyle = rainbow;
+          context.stroke(rainbowPathShape.canvasPath);
+        }
+        context.fillStyle = "blue";
+        {
+          //   const wordInfo=      layoutInfo.getAllLetters().find((wordInfo) => {wordInfo.word.wordInfo.tag=="redacted"})!;
+          const bBox = pathByTag.get("redacted")!.getBBox();
+          context.fillRect(
+            bBox.x.min + 0.25,
+            bBox.y.min + 1.5,
+            bBox.x.size,
+            bBox.y.size,
+          );
+        }
+        context.strokeStyle = BLUE;
+        const fullPathShape = layoutInfo.singlePathShape().translate(0.25, 5.4);
+        context.stroke(fullPathShape.canvasPath);
+      },
+    };
+    scene.add(showable);
+  }
+  sceneList.add(scene.build());
+}
+
 /**
  * assume the path is a single connected path,
  * and it is a closed path
@@ -359,3 +500,6 @@ mainBuilder.add(blackBackground);
 mainBuilder.add(sceneList.build());
 
 export const showcase = mainBuilder.build();
+
+//[{"top":-0.625,"bottom":0.25,"width":1.2625,"letters":[{"x":0,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.375,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.75,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.875,"description":{"advance":0.2625,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":1.2625,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}}],"spaceAfter":0.3}]
+//[{"top":-0.625,"bottom":0.25,"width":1.2625,"letters":[{"x":0,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.375,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.75,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.875,"description":{"advance":0.2625,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":1.2625,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}}],"spaceAfter":0.3}]

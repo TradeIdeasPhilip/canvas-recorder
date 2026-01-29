@@ -1,6 +1,6 @@
 import { sum } from "phil-lib/misc";
 import { DescriptionOfLetter, Font } from "./letters-base";
-import { PathShape } from "./path-shape";
+import { Command, PathShape } from "./path-shape";
 
 class WordInfo {
   readonly top: number;
@@ -8,7 +8,11 @@ class WordInfo {
   readonly width: number;
   readonly letters: readonly { x: number; description: DescriptionOfLetter }[];
   readonly spaceAfter: number;
-  constructor(word: string, font: Font) {
+  constructor(
+    word: string,
+    font: Font,
+    readonly tag: unknown,
+  ) {
     const letters = font.getWord(word);
     let x = 0;
     this.letters = letters.map((description) => {
@@ -55,9 +59,9 @@ export class ParagraphLayout {
    * When the complete layout is produced, it will return these same objects.
    * You can use these objects to trace parts of the combined result back to this call.
    */
-  addWord(word: string, font = this.font): WordInfo {
+  addWord(word: string, font = this.font, tag?: unknown): WordInfo {
     // TODO what if word contains spaces?  These should be treated like non-breaking spaces.
-    const result = new WordInfo(word, font);
+    const result = new WordInfo(word, font, tag);
     this.#items.push(result);
     return result;
   }
@@ -71,7 +75,7 @@ export class ParagraphLayout {
    * When the complete layout is produced, it will return these same objects.
    * You can use these objects to trace parts of the combined result back to this call.
    */
-  addText(text: string, font = this.font): WordInfo[] {
+  addText(text: string, font = this.font, tag?: unknown): WordInfo[] {
     const result: WordInfo[] = [];
     for (const match of text.matchAll(/(\n)|([^ \n]*(( +)|$|(?=\n)))/gms)) {
       const word = match[0];
@@ -80,7 +84,7 @@ export class ParagraphLayout {
           this.addLineBreak();
         }
       } else if (word != "") {
-        result.push(this.addWord(word, font));
+        result.push(this.addWord(word, font, tag));
       }
     }
     return result;
@@ -309,6 +313,23 @@ export class ParagraphLayout {
       );
       return new PathShape(allCommands);
     }
+    function pathShapeByTag() {
+      const allCommands = new Map<unknown, Command[]>();
+      for (const letter of getAllLetters()) {
+        const tag = letter.word.wordInfo.tag;
+        let commandsForTag = allCommands.get(tag);
+        if (!commandsForTag) {
+          commandsForTag = [];
+          allCommands.set(tag, commandsForTag);
+        }
+        commandsForTag.push(...letter.translatedShape.commands);
+      }
+      const result = new Map<unknown, PathShape>();
+      allCommands.forEach((commands, tag) => {
+        result.set(tag, new PathShape(commands));
+      });
+      return result;
+    }
     const height = allRowMetrics.at(-1)?.bottom ?? 0;
     return {
       height,
@@ -319,6 +340,7 @@ export class ParagraphLayout {
       drawAll,
       drawPartial,
       singlePathShape,
+      pathShapeByTag,
     };
   }
   static singlePathShape(options: {
