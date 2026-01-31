@@ -20,12 +20,14 @@ import {
   Mp4OutputFormat,
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
-import { morphTest } from "../src/morph-test.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { Point } from "../src/glib/path-shape.ts";
 import { transform } from "../src/glib/transforms.ts";
+
+// Consider setting toShow equal to one of these:
+import { morphTest } from "../src/morph-test.ts";
 import { top } from "../src/peano-fourier/top.ts";
-import { showcase } from "../src/peano-fourier/showcase.ts";
+import { showcase } from "../src/showcase.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -33,7 +35,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = showcase;
+const toShow = morphTest; //showcase;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.

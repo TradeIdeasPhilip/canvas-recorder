@@ -112,17 +112,20 @@ type StrokeColorsOptions = {
 };
 
 /**
- * These colors are all bright and distinct and all look good against a dark background.
+ * These colors are all bright and distinct and all look good against a black or white background.
  * I hand picked these.
+ *
+ * Source:  https://tradeideasphilip.github.io/random-svg-tests/colors.html ,
+ * https://github.com/TradeIdeasPhilip/random-svg-tests/commit/89a047a44b85186c940e004607f8dcb44b69fe42
  */
-export const darkRainbow = [
+export const myRainbow = [
   "rgb(255, 0, 0)",
   "rgb(255, 128, 0)",
-  "rgb(255, 255, 0)",
-  "rgb(0, 255, 0)",
-  "rgb(0, 255, 255)",
+  "#d8d800",
+  "#0e0",
+  "#00d8d8",
   "rgb(0, 128, 255)",
-  "rgb(0, 0, 255)",
+  "rgb(32, 64, 255)",
   "rgb(128, 0, 255)",
   "rgb(255, 0, 255)",
 ];
@@ -139,7 +142,7 @@ function countNotNullable(items: readonly unknown[]) {
 
 export function strokeColors(options: StrokeColorsOptions) {
   const splitter = new PathShapeSplitter(options.pathShape);
-  const colorsToUse = options.colors ?? darkRainbow;
+  const colorsToUse = options.colors ?? myRainbow;
   if (
     countNotNullable([
       options.sectionLength,

@@ -30,7 +30,7 @@ import {
   makeQCommand,
   matchShapes,
 } from "./morph-animation";
-import { blackBackground, BLUE, darkRainbow, strokeColors } from "./utility";
+import { blackBackground, BLUE, myRainbow, strokeColors } from "./utility";
 import {
   ease,
   easeAndBack,
@@ -99,7 +99,7 @@ const builder = new MakeShowableInParallel("Morph Test");
 builder.add(blackBackground);
 
 function getColor(index: number) {
-  return darkRainbow[index % darkRainbow.length];
+  return myRainbow[index % myRainbow.length];
 }
 
 function byLine(from: string, to: string) {
@@ -501,7 +501,7 @@ if (true) {
       );
       allChanges.forEach((toChange, index, array) => {
         const progress = array.length < 2 ? 0.5 : index / (array.length - 1);
-        const newColor = interpolateColors(progress, darkRainbow);
+        const newColor = interpolateColors(progress, myRainbow);
         array[index].color = newColor;
       });
     }
@@ -989,7 +989,7 @@ if (false) {
       font,
       text: "Rainbow",
     }).translate(4.25, 2),
-    darkRainbow,
+    myRainbow,
   );
   slidingColors(
     "Grayscale",
@@ -1015,7 +1015,7 @@ if (false) {
       font,
       text: "Fast",
     }).translate(1, 3.75),
-    darkRainbow,
+    myRainbow,
     0.001242,
   );
   slidingColors(
@@ -1024,7 +1024,7 @@ if (false) {
       font,
       text: "Slow",
     }).translate(4.5, 3.75),
-    darkRainbow,
+    myRainbow,
     0.001242 / 10,
   );
   slidingColors(
@@ -1085,7 +1085,7 @@ if (false) {
       font,
     );
     const splitter = new PathShapeSplitter(initialShape);
-    const layers = darkRainbow.map((color, index, array) => {
+    const layers = myRainbow.map((color, index, array) => {
       const startTime = (duration / array.length) * index;
       const endTime = (duration / array.length) * (index + 1);
       const finalPathStart = (splitter.length / 2 / array.length) * index;

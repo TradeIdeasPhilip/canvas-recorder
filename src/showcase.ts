@@ -5,26 +5,26 @@ import {
   radiansPerDegree,
   ReadOnlyRect,
 } from "phil-lib/misc";
-import { LineFontMetrics, makeLineFont } from "../glib/line-font";
-import { ParagraphLayout } from "../glib/paragraph-layout";
-import { easeAndBack, easeIn, interpolateNumbers } from "../interpolate";
+import { LineFontMetrics, makeLineFont } from "./glib/line-font";
+import { ParagraphLayout } from "./glib/paragraph-layout";
+import { easeAndBack, easeIn, interpolateNumbers } from "./interpolate";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
-} from "../showable";
+} from "./showable";
 import {
   applyTransform,
   blackBackground,
   BLUE,
-  darkRainbow,
+  myRainbow,
   strokeColors,
-} from "../utility";
-import { panAndZoom } from "../glib/transforms";
-import { Font } from "../glib/letters-base";
-import { makePolygon } from "./fourier-shared";
-import { fromBezier, PathShape, QCommand } from "../glib/path-shape";
-import { PathShapeSplitter } from "../glib/path-shape-splitter";
+} from "./utility";
+import { panAndZoom } from "./glib/transforms";
+import { Font } from "./glib/letters-base";
+import { makePolygon } from "./peano-fourier/fourier-shared";
+import { fromBezier, PathShape, QCommand } from "./glib/path-shape";
+import { PathShapeSplitter } from "./glib/path-shape-splitter";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -214,7 +214,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
 }
 
 {
-  const scene = new MakeShowableInParallel("Highlighting Pieces of Text");
+  const scene = new MakeShowableInParallel("Formatting Pieces of Text");
   {
     const pathShape = ParagraphLayout.singlePathShape({
       text: scene.description,
@@ -339,7 +339,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
             rainbowBBox.y.max,
             (rainbowBBox.x.size / 2) * 1.1,
           );
-          darkRainbow
+          myRainbow
             .slice(0, 7)
             .reverse()
             .forEach((color, index, array) => {

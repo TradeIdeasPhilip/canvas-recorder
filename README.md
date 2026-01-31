@@ -28,3 +28,13 @@ This should help my dev environment, too.
 Now that I'm displaying a canvas, rather than drawing to the full screen, it will be easier for me to add a lot of debug options.
 Like inputs to control the output.
 Or multiple outputs so I can compare things side by side.
+
+## Getting Started
+
+[dev/index.ts](dev/index.ts) and [index.html](./index.html) contain the main program. This includes the tools that let you preview and record a video.
+
+[src/\*.ts](src/) contains the source code for several different videos. Set the `toShow` constant in [dev/index.ts](dev/index.ts) to point to the one you want, or to one of your own.
+
+This project also contains the most recent version of a lot of library routines. For example [src/glib/](src/glib/) contains a lot of graphics tools that are useful in multiple scenarios. This includes drawing with the canvas or SVG.
+
+Eventually I'd like to split things up into separate NPM packages and separate git repositories. But for the moment, the easiest thing to do is to clone this project and add your own code.
