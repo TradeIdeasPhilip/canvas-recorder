@@ -1317,10 +1317,11 @@ export function makeLineFontMap(
   // MARK: i
   {
     const advance = 0;
-    const shape = PathBuilder.M(left, capitalMiddle)
-      .V(baseline)
-      .M(left, capitalTopMiddle)
-      .V(capitalTopMiddle - dotHeight).pathShape;
+    // Move straight down.
+    const shape = PathBuilder.M(left, capitalTopMiddle - dotHeight)
+      .V(capitalTopMiddle)
+      .M(left, capitalMiddle)
+      .V(baseline).pathShape;
     add("i", shape, advance);
   }
   // MARK: j

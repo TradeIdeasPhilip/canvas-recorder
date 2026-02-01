@@ -20,3 +20,7 @@ td:nth-child(4) {
 .range-container input[type="range"] {
   flex-grow: 1;
 }
+
+body {
+  background: #eff;
+}

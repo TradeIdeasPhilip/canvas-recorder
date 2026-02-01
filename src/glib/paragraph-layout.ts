@@ -36,6 +36,8 @@ class WordInfo {
 
 class LinkBreak {}
 
+export type LaidOut = ReturnType<InstanceType<typeof ParagraphLayout>["align"]>;
+
 /**
  * This is a good way to use my strokable fonts.
  *
