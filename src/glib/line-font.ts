@@ -981,6 +981,23 @@ export function makeLineFontMap(
     add("N", shape, advance);
   }
   {
+    // MARK: ℕ
+    const nAdvance = digitWidth * 1.2;
+    const extraHeight = strokeWidth * 1.5;
+    const extraWidth = strokeWidth * 1.5;
+    const advance = nAdvance + extraWidth;
+
+    const shape = PathBuilder.M(left, baseline)
+      .L(left, capitalTop)
+      .L(left + extraWidth, capitalTop)
+      .L(advance, baseline - extraHeight)
+      .M(left, capitalTop + extraHeight)
+      .L(advance - extraWidth, baseline)
+      .L(advance, baseline)
+      .L(advance, capitalTop).pathShape;
+    add("ℕ", shape, advance);
+  }
+  {
     // MARK: O
     const advance = digitWidth * 1.5;
     const center = advance / 2;

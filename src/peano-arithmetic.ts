@@ -1,4 +1,9 @@
-import { LinearFunction, makeBoundedLinear, makeLinear } from "phil-lib/misc";
+import {
+  assertNonNullable,
+  initializedArray,
+  LinearFunction,
+  makeLinear,
+} from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
 import { LaidOut, ParagraphLayout } from "./glib/paragraph-layout";
 import { PathShape } from "./glib/path-shape";
@@ -31,7 +36,10 @@ const background: Showable = {
 };
 
 const titleFont = makeLineFont(0.8);
+const margin = 0.3;
+const width = 16 - 2 * margin;
 
+// MARK: Title Screen
 {
   class Draw {
     readonly #items = new Array<{
@@ -91,8 +99,6 @@ const titleFont = makeLineFont(0.8);
     }
   }
   const pieces = new Array<Draw>();
-  const margin = 0.3;
-  const width = 16 - 2 * margin;
   {
     const paragraphLayout = new ParagraphLayout(titleFont);
     paragraphLayout.addText("My ", undefined, 0);
@@ -160,33 +166,6 @@ const titleFont = makeLineFont(0.8);
       ),
     );
   }
-  /*
-  const titlePathShape = ParagraphLayout.singlePathShape({
-    text: "My take on Peano Arithmetic",
-    font: titleFont,
-    alignment: "center",
-    width,
-  }).translate(margin, margin);
-  const q1PathShape = ParagraphLayout.singlePathShape({
-    text: "How would you invent numbers?",
-    font: titleFont,
-    alignment: "center",
-    width,
-  }).translate(margin, 2 + margin);
-  const q2PathShape = ParagraphLayout.singlePathShape({
-    text: "Can you prove that 2 + 2 = 4?",
-    font: titleFont,
-    alignment: "center",
-    width,
-  }).translate(margin, 4 + margin);
-  const q3PathShape = ParagraphLayout.singlePathShape({
-    text: "Are numbers made of something simpler?",
-    font: titleFont,
-    alignment: "center",
-    width,
-    additionalLineHeight: -margin,
-  }).translate(margin, 6 + margin);
-  */
   const showable: Showable = {
     description: "Title Screen",
     duration: 50000,
@@ -197,28 +176,74 @@ const titleFont = makeLineFont(0.8);
         pieces.forEach((draw) => {
           draw.draw(options);
         });
-        /*
-        context.lineWidth = 0.09;
-        context.strokeStyle = myRainbow.cssBlue;
-        context.stroke(titlePathShape.canvasPath);
-
-        context.lineWidth = 0.06;
-        context.strokeStyle = myRainbow.yellow;
-        context.stroke(q1PathShape.canvasPath);
-
-        context.lineWidth = 0.06;
-        context.strokeStyle = myRainbow.orange;
-        context.stroke(q2PathShape.canvasPath);
-
-        context.lineWidth = 0.06;
-        context.strokeStyle = myRainbow.red;
-        context.stroke(q3PathShape.canvasPath);
-        */
       }
     },
   };
   sceneList.add(showable);
 }
+
+// MARK: ℕ by Induction
+{
+  const titlePathShape = ParagraphLayout.singlePathShape({
+    font: titleFont,
+    text: "ℕ - Natural Numbers",
+    width,
+    alignment: "center",
+  }).translate(margin, margin);
+  const numberPathShapes = (() => {
+  const font = makeLineFont(0.5);
+    const paragraphLayout = new ParagraphLayout(font);
+    const value = 12;
+    for (let i = value; i > 0; i--) {
+      paragraphLayout.addText("PlusOne(", undefined, i);
+    }
+    paragraphLayout.addText("Zero", undefined, 0);
+    for (let i = 1; i <= value; i++) {
+      paragraphLayout.addText(")", undefined, i);
+    }
+    const laidOut = paragraphLayout.align(width, "center");
+    const byTag = laidOut.pathShapeByTag();
+    const result = initializedArray(value + 1, (n) =>
+      byTag.get(n)!.translate(margin, 2),
+    );
+    return result;
+  })();
+  const showable: Showable = {
+    description: "ℕ by Induction",
+    duration: 20000,
+    show({ context, globalTime, timeInMs }) {
+      context.lineWidth = 0.08;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = myRainbow.magenta;
+      context.stroke(titlePathShape.canvasPath);
+      strokeColors({
+        context,
+        pathShape: numberPathShapes[0],
+        colors: [
+          "#b0b0b0",
+          "#808080",
+          "#404040",
+          "#808080",
+          "#b0b0b0",
+          "#d0d0d0",
+          "#ffffff",
+          "#d0d0d0",
+          "#b0b0b0",
+        ],
+        sectionLength: 0.125,
+        offset: -globalTime / 1000,
+      });
+      for (let i = 1; i < Math.round(numberPathShapes.length / this.duration*timeInMs); i++) {
+        context.strokeStyle = myRainbow[i % myRainbow.length];
+        context.stroke(numberPathShapes[i].canvasPath);
+      }
+      //const maxCount = du
+    },
+  };
+  sceneList.add(showable);
+}
+console.log(titleFont.strokeWidth);
 
 mainBuilder.add(background);
 mainBuilder.add(sceneList.build());
