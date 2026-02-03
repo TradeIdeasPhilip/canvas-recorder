@@ -191,9 +191,9 @@ const width = 16 - 2 * margin;
     alignment: "center",
   }).translate(margin, margin);
   const numberPathShapes = (() => {
-  const font = makeLineFont(0.5);
+    const font = makeLineFont(0.5);
     const paragraphLayout = new ParagraphLayout(font);
-    const value = 12;
+    const value = 21;
     for (let i = value; i > 0; i--) {
       paragraphLayout.addText("PlusOne(", undefined, i);
     }
@@ -204,7 +204,7 @@ const width = 16 - 2 * margin;
     const laidOut = paragraphLayout.align(width, "center");
     const byTag = laidOut.pathShapeByTag();
     const result = initializedArray(value + 1, (n) =>
-      byTag.get(n)!.translate(margin, 2),
+      byTag.get(n)!.translate(margin, 3),
     );
     return result;
   })();
@@ -234,7 +234,11 @@ const width = 16 - 2 * margin;
         sectionLength: 0.125,
         offset: -globalTime / 1000,
       });
-      for (let i = 1; i < Math.round(numberPathShapes.length / this.duration*timeInMs); i++) {
+      for (
+        let i = 1;
+        i < Math.floor((numberPathShapes.length / this.duration) * timeInMs);
+        i++
+      ) {
         context.strokeStyle = myRainbow[i % myRainbow.length];
         context.stroke(numberPathShapes[i].canvasPath);
       }
@@ -244,6 +248,90 @@ const width = 16 - 2 * margin;
   sceneList.add(showable);
 }
 console.log(titleFont.strokeWidth);
+
+// MARK: Definition of = for ℕ
+{
+  //type DrawPiece =  (pathShape:PathShape);
+  class Draw {
+    readonly #items = new Array<{
+      readonly pathShape: PathShape;
+      readonly start: number;
+      readonly length: number;
+      readonly color: string | null;
+    }>();
+    readonly #getDistance: LinearFunction;
+    constructor(
+      x: number,
+      y: number,
+      layout: LaidOut,
+      readonly colors: (string | null)[],
+      readonly lineWidth: number,
+      startTime: number,
+      endTime: number,
+    ) {
+      const pieces = layout.pathShapeByTag();
+      let start = 0;
+      colors.forEach((color, index) => {
+        const pathShape = pieces.get(index)!.translate(x, y);
+        const length = pathShape.getLength();
+        this.#items.push({ pathShape, start, length, color });
+        start += length;
+      });
+      this.#getDistance = makeLinear(startTime, 0, endTime, start);
+      if (pieces.size != colors.length) {
+        console.error(pieces);
+        throw new Error("wtf");
+      }
+    }
+    draw({ context, globalTime, timeInMs }: ShowOptions) {
+      const distance = this.#getDistance(timeInMs);
+      this.#items.forEach((item) => {
+        const relativeDistance = distance - item.start;
+        if (relativeDistance > 0) {
+          context.lineWidth = this.lineWidth;
+          // TODO PathShapeSplitter is cached and meant to be reused.
+          const pathShape = new PathShapeSplitter(item.pathShape).get(
+            0,
+            relativeDistance,
+          );
+          if (item.color !== null) {
+            context.strokeStyle = item.color;
+            context.stroke(pathShape.canvasPath);
+          } else {
+            strokeColors({
+              context,
+              pathShape,
+              sectionLength: 0.3,
+              offset: globalTime / 1000,
+            });
+          }
+        }
+      });
+    }
+  }
+  const titlePathShape = ParagraphLayout.singlePathShape({
+    font: titleFont,
+    text:
+      "Definition of = for ℕ\n\n" +
+      "Zero = Zero\n" +
+      "x = y → PlusOne(x) = PlusOne(y)\n" +
+      "And nothing else.",
+    width,
+    alignment: "center",
+  }).translate(margin, margin);
+  const showable: Showable = {
+    description: "Definition of = for ℕ",
+    duration: 20000,
+    show({ context, globalTime, timeInMs }) {
+      context.lineWidth = 0.08;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.strokeStyle = myRainbow.red;
+      context.stroke(titlePathShape.canvasPath);
+    },
+  };
+  sceneList.add(showable);
+}
 
 mainBuilder.add(background);
 mainBuilder.add(sceneList.build());
