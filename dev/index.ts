@@ -36,7 +36,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = peanoArithmetic;
+const toShow = showcase;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.

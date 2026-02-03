@@ -240,6 +240,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
   {
     const baseFont = makeLineFont(0.5);
+    const obliqueFont = baseFont.oblique();
     const cursiveFont = Font.cursive(0.5);
     const showable: Showable = {
       description: "action",
@@ -261,7 +262,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         layout.addText("ParagraphLayout lets you format text: ");
         layout.addText("Bold", undefined, "bold");
         layout.addText(", ");
-        layout.addText("oblique", undefined, "oblique");
+        layout.addText("oblique (italic)", obliqueFont, "oblique");
         layout.addText(", ");
         layout.addText("red", undefined, "red");
         layout.addText(", ");
@@ -304,19 +305,9 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.lineWidth = 0.08;
         context.stroke(pathByTag.get("bold")!.translate(0.25, 1.5).canvasPath);
         context.lineWidth = 0.04;
-        {
-          const basePathShape = pathByTag.get("oblique")!.translate(0.25, 1.5);
-          const baseline = basePathShape.getBBox().y.max;
-          const matrix = new DOMMatrixReadOnly()
-            .translate(
-              baseline * Math.sin(15 * radiansPerDegree) * 2,
-              -baseline,
-            )
-            .skewX(-15)
-            .translate(0, baseline);
-          const finalPathShape = basePathShape.transform(matrix);
-          context.stroke(finalPathShape.canvasPath);
-        }
+        context.stroke(
+          pathByTag.get("oblique")!.translate(0.25, 1.5).canvasPath,
+        );
         context.strokeStyle = "red";
         context.stroke(pathByTag.get("red")!.translate(0.25, 1.5).canvasPath);
         context.strokeStyle = BLUE;

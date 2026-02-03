@@ -166,6 +166,44 @@ export class Font {
     });
     return font;
   }
+  /**
+   * Create an oblique font from a normal font.
+   * 
+   * Oblique is similar to italic.
+   * Italics are hand drawn.
+   * Oblique is when the computer just slants everything.
+   * @param degreesRight The baseline stays in tact.
+   * A line moving straight up from the baseline will be skewed by this much.
+   * The default of 15 is a typical way to draw text.
+   *
+   * This says how much to *change* the font, not the final value.
+   * font.oblique(5) != font.oblique(5).oblique(5).oblique(5).
+   * This differs from resize() which takes the desired resulting value, where this takes the change as an input.
+   * @returns A new font.  Or the same font if you request a 0° change.
+   */
+  oblique(degreesRight = 15): Font {
+    if (degreesRight == 0) {
+      return this;
+    }
+    const result = new Font(
+      this.top,
+      this.bottom,
+      this.spaceWidth,
+      this.strokeWidth,
+      this.kerning,
+      this.mHeight,
+      [],
+    );
+    const matrix = new DOMMatrixReadOnly().skewX(-degreesRight);
+    this.#letters.forEach((originalLetter, key) => {
+      const newLetter: DescriptionOfLetter = {
+        advance: originalLetter.advance,
+        shape: originalLetter.shape.transform(matrix),
+      };
+      result.#letters.set(key, newLetter);
+    });
+    return result;
+  }
   resize(newSize: number): Font {
     const ratio = newSize / this.mHeight;
     if (ratio == 1) {
@@ -191,14 +229,14 @@ export class Font {
     });
     return result;
   }
-  static cursive(size: number): Font {
+  static cursive(size: number, degreesRight = 0): Font {
     const base = this.fromJSON(cursiveBase);
-    const result = base.resize(size);
+    const result = base.resize(size).oblique(degreesRight);
     return result;
   }
-  static futuraL(size: number): Font {
+  static futuraL(size: number, degreesRight = 0): Font {
     const base = this.fromJSON(futuraLBase);
-    const result = base.resize(size);
+    const result = base.resize(size).oblique(degreesRight);
     return result;
   }
 }
