@@ -1392,6 +1392,7 @@ export type FullBBox = { x: Required<MinMax>; y: Required<MinMax> };
  * If you wan to make more complicated changes, work on an array of `Command` objects.
  */
 export class PathShape {
+  static readonly EMPTY = new this([]);
   /**
    * @returns A tight bounding box for this shape.
    *

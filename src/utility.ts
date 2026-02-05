@@ -46,7 +46,7 @@ export function applyTransform(
   context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
 }
 
-type StrokeColorsOptions = {
+export type StrokeColorsOptions = {
   /** Stroke this path. */
   readonly pathShape: PathShape;
   /** Draw everything here. */

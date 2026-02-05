@@ -1,9 +1,4 @@
-import {
-  assertNonNullable,
-  initializedArray,
-  LinearFunction,
-  makeLinear,
-} from "phil-lib/misc";
+import { initializedArray, LinearFunction, makeLinear } from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
 import { LaidOut, ParagraphLayout } from "./glib/paragraph-layout";
 import { PathShape } from "./glib/path-shape";
@@ -15,6 +10,11 @@ import {
 } from "./showable";
 import { myRainbow, strokeColors } from "./utility";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
+import {
+  FullFormatter,
+  MultiColorPathElement,
+  PathElement,
+} from "./fancy-text";
 
 const sceneList = new MakeShowableInSeries("Scene List");
 const mainBuilder = new MakeShowableInParallel("Showcase");
@@ -39,8 +39,15 @@ const titleFont = makeLineFont(0.8);
 const margin = 0.3;
 const width = 16 - 2 * margin;
 
+function rainbowHighlight() {
+  return new MultiColorPathElement(undefined, {
+    sectionLength: 0.3,
+  }).animateOffset(1 / 1000);
+}
+
 // MARK: Title Screen
 {
+  /*
   class Draw {
     readonly #items = new Array<{
       readonly pathShape: PathShape;
@@ -98,11 +105,32 @@ const width = 16 - 2 * margin;
       });
     }
   }
-  const pieces = new Array<Draw>();
+  */
+  const lines: {
+    pathElements: PathElement[];
+    startMs: number;
+    endMs: number;
+  }[] = [];
   {
-    const paragraphLayout = new ParagraphLayout(titleFont);
-    paragraphLayout.addText("My ", undefined, 0);
-    paragraphLayout.addText("take on Peano Arithmetic", undefined, 1);
+    const formatter = new FullFormatter(titleFont);
+    formatter.add("My ", rainbowHighlight);
+    formatter.add("take on Peano Arithmetic");
+    const aligned = formatter.align({
+      top: margin,
+      left: margin,
+      alignment: "center",
+      width,
+    });
+    aligned.pathElements.forEach((pathElement) => {
+      pathElement.commonSettings.strokeStyle = myRainbow.cssBlue;
+      pathElement.commonSettings.lineWidth = 0.12;
+    });
+    lines.push({
+      pathElements: aligned.pathElements,
+      startMs: 100,
+      endMs: 5100,
+    });
+    /*
     pieces.push(
       new Draw(
         margin,
@@ -114,12 +142,29 @@ const width = 16 - 2 * margin;
         5100,
       ),
     );
+    */
   }
   {
-    const paragraphLayout = new ParagraphLayout(titleFont);
-    paragraphLayout.addText("How would you ", undefined, 0);
-    paragraphLayout.addText("invent ", undefined, 1);
-    paragraphLayout.addText("numbers?", undefined, 2);
+    const formatter = new FullFormatter(titleFont);
+    formatter.add("How would you ");
+    formatter.add("invent ", rainbowHighlight);
+    formatter.add("numbers?");
+    const aligned = formatter.align({
+      top: margin + 2,
+      left: margin,
+      alignment: "center",
+      width,
+    });
+    aligned.pathElements.forEach((pathElement) => {
+      pathElement.commonSettings.strokeStyle = myRainbow.yellow;
+      pathElement.commonSettings.lineWidth = 0.08;
+    });
+    lines.push({
+      pathElements: aligned.pathElements,
+      startMs: 12000,
+      endMs: 17000,
+    });
+    /*
     pieces.push(
       new Draw(
         margin,
@@ -131,12 +176,29 @@ const width = 16 - 2 * margin;
         17000,
       ),
     );
+    */
   }
   {
-    const paragraphLayout = new ParagraphLayout(titleFont);
-    paragraphLayout.addText("Can you ", undefined, 0);
-    paragraphLayout.addText("prove ", undefined, 1);
-    paragraphLayout.addText("that 2 + 2 = 4?", undefined, 2);
+    const formatter = new FullFormatter(titleFont);
+    formatter.add("Can you ");
+    formatter.add("prove ", rainbowHighlight);
+    formatter.add("that 2 + 2 = 4?");
+    const aligned = formatter.align({
+      top: margin + 4,
+      left: margin,
+      alignment: "center",
+      width,
+    });
+    aligned.pathElements.forEach((pathElement) => {
+      pathElement.commonSettings.strokeStyle = myRainbow.orange;
+      pathElement.commonSettings.lineWidth = 0.08;
+    });
+    lines.push({
+      pathElements: aligned.pathElements,
+      startMs: 24000,
+      endMs: 29000,
+    });
+    /*
     pieces.push(
       new Draw(
         margin,
@@ -148,12 +210,30 @@ const width = 16 - 2 * margin;
         29000,
       ),
     );
+    */
   }
   {
-    const paragraphLayout = new ParagraphLayout(titleFont);
-    paragraphLayout.addText("Are numbers made of something ", undefined, 0);
-    paragraphLayout.addText("simpler", undefined, 1);
-    paragraphLayout.addText("?", undefined, 2);
+    const formatter = new FullFormatter(titleFont);
+    formatter.add("Are numbers made of something ");
+    formatter.add("simpler", rainbowHighlight);
+    formatter.add("?");
+    const aligned = formatter.align({
+      top: margin + 6,
+      left: margin,
+      alignment: "center",
+      width,
+      additionalLineHeight: -margin,
+    });
+    aligned.pathElements.forEach((pathElement) => {
+      pathElement.commonSettings.strokeStyle = myRainbow.red;
+      pathElement.commonSettings.lineWidth = 0.08;
+    });
+    lines.push({
+      pathElements: aligned.pathElements,
+      startMs: 36000,
+      endMs: 41000,
+    });
+    /*
     pieces.push(
       new Draw(
         margin,
@@ -165,7 +245,15 @@ const width = 16 - 2 * margin;
         41000,
       ),
     );
+    */
   }
+  const handwriters = lines.map((lineInfo) => {
+    return PathElement.handwriting(
+      lineInfo.pathElements,
+      lineInfo.startMs,
+      lineInfo.endMs,
+    );
+  });
   const showable: Showable = {
     description: "Title Screen",
     duration: 50000,
@@ -173,8 +261,8 @@ const width = 16 - 2 * margin;
       {
         options.context.lineCap = "round";
         options.context.lineJoin = "round";
-        pieces.forEach((draw) => {
-          draw.draw(options);
+        handwriters.forEach((draw) => {
+          draw(options);
         });
       }
     },

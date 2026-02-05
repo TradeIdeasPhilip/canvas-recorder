@@ -34,6 +34,12 @@ class WordInfo {
   }
 }
 
+export type WordInPlace = {
+  readonly x: number;
+  readonly baseline: number;
+  readonly wordInfo: WordInfo;
+};
+
 class LinkBreak {}
 
 export type LaidOut = ReturnType<InstanceType<typeof ParagraphLayout>["align"]>;
@@ -167,11 +173,7 @@ export class ParagraphLayout {
       }
       y += additionalLineHeight;
     });
-    const words = new Array<{
-      x: number;
-      baseline: number;
-      wordInfo: WordInfo;
-    }>();
+    const words = new Array<WordInPlace>();
     if (width == Infinity) {
       width = Math.max(...allRowMetrics.map(({ minWidth }) => minWidth));
     }
