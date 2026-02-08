@@ -172,13 +172,21 @@ function loadPlayPositionRange() {
  */
 let playOffset = NaN;
 
+const syncWithAudio = true;
+const audioElement = querySelector("audio", HTMLAudioElement);
+
 /**
  * Redraw the canvas and update some other controls.
  *
  * This is for live / realtime drawing.  This is disabled when we are saving the file.
  */
 const animationLoop = new AnimationLoop((timeInMS: number) => {
-  if (!playCheckBox.checked) {
+  if (syncWithAudio) {
+    playOffset = NaN;
+    timeInMS = sectionStartTime + audioElement.currentTime * 1000;
+    loadPlayPositionSeconds(timeInMS);
+    loadPlayPositionRange();
+  } else if (!playCheckBox.checked) {
     // Paused.  Copy time from the numerical input.
     playPositionSeconds.disabled = false;
     timeInMS = playPositionSeconds.valueAsNumber * 1000;

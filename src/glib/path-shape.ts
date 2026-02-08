@@ -1399,6 +1399,9 @@ export class PathShape {
    * The format is based on the underlying tools.
    * See {@link getBBoxRect} for the same thing in a different format.
    */
+  get isEmpty() {
+    return this.commands.length == 0;
+  }
   getBBox() {
     const utils = Bezier.getUtils();
     const sections = this.commands.map((command) => command.getBezier());

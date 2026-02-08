@@ -99,30 +99,68 @@ export function timedKeyframes<T>(
   time: number,
   keyframes: Keyframes<T>,
 ):
-  | { single: true; value: T }
-  | { single: false; progress: number; from: T; to: T } {
+  | { index: number; single: true; value: T }
+  | { index: number; single: false; progress: number; from: T; to: T } {
   if (time <= keyframes[0].time) {
-    return { single: true, value: keyframes[0].value };
+    return { index: 0, single: true, value: keyframes[0].value };
   }
   if (time >= keyframes.at(-1)!.time) {
-    return { single: true, value: keyframes.at(-1)!.value };
+    return {
+      index: keyframes.length - 1,
+      single: true,
+      value: keyframes.at(-1)!.value,
+    };
   }
   // TODO change this to a binary search
   for (let i = 1; i < keyframes.length; i++) {
     const to = keyframes[i];
     if (time == to.time) {
-      return { single: true, value: to.value };
+      return { index: i, single: true, value: to.value };
     }
-    const from = keyframes[i - 1];
+    const fromIndex = i - 1;
+    const from = keyframes[fromIndex];
     if (time >= from.time && time <= to.time) {
       let progress = (time - from.time) / (to.time - from.time);
       if (from.easeAfter) {
         progress = from.easeAfter(progress);
       }
-      return { single: false, progress, from: from.value, to: to.value };
+      return {
+        index: fromIndex,
+        single: false,
+        progress,
+        from: from.value,
+        to: to.value,
+      };
     }
   }
   throw new Error("wtf");
+}
+
+export type DiscreteKeyframe<T> = { time: number; value: T };
+
+export type DiscreteKeyframes<T> = readonly DiscreteKeyframe<T>[];
+
+/**
+ *
+ * @param time Look for the value at this time.
+ * This can be any scale, not necessarily 0-1.
+ * @param keyframes A list of values.
+ * Each value comes with a start time.
+ * The value continues until the start time of the next keyframe.
+ * The first keyframe starts at -Infinity, regardless of what it says.
+ * And the last keyframe continues until +Infinity.
+ * @returns One of the values from the list of keyframes.
+ */
+export function discreteKeyframes<T>(
+  time: number,
+  keyframes: DiscreteKeyframes<T>,
+): T {
+  const initial = timedKeyframes(time, keyframes);
+  if (initial.single) {
+    return initial.value;
+  } else {
+    return initial.from;
+  }
 }
 
 /**
