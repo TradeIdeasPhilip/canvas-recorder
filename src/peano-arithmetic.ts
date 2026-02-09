@@ -5,6 +5,7 @@ import {
   LinearFunction,
   makeBoundedLinear,
   makeLinear,
+  Random,
 } from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
 import { LaidOut, ParagraphLayout } from "./glib/paragraph-layout";
@@ -32,6 +33,28 @@ import {
 const sceneList = new MakeShowableInSeries("Scene List");
 const mainBuilder = new MakeShowableInParallel("Peano arithmetic");
 
+/**
+ * A little bit of noise or grain.
+ * 
+ * This makes the gradient look a little better.
+ */
+const backgroundPattern = document.createElement("canvas");
+{
+  const random = Random.fromString("Pattern 2026");
+  backgroundPattern.width = 512;
+  backgroundPattern.height = 512;
+  const imageData = new ImageData(512, 512);
+  let index = 0;
+  for (let pixel = 0; pixel < 512 * 512; pixel++) {
+    const brightness = (random() + random()) * 3;
+    imageData.data[index++] = brightness;
+    imageData.data[index++] = brightness;
+    imageData.data[index++] = brightness;
+    imageData.data[index++] = 255;
+  }
+  backgroundPattern.getContext("2d")!.putImageData(imageData, 0, 0);
+}
+
 const background: Showable = {
   description: "background",
   /**
@@ -41,10 +64,27 @@ const background: Showable = {
   duration: 0,
   show({ context }) {
     const gradient = context.createLinearGradient(3.5, 0, 12.5, 9);
-    gradient.addColorStop(1, "#444");
+    gradient.addColorStop(1, "#333");
     gradient.addColorStop(0, "black");
     context.fillStyle = gradient;
     context.fillRect(0, 0, 16, 9);
+
+    context.imageSmoothingEnabled = false;
+    context.save();
+    context.resetTransform();
+    const scaleFactor = 2;
+    context.scale(scaleFactor, scaleFactor);
+    context.fillStyle = assertNonNullable(
+      context.createPattern(backgroundPattern, "repeat"),
+    );
+    context.globalCompositeOperation = "lighter";
+    context.fillRect(
+      0,
+      0,
+      context.canvas.width / scaleFactor,
+      context.canvas.height / scaleFactor,
+    );
+    context.restore();
   },
 };
 
@@ -60,65 +100,6 @@ function rainbowHighlight() {
 
 // MARK: Title Screen
 {
-  /*
-  class Draw {
-    readonly #items = new Array<{
-      readonly pathShape: PathShape;
-      readonly start: number;
-      readonly length: number;
-      readonly color: string | null;
-    }>();
-    readonly #getDistance: LinearFunction;
-    constructor(
-      x: number,
-      y: number,
-      layout: LaidOut,
-      readonly colors: (string | null)[],
-      readonly lineWidth: number,
-      startTime: number,
-      endTime: number,
-    ) {
-      const pieces = layout.pathShapeByTag();
-      let start = 0;
-      colors.forEach((color, index) => {
-        const pathShape = pieces.get(index)!.translate(x, y);
-        const length = pathShape.getLength();
-        this.#items.push({ pathShape, start, length, color });
-        start += length;
-      });
-      this.#getDistance = makeLinear(startTime, 0, endTime, start);
-      if (pieces.size != colors.length) {
-        console.error(pieces);
-        throw new Error("wtf");
-      }
-    }
-    draw({ context, globalTime, timeInMs }: ShowOptions) {
-      const distance = this.#getDistance(timeInMs);
-      this.#items.forEach((item) => {
-        const relativeDistance = distance - item.start;
-        if (relativeDistance > 0) {
-          context.lineWidth = this.lineWidth;
-          // TODO PathShapeSplitter is cached and meant to be reused.
-          const pathShape = new PathShapeSplitter(item.pathShape).get(
-            0,
-            relativeDistance,
-          );
-          if (item.color !== null) {
-            context.strokeStyle = item.color;
-            context.stroke(pathShape.canvasPath);
-          } else {
-            strokeColors({
-              context,
-              pathShape,
-              sectionLength: 0.3,
-              offset: globalTime / 1000,
-            });
-          }
-        }
-      });
-    }
-  }
-  */
   const lines: {
     pathElements: PathElement[];
     startMs: number;
@@ -143,19 +124,6 @@ function rainbowHighlight() {
       startMs: 100,
       endMs: 5100,
     });
-    /*
-    pieces.push(
-      new Draw(
-        margin,
-        margin,
-        paragraphLayout.align(width, "center"),
-        [null, myRainbow.cssBlue],
-        0.12,
-        100,
-        5100,
-      ),
-    );
-    */
   }
   {
     const formatter = new FullFormatter(titleFont);
@@ -177,19 +145,6 @@ function rainbowHighlight() {
       startMs: 12000,
       endMs: 17000,
     });
-    /*
-    pieces.push(
-      new Draw(
-        margin,
-        2 + margin,
-        paragraphLayout.align(width, "center"),
-        [myRainbow.yellow, null, myRainbow.yellow],
-        0.08,
-        12000,
-        17000,
-      ),
-    );
-    */
   }
   {
     const formatter = new FullFormatter(titleFont);
@@ -211,19 +166,6 @@ function rainbowHighlight() {
       startMs: 24000,
       endMs: 29000,
     });
-    /*
-    pieces.push(
-      new Draw(
-        margin,
-        4 + margin,
-        paragraphLayout.align(width, "center"),
-        [myRainbow.orange, null, myRainbow.orange],
-        0.08,
-        24000,
-        29000,
-      ),
-    );
-    */
   }
   {
     const formatter = new FullFormatter(titleFont);
@@ -246,19 +188,6 @@ function rainbowHighlight() {
       startMs: 36000,
       endMs: 41000,
     });
-    /*
-    pieces.push(
-      new Draw(
-        margin,
-        6 + margin,
-        paragraphLayout.align(width, "center", -margin),
-        [myRainbow.red, null, myRainbow.red],
-        0.08,
-        36000,
-        41000,
-      ),
-    );
-    */
   }
   const handwriters = lines.map((lineInfo) => {
     return PathElement.handwriting(
@@ -280,7 +209,7 @@ function rainbowHighlight() {
       }
     },
   };
-  //  sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function zero(): PathElement {
