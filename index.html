@@ -58,37 +58,42 @@
           <td></td>
         </tr>
       </table>
-      <div class="range-container">
-        <label><input type="checkbox" id="play" />Play</label>
-        <span style="background-color: lightcyan"
-          >&nbsp;(At end
-          <label
-            ><input
-              type="radio"
-              name="onSectionEnd"
-              value="pause"
-              checked
-            />Pause</label
+      <fieldset id="play-controls">
+        <div class="range-container">
+          <label><input type="checkbox" id="play" />Play</label>
+          <span style="background-color: lightcyan"
+            >&nbsp;(At end
+            <label
+              ><input
+                type="radio"
+                name="onSectionEnd"
+                value="pause"
+                checked
+              />Pause</label
+            >
+            <label
+              ><input
+                type="radio"
+                name="onSectionEnd"
+                value="repeat"
+              />Repeat</label
+            >
+            <label
+              ><input
+                type="radio"
+                name="onSectionEnd"
+                value="continue"
+              />Continue</label
+            >)&nbsp;</span
           >
-          <label
-            ><input
-              type="radio"
-              name="onSectionEnd"
-              value="repeat"
-            />Repeat</label
-          >
-          <label
-            ><input
-              type="radio"
-              name="onSectionEnd"
-              value="continue"
-            />Continue</label
-          >)&nbsp;</span
-        >
-        <input type="number" id="playPositionSeconds" value="0" />
-        <input type="range" id="playPositionRange" value="0" step="any" />
+          <input type="number" id="playPositionSeconds" value="0" />
+          <input type="range" id="playPositionRange" value="0" step="any" />
+        </div>
+      </fieldset>
+      <div style="display: flex; align-items: center; gap: 0.75em">
+        <label><input type="checkbox" id="lock-audio-video" />🔒</label>
+        <audio style="flex-grow: 1" src="./ℕ by induction.m4a" controls></audio>
       </div>
-      <div style="display:flex"><audio style="flex-grow: 1;" src="./ℕ by induction.m4a" controls></audio></div>
       <div>
         <button id="saveImage">Save Image</button> at
         <input value="0.000" id="saveImageSeconds" type="number" /> seconds.

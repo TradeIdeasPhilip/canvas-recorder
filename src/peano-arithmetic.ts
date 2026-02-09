@@ -35,7 +35,7 @@ const mainBuilder = new MakeShowableInParallel("Peano arithmetic");
 
 /**
  * A little bit of noise or grain.
- * 
+ *
  * This makes the gradient look a little better.
  */
 const backgroundPattern = document.createElement("canvas");
@@ -209,7 +209,7 @@ function rainbowHighlight() {
       }
     },
   };
-  sceneList.add(showable);
+  //  sceneList.add(showable);
 }
 
 function zero(): PathElement {

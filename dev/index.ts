@@ -172,8 +172,16 @@ function loadPlayPositionRange() {
  */
 let playOffset = NaN;
 
-const syncWithAudio = true;
+let syncWithAudio = false;
 const audioElement = querySelector("audio", HTMLAudioElement);
+{
+  const playControlsFieldset = getById("play-controls", HTMLFieldSetElement);
+  const lockAudioAndVideoInput = getById("lock-audio-video", HTMLInputElement);
+  lockAudioAndVideoInput.addEventListener("input", () => {
+    syncWithAudio = lockAudioAndVideoInput.checked;
+    playControlsFieldset.disabled = syncWithAudio;
+  });
+}
 
 /**
  * Redraw the canvas and update some other controls.
@@ -283,6 +291,7 @@ const liveControls = getById("liveControls", HTMLFieldSetElement);
 let canceled = false;
 
 async function startRecording() {
+  audioElement.pause();
   startRecordingButton.disabled = true;
   liveControls.disabled = true;
   cancelRecordingButton.disabled = false;
