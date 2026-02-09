@@ -121,8 +121,8 @@ function rainbowHighlight() {
     });
     lines.push({
       pathElements: aligned.pathElements,
-      startMs: 100,
-      endMs: 5100,
+      startMs: 1200,
+      endMs: 3500,
     });
   }
   {
@@ -142,8 +142,8 @@ function rainbowHighlight() {
     });
     lines.push({
       pathElements: aligned.pathElements,
-      startMs: 12000,
-      endMs: 17000,
+      startMs: 7000,
+      endMs: 9000,
     });
   }
   {
@@ -163,8 +163,8 @@ function rainbowHighlight() {
     });
     lines.push({
       pathElements: aligned.pathElements,
-      startMs: 24000,
-      endMs: 29000,
+      startMs: 11000,
+      endMs: 13000,
     });
   }
   {
@@ -185,8 +185,8 @@ function rainbowHighlight() {
     });
     lines.push({
       pathElements: aligned.pathElements,
-      startMs: 36000,
-      endMs: 41000,
+      startMs: 21000,
+      endMs: 23000,
     });
   }
   const handwriters = lines.map((lineInfo) => {
@@ -198,7 +198,7 @@ function rainbowHighlight() {
   });
   const showable: Showable = {
     description: "Title Screen",
-    duration: 50000,
+    duration: 31000,
     show(options) {
       {
         options.context.lineCap = "round";
@@ -209,7 +209,7 @@ function rainbowHighlight() {
       }
     },
   };
-  //  sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function zero(): PathElement {
