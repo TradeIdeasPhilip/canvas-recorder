@@ -35,6 +35,10 @@ export class PathElement {
     public pathShape: PathShape = PathShape.EMPTY,
     public tag?: unknown,
   ) {}
+  setTag(newTag: unknown) {
+    this.tag = newTag;
+    return this;
+  }
   /**
    * Copy settings from `requested` into `context`.
    * @param requested New settings to use.
@@ -167,6 +171,12 @@ export class FullFormatter {
   constructor(font: Font) {
     this.#paragraphLayout = new ParagraphLayout(font);
   }
+  #recentlyAdded = new Array<PathElement>();
+  get recentlyAdded() {
+    const result = this.#recentlyAdded;
+    this.#recentlyAdded = [];
+    return result;
+  }
   add(
     text: string,
     pathElement: PathElement | (() => PathElement) = new PathElement(),
@@ -177,6 +187,7 @@ export class FullFormatter {
     }
     this.#paragraphLayout.addText(text, font, this.#inProgress.length);
     this.#inProgress.push({ pathElement, commands: [], words: new Set() });
+    this.#recentlyAdded.push(pathElement);
     return this;
   }
   align(options: {

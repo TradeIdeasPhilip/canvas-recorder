@@ -2,7 +2,6 @@ import {
   assertNonNullable,
   FULL_CIRCLE,
   initializedArray,
-  LinearFunction,
   makeBoundedLinear,
   makeLinear,
   Random,
@@ -27,6 +26,9 @@ import { fixCorners, matchShapes } from "./morph-animation";
 import {
   DiscreteKeyframe,
   discreteKeyframes,
+  easeOut,
+  interpolateNumbers,
+  Keyframes,
   timedKeyframes,
 } from "./interpolate";
 
@@ -46,7 +48,7 @@ const backgroundPattern = document.createElement("canvas");
   const imageData = new ImageData(512, 512);
   let index = 0;
   for (let pixel = 0; pixel < 512 * 512; pixel++) {
-    const brightness = (random() + random()) * 3;
+    const brightness = (random() + random()) * 5;
     imageData.data[index++] = brightness;
     imageData.data[index++] = brightness;
     imageData.data[index++] = brightness;
@@ -209,7 +211,7 @@ function rainbowHighlight() {
       }
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 function zero(): PathElement {
@@ -509,89 +511,129 @@ function zero(): PathElement {
       drawMorphingNumber(options);
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 console.log(titleFont.strokeWidth);
 
+function equals(): PathElement {
+  return new MultiColorPathElement(undefined, {
+    colors: ["red", "yellow", "orange"],
+    sectionLength: 0.2,
+  }).animateOffset(-1 / 1500);
+}
+
 // MARK: Definition of = for ℕ
 {
-  //type DrawPiece =  (pathShape:PathShape);
-  class Draw {
-    readonly #items = new Array<{
-      readonly pathShape: PathShape;
-      readonly start: number;
-      readonly length: number;
-      readonly color: string | null;
-    }>();
-    readonly #getDistance: LinearFunction;
-    constructor(
-      x: number,
-      y: number,
-      layout: LaidOut,
-      readonly colors: (string | null)[],
-      readonly lineWidth: number,
-      startTime: number,
-      endTime: number,
-    ) {
-      const pieces = layout.pathShapeByTag();
-      let start = 0;
-      colors.forEach((color, index) => {
-        const pathShape = pieces.get(index)!.translate(x, y);
-        const length = pathShape.getLength();
-        this.#items.push({ pathShape, start, length, color });
-        start += length;
-      });
-      this.#getDistance = makeLinear(startTime, 0, endTime, start);
-      if (pieces.size != colors.length) {
-        console.error(pieces);
-        throw new Error("wtf");
-      }
-    }
-    draw({ context, globalTime, timeInMs }: ShowOptions) {
-      const distance = this.#getDistance(timeInMs);
-      this.#items.forEach((item) => {
-        const relativeDistance = distance - item.start;
-        if (relativeDistance > 0) {
-          context.lineWidth = this.lineWidth;
-          // TODO PathShapeSplitter is cached and meant to be reused.
-          const pathShape = new PathShapeSplitter(item.pathShape).get(
-            0,
-            relativeDistance,
-          );
-          if (item.color !== null) {
-            context.strokeStyle = item.color;
-            context.stroke(pathShape.canvasPath);
-          } else {
-            strokeColors({
-              context,
-              pathShape,
-              sectionLength: 0.3,
-              offset: globalTime / 1000,
-            });
-          }
-        }
-      });
-    }
+  function normal(): PathElement {
+    return new PathElement({ strokeStyle: "red" });
   }
-  const titlePathShape = ParagraphLayout.singlePathShape({
-    font: titleFont,
-    text:
-      "Definition of = for ℕ\n\n" +
-      "Zero = Zero\n" +
-      "x = y → PlusOne(x) = PlusOne(y)\n" +
-      "And nothing else.",
+  const formatter = new FullFormatter(titleFont);
+  formatter.add("Definition of ", normal);
+  formatter.add("= ", equals);
+  formatter.add("for ℕ\n\n", normal);
+  const title = formatter.recentlyAdded;
+  formatter.add("Zero ", zero);
+  formatter.add("= ", equals().setTag("match ="));
+  formatter.add("Zero\n", zero);
+  const baseCase = formatter.recentlyAdded;
+  formatter.add("x ", new PathElement({ strokeStyle: myRainbow.cyan }));
+  formatter.add("= ", equals);
+  formatter.add("y ", new PathElement({ strokeStyle: myRainbow.magenta }));
+  formatter.add("→ PlusOne(", normal);
+  formatter.add("x", new PathElement({ strokeStyle: myRainbow.cyan }));
+  formatter.add(") ", normal);
+  formatter.add("= ", equals().setTag("match ="));
+  formatter.add("PlusOne(", normal);
+  formatter.add("y", new PathElement({ strokeStyle: myRainbow.magenta }));
+  formatter.add(")\n", normal);
+  const inductiveStep = formatter.recentlyAdded;
+  formatter.add("And nothing else.", normal);
+  const andNothingElse = formatter.recentlyAdded;
+
+  const formatted = formatter.align({
     width,
+    top: margin,
+    left: margin,
     alignment: "center",
-  }).translate(margin, margin);
+  });
+
+  const slideBaseCaseBy = (() => {
+    const toMove = assertNonNullable(
+      baseCase.find((element) => element.tag === "match ="),
+    );
+    const fromX = assertNonNullable(toMove.pathShape.startX);
+    const toMatch = assertNonNullable(
+      inductiveStep.find((element) => element.tag === "match ="),
+    );
+    const toX = assertNonNullable(toMatch.pathShape.startX);
+    return toX - fromX;
+  })();
+  const baseAdjustmentSchedule: Keyframes<number> = [
+    { time: 40000, value: 0, easeAfter: easeOut },
+    { time: 42000, value: slideBaseCaseBy },
+  ];
+  const mainSlideSchedule: Keyframes<number> = [
+    { time: 45000, value: 0, easeAfter: easeOut },
+    { time: 50000, value: -1.75 },
+  ];
+  const mainZoomSchedule: Keyframes<number> = [
+    { time: 45000, value: 1 },
+    { time: 50000, value: 2 / 3 },
+  ];
+
+  const titleHandwriting = PathElement.handwriting(title, 2000, 7000);
+  const baseCaseHandwriting = PathElement.handwriting(baseCase, 14660, 18000);
+  const inductiveStepHandwriting = PathElement.handwriting(
+    inductiveStep,
+    26480,
+    31160,
+  );
+  const andNothingElseHandwriting = PathElement.handwriting(
+    andNothingElse,
+    30000,
+    33000,
+  );
+
+  const centerOfRules = (() => {
+    const bBox = new PathShape(
+      inductiveStep.flatMap((element) => {
+        return element.pathShape.commands;
+      }),
+    ).getBBox();
+    const result: { readonly x: number; readonly y: number } = {
+      x: bBox.x.mid,
+      y: bBox.y.mid,
+    };
+    return result;
+  })();
+
   const showable: Showable = {
     description: "Definition of = for ℕ",
-    duration: 20000,
-    show({ context, globalTime, timeInMs }) {
+    // 3:13:35
+    duration: (3 * 60 + 13) * 1000 + 35 * 10,
+    show(showOptions) {
+      const context = showOptions.context;
+      const timeInMs = showOptions.timeInMs;
       context.lineWidth = 0.08;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.strokeStyle = myRainbow.red;
-      context.stroke(titlePathShape.canvasPath);
+      titleHandwriting(showOptions);
+      {
+        const initialMatrix = context.getTransform();
+        const slideBy = interpolateNumbers(timeInMs, mainSlideSchedule);
+        const scaleBy = interpolateNumbers(timeInMs, mainZoomSchedule);
+        context.translate(centerOfRules.x, centerOfRules.y + slideBy);
+        context.scale(scaleBy, scaleBy);
+        context.translate(-centerOfRules.x, -centerOfRules.y);
+        inductiveStepHandwriting(showOptions);
+        andNothingElseHandwriting(showOptions);
+        context.translate(
+          interpolateNumbers(timeInMs, baseAdjustmentSchedule),
+          0,
+        );
+        baseCaseHandwriting(showOptions);
+        context.setTransform(initialMatrix);
+      }
     },
   };
   sceneList.add(showable);
