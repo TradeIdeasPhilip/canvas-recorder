@@ -592,10 +592,14 @@ function equals(): PathElement {
   const mainSlideSchedule: Keyframes<number> = [
     { time: 49000, value: 0, easeAfter: easeOut },
     { time: 54000, value: -1.9 },
+    { time: 180000, value: -1.9, easeAfter: easeOut },
+    { time: 184000, value: 0 },
   ];
   const mainZoomSchedule: Keyframes<number> = [
     { time: 49000, value: 1, easeAfter: easeOut },
     { time: 54000, value: 2 / 3 },
+    { time: 180000, value: 2 / 3, easeAfter: easeOut },
+    { time: 184000, value: 1 },
   ];
 
   const titleHandwriting = PathElement.handwriting(title, 2000, 7000);
@@ -838,6 +842,81 @@ function equals(): PathElement {
     return doesTwoEqualThree;
   })();
 
+  const doesTwoEqualTwo = (() => {
+    const formatter = new FullFormatter(makeLineFont(0.5));
+    formatter.add("Does ", equals);
+    formatter.add("Zero ", zero);
+    formatter.add("= ", equals);
+    formatter.add("Zero", zero);
+    formatter.add("?\n", equals);
+    const row1 = formatter.recentlyAdded;
+    formatter.add("Does ", equals);
+    formatter.add("PlusOne(", normal().setTag("left-plus-one"));
+    formatter.add("Zero", zero);
+    formatter.add(") ", normal().setTag("left-plus-one-end"));
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(", normal().setTag("right-plus-one"));
+    formatter.add("Zero", zero);
+    formatter.add(")", normal().setTag("right-plus-one-end"));
+    formatter.add("?\n", equals);
+    const row2 = formatter.recentlyAdded;
+    const smallerFont = makeLineFont(0.45);
+    formatter.add("Does ", equals, smallerFont);
+    formatter.add("PlusOne(", normal().setTag("left-plus-one"), smallerFont);
+    formatter.add("PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")", normal, smallerFont);
+    formatter.add(") ", normal().setTag("left-plus-one-end"), smallerFont);
+    formatter.add("= ", equals, smallerFont);
+    formatter.add("PlusOne(", normal().setTag("right-plus-one"), smallerFont);
+    formatter.add("PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")", normal, smallerFont);
+    formatter.add(")", normal().setTag("right-plus-one-end"), smallerFont);
+    formatter.add("?\n", equals, smallerFont);
+    const row3 = formatter.recentlyAdded;
+    formatter.align({
+      width,
+      alignment: "center",
+      top: 5.4,
+      left: margin,
+      additionalLineHeight: 0.1,
+    });
+    // 145120 - 146790 "Does 2 = 2" handwriting
+    // 148280 - 150000  "Does 2 = 2" highlight and "Does 1 = 1" handwriting
+    // 151180 - 153750 "Does 1 = 1" highlight and "does 0 = 0" handwriting
+    const allHandwriting = [
+      PathElement.handwriting(row3, 145120, 146790),
+      PathElement.handwriting(row2, 148280, 150000),
+      PathElement.handwriting(row1, 151180, 153750),
+    ];
+    const endTime = 161140;
+    const allHighlighters = [
+      HighlightPieces.make(row3, "left", 148280, 149140, endTime),
+      HighlightPieces.make(row3, "right", 149140, 150000, endTime),
+      HighlightPieces.make(row2, "left", 151180, 152465, endTime),
+      HighlightPieces.make(row2, "right", 152465, 153750, endTime),
+    ];
+
+    function doesTwoEqualTwo(showOptions: ShowOptions) {
+      allHighlighters.forEach((highlighter) => {
+        highlighter.show(showOptions);
+      });
+      if (showOptions.timeInMs < endTime) {
+        allHandwriting.forEach((row) => {
+          row(showOptions);
+        });
+      }
+    }
+    return doesTwoEqualTwo;
+  })();
+
+  // TODO next:
+  // 163500 - 169000 -- handwriting "Peano == Fourier?"
+  // 172500 - 179000 -- and fade that part out.
+  // Already in place:
+  // 180000 slide and zoom the rules back into their original big position.
+
   const showable: Showable = {
     description: "Definition of = for ℕ",
     // 3:13:35
@@ -868,6 +947,7 @@ function equals(): PathElement {
       context.lineWidth /= 2;
       allEqualValues(showOptions);
       doesTwoEqualThree(showOptions);
+      doesTwoEqualTwo(showOptions);
     },
   };
   sceneList.add(showable);
