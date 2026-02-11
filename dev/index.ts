@@ -323,7 +323,7 @@ async function startRecording() {
   // Canvas source (VP9 for good quality/size on macOS)
   const videoSource = new CanvasSource(canvas, {
     codec: "hevc",
-    bitrate: 8_000_000, // ~8Mbps — tune higher for better quality
+    bitrate: 16_000_000, // ~8Mbps — tune higher for better quality
   });
 
   output.addVideoTrack(videoSource, { frameRate: FPS });

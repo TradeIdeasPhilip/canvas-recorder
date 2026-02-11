@@ -8,7 +8,7 @@ import {
   Random,
 } from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
-import { LaidOut, ParagraphLayout } from "./glib/paragraph-layout";
+import { ParagraphLayout } from "./glib/paragraph-layout";
 import { PathShape } from "./glib/path-shape";
 import {
   MakeShowableInParallel,
@@ -16,7 +16,7 @@ import {
   Showable,
   ShowOptions,
 } from "./showable";
-import { mapEachPair, myRainbow, strokeColors } from "./utility";
+import { mapEachPair, myRainbow } from "./utility";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import {
   FullFormatter,
@@ -31,9 +31,9 @@ import {
   interpolateNumbers,
   Keyframes,
   timedKeyframes,
-  Keyframe,
   interpolateColor,
 } from "./interpolate";
+import { getById } from "phil-lib/client-misc";
 
 const sceneList = new MakeShowableInSeries("Scene List");
 const mainBuilder = new MakeShowableInParallel("Peano arithmetic");
@@ -688,17 +688,22 @@ function equals(): PathElement {
       readonly fullTime: number,
       readonly endTime: number,
     ) {
+      const horizontalMargin = 0.08;
+      const verticalMargin = horizontalMargin / 2;
       const beforeBBox = before.getBBox();
       const middleBBox = PathElement.combine(middle).getBBox();
       const afterBBox = after.getBBox();
-      this.#top = Math.min(beforeBBox.y.min, middleBBox.y.min, afterBBox.y.min);
-      this.#height =
-        Math.max(beforeBBox.y.max, middleBBox.y.max, afterBBox.y.max) -
-        this.#top;
-      this.#x0 = beforeBBox.x.min;
+      this.#top =
+        Math.min(beforeBBox.y.min, middleBBox.y.min, afterBBox.y.min) -
+        verticalMargin;
+      const bottom =
+        Math.max(beforeBBox.y.max, middleBBox.y.max, afterBBox.y.max) +
+        verticalMargin;
+      this.#height = bottom - this.#top;
+      this.#x0 = beforeBBox.x.min - horizontalMargin;
       this.#x1 = (beforeBBox.x.max + middleBBox.x.min) / 2;
       this.#x2 = (middleBBox.x.max + afterBBox.x.min) / 2;
-      this.#x3 = afterBBox.x.max;
+      this.#x3 = afterBBox.x.max + horizontalMargin;
       this.#xSchedule = makeBoundedLinear(
         startTime,
         this.#x0,
@@ -911,6 +916,107 @@ function equals(): PathElement {
     return doesTwoEqualTwo;
   })();
 
+  const doesPeanoEqualFourier = (() => {
+    const peanoImage = getById("Peano", HTMLImageElement);
+    const fourierImage = getById("Fourier", HTMLImageElement);
+    const formatter = new FullFormatter(makeLineFont(0.5));
+    formatter.add("Does ", equals);
+    formatter.add("PlusOne(", normal);
+    formatter.add("Peano", normal);
+    const peanoPathElement = assertNonNullable(formatter.recentlyAdded.at(-1));
+    formatter.add(") ", normal);
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(", normal);
+    formatter.add("Fourier", normal().setTag("Fourier"));
+    const fourierPathElement = assertNonNullable(
+      formatter.recentlyAdded.at(-1),
+    );
+    formatter.add(")", normal);
+    formatter.add("?\n", equals);
+    const row = formatter.align({
+      width,
+      alignment: "center",
+      top: 8,
+      left: margin,
+      additionalLineHeight: 0.1,
+    }).pathElements;
+    const handwriting = PathElement.handwriting(row, 163500, 169000);
+    const locationBase = (() => {
+      const peanoBBox = peanoPathElement.pathShape.getBBox();
+      const fourierBBox = fourierPathElement.pathShape.getBBox();
+      const widthOfImages = fourierBBox.x.size;
+      if (peanoBBox.x.size > widthOfImages) {
+        // Make both images the width of the word "Fourier".
+        // Fourier's picture will be directly above his name.
+        // Peano's image will be centered above his name, but a little wider than his name.
+        throw new Error("wtf");
+      }
+      const peanoLeft =
+        peanoBBox.x.min - (fourierBBox.x.size - peanoBBox.x.size) / 2;
+      const textMargin = 0.16;
+      const bottomOfImages = fourierBBox.y.min - textMargin;
+      return {
+        bottomOfImages,
+        widthOfImages,
+        peanoLeft,
+        fourierLeft: fourierBBox.x.min,
+      };
+    })();
+    function reposition(leftOfFinal: number, image: HTMLImageElement) {
+      const { naturalWidth, naturalHeight } = image;
+      if (naturalWidth <= 0 || naturalHeight <= 0) {
+        throw new Error("wtf");
+      }
+      const bottomOfFinal = locationBase.bottomOfImages;
+      const heightOfFinal =
+        (naturalHeight / naturalWidth) * locationBase.widthOfImages;
+      const topOfFinal = bottomOfFinal - heightOfFinal;
+      const result = {
+        x: leftOfFinal,
+        y: topOfFinal,
+        width: locationBase.widthOfImages,
+        height: heightOfFinal,
+      };
+      return result;
+    }
+    const peanoPosition = reposition(locationBase.peanoLeft, peanoImage);
+    const fourierPosition = reposition(locationBase.fourierLeft, fourierImage);
+    //console.table([peanoPosition,fourierPosition])
+    const timeToAlpha = makeBoundedLinear(172500, 1, 179000, 0);
+    function doesPeanoEqualFourier(showOptions: ShowOptions) {
+      const timeInMs = showOptions.timeInMs;
+      const alpha = timeToAlpha(timeInMs);
+      if (alpha > 0) {
+        const context = showOptions.context;
+        context.globalAlpha = alpha;
+        handwriting(showOptions);
+        //context.fillStyle = "blue";
+        //context.fillRect(peanoPosition.x, peanoPosition.y, peanoPosition.width, peanoPosition.height);
+        //context.fillRect(fourierPosition.x, fourierPosition.y, fourierPosition.width, fourierPosition.height);
+        if (timeInMs >= 166000) {
+          showOptions.context.drawImage(
+            peanoImage,
+            peanoPosition.x,
+            peanoPosition.y,
+            peanoPosition.width,
+            peanoPosition.height,
+          );
+        }
+        if (timeInMs >= 168500) {
+          showOptions.context.drawImage(
+            fourierImage,
+            fourierPosition.x,
+            fourierPosition.y,
+            fourierPosition.width,
+            fourierPosition.height,
+          );
+        }
+        context.globalAlpha = 1;
+      }
+    }
+    return doesPeanoEqualFourier;
+  })();
+
   // TODO next:
   // 163500 - 169000 -- handwriting "Peano == Fourier?"
   // 172500 - 179000 -- and fade that part out.
@@ -948,6 +1054,7 @@ function equals(): PathElement {
       allEqualValues(showOptions);
       doesTwoEqualThree(showOptions);
       doesTwoEqualTwo(showOptions);
+      doesPeanoEqualFourier(showOptions);
     },
   };
   sceneList.add(showable);
