@@ -2,6 +2,7 @@ import {
   assertNonNullable,
   FULL_CIRCLE,
   initializedArray,
+  LinearFunction,
   makeBoundedLinear,
   makeLinear,
   Random,
@@ -30,6 +31,8 @@ import {
   interpolateNumbers,
   Keyframes,
   timedKeyframes,
+  Keyframe,
+  interpolateColor,
 } from "./interpolate";
 
 const sceneList = new MakeShowableInSeries("Scene List");
@@ -609,11 +612,7 @@ function equals(): PathElement {
   );
 
   const centerOfRules = (() => {
-    const bBox = new PathShape(
-      inductiveStep.flatMap((element) => {
-        return element.pathShape.commands;
-      }),
-    ).getBBox();
+    const bBox = PathElement.combine(inductiveStep).getBBox();
     const result: { readonly x: number; readonly y: number } = {
       x: bBox.x.mid,
       y: bBox.y.mid,
@@ -675,35 +674,135 @@ function equals(): PathElement {
     return allEqualValues;
   })();
 
+  class HighlightPieces {
+    constructor(
+      before: PathShape,
+      middle: readonly PathShape[],
+      after: PathShape,
+      readonly middleColor: string,
+      readonly startTime: number,
+      readonly fullTime: number,
+      readonly endTime: number,
+    ) {
+      const beforeBBox = before.getBBox();
+      const middleBBox = PathElement.combine(middle).getBBox();
+      const afterBBox = after.getBBox();
+      this.#top = Math.min(beforeBBox.y.min, middleBBox.y.min, afterBBox.y.min);
+      this.#height =
+        Math.max(beforeBBox.y.max, middleBBox.y.max, afterBBox.y.max) -
+        this.#top;
+      this.#x0 = beforeBBox.x.min;
+      this.#x1 = (beforeBBox.x.max + middleBBox.x.min) / 2;
+      this.#x2 = (middleBBox.x.max + afterBBox.x.min) / 2;
+      this.#x3 = afterBBox.x.max;
+      this.#xSchedule = makeBoundedLinear(
+        startTime,
+        this.#x0,
+        fullTime,
+        this.#x3,
+      );
+    }
+    #top: number;
+    #height: number;
+    #x0: number;
+    #x1: number;
+    #x2: number;
+    #x3: number;
+    #xSchedule: LinearFunction;
+    show({ context, timeInMs }: ShowOptions) {
+      if (timeInMs < this.endTime) {
+        const x = this.#xSchedule(timeInMs);
+        if (x > this.#x0) {
+          context.fillStyle = myRainbow.cssBlue;
+          context.fillRect(this.#x0, this.#top, x - this.#x0, this.#height);
+          if (x > this.#x1) {
+            context.fillStyle = this.middleColor;
+            context.fillRect(
+              this.#x1,
+              this.#top,
+              Math.min(x, this.#x2) - this.#x1,
+              this.#height,
+            );
+          }
+        }
+      }
+    }
+    static make(
+      elements: readonly PathElement[],
+      side: "left" | "right",
+      startTime: number,
+      fullTime: number,
+      endTime: number,
+    ) {
+      const color = interpolateColor(
+        0.25,
+        side == "left" ? myRainbow.cyan : myRainbow.magenta,
+        "black",
+      );
+      const firstIndex = elements.findIndex((pathElement) => {
+        return pathElement.tag == `${side}-plus-one`;
+      });
+      if (firstIndex < 0) {
+        throw new Error("wtf");
+      }
+      const lastIndex = elements.findIndex((pathElement) => {
+        return pathElement.tag == `${side}-plus-one-end`;
+      });
+      if (lastIndex <= firstIndex + 1) {
+        throw new Error("wtf");
+      }
+      const before = elements[firstIndex].pathShape;
+      const middle = elements
+        .slice(firstIndex + 1, lastIndex)
+        .map((element) => element.pathShape);
+      const after = elements[lastIndex].pathShape;
+      return new this(
+        before,
+        middle,
+        after,
+        color,
+        startTime,
+        fullTime,
+        endTime,
+      );
+    }
+  }
+
   const doesTwoEqualThree = (() => {
     const formatter = new FullFormatter(makeLineFont(0.5));
     formatter.add("Does ", equals);
     formatter.add("Zero ", zero);
     formatter.add("= ", equals);
-    formatter.add("PlusOne(", normal);
+    formatter.add("PlusOne(", normal().setTag("right-plus-one"));
     formatter.add("Zero", zero);
-    formatter.add(")", normal);
+    formatter.add(")", normal().setTag("right-plus-one-end"));
     formatter.add("?\n", equals);
     const row1 = formatter.recentlyAdded;
     formatter.add("Does ", equals);
+    formatter.add("PlusOne(", normal().setTag("left-plus-one"));
+    formatter.add("Zero", zero);
+    formatter.add(") ", normal().setTag("left-plus-one-end"));
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(", normal().setTag("right-plus-one"));
     formatter.add("PlusOne(", normal);
     formatter.add("Zero", zero);
-    formatter.add(") ", normal);
-    formatter.add("= ", equals);
-    formatter.add("PlusOne(PlusOne(", normal);
-    formatter.add("Zero", zero);
-    formatter.add("))", normal);
+    formatter.add(")", normal);
+    formatter.add(")", normal().setTag("right-plus-one-end"));
     formatter.add("?\n", equals);
     const row2 = formatter.recentlyAdded;
     const smallerFont = makeLineFont(0.38);
     formatter.add("Does ", equals, smallerFont);
+    formatter.add("PlusOne(", normal().setTag("left-plus-one"), smallerFont);
+    formatter.add("PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")", normal, smallerFont);
+    formatter.add(") ", normal().setTag("left-plus-one-end"), smallerFont);
+    formatter.add("= ", equals, smallerFont);
+    formatter.add("PlusOne(", normal().setTag("right-plus-one"), smallerFont);
     formatter.add("PlusOne(PlusOne(", normal, smallerFont);
     formatter.add("Zero", zero, smallerFont);
-    formatter.add(")) ", normal, smallerFont);
-    formatter.add("= ", equals, smallerFont);
-    formatter.add("PlusOne(PlusOne(PlusOne(", normal, smallerFont);
-    formatter.add("Zero", zero, smallerFont);
-    formatter.add(")))", normal, smallerFont);
+    formatter.add("))", normal, smallerFont);
+    formatter.add(")", normal().setTag("right-plus-one-end"), smallerFont);
     formatter.add("?\n", equals, smallerFont);
     const row3 = formatter.recentlyAdded;
     formatter.align({
@@ -718,8 +817,18 @@ function equals(): PathElement {
       PathElement.handwriting(row2, 97800, 99000),
       PathElement.handwriting(row1, 117100, 118790),
     ];
+    const allHighlighters = [
+      HighlightPieces.make(row3, "left", 79300, 81650, 141480),
+      HighlightPieces.make(row3, "right", 81650, 84000, 141480),
+      HighlightPieces.make(row2, "left", 99000, 100095, 141480),
+      HighlightPieces.make(row2, "right", 100095, 101190, 141480),
+      HighlightPieces.make(row1, "right", 123000, 125000, 141480),
+    ];
 
     function doesTwoEqualThree(showOptions: ShowOptions) {
+      allHighlighters.forEach((highlighter) => {
+        highlighter.show(showOptions);
+      });
       if (showOptions.timeInMs < 141480) {
         allHandwriting.forEach((row) => {
           row(showOptions);

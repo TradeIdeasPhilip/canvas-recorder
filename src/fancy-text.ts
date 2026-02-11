@@ -82,6 +82,15 @@ export class PathElement {
   show(showOptions: ShowOptions) {
     this.stroke(showOptions.context);
   }
+  static combine(pathElements: readonly (PathElement | PathShape)[]) {
+    return new PathShape(
+      pathElements.flatMap((element) => {
+        const pathShape =
+          element instanceof PathShape ? element : element.pathShape;
+        return pathShape.commands;
+      }),
+    );
+  }
   static handwriting(
     pathElements: PathElement[],
     startMs: number,
