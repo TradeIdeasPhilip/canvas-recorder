@@ -195,7 +195,7 @@ export class FullFormatter {
     alignment?: "left" | "center" | "right" | "justify";
     additionalLineHeight?: number;
     top?: number;
-    left: number;
+    left?: number;
   }) {
     const laidOut = this.#paragraphLayout.align(
       options.width,

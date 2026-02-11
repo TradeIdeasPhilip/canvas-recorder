@@ -65,16 +65,16 @@ const background: Showable = {
    */
   duration: 0,
   show({ context }) {
+    /*
     const gradient = context.createLinearGradient(3.5, 0, 12.5, 9);
     gradient.addColorStop(1, "#333");
     gradient.addColorStop(0, "black");
     context.fillStyle = gradient;
     context.fillRect(0, 0, 16, 9);
-
     context.imageSmoothingEnabled = false;
     context.save();
     context.resetTransform();
-    const scaleFactor = 2;
+    const scaleFactor = 4;
     context.scale(scaleFactor, scaleFactor);
     context.fillStyle = assertNonNullable(
       context.createPattern(backgroundPattern, "repeat"),
@@ -87,6 +87,20 @@ const background: Showable = {
       context.canvas.height / scaleFactor,
     );
     context.restore();
+    */
+    context.fillStyle = "black";
+    context.fillRect(0, 0, 16, 9);
+    for (let i = 0; i < 3; i++) {
+      context.beginPath();
+      context.moveTo(16, i * 3);
+      context.lineTo(16, 9 + i * 3);
+      context.lineTo(0, 9 + i * 3);
+      context.closePath();
+      const weight = 0.011 * (i + 1);
+      //color(srgb-linear 0.033 0.033 0.033)
+      context.fillStyle = `color(srgb-linear ${weight} ${weight} ${weight})`;
+      context.fill();
+    }
   },
 };
 
@@ -573,12 +587,12 @@ function equals(): PathElement {
     { time: 42000, value: slideBaseCaseBy },
   ];
   const mainSlideSchedule: Keyframes<number> = [
-    { time: 45000, value: 0, easeAfter: easeOut },
-    { time: 50000, value: -1.75 },
+    { time: 49000, value: 0, easeAfter: easeOut },
+    { time: 54000, value: -1.9 },
   ];
   const mainZoomSchedule: Keyframes<number> = [
-    { time: 45000, value: 1 },
-    { time: 50000, value: 2 / 3 },
+    { time: 49000, value: 1, easeAfter: easeOut },
+    { time: 54000, value: 2 / 3 },
   ];
 
   const titleHandwriting = PathElement.handwriting(title, 2000, 7000);
@@ -590,8 +604,8 @@ function equals(): PathElement {
   );
   const andNothingElseHandwriting = PathElement.handwriting(
     andNothingElse,
-    30000,
-    33000,
+    33500,
+    36000,
   );
 
   const centerOfRules = (() => {
@@ -605,6 +619,114 @@ function equals(): PathElement {
       y: bBox.y.mid,
     };
     return result;
+  })();
+
+  const allEqualValues = (() => {
+    const formatter = new FullFormatter(makeLineFont(0.5));
+    formatter.add("Zero ", zero);
+    formatter.add("= ", equals);
+    formatter.add("Zero\n", zero);
+    const row0 = formatter.recentlyAdded;
+    formatter.add("PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add(") ", normal);
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add(")\n", normal);
+    const row1 = formatter.recentlyAdded;
+    formatter.add("PlusOne(PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add(")) ", normal);
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add("))\n", normal);
+    const row2 = formatter.recentlyAdded;
+    const smallerFont = makeLineFont(0.36);
+    formatter.add("PlusOne(PlusOne(PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add("))) ", normal, smallerFont);
+    formatter.add("= ", equals, smallerFont);
+    formatter.add("PlusOne(PlusOne(PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")))\n", normal, smallerFont);
+    const row3 = formatter.recentlyAdded;
+    formatter.align({
+      width,
+      alignment: "center",
+      top: 5,
+      left: margin,
+      additionalLineHeight: 0.1,
+    });
+    const allHandwriting = [
+      PathElement.handwriting(row0, 58100, 59540),
+      PathElement.handwriting(row1, 59840, 61500),
+      PathElement.handwriting(row2, 61910, 63660),
+      PathElement.handwriting(row3, 64150, 65500),
+    ];
+    function allEqualValues(showOptions: ShowOptions) {
+      if (showOptions.timeInMs < 72150) {
+        allHandwriting.forEach((row) => {
+          row(showOptions);
+        });
+      }
+    }
+    return allEqualValues;
+  })();
+
+  const doesTwoEqualThree = (() => {
+    const formatter = new FullFormatter(makeLineFont(0.5));
+    formatter.add("Does ", equals);
+    formatter.add("Zero ", zero);
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add(")", normal);
+    formatter.add("?\n", equals);
+    const row1 = formatter.recentlyAdded;
+    formatter.add("Does ", equals);
+    formatter.add("PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add(") ", normal);
+    formatter.add("= ", equals);
+    formatter.add("PlusOne(PlusOne(", normal);
+    formatter.add("Zero", zero);
+    formatter.add("))", normal);
+    formatter.add("?\n", equals);
+    const row2 = formatter.recentlyAdded;
+    const smallerFont = makeLineFont(0.38);
+    formatter.add("Does ", equals, smallerFont);
+    formatter.add("PlusOne(PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")) ", normal, smallerFont);
+    formatter.add("= ", equals, smallerFont);
+    formatter.add("PlusOne(PlusOne(PlusOne(", normal, smallerFont);
+    formatter.add("Zero", zero, smallerFont);
+    formatter.add(")))", normal, smallerFont);
+    formatter.add("?\n", equals, smallerFont);
+    const row3 = formatter.recentlyAdded;
+    formatter.align({
+      width,
+      alignment: "center",
+      top: 5.4,
+      left: margin,
+      additionalLineHeight: 0.1,
+    });
+    const allHandwriting = [
+      PathElement.handwriting(row3, 74800, 76800),
+      PathElement.handwriting(row2, 97800, 99000),
+      PathElement.handwriting(row1, 117100, 118790),
+    ];
+
+    function doesTwoEqualThree(showOptions: ShowOptions) {
+      if (showOptions.timeInMs < 141480) {
+        allHandwriting.forEach((row) => {
+          row(showOptions);
+        });
+      }
+    }
+    return doesTwoEqualThree;
   })();
 
   const showable: Showable = {
@@ -634,6 +756,9 @@ function equals(): PathElement {
         baseCaseHandwriting(showOptions);
         context.setTransform(initialMatrix);
       }
+      context.lineWidth /= 2;
+      allEqualValues(showOptions);
+      doesTwoEqualThree(showOptions);
     },
   };
   sceneList.add(showable);
