@@ -759,10 +759,10 @@ export function makeLineFontMap(
     {
       // MARK: 9
       const shape = PathBuilder.M(right, capitalTopMiddle)
-        .Q(right, capitalTop, center, capitalTop)
-        .Q(left, capitalTop, left, capitalTopMiddle)
-        .Q(left, capitalMiddle, center, capitalMiddle)
-        .Q(right, capitalMiddle, right, capitalTopMiddle)
+        .Q(right, capitalMiddle, center, capitalMiddle)
+        .Q(left, capitalMiddle, left, capitalTopMiddle)
+        .Q(left, capitalTop, center, capitalTop)
+        .Q(right, capitalTop, right, capitalTopMiddle)
         .Q(right, baseline, left, baseline).pathShape;
       add("9", shape, advance);
     }
