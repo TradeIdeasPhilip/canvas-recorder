@@ -171,12 +171,14 @@ export class MultiColorPathElement extends PathElement {
 
 export class FullFormatter {
   #paragraphLayout: ParagraphLayout;
-  #nextNonce = 0;
   #inProgress: {
     pathElement: PathElement;
     commands: Command[];
     words: Set<WordInPlace>;
   }[] = [];
+  get font(): Font {
+    return this.#paragraphLayout.font;
+  }
   constructor(font: Font) {
     this.#paragraphLayout = new ParagraphLayout(font);
   }

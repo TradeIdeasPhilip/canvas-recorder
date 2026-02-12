@@ -38,28 +38,6 @@ import { getById } from "phil-lib/client-misc";
 const sceneList = new MakeShowableInSeries("Scene List");
 const mainBuilder = new MakeShowableInParallel("Peano arithmetic");
 
-/**
- * A little bit of noise or grain.
- *
- * This makes the gradient look a little better.
- */
-const backgroundPattern = document.createElement("canvas");
-{
-  const random = Random.fromString("Pattern 2026");
-  backgroundPattern.width = 512;
-  backgroundPattern.height = 512;
-  const imageData = new ImageData(512, 512);
-  let index = 0;
-  for (let pixel = 0; pixel < 512 * 512; pixel++) {
-    const brightness = (random() + random()) * 5;
-    imageData.data[index++] = brightness;
-    imageData.data[index++] = brightness;
-    imageData.data[index++] = brightness;
-    imageData.data[index++] = 255;
-  }
-  backgroundPattern.getContext("2d")!.putImageData(imageData, 0, 0);
-}
-
 const background: Showable = {
   description: "background",
   /**
@@ -68,29 +46,6 @@ const background: Showable = {
    */
   duration: 0,
   show({ context }) {
-    /*
-    const gradient = context.createLinearGradient(3.5, 0, 12.5, 9);
-    gradient.addColorStop(1, "#333");
-    gradient.addColorStop(0, "black");
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 16, 9);
-    context.imageSmoothingEnabled = false;
-    context.save();
-    context.resetTransform();
-    const scaleFactor = 4;
-    context.scale(scaleFactor, scaleFactor);
-    context.fillStyle = assertNonNullable(
-      context.createPattern(backgroundPattern, "repeat"),
-    );
-    context.globalCompositeOperation = "lighter";
-    context.fillRect(
-      0,
-      0,
-      context.canvas.width / scaleFactor,
-      context.canvas.height / scaleFactor,
-    );
-    context.restore();
-    */
     context.fillStyle = "black";
     context.fillRect(0, 0, 16, 9);
     for (let i = 0; i < 3; i++) {
@@ -99,9 +54,9 @@ const background: Showable = {
       context.lineTo(16, 9 + i * 3);
       context.lineTo(0, 9 + i * 3);
       context.closePath();
-      const weight = 0.011 * (i + 1);
+      const weight = 0.017; // 0.011*2// * (i + 1);
       //color(srgb-linear 0.033 0.033 0.033)
-      context.fillStyle = `color(srgb-linear ${weight} ${weight} ${weight})`;
+      context.fillStyle = `color(srgb-linear ${i == 1 ? weight : 0} ${i == 2 ? weight : 0} ${i == 0 ? weight : 0})`;
       context.fill();
     }
   },
@@ -542,7 +497,7 @@ function equals(): PathElement {
 // MARK: Definition of = for ℕ
 {
   function normal(): PathElement {
-    return new PathElement({ strokeStyle: "red" });
+    return new PathElement({ strokeStyle: myRainbow.red });
   }
   const formatter = new FullFormatter(titleFont);
   formatter.add("Definition of ", normal);
@@ -1017,12 +972,6 @@ function equals(): PathElement {
     return doesPeanoEqualFourier;
   })();
 
-  // TODO next:
-  // 163500 - 169000 -- handwriting "Peano == Fourier?"
-  // 172500 - 179000 -- and fade that part out.
-  // Already in place:
-  // 180000 slide and zoom the rules back into their original big position.
-
   const showable: Showable = {
     description: "Definition of = for ℕ",
     // 3:13:35
@@ -1055,6 +1004,180 @@ function equals(): PathElement {
       doesTwoEqualThree(showOptions);
       doesTwoEqualTwo(showOptions);
       doesPeanoEqualFourier(showOptions);
+    },
+  };
+  //sceneList.add(showable);
+}
+
+function plus(): PathElement {
+  return new MultiColorPathElement(undefined, {
+    colors: [myRainbow.cssBlue, myRainbow.myBlue, myRainbow.cyan, "#99F"],
+    sectionLength: 0.066667,
+  }).animateOffset(1 / 2000);
+}
+
+// MARK: Dfn of + for ℕ
+{
+  function normal(): PathElement {
+    return new PathElement({ strokeStyle: myRainbow.orange });
+  }
+  const formatter = new FullFormatter(titleFont);
+  formatter.add("Definition of ", normal);
+  formatter.add("+ ", plus);
+  formatter.add("for ℕ\n\n", normal);
+  const title = formatter.recentlyAdded;
+  formatter.add("n ", normal);
+  formatter.add("+ ", plus);
+  formatter.add("Zero ", zero);
+  formatter.add("= ", plus);
+  formatter.add("n\n", normal);
+  const baseCase = formatter.recentlyAdded;
+  formatter.add("n ", normal);
+  formatter.add("+ ", plus);
+  formatter.add("OnePlus(m) ", normal);
+  formatter.add("= ", plus);
+  formatter.add("OnePlus(n) ", normal);
+  formatter.add("+ ", plus);
+  formatter.add("m", normal);
+  const inductiveStep = formatter.recentlyAdded;
+
+  const all = formatter.align({
+    width,
+    top: margin,
+    left: margin,
+    alignment: "center",
+  }).pathElements;
+  const titleHandwriting = PathElement.handwriting(title, 2000, 7000);
+  const baseCaseHandwriting = PathElement.handwriting(baseCase, 14660, 18000);
+  const inductiveStepHandwriting = PathElement.handwriting(
+    inductiveStep,
+    26480,
+    31160,
+  );
+
+  const centerOfRules = (() => {
+    const bBox = PathElement.combine([...baseCase, ...inductiveStep]).getBBox();
+    const result: { readonly x: number; readonly y: number } = {
+      x: bBox.x.mid,
+      y: bBox.y.mid,
+    };
+    return result;
+  })();
+
+  const mainSlideSchedule: Keyframes<number> = [
+    { time: 49000, value: 0, easeAfter: easeOut },
+    { time: 54000, value: -1.9 },
+    { time: 180000, value: -1.9, easeAfter: easeOut },
+    { time: 184000, value: 0 },
+  ];
+  const mainZoomSchedule: Keyframes<number> = [
+    { time: 49000, value: 1, easeAfter: easeOut },
+    { time: 54000, value: 2 / 3 },
+    { time: 180000, value: 2 / 3, easeAfter: easeOut },
+    { time: 184000, value: 1 },
+  ];
+
+  function actionFormat(): PathElement {
+    return new PathElement({ strokeStyle: myRainbow.yellow });
+  }
+
+  const actionLeftFormatter = new FullFormatter(makeLineFont(0.5));
+  actionLeftFormatter.add("1 ", actionFormat);
+  actionLeftFormatter.add("+ ", plus);
+  actionLeftFormatter.add("2", actionFormat);
+  actionLeftFormatter.add(":\n", actionFormat);
+  const left1 = actionLeftFormatter.recentlyAdded;
+  actionLeftFormatter.add("2 ", actionFormat);
+  actionLeftFormatter.add("+ ", plus);
+  actionLeftFormatter.add("1", actionFormat);
+  actionLeftFormatter.add(":\n", actionFormat);
+  const left2 = actionLeftFormatter.recentlyAdded;
+  actionLeftFormatter.add("3 ", actionFormat);
+  actionLeftFormatter.add("+ ", plus);
+  actionLeftFormatter.add("0", actionFormat);
+  actionLeftFormatter.add(":\n", actionFormat);
+  const left3 = actionLeftFormatter.recentlyAdded;
+  actionLeftFormatter.add("3", actionFormat);
+  actionLeftFormatter.add(":\n", actionFormat);
+  const left4 = actionLeftFormatter.recentlyAdded;
+  const actionLeftStuff = actionLeftFormatter.align({
+    top: 5.25 - 0.8,
+    left: 1.114,
+    alignment: "right",
+    additionalLineHeight: 0.2,
+  }).pathElements;
+
+  const actionRightFormatter = new FullFormatter(actionLeftFormatter.font);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add("+ ", plus);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(")\n", actionFormat);
+  const right1 = actionRightFormatter.recentlyAdded;
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add("+ ", plus);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(")\n", actionFormat);
+  const right2 = actionRightFormatter.recentlyAdded;
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add("+ ", plus);
+  actionRightFormatter.add("Zero\n", zero);
+  const right3 = actionRightFormatter.recentlyAdded;
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("Zero", zero);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(")\n", actionFormat);
+  const right4 = actionRightFormatter.recentlyAdded;
+  const actionRightStuff = actionRightFormatter.align({
+    top: 5.25 - 0.8,
+    left: 2.816,
+    alignment: "left",
+    additionalLineHeight: 0.2,
+  }).pathElements;
+
+  const showable: Showable = {
+    description: "Definition of + for ℕ",
+    duration: 186000,
+    show(options) {
+      const context = options.context;
+      const timeInMs = options.timeInMs;
+      context.lineWidth = 0.08;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      titleHandwriting(options);
+      {
+        const initialMatrix = context.getTransform();
+        const slideBy = interpolateNumbers(timeInMs, mainSlideSchedule);
+        const scaleBy = interpolateNumbers(timeInMs, mainZoomSchedule);
+        context.translate(centerOfRules.x, centerOfRules.y + slideBy);
+        context.scale(scaleBy, scaleBy);
+        context.translate(-centerOfRules.x, -centerOfRules.y);
+        baseCaseHandwriting(options);
+        inductiveStepHandwriting(options);
+        context.setTransform(initialMatrix);
+      }
+      context.lineWidth /= 2;
+      [...actionLeftStuff, ...actionRightStuff].forEach((element) => {
+        element.show(options);
+      });
     },
   };
   sceneList.add(showable);
