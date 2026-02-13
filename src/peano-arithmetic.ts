@@ -1,11 +1,13 @@
 import {
   assertNonNullable,
+  count,
   FULL_CIRCLE,
   initializedArray,
   LinearFunction,
   makeBoundedLinear,
   makeLinear,
-  Random,
+  NON_BREAKING_SPACE,
+  zip,
 } from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
@@ -32,6 +34,7 @@ import {
   Keyframes,
   timedKeyframes,
   interpolateColor,
+  ease,
 } from "./interpolate";
 import { getById } from "phil-lib/client-misc";
 
@@ -56,7 +59,7 @@ const background: Showable = {
       context.closePath();
       const weight = 0.017; // 0.011*2// * (i + 1);
       //color(srgb-linear 0.033 0.033 0.033)
-      context.fillStyle = `color(srgb-linear ${i == 1 ? weight : 0} ${i == 2 ? weight : 0} ${i == 0 ? weight : 0})`;
+      context.fillStyle = `color(srgb-linear ${i == 0 ? weight : 0} ${i == 1 ? weight : 0} ${i == 2 ? weight : 0})`;
       context.fill();
     }
   },
@@ -1016,7 +1019,7 @@ function plus(): PathElement {
   }).animateOffset(1 / 2000);
 }
 
-// MARK: Dfn of + for ℕ
+// MARK: + for ℕ (definition)
 {
   function normal(): PathElement {
     return new PathElement({ strokeStyle: myRainbow.orange });
@@ -1047,12 +1050,12 @@ function plus(): PathElement {
     left: margin,
     alignment: "center",
   }).pathElements;
-  const titleHandwriting = PathElement.handwriting(title, 2000, 7000);
-  const baseCaseHandwriting = PathElement.handwriting(baseCase, 14660, 18000);
+  const titleHandwriting = PathElement.handwriting(title, 1450, 4590);
+  const baseCaseHandwriting = PathElement.handwriting(baseCase, 5500, 8000);
   const inductiveStepHandwriting = PathElement.handwriting(
     inductiveStep,
-    26480,
-    31160,
+    12530,
+    15800,
   );
 
   const centerOfRules = (() => {
@@ -1065,16 +1068,12 @@ function plus(): PathElement {
   })();
 
   const mainSlideSchedule: Keyframes<number> = [
-    { time: 49000, value: 0, easeAfter: easeOut },
-    { time: 54000, value: -1.9 },
-    { time: 180000, value: -1.9, easeAfter: easeOut },
-    { time: 184000, value: 0 },
+    { time: 28230, value: 0, easeAfter: easeOut },
+    { time: 29730, value: -1.9 },
   ];
   const mainZoomSchedule: Keyframes<number> = [
-    { time: 49000, value: 1, easeAfter: easeOut },
-    { time: 54000, value: 2 / 3 },
-    { time: 180000, value: 2 / 3, easeAfter: easeOut },
-    { time: 184000, value: 1 },
+    { time: 28230, value: 1, easeAfter: easeOut },
+    { time: 29730, value: 2 / 3 },
   ];
 
   function actionFormat(): PathElement {
@@ -1097,6 +1096,8 @@ function plus(): PathElement {
   actionLeftFormatter.add("0", actionFormat);
   actionLeftFormatter.add(":\n", actionFormat);
   const left3 = actionLeftFormatter.recentlyAdded;
+  actionLeftFormatter.add("+", plus);
+  actionLeftFormatter.add("0 ", actionFormat);
   actionLeftFormatter.add("3", actionFormat);
   actionLeftFormatter.add(":\n", actionFormat);
   const left4 = actionLeftFormatter.recentlyAdded;
@@ -1144,7 +1145,12 @@ function plus(): PathElement {
   actionRightFormatter.add("Zero", zero);
   actionRightFormatter.add(")", actionFormat);
   actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(")\n", actionFormat);
+  actionRightFormatter.add(
+    ")" + NON_BREAKING_SPACE + NON_BREAKING_SPACE + NON_BREAKING_SPACE,
+    actionFormat,
+  );
+  actionRightFormatter.add("+", plus);
+  actionRightFormatter.add("Zero\n", zero);
   const right4 = actionRightFormatter.recentlyAdded;
   const actionRightStuff = actionRightFormatter.align({
     top: 5.25 - 0.8,
@@ -1153,9 +1159,166 @@ function plus(): PathElement {
     additionalLineHeight: 0.2,
   }).pathElements;
 
+  const actions: ((options: ShowOptions) => void)[] = [];
+
+  actions.push(PathElement.handwriting(left1, 30540, 32470));
+  actions.push(PathElement.handwriting(right1, 33950, 38000));
+
+  function slideFrom(
+    toAnimate: PathElement,
+    startFrom: PathElement,
+    startTime: number,
+    endTime: number,
+    andFadeAway = false,
+  ) {
+    const fromX = startFrom.pathShape.startX;
+    const toX = toAnimate.pathShape.startX;
+    const fromY = startFrom.pathShape.startY;
+    const toY = toAnimate.pathShape.startY;
+    if (
+      fromX === undefined ||
+      toX === undefined ||
+      fromY === undefined ||
+      toY === undefined
+    ) {
+      throw new Error("wtf");
+    }
+    /**
+     * The total distance that we move to the right.
+     */
+    const dx = toX - fromX;
+    /**
+     * The total distance that we move down.
+     */
+    const dy = toY - fromY;
+    const timeToEffortRemaining = makeBoundedLinear(startTime, 1, endTime, 0);
+    function slide(options: ShowOptions) {
+      const effortRemaining = ease(timeToEffortRemaining(options.timeInMs));
+      if (effortRemaining >= 1) {
+        return;
+      }
+      const originalMatrix = options.context.getTransform();
+      options.context.translate(effortRemaining * -dx, effortRemaining * -dy);
+      if (andFadeAway) {
+        options.context.globalAlpha = effortRemaining;
+      }
+      toAnimate.show(options);
+      options.context.globalAlpha = 1;
+      options.context.setTransform(originalMatrix);
+    }
+    return slide;
+  }
+  function morphFrom(
+    toAnimate: PathElement,
+    startFrom: PathElement,
+    startTime: number,
+    endTime: number,
+  ) {
+    const createShape = matchShapes(
+      fixCorners(startFrom.pathShape),
+      fixCorners(toAnimate.pathShape),
+    );
+    const timeToProgress = makeBoundedLinear(startTime, 0, endTime, 1);
+    function morph(options: ShowOptions) {
+      const progress = ease(timeToProgress(options.timeInMs));
+      if (progress > 0) {
+        const pathShape = createShape(progress);
+        toAnimate.pathShape = pathShape;
+        toAnimate.show(options);
+      }
+    }
+    return morph;
+  }
+
+  {
+    // right side:  Copy first row to second
+    const topFirstRound = [...right1];
+    const topSecondRound = topFirstRound.splice(4, 1);
+    topSecondRound.push(...topFirstRound.splice(7, 1));
+    const bottomFirstRound = [...right2];
+    const bottomSecondRound = bottomFirstRound.splice(0, 1);
+    bottomSecondRound.push(...bottomFirstRound.splice(3, 1));
+    for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
+      actions.push(slideFrom(bottom, top, 45660, 49030));
+    }
+    for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
+      actions.push(slideFrom(bottom, top, 53440, 59550));
+    }
+  }
+
+  {
+    // left side:  First row to second
+    const startTime = 61160;
+    const endTime = 62500;
+    const top = left1;
+    const bottom = left2;
+    actions.push(morphFrom(bottom[0], top[0], startTime, endTime));
+    actions.push(slideFrom(bottom[1], top[1], startTime, endTime));
+    actions.push(morphFrom(bottom[2], top[2], startTime, endTime));
+    actions.push(slideFrom(bottom[3], top[3], startTime, endTime));
+  }
+
+  {
+    // right side:  Copy second row to third
+    const topFirstRound = [...right2];
+    const topSecondRound = topFirstRound.splice(6, 1);
+    topSecondRound.push(...topFirstRound.splice(7, 1));
+    const bottomFirstRound = [...right3];
+    const bottomSecondRound = bottomFirstRound.splice(0, 1);
+    bottomSecondRound.push(...bottomFirstRound.splice(5, 1));
+    for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
+      actions.push(slideFrom(bottom, top, 81060, 84160));
+    }
+    for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
+      actions.push(slideFrom(bottom, top, 84160, 87510));
+    }
+  }
+
+  {
+    // left side:  Copy second to third
+    const startTime = 89030;
+    const endTime = 90970;
+    const top = left2;
+    const bottom = left3;
+    actions.push(morphFrom(bottom[0], top[0], startTime, endTime));
+    actions.push(slideFrom(bottom[1], top[1], startTime, endTime));
+    actions.push(morphFrom(bottom[2], top[2], startTime, endTime));
+    actions.push(slideFrom(bottom[3], top[3], startTime, endTime));
+  }
+
+  {
+    // right side: Copy third row to forth / last
+    const startTime = 94640;
+    const endTime = 100560;
+    const top = right3;
+    const bottom = right4;
+    for (const [startFrom, toAnimate, i] of zip(top, bottom, count())) {
+      const andFadeAway = i >= bottom.length - 2;
+      actions.push(
+        slideFrom(toAnimate, startFrom, startTime, endTime, andFadeAway),
+      );
+    }
+  }
+
+  {
+    // left side: Copy third row to forth / last
+    const startTime = 102180;
+    const endTime = 105160;
+    const startFrom = left3;
+    const toAnimate = left4;
+    actions.push(slideFrom(toAnimate[2], startFrom[0], startTime, endTime));
+    actions.push(slideFrom(toAnimate[3], startFrom[3], startTime, endTime));
+    actions.push(
+      slideFrom(toAnimate[0], startFrom[1], startTime, endTime, true),
+    );
+    actions.push(
+      slideFrom(toAnimate[1], startFrom[2], startTime, endTime, true),
+    );
+  }
+
   const showable: Showable = {
     description: "Definition of + for ℕ",
-    duration: 186000,
+    duration: (60 + 57) * 1000,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
@@ -1175,8 +1338,9 @@ function plus(): PathElement {
         context.setTransform(initialMatrix);
       }
       context.lineWidth /= 2;
-      [...actionLeftStuff, ...actionRightStuff].forEach((element) => {
-        element.show(options);
+
+      actions.forEach((action) => {
+        action(options);
       });
     },
   };

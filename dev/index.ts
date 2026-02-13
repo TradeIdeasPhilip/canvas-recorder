@@ -180,6 +180,9 @@ const audioElement = querySelector("audio", HTMLAudioElement);
   lockAudioAndVideoInput.addEventListener("input", () => {
     syncWithAudio = lockAudioAndVideoInput.checked;
     playControlsFieldset.disabled = syncWithAudio;
+    if (syncWithAudio && audioElement.paused) {
+      audioElement.currentTime = playPositionSeconds.valueAsNumber;
+    }
   });
 }
 

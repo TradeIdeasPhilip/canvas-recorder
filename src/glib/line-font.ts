@@ -2,6 +2,7 @@ import {
   assertNonNullable,
   initializedArray,
   makeBoundedLinear,
+  NON_BREAKING_SPACE,
   pickAny,
   polarToRectangular,
 } from "phil-lib/misc";
@@ -154,6 +155,11 @@ export function makeLineFontMap(
   } = fontMetrics;
   const left = 0;
   const dotHeight = strokeWidth / 3;
+  // MARK: Non breaking space
+  {
+    const advance = fontMetrics.spaceWidth;
+    add(NON_BREAKING_SPACE, PathShape.EMPTY, advance);
+  }
   // MARK: &
   {
     // This code was automatically generated.
