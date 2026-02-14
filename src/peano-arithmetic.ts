@@ -502,8 +502,9 @@ function equals(): PathElement {
   function normal(): PathElement {
     return new PathElement({ strokeStyle: myRainbow.red });
   }
-  const darkCyan = interpolateColor(0.5, myRainbow.cyan, "black");
+  const darkCyan = interpolateColor(0.6, myRainbow.cyan, "black");
   const darkMagenta = interpolateColor(0.5, myRainbow.magenta, "black");
+  const darkBlue = interpolateColor(0.5, myRainbow.cssBlue, "black");
 
   const formatter = new FullFormatter(titleFont);
   formatter.add("Definition of ", normal);
@@ -683,7 +684,7 @@ function equals(): PathElement {
       if (timeInMs < this.endTime) {
         const x = this.#xSchedule(timeInMs);
         if (x > this.#x0) {
-          context.fillStyle = myRainbow.cssBlue;
+          context.fillStyle = darkBlue;
           context.fillRect(this.#x0, this.#top, x - this.#x0, this.#height);
           if (x > this.#x1) {
             context.fillStyle = this.middleColor;
@@ -1397,28 +1398,735 @@ But what we have now is good to prove a point.`,
 
 // MARK: 2 + 2 = 4?
 {
+  const font = makeLineFont(0.25);
+  const op1 = "#ff00C0";
+  const op2 = "#ff00ff";
+  const op3 = "#C000ff";
+  const op4 = "#8000ff";
   function normal(): PathElement {
-    return new PathElement({ strokeStyle: myRainbow.cssBlue });
+    return new PathElement({
+      strokeStyle: myRainbow.cssBlue,
+      lineWidth: font.strokeWidth,
+    });
   }
-  const formatter = new FullFormatter(makeLineFont(0.341));
+  const formatter = new FullFormatter(font);
+  const lines: PathElement[][] = [];
+  // MARK: Title
   formatter.add(
-    `Does 2 + 2 = 4? ℕℤℚQ
-Does OnePlus(OnePlus(Zero)) + OnePlus(OnePlus(Zero)) = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
-Does OnePlus(OnePlus(OnePlus(Zero))) + OnePlus(Zero) = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
-Does OnePlus(OnePlus(OnePlus(OnePlus(Zero)))) + Zero = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
-Does OnePlus(OnePlus(OnePlus(OnePlus(Zero))))  = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
-Does OnePlus(OnePlus(OnePlus(Zero))) = OnePlus(OnePlus(OnePlus(Zero)))?
-Does OnePlus(OnePlus(Zero)) = OnePlus(OnePlus(Zero))?
-Does OnePlus(Zero) = OnePlus(Zero)?
-Does Zero = Zero?
-Yes!`,
-    normal,
+    "Does ",
+    equals().setLineWidth(titleFont.strokeWidth),
+    titleFont,
   );
+  formatter.add(
+    "2 ",
+    new PathElement({ lineWidth: titleFont.strokeWidth, strokeStyle: op1 }),
+    titleFont,
+  );
+  formatter.add("+ ", plus().setLineWidth(titleFont.strokeWidth), titleFont);
+  formatter.add(
+    "2 ",
+    new PathElement({ lineWidth: titleFont.strokeWidth, strokeStyle: op3 }),
+    titleFont,
+  );
+  formatter.add("= ", equals().setLineWidth(titleFont.strokeWidth), titleFont);
+  formatter.add(
+    "4 ",
+    new PathElement({ lineWidth: titleFont.strokeWidth, strokeStyle: op4 }),
+    titleFont,
+  );
+  formatter.add("?\n", equals().setLineWidth(titleFont.strokeWidth), titleFont);
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 2 + 2 = 4?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("+ ", plus().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 3 + 1 = 4?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("+ ", plus().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 4 + 0 = 4?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("+ ", plus().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("Zero ", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 4 = 4?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op4,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 3 = 3?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op3,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 2 = 2?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op2,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 1 = 1?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ") ",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    "OnePlus(",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add(
+    ")",
+    new PathElement({
+      strokeStyle: op1,
+      lineWidth: formatter.font.strokeWidth,
+    }),
+  );
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Does 0 = 0?
+  formatter.add("Does ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("Zero ", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("= ", equals().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+  formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
+  lines.push(formatter.recentlyAdded);
+  // MARK: Yes!
+  formatter.add(
+    "Yes!\n",
+    equals().setLineWidth(titleFont.strokeWidth),
+    titleFont,
+  );
+  lines.push(formatter.recentlyAdded);
   const all = formatter.align({
     width,
     top: margin,
     left: margin,
     alignment: "center",
+    additionalLineHeight: 0.25,
   }).pathElements;
   const showable: Showable = {
     description: "Does 2 + 2 = 4?",

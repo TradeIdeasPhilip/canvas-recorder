@@ -39,6 +39,10 @@ export class PathElement {
     this.tag = newTag;
     return this;
   }
+  setLineWidth(lineWidth: number | undefined) {
+    this.commonSettings.lineWidth = lineWidth;
+    return this;
+  }
   /**
    * Copy settings from `requested` into `context`.
    * @param requested New settings to use.
