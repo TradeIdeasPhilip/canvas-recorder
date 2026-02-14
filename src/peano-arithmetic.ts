@@ -186,7 +186,7 @@ function rainbowHighlight() {
       }
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function zero(): PathElement {
@@ -486,7 +486,7 @@ function zero(): PathElement {
       drawMorphingNumber(options);
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 console.log(titleFont.strokeWidth);
 
@@ -502,6 +502,9 @@ function equals(): PathElement {
   function normal(): PathElement {
     return new PathElement({ strokeStyle: myRainbow.red });
   }
+  const darkCyan = interpolateColor(0.5, myRainbow.cyan, "black");
+  const darkMagenta = interpolateColor(0.5, myRainbow.magenta, "black");
+
   const formatter = new FullFormatter(titleFont);
   formatter.add("Definition of ", normal);
   formatter.add("= ", equals);
@@ -511,15 +514,15 @@ function equals(): PathElement {
   formatter.add("= ", equals().setTag("match ="));
   formatter.add("Zero\n", zero);
   const baseCase = formatter.recentlyAdded;
-  formatter.add("x ", new PathElement({ strokeStyle: myRainbow.cyan }));
+  formatter.add("x ", new PathElement({ strokeStyle: darkCyan }));
   formatter.add("= ", equals);
-  formatter.add("y ", new PathElement({ strokeStyle: myRainbow.magenta }));
+  formatter.add("y ", new PathElement({ strokeStyle: darkMagenta }));
   formatter.add("→ PlusOne(", normal);
-  formatter.add("x", new PathElement({ strokeStyle: myRainbow.cyan }));
+  formatter.add("x", new PathElement({ strokeStyle: darkCyan }));
   formatter.add(") ", normal);
   formatter.add("= ", equals().setTag("match ="));
   formatter.add("PlusOne(", normal);
-  formatter.add("y", new PathElement({ strokeStyle: myRainbow.magenta }));
+  formatter.add("y", new PathElement({ strokeStyle: darkMagenta }));
   formatter.add(")\n", normal);
   const inductiveStep = formatter.recentlyAdded;
   formatter.add("And nothing else.", normal);
@@ -701,11 +704,7 @@ function equals(): PathElement {
       fullTime: number,
       endTime: number,
     ) {
-      const color = interpolateColor(
-        0.25,
-        side == "left" ? myRainbow.cyan : myRainbow.magenta,
-        "black",
-      );
+      const color = side == "left" ? darkCyan : darkMagenta;
       const firstIndex = elements.findIndex((pathElement) => {
         return pathElement.tag == `${side}-plus-one`;
       });
@@ -1009,7 +1008,7 @@ function equals(): PathElement {
       doesPeanoEqualFourier(showOptions);
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function plus(): PathElement {
@@ -1344,6 +1343,98 @@ function plus(): PathElement {
       });
     },
   };
+  sceneList.add(showable);
+}
+
+// MARK: Recap
+{
+  function normal(): PathElement {
+    return new PathElement({ strokeStyle: myRainbow.violet });
+  }
+  const formatter = new FullFormatter(titleFont);
+  const bodyFont = makeLineFont(0.5);
+  formatter.add("So far:  ℕ = +\n", normal);
+  const title = formatter.recentlyAdded;
+  formatter.add(
+    `Could we go further?  Of course.
+< > would be easy to define.
+- We could add subtraction and negative numbers to get all of ℤ.
+× It would be easy to add multiplication.
+And from there you could add 
+Division and ℚ rational numbers.
+But what we have now is good to prove a point.`,
+    normal,
+    bodyFont,
+  );
+  const body = formatter.recentlyAdded;
+  const all = formatter.align({
+    width,
+    top: margin,
+    left: margin,
+    alignment: "center",
+  }).pathElements;
+  const showable: Showable = {
+    description: "Recap",
+    duration: 20000,
+    show(options) {
+      const context = options.context;
+      const timeInMs = options.timeInMs;
+      context.lineWidth = 0.08;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      title.forEach((pathElement) => {
+        pathElement.show(options);
+      });
+      context.lineWidth = bodyFont.strokeWidth;
+      body.forEach((pathElement) => {
+        pathElement.show(options);
+      });
+    },
+  };
+
+  sceneList.add(showable);
+}
+
+// MARK: 2 + 2 = 4?
+{
+  function normal(): PathElement {
+    return new PathElement({ strokeStyle: myRainbow.cssBlue });
+  }
+  const formatter = new FullFormatter(makeLineFont(0.341));
+  formatter.add(
+    `Does 2 + 2 = 4? ℕℤℚQ
+Does OnePlus(OnePlus(Zero)) + OnePlus(OnePlus(Zero)) = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
+Does OnePlus(OnePlus(OnePlus(Zero))) + OnePlus(Zero) = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
+Does OnePlus(OnePlus(OnePlus(OnePlus(Zero)))) + Zero = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
+Does OnePlus(OnePlus(OnePlus(OnePlus(Zero))))  = OnePlus(OnePlus(OnePlus(OnePlus(Zero))))?
+Does OnePlus(OnePlus(OnePlus(Zero))) = OnePlus(OnePlus(OnePlus(Zero)))?
+Does OnePlus(OnePlus(Zero)) = OnePlus(OnePlus(Zero))?
+Does OnePlus(Zero) = OnePlus(Zero)?
+Does Zero = Zero?
+Yes!`,
+    normal,
+  );
+  const all = formatter.align({
+    width,
+    top: margin,
+    left: margin,
+    alignment: "center",
+  }).pathElements;
+  const showable: Showable = {
+    description: "Does 2 + 2 = 4?",
+    duration: 20000,
+    show(options) {
+      const context = options.context;
+      const timeInMs = options.timeInMs;
+      context.lineWidth = formatter.font.strokeWidth;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      all.forEach((pathElement) => {
+        pathElement.show(options);
+      });
+    },
+  };
+
   sceneList.add(showable);
 }
 
