@@ -199,7 +199,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         const progress = easeAndBack(timeInMs / this.duration);
         context.lineWidth = 0.04 + progress * 0.08;
         const path = ParagraphLayout.singlePathShape({
-          text: "This is Line Font.  It has the most characters.  And it can adjust to different line thicknesses.",
+          text: "This is Line Font.  It has the most characters.  And it can adjust to different line thicknesses. ℕℤℚ",
           font: makeLineFont(new LineFontMetrics(0.5, context.lineWidth)),
           alignment: "left",
           width: 16 - 2 * margin,

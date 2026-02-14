@@ -989,8 +989,8 @@ export function makeLineFontMap(
   {
     // MARK: ℕ
     const nAdvance = digitWidth * 1.2;
-    const extraHeight = strokeWidth * 1.5;
-    const extraWidth = strokeWidth * 1.5;
+    const extraHeight = strokeWidth * Math.SQRT2;
+    const extraWidth = strokeWidth * Math.SQRT2;
     const advance = nAdvance + extraWidth;
 
     const shape = PathBuilder.M(left, baseline)
@@ -1045,6 +1045,39 @@ export function makeLineFontMap(
       .M(advance - center * 0.75, baseline - center * 0.75)
       .L(advance + center / 6, baseline + center / 6).pathShape;
     add("Q", shape, advance);
+  }
+  {
+    // MARK: ℚ
+    const rightWidth = digitWidth * 0.75;
+    const leftWidth = rightWidth;
+    const extraWidth = strokeWidth * 2;
+    const advance = leftWidth + extraWidth + rightWidth;
+    const middle = (capitalTop + baseline) / 2;
+    const pathBuilder = PathBuilder.M(leftWidth + extraWidth, capitalTop)
+      .Q_HV(advance, middle)
+      .Q_VH(leftWidth + extraWidth, baseline)
+      .L(leftWidth, baseline)
+      .Q_HV(left, middle)
+      .Q_VH(leftWidth, capitalTop)
+      .L(leftWidth + extraWidth, capitalTop)
+      .M(advance - rightWidth * 0.75, baseline - rightWidth * 0.75)
+      .L(advance + rightWidth / 6, baseline + rightWidth / 6);
+    const offset = (() => {
+      const bezier = pathBuilder.commands[3].getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: extraWidth, y: baseline },
+        p2: { x: extraWidth, y: capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    pathBuilder.M(extraWidth, capitalTop - offset).V(baseline + offset);
+    const shape = pathBuilder.pathShape;
+    add("ℚ", shape, advance);
   }
   {
     // MARK: R
@@ -1171,6 +1204,20 @@ export function makeLineFontMap(
       .L(left, baseline)
       .H(advance).pathShape;
     add("Z", shape, advance);
+  }
+  // MARK: ℤ
+  {
+    const zAdvance = digitWidth;
+    const extraWidth = strokeWidth * 2;
+    const advance = zAdvance + extraWidth;
+
+    const shape = PathBuilder.M(left, capitalTop)
+      .H(advance)
+      .L(left + extraWidth, baseline)
+      .M(zAdvance, capitalTop)
+      .L(left, baseline)
+      .H(advance).pathShape;
+    add("ℤ", shape, advance);
   }
   // MARK: %
   {
