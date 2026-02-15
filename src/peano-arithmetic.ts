@@ -983,7 +983,7 @@ function equals(): PathElement {
       doesPeanoEqualFourier(showOptions);
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 function plus(): PathElement {
@@ -1050,30 +1050,54 @@ function plus(): PathElement {
     { time: 29730, value: 2 / 3 },
   ];
 
-  function actionFormat(): PathElement {
-    return new PathElement({ strokeStyle: myRainbow.yellow });
+  function actionFormat(level: 1 | 2 | 3): PathElement {
+    //  "#d8d800", //1
+    // "#a2d800", //2
+    // "#6cd800",
+    // "#36d800", //3
+    // #00d800
+    // "#0e0",
+    let color: string;
+    switch (level) {
+      case 1: {
+        color = "#d8d800";
+        break;
+      }
+      case 2: {
+        color = "#a2d800";
+        break;
+      }
+      case 3: {
+        color = "#36d800";
+        break;
+      }
+      default: {
+        throw new Error("wtf");
+      }
+    }
+    return new PathElement({ strokeStyle: color });
   }
 
   const actionLeftFormatter = new FullFormatter(makeLineFont(0.5));
-  actionLeftFormatter.add("1 ", actionFormat);
+  actionLeftFormatter.add("1 ", actionFormat(1));
   actionLeftFormatter.add("+ ", plus);
-  actionLeftFormatter.add("2", actionFormat);
-  actionLeftFormatter.add(":\n", actionFormat);
+  actionLeftFormatter.add("2", actionFormat(1));
+  actionLeftFormatter.add(":\n", actionFormat(1));
   const left1 = actionLeftFormatter.recentlyAdded;
-  actionLeftFormatter.add("2 ", actionFormat);
+  actionLeftFormatter.add("2 ", actionFormat(1));
   actionLeftFormatter.add("+ ", plus);
-  actionLeftFormatter.add("1", actionFormat);
-  actionLeftFormatter.add(":\n", actionFormat);
+  actionLeftFormatter.add("1", actionFormat(1));
+  actionLeftFormatter.add(":\n", actionFormat(1));
   const left2 = actionLeftFormatter.recentlyAdded;
-  actionLeftFormatter.add("3 ", actionFormat);
+  actionLeftFormatter.add("3 ", actionFormat(1));
   actionLeftFormatter.add("+ ", plus);
-  actionLeftFormatter.add("0", actionFormat);
-  actionLeftFormatter.add(":\n", actionFormat);
+  actionLeftFormatter.add("0", actionFormat(1));
+  actionLeftFormatter.add(":\n", actionFormat(1));
   const left3 = actionLeftFormatter.recentlyAdded;
   actionLeftFormatter.add("+", plus);
-  actionLeftFormatter.add("0 ", actionFormat);
-  actionLeftFormatter.add("3", actionFormat);
-  actionLeftFormatter.add(":\n", actionFormat);
+  actionLeftFormatter.add("0 ", actionFormat(1));
+  actionLeftFormatter.add("3", actionFormat(1));
+  actionLeftFormatter.add(":\n", actionFormat(1));
   const left4 = actionLeftFormatter.recentlyAdded;
   const actionLeftStuff = actionLeftFormatter.align({
     top: 5.25 - 0.8,
@@ -1083,45 +1107,45 @@ function plus(): PathElement {
   }).pathElements;
 
   const actionRightFormatter = new FullFormatter(actionLeftFormatter.font);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(3));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add(") ", actionFormat(3));
   actionRightFormatter.add("+ ", plus);
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(2));
+  actionRightFormatter.add("OnePlus(", actionFormat(1));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(")\n", actionFormat);
+  actionRightFormatter.add(")", actionFormat(1));
+  actionRightFormatter.add(")\n", actionFormat(2));
   const right1 = actionRightFormatter.recentlyAdded;
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(2));
+  actionRightFormatter.add("OnePlus(", actionFormat(3));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add(")", actionFormat(3));
+  actionRightFormatter.add(") ", actionFormat(2));
   actionRightFormatter.add("+ ", plus);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(1));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(")\n", actionFormat);
+  actionRightFormatter.add(")\n", actionFormat(1));
   const right2 = actionRightFormatter.recentlyAdded;
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(1));
+  actionRightFormatter.add("OnePlus(", actionFormat(2));
+  actionRightFormatter.add("OnePlus(", actionFormat(3));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(") ", actionFormat);
+  actionRightFormatter.add(")", actionFormat(3));
+  actionRightFormatter.add(")", actionFormat(2));
+  actionRightFormatter.add(") ", actionFormat(1));
   actionRightFormatter.add("+ ", plus);
   actionRightFormatter.add("Zero\n", zero);
   const right3 = actionRightFormatter.recentlyAdded;
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
-  actionRightFormatter.add("OnePlus(", actionFormat);
+  actionRightFormatter.add("OnePlus(", actionFormat(1));
+  actionRightFormatter.add("OnePlus(", actionFormat(2));
+  actionRightFormatter.add("OnePlus(", actionFormat(3));
   actionRightFormatter.add("Zero", zero);
-  actionRightFormatter.add(")", actionFormat);
-  actionRightFormatter.add(")", actionFormat);
+  actionRightFormatter.add(")", actionFormat(3));
+  actionRightFormatter.add(")", actionFormat(2));
   actionRightFormatter.add(
     ")" + NON_BREAKING_SPACE + NON_BREAKING_SPACE + NON_BREAKING_SPACE,
-    actionFormat,
+    actionFormat(1),
   );
   actionRightFormatter.add("+", plus);
   actionRightFormatter.add("Zero\n", zero);
@@ -1318,7 +1342,7 @@ function plus(): PathElement {
       });
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 // MARK: Recap
