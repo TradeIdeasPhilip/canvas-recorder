@@ -227,6 +227,11 @@ function countNotNullable(items: readonly unknown[]) {
 
 export function strokeColors(options: StrokeColorsOptions) {
   const splitter = new PathShapeSplitter(options.pathShape);
+  if (splitter.length == 0) {
+    // This is more than an optimization.
+    // If you take this away an empty path will cause an exception.
+    return;
+  }
   const colorsToUse = options.colors ?? myRainbow;
   if (
     countNotNullable([

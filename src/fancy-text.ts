@@ -13,7 +13,7 @@ type CommonSettings = Partial<
   >
 >;
 /**
- * A pathshape and some common settings for that pathshape.
+ * A PathShape and some common settings for that PathShape.
  * Fully mutable.
  *
  */

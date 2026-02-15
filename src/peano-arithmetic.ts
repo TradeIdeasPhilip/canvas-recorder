@@ -35,6 +35,7 @@ import {
   timedKeyframes,
   interpolateColor,
   ease,
+  easeIn,
 } from "./interpolate";
 import { getById } from "phil-lib/client-misc";
 
@@ -186,7 +187,7 @@ function rainbowHighlight() {
       }
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 function zero(): PathElement {
@@ -232,29 +233,6 @@ function zero(): PathElement {
     );
     return result;
   })();
-  /*
-  const morphingNumbersXX = (() => {
-    const font = makeLineFont(1.5);
-    function make(text: string): PathShape {
-      const layout = new ParagraphLayout(font);
-      layout.addText(text);
-      const result = layout
-        .align(3, "center")
-        .singlePathShape()
-        .translate(13, 6.5);
-      return result;
-    }
-    const base = make("?").reverse();
-    return initializedArray(21, (n) => {
-      let number = make(n.toString());
-      if (n == 1 || n == 2 || n == 3 || n == 5 || n == 7) {
-        number = number.reverse();
-      }
-      number = fixCorners(number);
-      return matchShapes(base, number);
-    });
-  })();
-  */
   const getTitleLength = makeBoundedLinear(
     50,
     0,
@@ -486,9 +464,8 @@ function zero(): PathElement {
       drawMorphingNumber(options);
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
-console.log(titleFont.strokeWidth);
 
 function equals(): PathElement {
   return new MultiColorPathElement(undefined, {
@@ -1009,7 +986,7 @@ function equals(): PathElement {
       doesPeanoEqualFourier(showOptions);
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 function plus(): PathElement {
@@ -1344,7 +1321,7 @@ function plus(): PathElement {
       });
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 // MARK: Recap
@@ -1393,7 +1370,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 // MARK: 2 + 2 = 4?
@@ -1403,12 +1380,6 @@ But what we have now is good to prove a point.`,
   const op2 = "#ff00ff";
   const op3 = "#C000ff";
   const op4 = "#8000ff";
-  function normal(): PathElement {
-    return new PathElement({
-      strokeStyle: myRainbow.cssBlue,
-      lineWidth: font.strokeWidth,
-    });
-  }
   const formatter = new FullFormatter(font);
   const lines: PathElement[][] = [];
   // MARK: Title
@@ -1419,7 +1390,7 @@ But what we have now is good to prove a point.`,
   );
   formatter.add(
     "2 ",
-    new PathElement({ lineWidth: titleFont.strokeWidth, strokeStyle: op1 }),
+    new PathElement({ lineWidth: titleFont.strokeWidth, strokeStyle: op2 }),
     titleFont,
   );
   formatter.add("+ ", plus().setLineWidth(titleFont.strokeWidth), titleFont);
@@ -2115,11 +2086,8 @@ But what we have now is good to prove a point.`,
   formatter.add("?\n", equals().setLineWidth(formatter.font.strokeWidth));
   lines.push(formatter.recentlyAdded);
   // MARK: Yes!
-  formatter.add(
-    "Yes!\n",
-    equals().setLineWidth(titleFont.strokeWidth),
-    titleFont,
-  );
+  formatter.add("Yes", equals().setLineWidth(titleFont.strokeWidth), titleFont);
+  formatter.add("!\n", equals().setLineWidth(titleFont.strokeWidth), titleFont);
   lines.push(formatter.recentlyAdded);
   const all = formatter.align({
     width,
@@ -2128,18 +2096,303 @@ But what we have now is good to prove a point.`,
     alignment: "center",
     additionalLineHeight: 0.25,
   }).pathElements;
+  const actions = new Array<(options: ShowOptions) => void>();
+  function morphFrom(
+    toAnimate: PathElement,
+    startFrom: PathElement,
+    startTime: number,
+    endTime: number,
+  ) {
+    const createShape = matchShapes(
+      fixCorners(startFrom.pathShape),
+      fixCorners(toAnimate.pathShape),
+    );
+    const timeToProgress = makeBoundedLinear(startTime, 0, endTime, 1);
+    const timeToLineWidth = makeBoundedLinear(
+      startTime,
+      assertNonNullable(startFrom.commonSettings.lineWidth),
+      endTime,
+      assertNonNullable(toAnimate.commonSettings.lineWidth),
+    );
+    function morph(options: ShowOptions) {
+      const progress = ease(timeToProgress(options.timeInMs));
+      if (progress > 0) {
+        const pathShape = createShape(progress);
+        toAnimate.pathShape = pathShape;
+        const lineWidth = timeToLineWidth(options.timeInMs);
+        toAnimate.setLineWidth(lineWidth);
+        toAnimate.show(options);
+      }
+    }
+    return morph;
+  }
+  // Top row (title)
+  actions.push(PathElement.handwriting(lines[0], 1000, 4000));
+  {
+    // Title → Second row
+    const startTime = 6000;
+    const endTime = 11000;
+    const sourceRow = [...lines[0]];
+    const destinationRow = [...lines[1]];
+    function morphOne() {
+      actions.push(
+        morphFrom(
+          destinationRow.shift()!,
+          sourceRow.shift()!,
+          startTime,
+          endTime,
+        ),
+      );
+    }
+    function expandNumber(value: number) {
+      const source = sourceRow.shift()!;
+      const destination = destinationRow.splice(0, value * 2 + 1);
+      const temp: typeof actions = [];
+      while (destination.length > 1) {
+        temp.push(morphFrom(destination.shift()!, source, startTime, endTime));
+        temp.push(morphFrom(destination.pop()!, source, startTime, endTime));
+      }
+      temp.push(morphFrom(destination[0], source, startTime, endTime));
+      actions.push(...temp.reverse());
+    }
+    morphOne();
+    expandNumber(2);
+    morphOne();
+    expandNumber(2);
+    morphOne();
+    expandNumber(4);
+    morphOne();
+    if (sourceRow.length > 0 || destinationRow.length > 0) {
+      throw new Error("wtf");
+    }
+  }
+  function slideFrom(
+    toAnimate: PathElement,
+    startFrom: PathElement,
+    startTime: number,
+    endTime: number,
+  ) {
+    const fromX = startFrom.pathShape.startX;
+    const toX = toAnimate.pathShape.startX;
+    const fromY = startFrom.pathShape.startY;
+    const toY = toAnimate.pathShape.startY;
+    if (
+      fromX === undefined ||
+      toX === undefined ||
+      fromY === undefined ||
+      toY === undefined
+    ) {
+      throw new Error("wtf");
+    }
+    /**
+     * The total distance that we move to the right.
+     */
+    const dx = toX - fromX;
+    /**
+     * The total distance that we move down.
+     */
+    const dy = toY - fromY;
+    const timeToEffortRemaining = makeBoundedLinear(startTime, 1, endTime, 0);
+    function slide(options: ShowOptions) {
+      const effortRemaining = ease(timeToEffortRemaining(options.timeInMs));
+      if (effortRemaining >= 1) {
+        return;
+      }
+      const originalMatrix = options.context.getTransform();
+      options.context.translate(effortRemaining * -dx, effortRemaining * -dy);
+      toAnimate.show(options);
+      options.context.setTransform(originalMatrix);
+    }
+    return slide;
+  }
+  {
+    // Second row to third, 2+2 to 3+1
+    const topFirstRound = [...lines[1]];
+    const topSecondRound = topFirstRound.splice(7, 1);
+    topSecondRound.push(...topFirstRound.splice(10, 1));
+    const bottomFirstRound = [...lines[2]];
+    const bottomSecondRound = bottomFirstRound.splice(1, 1);
+    bottomSecondRound.push(...bottomFirstRound.splice(6, 1));
+    for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
+      actions.push(slideFrom(bottom, top, 13000, 15000));
+    }
+    for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
+      actions.push(slideFrom(bottom, top, 13500, 15500));
+    }
+  }
+  {
+    // Third row to fourth, 3+1 to 4+0
+    const topFirstRound = [...lines[2]];
+    const topSecondRound = topFirstRound.splice(9, 1);
+    topSecondRound.push(...topFirstRound.splice(10, 1));
+    const bottomFirstRound = [...lines[3]];
+    const bottomSecondRound = bottomFirstRound.splice(1, 1);
+    bottomSecondRound.push(...bottomFirstRound.splice(8, 1));
+    for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
+      actions.push(slideFrom(bottom, top, 18000, 20000));
+    }
+    for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
+      actions.push(slideFrom(bottom, top, 18500, 20500));
+    }
+  }
+  /**
+   *
+   * @param toAnimate Probably a **copy** of something from the paragraph layout.
+   * @param startTime
+   * @param endTime
+   * @returns
+   */
+  function slideAndHide(
+    toAnimate: PathElement,
+    startTime: number,
+    endTime: number,
+  ) {
+    // Move up one half of one line height.
+    const dY =
+      (assertNonNullable(lines[2][0].pathShape.startY) -
+        assertNonNullable(lines[3][0].pathShape.startY)) *
+      0.5;
+    const timeToProgress = makeBoundedLinear(startTime, 0, endTime, 1);
+    function slide(options: ShowOptions) {
+      const progress = easeOut(timeToProgress(options.timeInMs));
+      if (progress >= 1 || progress <= 0) {
+        return;
+      }
+      const originalMatrix = options.context.getTransform();
+      options.context.translate(0, progress * dY);
+      options.context.globalAlpha = 1 - progress;
+      toAnimate.show(options);
+      options.context.globalAlpha = 1;
+      options.context.setTransform(originalMatrix);
+    }
+    return slide;
+  }
+  function removeSome(
+    toKeep: readonly PathElement[],
+    toRemove: ReadonlyMap<number, PathElement>,
+    startFrom: readonly PathElement[],
+    startTime: number,
+    endTime: number,
+  ): void {
+    if (startFrom.length != toKeep.length + toRemove.size) {
+      throw new Error("wtf");
+    }
+    let debug = 0;
+    actions.push((options) => {
+      //removeSome
+      debug++;
+    });
+    const toKeepRemaining = [...toKeep];
+    const longEndTime = endTime + (endTime - startTime);
+    startFrom.forEach((startFromPathElement, index) => {
+      const elementToSlideAndHide = toRemove.get(index);
+      if (elementToSlideAndHide) {
+        elementToSlideAndHide.pathShape = startFromPathElement.pathShape;
+        actions.push(
+          slideAndHide(elementToSlideAndHide, startTime, longEndTime),
+        );
+      } else {
+        const elementToSlide = assertNonNullable(toKeepRemaining.shift());
+        actions.push(
+          slideFrom(elementToSlide, startFromPathElement, startTime, endTime),
+        );
+      }
+    });
+  }
+  {
+    const topRow = lines[3];
+    const bottomRow = lines[4];
+    const toKeep = bottomRow;
+    const toRemove = new Map([
+      [10, plus()],
+      [11, zero()],
+    ]);
+    const startFrom = topRow;
+    removeSome(toKeep, toRemove, startFrom, 22000, 24000);
+  }
+  {
+    const topRow = lines[4];
+    const bottomRow = lines[5];
+    const toKeep = bottomRow;
+    const startFrom = topRow;
+    const toRemove = new Map(
+      startFrom.flatMap((sourcePathElement, index) => {
+        if (sourcePathElement.commonSettings.strokeStyle == op4) {
+          return [[index, new PathElement(sourcePathElement.commonSettings)]];
+        } else {
+          return [];
+        }
+      }),
+    );
+    removeSome(toKeep, toRemove, startFrom, 28000, 30000);
+  }
+  {
+    const topRow = lines[5];
+    const bottomRow = lines[6];
+    const toKeep = bottomRow;
+    const startFrom = topRow;
+    const toRemove = new Map(
+      startFrom.flatMap((sourcePathElement, index) => {
+        if (sourcePathElement.commonSettings.strokeStyle == op3) {
+          return [[index, new PathElement(sourcePathElement.commonSettings)]];
+        } else {
+          return [];
+        }
+      }),
+    );
+    removeSome(toKeep, toRemove, startFrom, 32000, 34000);
+  }
+  {
+    const topRow = lines[6];
+    const bottomRow = lines[7];
+    const toKeep = bottomRow;
+    const startFrom = topRow;
+    const toRemove = new Map(
+      startFrom.flatMap((sourcePathElement, index) => {
+        if (sourcePathElement.commonSettings.strokeStyle == op2) {
+          return [[index, new PathElement(sourcePathElement.commonSettings)]];
+        } else {
+          return [];
+        }
+      }),
+    );
+    removeSome(toKeep, toRemove, startFrom, 36000, 38000);
+  }
+  {
+    const topRow = lines[7];
+    const bottomRow = lines[8];
+    const toKeep = bottomRow;
+    const startFrom = topRow;
+    const toRemove = new Map(
+      startFrom.flatMap((sourcePathElement, index) => {
+        if (sourcePathElement.commonSettings.strokeStyle == op1) {
+          return [[index, new PathElement(sourcePathElement.commonSettings)]];
+        } else {
+          return [];
+        }
+      }),
+    );
+    removeSome(toKeep, toRemove, startFrom, 40000, 42000);
+  }
+  {
+    // Does 0 = 0 → Yes
+    const topRow = lines[8];
+    const bottomRow = lines[9];
+    actions.push(
+      morphFrom(bottomRow[0], topRow[0], 44000, 46000),
+      morphFrom(bottomRow.at(-1)!, topRow.at(-1)!, 44000, 46000),
+    );
+  }
   const showable: Showable = {
     description: "Does 2 + 2 = 4?",
-    duration: 20000,
+    duration: 49000,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
       context.lineWidth = formatter.font.strokeWidth;
       context.lineCap = "round";
       context.lineJoin = "round";
-      all.forEach((pathElement) => {
-        pathElement.show(options);
-      });
+      actions.forEach((action) => action(options));
     },
   };
 
