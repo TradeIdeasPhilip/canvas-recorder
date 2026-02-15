@@ -925,10 +925,7 @@ function equals(): PathElement {
         const context = showOptions.context;
         context.globalAlpha = alpha;
         handwriting(showOptions);
-        //context.fillStyle = "blue";
-        //context.fillRect(peanoPosition.x, peanoPosition.y, peanoPosition.width, peanoPosition.height);
-        //context.fillRect(fourierPosition.x, fourierPosition.y, fourierPosition.width, fourierPosition.height);
-        if (timeInMs >= 166000) {
+        if (timeInMs >= 165456.4) {
           showOptions.context.drawImage(
             peanoImage,
             peanoPosition.x,
@@ -986,7 +983,7 @@ function equals(): PathElement {
       doesPeanoEqualFourier(showOptions);
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function plus(): PathElement {
@@ -2396,7 +2393,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 mainBuilder.add(background);
