@@ -1342,7 +1342,7 @@ function plus(): PathElement {
       });
     },
   };
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 // MARK: Recap
@@ -2235,10 +2235,10 @@ But what we have now is good to prove a point.`,
     const bottomSecondRound = bottomFirstRound.splice(1, 1);
     bottomSecondRound.push(...bottomFirstRound.splice(6, 1));
     for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
-      actions.push(slideFrom(bottom, top, 13000, 15000));
+      actions.push(slideFrom(bottom, top, 17796.5, 20045.3));
     }
     for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
-      actions.push(slideFrom(bottom, top, 13500, 15500));
+      actions.push(slideFrom(bottom, top, 20217.1, 26052.7));
     }
   }
   {
@@ -2250,10 +2250,10 @@ But what we have now is good to prove a point.`,
     const bottomSecondRound = bottomFirstRound.splice(1, 1);
     bottomSecondRound.push(...bottomFirstRound.splice(8, 1));
     for (const [top, bottom] of zip(topFirstRound, bottomFirstRound)) {
-      actions.push(slideFrom(bottom, top, 18000, 20000));
+      actions.push(slideFrom(bottom, top, 27848.4, 30223.7));
     }
     for (const [top, bottom] of zip(topSecondRound, bottomSecondRound)) {
-      actions.push(slideFrom(bottom, top, 18500, 20500));
+      actions.push(slideFrom(bottom, top, 29000, 33000));
     }
   }
   /**
@@ -2274,7 +2274,7 @@ But what we have now is good to prove a point.`,
         assertNonNullable(lines[3][0].pathShape.startY)) *
       0.5;
     const timeToProgress = makeBoundedLinear(startTime, 0, endTime, 1);
-    function slide(options: ShowOptions) {
+    function slideAndHide(options: ShowOptions) {
       const progress = easeOut(timeToProgress(options.timeInMs));
       if (progress >= 1 || progress <= 0) {
         return;
@@ -2286,7 +2286,7 @@ But what we have now is good to prove a point.`,
       options.context.globalAlpha = 1;
       options.context.setTransform(originalMatrix);
     }
-    return slide;
+    return slideAndHide;
   }
   function removeSome(
     toKeep: readonly PathElement[],
@@ -2329,7 +2329,7 @@ But what we have now is good to prove a point.`,
       [11, zero()],
     ]);
     const startFrom = topRow;
-    removeSome(toKeep, toRemove, startFrom, 22000, 24000);
+    removeSome(toKeep, toRemove, startFrom, 36000, 40000);
   }
   {
     const topRow = lines[4];
@@ -2345,7 +2345,7 @@ But what we have now is good to prove a point.`,
         }
       }),
     );
-    removeSome(toKeep, toRemove, startFrom, 28000, 30000);
+    removeSome(toKeep, toRemove, startFrom, 46930, 52000);
   }
   {
     const topRow = lines[5];
@@ -2361,7 +2361,7 @@ But what we have now is good to prove a point.`,
         }
       }),
     );
-    removeSome(toKeep, toRemove, startFrom, 32000, 34000);
+    removeSome(toKeep, toRemove, startFrom, 52900, 55700);
   }
   {
     const topRow = lines[6];
@@ -2377,7 +2377,7 @@ But what we have now is good to prove a point.`,
         }
       }),
     );
-    removeSome(toKeep, toRemove, startFrom, 36000, 38000);
+    removeSome(toKeep, toRemove, startFrom, 57400, 59370);
   }
   {
     const topRow = lines[7];
@@ -2393,20 +2393,20 @@ But what we have now is good to prove a point.`,
         }
       }),
     );
-    removeSome(toKeep, toRemove, startFrom, 40000, 42000);
+    removeSome(toKeep, toRemove, startFrom, 59750, 63000);
   }
   {
     // Does 0 = 0 → Yes
     const topRow = lines[8];
     const bottomRow = lines[9];
     actions.push(
-      morphFrom(bottomRow[0], topRow[0], 44000, 46000),
-      morphFrom(bottomRow.at(-1)!, topRow.at(-1)!, 44000, 46000),
+      morphFrom(bottomRow[0], topRow[0], 64000, 66500),
+      morphFrom(bottomRow.at(-1)!, topRow.at(-1)!, 64000, 66500),
     );
   }
   const showable: Showable = {
     description: "Does 2 + 2 = 4?",
-    duration: 49000,
+    duration: 81390,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
@@ -2417,7 +2417,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 mainBuilder.add(background);
