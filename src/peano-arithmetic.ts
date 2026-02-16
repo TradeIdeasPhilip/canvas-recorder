@@ -11,7 +11,7 @@ import {
 } from "phil-lib/misc";
 import { makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
-import { PathShape } from "./glib/path-shape";
+import { LCommand, PathShape } from "./glib/path-shape";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
@@ -2443,7 +2443,8 @@ But what we have now is good to prove a point.`,
     allPathElements.push(...pathElements);
     return formatted.height + 2 * margin;
   })();
-  const rows = new Array<Array<FancyLayout>>();
+  type CellInfo = Pick<FancyLayout, "height" | "width" | "pathElements">;
+  const rows = new Array<Array<CellInfo>>();
   const bodyFont = makeLineFont(0.4);
   function normal(): PathElement {
     return new PathElement({
@@ -2451,9 +2452,172 @@ But what we have now is good to prove a point.`,
       lineWidth: bodyFont.strokeWidth,
     });
   }
+  const lambda = (() => {
+    // Source:  https://tromp.github.io/cl/diagrams.html
+    const tickWidth = 0.2;
+    const tickHeight = 0.1;
+    const lineWidth = 0.03;
+    function pack(pathElements: PathElement[]): CellInfo {
+      let width = 0;
+      let height = 0;
+      pathElements.forEach((pathElement) => {
+        const bBox = pathElement.pathShape.getBBox();
+        width = Math.max(width, bBox.x.max);
+        height = Math.max(width, bBox.y.max);
+      });
+      return { width, height, pathElements };
+    }
+    function slide(copyFrom: readonly PathElement[], slideRight: number) {
+      slideRight *= tickWidth;
+      return copyFrom.map(
+        (pathElement) =>
+          new PathElement(
+            pathElement.commonSettings,
+            pathElement.pathShape.translate(slideRight, 0),
+          ),
+      );
+    }
+    const zero: CellInfo = pack([
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.cssBlue },
+        new PathShape([
+          new LCommand(0, 0, tickWidth, 0),
+          new LCommand(0, tickHeight, tickWidth, tickHeight),
+          new LCommand(
+            tickWidth / 2,
+            tickHeight,
+            tickWidth / 2,
+            tickHeight * 2,
+          ),
+        ]),
+      ),
+    ]);
+    const one = pack([
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.cssBlue },
+        new PathShape([
+          new LCommand(0, 0, tickWidth, 0),
+          new LCommand(tickWidth / 2, 0, tickWidth / 2, tickHeight),
+        ]),
+      ),
+    ]);
+    const twoElements = slide(zero.pathElements, 2);
+    twoElements.push(
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.violet },
+        new PathShape([
+          new LCommand(0, 0, tickWidth * 2, 0),
+          new LCommand(0, tickHeight, tickWidth * 2, tickHeight),
+          new LCommand(tickWidth / 2, 0, tickWidth / 2, tickHeight * 4),
+          new LCommand(tickWidth * 1.5, 0, tickWidth * 1.5, tickHeight * 3),
+          new LCommand(
+            tickWidth * 0.5,
+            tickHeight * 3,
+            tickWidth * 1.5,
+            tickHeight * 3,
+          ),
+          new LCommand(
+            tickWidth * 1.5,
+            tickHeight * 2,
+            tickWidth * 2.5,
+            tickHeight * 2,
+          ),
+        ]),
+      ),
+    );
+    const threeElements = slide(twoElements, 1);
+    threeElements.push(
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.magenta },
+        new PathShape([
+          new LCommand(0, 0, tickWidth, 0),
+          new LCommand(0, tickHeight, tickWidth, tickHeight),
+          new LCommand(tickWidth / 2, 0, tickWidth / 2, tickHeight * 5),
+          new LCommand(
+            tickWidth * 0.5,
+            tickHeight * 4,
+            tickWidth * 1.5,
+            tickHeight * 4,
+          ),
+        ]),
+      ),
+    );
+    const fourElements = slide(threeElements, 1);
+    fourElements.push(
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.red },
+        new PathShape([
+          new LCommand(0, 0, tickWidth, 0),
+          new LCommand(0, tickHeight, tickWidth, tickHeight),
+          new LCommand(tickWidth / 2, 0, tickWidth / 2, tickHeight * 6),
+          new LCommand(
+            tickWidth * 0.5,
+            tickHeight * 5,
+            tickWidth * 1.5,
+            tickHeight * 5,
+          ),
+        ]),
+      ),
+    );
+    const successorElements = [
+      new PathElement(
+        { lineWidth, strokeStyle: myRainbow.cssBlue },
+        new PathShape([
+          new LCommand(0, 0, tickWidth * 4, 0),
+          new LCommand(0, tickHeight, tickWidth * 4, tickHeight),
+          new LCommand(0, tickHeight * 2, tickWidth * 4, tickHeight * 2),
+          new LCommand(tickWidth * 0.5, 0, tickWidth * 0.5, tickHeight * 6),
+          new LCommand(
+            tickWidth * 1.5,
+            2 * tickHeight,
+            tickWidth * 1.5,
+            tickHeight * 3,
+          ),
+          new LCommand(
+            tickWidth * 1.5,
+            tickHeight * 3,
+            tickWidth * 0.5,
+            tickHeight * 3,
+          ),
+          new LCommand(
+            tickWidth * 2.5,
+            tickHeight,
+            tickWidth * 2.5,
+            tickHeight * 4,
+          ),
+          new LCommand(
+            tickWidth * 2.5,
+            tickHeight * 4,
+            tickWidth * 0.5,
+            tickHeight * 4,
+          ),
+          new LCommand(
+            tickWidth * 3.5,
+            tickHeight * 2,
+            tickWidth * 3.5,
+            tickHeight * 3,
+          ),
+          new LCommand(
+            tickWidth * 3.5,
+            tickHeight * 3,
+            tickWidth * 2.5,
+            tickHeight * 3,
+          ),
+        ]),
+      ),
+    ];
+    return {
+      zero,
+      one,
+      two: pack(twoElements),
+      three: pack(threeElements),
+      four: pack(fourElements),
+      successor: pack(successorElements),
+    };
+  })();
   // MARK: Table Header
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2478,7 +2642,7 @@ But what we have now is good to prove a point.`,
   }
   // MARK: 0
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2496,17 +2660,12 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align());
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      // TODO Use the real lambda calculus symbols.
-      // Source:  https://tromp.github.io/cl/diagrams.html
-      // "+++" is a placeholder
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.zero);
     }
   }
   // MARK: n+1
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2530,14 +2689,12 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align());
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.successor);
     }
   }
   // MARK:1
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2557,14 +2714,12 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align());
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.one);
     }
   }
   // MARK: 2
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2603,14 +2758,12 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align());
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.two);
     }
   }
   // MARK: 3
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2671,14 +2824,12 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align());
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.three);
     }
   }
   // MARK: 4
   {
-    const row = new Array<FancyLayout>();
+    const row = new Array<CellInfo>();
     rows.push(row);
     {
       const formatter = new FullFormatter(bodyFont);
@@ -2767,9 +2918,7 @@ But what we have now is good to prove a point.`,
       row.push(formatter.align({ alignment: "center" }));
     }
     {
-      const formatter = new FullFormatter(bodyFont);
-      formatter.add("+++", normal);
-      row.push(formatter.align());
+      row.push(lambda.four);
     }
   }
   const rowsWithOffsets = doTableLayout(rows, {
@@ -2810,7 +2959,7 @@ But what we have now is good to prove a point.`,
   const upToNullSet = allPathElements.splice(0, 13);
   const handwriting1 = PathElement.handwriting(upToNullSet, 500, 11500);
   const upToUnion = allPathElements.splice(0, 9);
-  const handwriting2 = PathElement.handwriting(upToUnion, 12500, 17500);
+  const handwriting2 = PathElement.handwriting(upToUnion, 13882, 17500);
   const handwriting3 = PathElement.handwriting(
     allPathElements,
     21500,
