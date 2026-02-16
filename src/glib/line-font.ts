@@ -1717,6 +1717,16 @@ export function makeLineFontMap(
       .H(advance).pathShape;
     add("z", shape, advance);
   }
+  // MARK: ∅ (empty set)
+  {
+    const advance = digitWidth;
+    const radius = advance / 2;
+    const shape = PathBuilder.M(radius, -digitWidth)
+      .circle(radius, -radius, "cw")
+      .M(advance, -advance)
+      .L(0, 0).pathShape;
+    add("∅", shape, advance);
+  }
   // MARK: ° (degrees)
   {
     const advance = digitWidth / 2;
