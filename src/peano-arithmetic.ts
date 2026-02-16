@@ -18,9 +18,10 @@ import {
   Showable,
   ShowOptions,
 } from "./showable";
-import { mapEachPair, myRainbow } from "./utility";
+import { doTableLayout, mapEachPair, myRainbow } from "./utility";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import {
+  FancyLayout,
   FullFormatter,
   MultiColorPathElement,
   PathElement,
@@ -1348,11 +1349,11 @@ function plus(): PathElement {
 // MARK: Recap
 {
   function normal(): PathElement {
-    return new PathElement({ strokeStyle: myRainbow.violet });
+    return new PathElement({ strokeStyle: myRainbow.green });
   }
   const formatter = new FullFormatter(titleFont);
   const bodyFont = makeLineFont(0.5);
-  formatter.add("So far:  ℕ = +\n", normal);
+  formatter.add("So far:  ℕ = + ∅ U { ∅ }\n", normal);
   const title = formatter.recentlyAdded;
   formatter.add(
     `Could we go further?  Of course.
@@ -1374,7 +1375,7 @@ But what we have now is good to prove a point.`,
   }).pathElements;
   const showable: Showable = {
     description: "Recap",
-    duration: 20000,
+    duration: 59160,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
@@ -1391,7 +1392,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 // MARK: 2 + 2 = 4?
@@ -2414,6 +2415,418 @@ But what we have now is good to prove a point.`,
       context.lineCap = "round";
       context.lineJoin = "round";
       actions.forEach((action) => action(options));
+    },
+  };
+
+  //sceneList.add(showable);
+}
+
+// MARK: Going Further
+{
+  const actions = new Array<(showOptions: ShowOptions) => void>();
+  const clientTop = (() => {
+    const formatter = new FullFormatter(titleFont);
+    formatter.add(
+      "Going Further",
+      new PathElement({
+        strokeStyle: myRainbow.myBlue,
+        lineWidth: titleFont.strokeWidth,
+      }),
+    );
+    const formatted: FancyLayout = formatter.align({
+      width,
+      top: margin,
+      left: margin,
+      alignment: "center",
+    });
+    const pathElements = formatted.pathElements;
+    function action(options: ShowOptions) {
+      pathElements.forEach((pathElement) => {
+        pathElement.show(options);
+      });
+    }
+    actions.push(action);
+    return formatted.height + 2 * margin;
+  })();
+  const rows = new Array<Array<FancyLayout>>();
+  const bodyFont = makeLineFont(0.4);
+  function normal(): PathElement {
+    return new PathElement({
+      strokeStyle: myRainbow.cssBlue,
+      lineWidth: bodyFont.strokeWidth,
+    });
+  }
+  // MARK: Table Header
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("#", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("Mine", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("von Neumann", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("lambda", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK: 0
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("0", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("Zero", zero);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("∅", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK: n+1
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("n", new PathElement({ strokeStyle: myRainbow.cyan }));
+      formatter.add("+1", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("OnePlus(", normal);
+      formatter.add("n", new PathElement({ strokeStyle: myRainbow.cyan }));
+      formatter.add(")", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("n ", new PathElement({ strokeStyle: myRainbow.cyan }));
+      formatter.add("U {", normal);
+      formatter.add("n", new PathElement({ strokeStyle: myRainbow.cyan }));
+      formatter.add("}", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK:1
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("1", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("OnePlus(", normal);
+      formatter.add("Zero", zero);
+      formatter.add(")", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("{∅}", normal);
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK: 2
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("2", new PathElement({ strokeStyle: myRainbow.violet }));
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add(
+        "OnePlus(",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      formatter.add(
+        "OnePlus(",
+        normal().setLineWidth(formatter.font.strokeWidth),
+      );
+      formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(")", normal().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("{∅, ", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("{∅}", normal);
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.violet }));
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK: 3
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("3", new PathElement({ strokeStyle: myRainbow.magenta }));
+      row.push(formatter.align());
+    }
+    {
+      const smallerFont = makeLineFont(0.3);
+      const formatter = new FullFormatter(smallerFont);
+      formatter.add(
+        "OnePlus(",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.magenta,
+        }),
+      );
+      formatter.add(
+        "OnePlus(",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      formatter.add(
+        "OnePlus(",
+        normal().setLineWidth(formatter.font.strokeWidth),
+      );
+      formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(")", normal().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.magenta,
+        }),
+      );
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add(
+        "{∅, ",
+        new PathElement({ strokeStyle: myRainbow.magenta }),
+      );
+      formatter.add("{∅}", normal);
+      formatter.add(", ", new PathElement({ strokeStyle: myRainbow.magenta }));
+      formatter.add("{∅, ", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("{∅}", normal);
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.magenta }));
+      row.push(formatter.align());
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  // MARK: 4
+  {
+    const row = new Array<FancyLayout>();
+    rows.push(row);
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("4", new PathElement({ strokeStyle: myRainbow.red }));
+      row.push(formatter.align());
+    }
+    {
+      const smallerFont = makeLineFont(0.4);
+      const formatter = new FullFormatter(smallerFont);
+      formatter.add(
+        "OnePlus(",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.red,
+        }),
+      );
+      formatter.add(
+        "OnePlus(",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.magenta,
+        }),
+      );
+      formatter.add(
+        "OnePlus(\n",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      formatter.add(
+        "OnePlus(",
+        normal().setLineWidth(formatter.font.strokeWidth),
+      );
+      formatter.add("Zero", zero().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(")", normal().setLineWidth(formatter.font.strokeWidth));
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.violet,
+        }),
+      );
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.magenta,
+        }),
+      );
+      formatter.add(
+        ")",
+        new PathElement({
+          lineWidth: formatter.font.strokeWidth,
+          strokeStyle: myRainbow.red,
+        }),
+      );
+      row.push(formatter.align({ alignment: "center" }));
+    }
+    {
+      const smallerFont = makeLineFont(0.4);
+      const formatter = new FullFormatter(smallerFont);
+      formatter.add("{∅, ", new PathElement({ strokeStyle: myRainbow.red }));
+      // one
+      formatter.add("{∅}", normal);
+      formatter.add(", ", new PathElement({ strokeStyle: myRainbow.red }));
+      // two
+      formatter.add("{∅, ", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("{∅}", normal);
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add(",\n", new PathElement({ strokeStyle: myRainbow.red }));
+      // three
+      formatter.add(
+        "{∅, ",
+        new PathElement({ strokeStyle: myRainbow.magenta }),
+      );
+      formatter.add("{∅}", normal);
+      formatter.add(", ", new PathElement({ strokeStyle: myRainbow.magenta }));
+      formatter.add("{∅, ", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("{∅}", normal);
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.violet }));
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.magenta }));
+      formatter.add("}", new PathElement({ strokeStyle: myRainbow.red }));
+
+      // formatter.add("{∅, {∅}, {∅, {∅}}, \n{∅, {∅}, {∅, {∅}}}}", normal().setLineWidth(formatter.font.strokeWidth));
+      row.push(formatter.align({ alignment: "center" }));
+    }
+    {
+      const formatter = new FullFormatter(bodyFont);
+      formatter.add("+++", normal);
+      row.push(formatter.align());
+    }
+  }
+  const rowsWithOffsets = doTableLayout(rows, {
+    left: margin,
+    top: clientTop,
+    columnGap: margin * 2,
+    rowGap: margin * 0.6,
+  });
+  rowsWithOffsets.offsets.forEach((row) => {
+    row.forEach(({ dx, dy, source }) => {
+      function action(options: ShowOptions) {
+        const originalMatrix = options.context.getTransform();
+        options.context.translate(dx, dy);
+        source.pathElements.forEach((pathElement) => {
+          pathElement.show(options);
+        });
+        options.context.setTransform(originalMatrix);
+      }
+      actions.push(action);
+    });
+  });
+  /* 
+  formatter.add(
+    "0: zero ∅ +++\n" +
+      "n+1: OnePlus(n) n U { n } +++\n" +
+      "1: OnePlus(zero) {∅} +++\n" +
+      "2: OnePlus(OnePlus(zero)) {∅, {∅}} +++\n" +
+      "3: OnePlus(OnePlus(OnePlus(zero)))  {∅, {∅}, {∅, {∅}}}  +++\n" +
+      "",
+    //{∅}
+
+    normal,
+    bodyFont,
+  );
+  const body = formatter.recentlyAdded;
+  const all = formatter.align({
+    width,
+    top: margin,
+    left: margin,
+    alignment: "center",
+  });
+   */
+  const showable: Showable = {
+    description: "Going Further",
+    duration: 59160,
+    show(options) {
+      const context = options.context;
+      const timeInMs = options.timeInMs;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      actions.forEach((action) => action(options));
+      context.lineWidth = bodyFont.strokeWidth;
+      // body.forEach((pathElement) => {
+      //   pathElement.show(options);
+      // });
     },
   };
 

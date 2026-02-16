@@ -205,13 +205,15 @@ export class FullFormatter {
     this.#recentlyAdded.push(pathElement);
     return this;
   }
-  align(options: {
-    width?: number;
-    alignment?: "left" | "center" | "right" | "justify";
-    additionalLineHeight?: number;
-    top?: number;
-    left?: number;
-  }) {
+  align(
+    options: {
+      width?: number;
+      alignment?: "left" | "center" | "right" | "justify";
+      additionalLineHeight?: number;
+      top?: number;
+      left?: number;
+    } = {},
+  ) {
     const laidOut = this.#paragraphLayout.align(
       options.width,
       options.alignment,
@@ -233,6 +235,16 @@ export class FullFormatter {
       pathElements.push(pathElement);
       words.push(inProgress.words);
     });
-    return { pathElements, words, laidOut };
+    return {
+      pathElements,
+      words,
+      laidOut,
+      height: laidOut.height,
+      width: laidOut.width,
+    };
   }
 }
+
+export type FancyLayout = ReturnType<
+  InstanceType<typeof FullFormatter>["align"]
+>;
