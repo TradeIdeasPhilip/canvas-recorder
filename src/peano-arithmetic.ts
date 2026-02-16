@@ -1392,7 +1392,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 // MARK: 2 + 2 = 4?
@@ -2423,7 +2423,7 @@ But what we have now is good to prove a point.`,
 
 // MARK: Going Further
 {
-  const actions = new Array<(showOptions: ShowOptions) => void>();
+  const allPathElements = new Array<PathElement>();
   const clientTop = (() => {
     const formatter = new FullFormatter(titleFont);
     formatter.add(
@@ -2440,12 +2440,7 @@ But what we have now is good to prove a point.`,
       alignment: "center",
     });
     const pathElements = formatted.pathElements;
-    function action(options: ShowOptions) {
-      pathElements.forEach((pathElement) => {
-        pathElement.show(options);
-      });
-    }
-    actions.push(action);
+    allPathElements.push(...pathElements);
     return formatted.height + 2 * margin;
   })();
   const rows = new Array<Array<FancyLayout>>();
@@ -2502,6 +2497,9 @@ But what we have now is good to prove a point.`,
     }
     {
       const formatter = new FullFormatter(bodyFont);
+      // TODO Use the real lambda calculus symbols.
+      // Source:  https://tromp.github.io/cl/diagrams.html
+      // "+++" is a placeholder
       formatter.add("+++", normal);
       row.push(formatter.align());
     }
@@ -2780,6 +2778,45 @@ But what we have now is good to prove a point.`,
     columnGap: margin * 2,
     rowGap: margin * 0.6,
   });
+  const translatedRows = rowsWithOffsets.offsets.map((row) =>
+    row.map((cell) =>
+      cell.source.pathElements.map((pathElement) => {
+        pathElement.pathShape = pathElement.pathShape.translate(
+          cell.dx,
+          cell.dy,
+        );
+        return pathElement;
+      }),
+    ),
+  );
+  const columnCount = 4;
+  for (
+    let rowIndex = 0;
+    rowIndex < translatedRows.length + columnCount;
+    rowIndex++
+  ) {
+    for (let columnIndex = 0; columnIndex < columnCount; columnIndex++) {
+      const row = translatedRows[rowIndex - columnIndex];
+      if (row) {
+        const cell = row[columnIndex];
+        if (cell) {
+          allPathElements.push(...cell);
+        }
+      }
+    }
+  }
+  const duration = 68522.7;
+  //const handwriting=  PathElement.handwriting(allPathElements, 1000, duration-2000);
+  const upToNullSet = allPathElements.splice(0, 13);
+  const handwriting1 = PathElement.handwriting(upToNullSet, 500, 11500);
+  const upToUnion = allPathElements.splice(0, 9);
+  const handwriting2 = PathElement.handwriting(upToUnion, 12500, 17500);
+  const handwriting3 = PathElement.handwriting(
+    allPathElements,
+    21500,
+    duration - 2000,
+  );
+  /*
   rowsWithOffsets.offsets.forEach((row) => {
     row.forEach(({ dx, dy, source }) => {
       function action(options: ShowOptions) {
@@ -2793,6 +2830,7 @@ But what we have now is good to prove a point.`,
       actions.push(action);
     });
   });
+  */
   /* 
   formatter.add(
     "0: zero ∅ +++\n" +
@@ -2816,13 +2854,16 @@ But what we have now is good to prove a point.`,
    */
   const showable: Showable = {
     description: "Going Further",
-    duration: 59160,
+    duration,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
       context.lineCap = "round";
       context.lineJoin = "round";
-      actions.forEach((action) => action(options));
+      //actions.forEach((action) => action(options));
+      handwriting1(options);
+      handwriting2(options);
+      handwriting3(options);
       context.lineWidth = bodyFont.strokeWidth;
       // body.forEach((pathElement) => {
       //   pathElement.show(options);
