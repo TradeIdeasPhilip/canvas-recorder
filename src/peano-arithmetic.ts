@@ -2275,12 +2275,12 @@ But what we have now is good to prove a point.`,
       0.5;
     const timeToProgress = makeBoundedLinear(startTime, 0, endTime, 1);
     function slideAndHide(options: ShowOptions) {
-      const progress = easeOut(timeToProgress(options.timeInMs));
+      const progress = timeToProgress(options.timeInMs);
       if (progress >= 1 || progress <= 0) {
         return;
       }
       const originalMatrix = options.context.getTransform();
-      options.context.translate(0, progress * dY);
+      options.context.translate(0, easeOut(progress) * dY);
       options.context.globalAlpha = 1 - progress;
       toAnimate.show(options);
       options.context.globalAlpha = 1;
