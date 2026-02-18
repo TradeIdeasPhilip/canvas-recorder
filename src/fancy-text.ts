@@ -211,14 +211,21 @@ export class FullFormatter {
       alignment?: "left" | "center" | "right" | "justify";
       additionalLineHeight?: number;
       top?: number;
+      bottom?: number;
       left?: number;
     } = {},
   ) {
+    if (options.top !== undefined && options.bottom !== undefined) {
+      throw new Error("At most one of top and bottom may be specified.");
+    }
     const laidOut = this.#paragraphLayout.align(
       options.width,
       options.alignment,
       options.additionalLineHeight,
     );
+    if (options.top === undefined && options.bottom !== undefined) {
+      options.top = options.bottom - laidOut.height;
+    }
     laidOut
       .getAllLetters(options.left ?? 0, options.top ?? 0)
       .forEach((letterInfo) => {

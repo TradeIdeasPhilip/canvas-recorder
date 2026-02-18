@@ -1348,51 +1348,208 @@ function plus(): PathElement {
 
 // MARK: Recap
 {
-  function normal(): PathElement {
-    return new PathElement({ strokeStyle: myRainbow.green });
+  const toDraw = new Array<PathElement>();
+  {
+    const formatter = new FullFormatter(titleFont);
+    formatter.add("So far:\n", new PathElement({ strokeStyle: "lime" }));
+    formatter.add(" ℕ Counting\n", new PathElement({ strokeStyle: "#00FF80" }));
+    formatter.add(" = Equality\n", new PathElement({ strokeStyle: "#00FFC0" }));
+    formatter.add(" + Addition\n", new PathElement({ strokeStyle: "#00FFff" }));
+    const all = formatter.align({
+      width,
+      top: margin,
+      left: margin,
+      alignment: "left",
+    }).pathElements;
+    all.forEach((element) => {
+      element.commonSettings.lineWidth = titleFont.strokeWidth;
+      toDraw.push(element);
+    });
   }
-  const formatter = new FullFormatter(titleFont);
-  const bodyFont = makeLineFont(0.5);
-  formatter.add("So far:  ℕ = + ∅ U { ∅ }\n", normal);
-  const title = formatter.recentlyAdded;
-  formatter.add(
-    `Could we go further?  Of course.
-< > would be easy to define.
-- We could add subtraction and negative numbers to get all of ℤ.
-× It would be easy to add multiplication.
-And from there you could add 
-Division and ℚ rational numbers.
-But what we have now is good to prove a point.`,
-    normal,
-    bodyFont,
+  {
+    const formatter = new FullFormatter(titleFont);
+    formatter.add(
+      "Save for a sequel:\n",
+      new PathElement({ strokeStyle: myRainbow.green }),
+    );
+    const titleElements = formatter.recentlyAdded;
+    const bodyFont = makeLineFont(0.35);
+    function rainbowHighlight() {
+      return new MultiColorPathElement(undefined, {
+        sectionLength: 0.07,
+      })
+        .animateOffset(-1 / 1000)
+        .setLineWidth(bodyFont.strokeWidth);
+    }
+    formatter.add("Zero ", zero, bodyFont);
+    formatter.add("< ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(n)\n",
+      new PathElement({ strokeStyle: "#00FF30" }),
+      bodyFont,
+    );
+
+    formatter.add("n ", new PathElement({ strokeStyle: "#00FF80" }), bodyFont);
+    formatter.add("< ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "m → OnePlus(n) ",
+      new PathElement({ strokeStyle: "#00FF80" }),
+      bodyFont,
+    );
+    formatter.add("< ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(m)\n",
+      new PathElement({ strokeStyle: "#00FF80" }),
+      bodyFont,
+    );
+
+    formatter.add(
+      "OnePlus(n) ",
+      new PathElement({ strokeStyle: "#00FFA0" }),
+      bodyFont,
+    );
+    formatter.add("> ", rainbowHighlight, bodyFont);
+    formatter.add("Zero\n", zero, bodyFont);
+
+    formatter.add("n ", new PathElement({ strokeStyle: "#00FFC0" }), bodyFont);
+    formatter.add("> ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "m → OnePlus(n) ",
+      new PathElement({ strokeStyle: "#00FFC0" }),
+      bodyFont,
+    );
+    formatter.add("> ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(m)\n",
+      new PathElement({ strokeStyle: "#00FFC0" }),
+      bodyFont,
+    );
+
+    formatter.add(
+      "OnePlus(n) ",
+      new PathElement({ strokeStyle: "#00FFE0" }),
+      bodyFont,
+    );
+    formatter.add("- ", rainbowHighlight, bodyFont);
+    formatter.add("Zero ", zero, bodyFont);
+    formatter.add(
+      "= OnePlus(n)\n",
+      new PathElement({ strokeStyle: "#00FFE0" }),
+      bodyFont,
+    );
+
+    formatter.add(
+      "OnePlus(n) ",
+      new PathElement({ strokeStyle: "#00FFff" }),
+      bodyFont,
+    );
+    formatter.add("- ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(m) = n ",
+      new PathElement({ strokeStyle: "#00FFff" }),
+      bodyFont,
+    );
+    formatter.add("- ", rainbowHighlight, bodyFont);
+    formatter.add("m\n", new PathElement({ strokeStyle: "#00FFff" }), bodyFont);
+
+    formatter.add(
+      "What about ",
+      new PathElement({ strokeStyle: "#00E0FF" }),
+      bodyFont,
+    );
+    formatter.add("Zero ", zero, bodyFont);
+    formatter.add("- ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(m)?\n",
+      new PathElement({ strokeStyle: "#00E0FF" }),
+      bodyFont,
+    );
+
+    formatter.add("n ", new PathElement({ strokeStyle: "#00D0FF" }), bodyFont);
+    formatter.add("× ", rainbowHighlight, bodyFont);
+    formatter.add("Zero ", zero, bodyFont);
+    formatter.add("= ", new PathElement({ strokeStyle: "#00D0FF" }), bodyFont);
+    formatter.add("Zero\n", zero, bodyFont);
+
+    formatter.add("n ", new PathElement({ strokeStyle: "#00B0FF" }), bodyFont);
+    formatter.add("× ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "OnePlus(m) = (n ",
+      new PathElement({ strokeStyle: "#00B0FF" }),
+      bodyFont,
+    );
+    formatter.add("× ", rainbowHighlight, bodyFont);
+    formatter.add(
+      "m) + n\n",
+      new PathElement({ strokeStyle: "#00B0FF" }),
+      bodyFont,
+    );
+
+    const bodyElements = formatter.recentlyAdded;
+    const all = formatter.align({
+      width,
+      top: margin,
+      left: margin,
+      alignment: "right",
+    }).pathElements;
+    titleElements.forEach((element) => {
+      element.commonSettings.lineWidth = titleFont.strokeWidth;
+    });
+    bodyElements.forEach((element) => {
+      element.commonSettings.lineWidth = bodyFont.strokeWidth;
+    });
+    toDraw.push(...titleElements, ...bodyElements);
+  }
+  {
+    const formatter = new FullFormatter(titleFont);
+    formatter.add(
+      "We have enough\n",
+      new PathElement({
+        strokeStyle: "#00D0FF",
+        lineWidth: formatter.font.strokeWidth,
+      }),
+    );
+    formatter.add(
+      "to prove my point.",
+      new PathElement({
+        strokeStyle: "#0090FF",
+        lineWidth: formatter.font.strokeWidth,
+      }),
+    );
+    const all = formatter.align({
+      width: 16 - 2 * margin,
+      alignment: "left",
+      left: margin,
+      bottom: 9 - margin,
+      additionalLineHeight: -0.2,
+    }).pathElements;
+    toDraw.push(...all);
+  }
+
+  const finaleElements = toDraw.splice(toDraw.length - 2, 2);
+  const finaleHandwriting = PathElement.handwriting(
+    finaleElements,
+    42000,
+    47000,
   );
-  const body = formatter.recentlyAdded;
-  const all = formatter.align({
-    width,
-    top: margin,
-    left: margin,
-    alignment: "center",
-  }).pathElements;
+  const handwriting = PathElement.handwriting(toDraw, 0, 42000);
   const showable: Showable = {
     description: "Recap",
     duration: 59160,
     show(options) {
       const context = options.context;
       const timeInMs = options.timeInMs;
-      context.lineWidth = 0.08;
       context.lineCap = "round";
       context.lineJoin = "round";
-      title.forEach((pathElement) => {
-        pathElement.show(options);
-      });
-      context.lineWidth = bodyFont.strokeWidth;
-      body.forEach((pathElement) => {
-        pathElement.show(options);
-      });
+      // toDraw.forEach((pathElement) => {
+      //   pathElement.show(options);
+      // });
+      handwriting(options);
+      finaleHandwriting(options);
     },
   };
 
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 // MARK: 2 + 2 = 4?
@@ -3020,7 +3177,7 @@ But what we have now is good to prove a point.`,
     },
   };
 
-  sceneList.add(showable);
+  //sceneList.add(showable);
 }
 
 mainBuilder.add(background);
