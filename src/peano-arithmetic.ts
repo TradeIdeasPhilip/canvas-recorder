@@ -188,7 +188,7 @@ function rainbowHighlight() {
       }
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function zero(): PathElement {
@@ -465,7 +465,7 @@ function zero(): PathElement {
       drawMorphingNumber(options);
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function equals(): PathElement {
@@ -984,7 +984,7 @@ function equals(): PathElement {
       doesPeanoEqualFourier(showOptions);
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 function plus(): PathElement {
@@ -1343,7 +1343,7 @@ function plus(): PathElement {
       });
     },
   };
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 // MARK: Recap
@@ -1369,7 +1369,7 @@ function plus(): PathElement {
   {
     const formatter = new FullFormatter(titleFont);
     formatter.add(
-      "Save for a sequel:\n",
+      "Save for sequel:\n",
       new PathElement({ strokeStyle: myRainbow.green }),
     );
     const titleElements = formatter.recentlyAdded;
@@ -2575,7 +2575,7 @@ function plus(): PathElement {
     },
   };
 
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 // MARK: Going Further
@@ -3177,7 +3177,7 @@ function plus(): PathElement {
     },
   };
 
-  //sceneList.add(showable);
+  sceneList.add(showable);
 }
 
 mainBuilder.add(background);
