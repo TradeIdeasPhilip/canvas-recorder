@@ -424,7 +424,8 @@ function zero(): PathElement {
         ? script.value
         : animators[script.index](script.progress);
       showOptions.context.strokeStyle = "white";
-      showOptions.context.stroke(pathShape.canvasPath);
+      pathShape.setCanvasPath(showOptions.context);
+      showOptions.context.stroke();
     }
     return show;
   })();

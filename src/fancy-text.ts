@@ -77,11 +77,13 @@ export class PathElement {
   }
   stroke(context: CanvasRenderingContext2D) {
     this.applySettings(context);
-    context.stroke(this.pathShape.canvasPath);
+    this.pathShape.setCanvasPath(context);
+    context.stroke();
   }
   fill(context: CanvasRenderingContext2D) {
     this.applySettings(context);
-    context.fill(this.pathShape.canvasPath);
+    this.pathShape.setCanvasPath(context);
+    context.fill();
   }
   show(showOptions: ShowOptions) {
     this.stroke(showOptions.context);

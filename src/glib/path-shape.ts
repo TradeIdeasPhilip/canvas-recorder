@@ -1919,21 +1919,29 @@ export class PathShape {
     // The second command starts exactly where there the first ends.  So there is no need for an M.
     return false;
   }
+  appendCanvasPath(path: CanvasPath) {
+    this.commands.forEach(function makeCanvasPath(command, index, array) {
+      //let segmentStart : Command|undefined;
+      const previous = array[index - 1];
+      if (PathShape.needAnM(previous, command)) {
+        // TODO check if we need to close the previous path segment.
+        path.moveTo(command.x0, command.y0);
+      }
+      command.addToPath(path);
+    });
+  }
+  setCanvasPath(context: CanvasRenderingContext2D) {
+    context.beginPath();
+    this.appendCanvasPath(context);
+  }
   /**
    * Creates a Path2D based on this PathShape.
    *
    * This format is used by the canvas for stroking, filling and otherwise using a path.
    */
   get canvasPath() {
-    //return new Path2D(this.rawPath);
     const result = new Path2D();
-    this.commands.forEach(function makeCanvasPath(command, index, array) {
-      const previous = array[index - 1];
-      if (PathShape.needAnM(previous, command)) {
-        result.moveTo(command.x0, command.y0);
-      }
-      command.addToPath(result);
-    });
+    this.appendCanvasPath(result);
     return result;
   }
   /**
