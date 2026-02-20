@@ -13,7 +13,6 @@ import {
   positiveModulo,
   radiansPerDegree,
   ReadOnlyRect,
-  RealSvgRect,
   sum,
 } from "phil-lib/misc";
 import { panAndZoom, transform } from "./transforms";
@@ -95,15 +94,9 @@ export type Command = {
   readonly incomingAngle: number;
   readonly outgoingAngle: number;
   /**
-   * E.g. "C", "Q", "L", etc.
-   *
-   * Never "M".  "M" commands get added at a later stage.
-   */
-  readonly command: string;
-  /**
    * E.g. "H 5", "L 2,3", etc.
    */
-  readonly asString: string;
+  makeString(): string;
   translate(Δx: number, Δy: number): Command;
   /**
    * Return a CCommand equivalent to the current command.
@@ -120,10 +113,14 @@ export type Command = {
    */
   toCubic(): CCommand;
   transform(matrix: DOMMatrixReadOnly): Command;
+  addToPath(path: CanvasPath): void;
 };
 
 // MARK: LCommand
 export class LCommand implements Command {
+  addToPath(path: CanvasPath): void {
+    path.lineTo(this.x, this.y);
+  }
   multiSplit(count: number): LCommand[] {
     if (count == 1) {
       return [this];
@@ -193,8 +190,12 @@ export class LCommand implements Command {
     public readonly y: number,
   ) {
     assertFinite(x0, y0, x, y);
-    this.asString = `L ${formatForSvg(x)},${formatForSvg(y)}`;
     this.outgoingAngle = this.incomingAngle = Math.atan2(y - y0, x - x0);
+  }
+  #asString?: string;
+  makeString(): string {
+    this.#asString ??= `L ${formatForSvg(this.x)},${formatForSvg(this.y)}`;
+    return this.#asString;
   }
   /**
    * Like you are reading values from an `l` command.
@@ -210,8 +211,6 @@ export class LCommand implements Command {
   }
   readonly incomingAngle;
   readonly outgoingAngle;
-  readonly command = "L";
-  readonly asString: string;
   translate(Δx: number, Δy: number): Command {
     return new LCommand(this.x0 + Δx, this.y0 + Δy, this.x + Δx, this.y + Δy);
   }
@@ -348,6 +347,9 @@ function safeSplit(bezier: Bezier, from: number, to: number) {
  * A quadratic Bezier segment.
  */
 export class QCommand implements Command {
+  addToPath(path: CanvasPath): void {
+    path.quadraticCurveTo(this.x1, this.y1, this.x, this.y);
+  }
   makeSplitter(): CommandSplitter {
     return new BezierCommandSplitter(this.getBezier());
   }
@@ -559,9 +561,13 @@ export class QCommand implements Command {
     public readonly creationInfo: QCreationInfo,
   ) {
     assertFinite(x0, y0, x1, y1, x, y);
-    this.asString = `Q ${formatForSvg(x1)},${formatForSvg(y1)} ${formatForSvg(
-      x,
-    )},${formatForSvg(y)}`;
+  }
+  #asString?: string;
+  makeString(): string {
+    this.#asString ??= `Q ${formatForSvg(this.x1)},${formatForSvg(this.y1)} ${formatForSvg(
+      this.x,
+    )},${formatForSvg(this.y)}`;
+    return this.#asString;
   }
   get incomingAngle() {
     return Math.atan2(this.y1 - this.y0, this.x1 - this.x0);
@@ -583,8 +589,6 @@ export class QCommand implements Command {
       return this.outgoingAngle;
     }
   }
-  readonly command = "Q";
-  readonly asString: string;
   translate(Δx: number, Δy: number): QCommand {
     return QCommand.controlPoints(
       this.x0 + Δx,
@@ -679,6 +683,9 @@ export class QCommand implements Command {
  * It's mostly aimed at imported curves.
  */
 class CCommand implements Command {
+  addToPath(path: CanvasPath): void {
+    path.bezierCurveTo(this.x1, this.y1, this.x2, this.y2, this.x, this.y);
+  }
   makeSplitter(): CommandSplitter {
     return new BezierCommandSplitter(this.getBezier());
   }
@@ -721,9 +728,13 @@ class CCommand implements Command {
     public readonly y: number,
   ) {
     assertFinite(x0, y0, x1, y1, x2, y2, x, y);
-    this.asString = `C ${formatForSvg(x1)},${formatForSvg(y1)} ${formatForSvg(
-      x2,
-    )},${formatForSvg(y2)} ${formatForSvg(x)},${formatForSvg(y)}`;
+  }
+  #asString?: string;
+  makeString(): string {
+    this.#asString ??= `C ${formatForSvg(this.x1)},${formatForSvg(this.y1)} ${formatForSvg(
+      this.x2,
+    )},${formatForSvg(this.y2)} ${formatForSvg(this.x)},${formatForSvg(this.y)}`;
+    return this.#asString;
   }
   /**
    * Like you are reading values from a `c` command.
@@ -756,8 +767,6 @@ class CCommand implements Command {
   get outgoingAngle(): number {
     return Math.atan2(this.y - this.y2, this.x - this.x2);
   }
-  readonly command = "C";
-  readonly asString: string;
   translate(Δx: number, Δy: number): CCommand {
     return new CCommand(
       this.x0 + Δx,
@@ -1916,7 +1925,16 @@ export class PathShape {
    * This format is used by the canvas for stroking, filling and otherwise using a path.
    */
   get canvasPath() {
-    return new Path2D(this.rawPath);
+    //return new Path2D(this.rawPath);
+    const result = new Path2D();
+    this.commands.forEach(function makeCanvasPath(command, index, array) {
+      const previous = array[index - 1];
+      if (PathShape.needAnM(previous, command)) {
+        result.moveTo(command.x0, command.y0);
+      }
+      command.addToPath(result);
+    });
+    return result;
   }
   /**
    * Something that you might feed to the `d` __attribute__ of a `<path>` element.
@@ -1931,7 +1949,9 @@ export class PathShape {
         const result = [
           `M ${formatForSvg(segment.startX)},${formatForSvg(segment.startY)}`,
         ];
-        segment.commands.forEach((command) => result.push(command.asString));
+        segment.commands.forEach((command) =>
+          result.push(command.makeString()),
+        );
         if (segment.startX == segment.endX && segment.startY == segment.endY) {
           result.push("Z");
         }
@@ -2254,15 +2274,7 @@ export class PathShape {
   }
   dump() {
     const data = this.commands.map((command, index) => {
-      const {
-        x0,
-        y0,
-        x,
-        y,
-        incomingAngle,
-        outgoingAngle,
-        command: c,
-      } = command;
+      const { x0, y0, x, y, incomingAngle, outgoingAngle } = command;
       const element = document.createElementNS(
         "http://www.w3.org/2000/svg",
         "path",
@@ -2286,7 +2298,6 @@ export class PathShape {
         incomingAngle: PathShape.toDegrees(incomingAngle),
         outgoingAngle: PathShape.toDegrees(outgoingAngle),
         length,
-        c,
         ...difference,
       };
     });
