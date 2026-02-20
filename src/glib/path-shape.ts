@@ -1920,15 +1920,30 @@ export class PathShape {
     return false;
   }
   appendCanvasPath(path: CanvasPath) {
+    let segmentStart: Command | undefined;
     this.commands.forEach(function makeCanvasPath(command, index, array) {
-      //let segmentStart : Command|undefined;
       const previous = array[index - 1];
       if (PathShape.needAnM(previous, command)) {
-        // TODO check if we need to close the previous path segment.
+        // Starting a new segment.
+        if (
+          previous &&
+          segmentStart &&
+          previous.x == segmentStart.x0 &&
+          previous.y == segmentStart.y0
+        ) {
+          path.closePath();
+        }
         path.moveTo(command.x0, command.y0);
+        segmentStart = command;
       }
       command.addToPath(path);
     });
+    if (segmentStart) {
+      const last = this.commands.at(-1)!;
+      if (last.x == segmentStart.x0 && last.y == segmentStart.y0) {
+        path.closePath();
+      }
+    }
   }
   setCanvasPath(context: CanvasRenderingContext2D) {
     context.beginPath();

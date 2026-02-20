@@ -64,6 +64,16 @@ const background: Showable = {
       context.fillStyle = `color(srgb-linear ${i == 0 ? weight : 0} ${i == 1 ? weight : 0} ${i == 2 ? weight : 0})`;
       context.fill();
     }
+    /*
+    // Test:
+    const path = PathShape.fromRawString("M3,1 L1,4 L5,4 L3,1  M3,5 L1,8.5 L5,8.5 L3,5.01  M8,1 L6,4 L10,4 L8,1.0001  ");
+    context.lineCap="butt";
+    context.lineJoin="miter";
+    context.strokeStyle="orange";
+    context.lineWidth= 0.05;
+    path.setCanvasPath(context);
+    context.stroke();
+    */
   },
 };
 
