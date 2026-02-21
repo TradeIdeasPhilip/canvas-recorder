@@ -50,6 +50,16 @@ function mainTransform() {
   return new DOMMatrixReadOnly().scale(canvas.width / 16, canvas.height / 9);
 }
 
+let canvasSize: { readonly width: number; readonly height: number } | undefined;
+
+// One-time setup (e.g. on init/mount)
+const resizeObserver = new ResizeObserver((entries) => {
+  canvasSize = undefined;
+});
+
+// Observe the canvas (or its wrapper div if you prefer)
+resizeObserver.observe(canvas, { box: "device-pixel-content-box" });
+
 /**
  *
  * @param timeInMs Draw the animation at this time.  The drawing code doesn't
@@ -64,9 +74,18 @@ function mainTransform() {
  */
 function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
   if (size == "live") {
-    const clientRect = canvas.getClientRects()[0];
-    canvas.width = Math.round(clientRect.width * devicePixelRatio);
-    canvas.height = Math.round(clientRect.height * devicePixelRatio);
+    if (!canvasSize) {
+      // getClientRects forces a layout step.
+      // The cost was about 0.2ms / frame
+      // At 60 fps that's about 1.2% of our entire time.
+      const clientRect = canvas.getClientRects()[0];
+      canvasSize = {
+        height: Math.round(clientRect.height * devicePixelRatio),
+        width: Math.round(clientRect.width * devicePixelRatio),
+      };
+    }
+    canvas.width = canvasSize.width;
+    canvas.height = canvasSize.height;
   } else if (size == "4k") {
     canvas.width = 3840;
     canvas.height = 2160;
