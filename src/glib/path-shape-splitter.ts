@@ -4,6 +4,23 @@ import { Command, CommandSplitter, PathShape, Point } from "./path-shape";
  * Lets you look up a specific point along a path, or split a path into smaller pieces.
  */
 export class PathShapeSplitter {
+  static trimProgress(
+    initial: PathShape,
+    fromProgress: number,
+    toProgress: number,
+  ) {
+    // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
+    const splitter = new PathShapeSplitter(initial);
+    return splitter.get(
+      splitter.length * fromProgress,
+      splitter.length * toProgress,
+    );
+  }
+  static trim(initial: PathShape, from: number, to: number) {
+    // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
+    const splitter = new PathShapeSplitter(initial);
+    return splitter.get(from, to);
+  }
   readonly whole: PathShape;
   /**
    * All inputs are relative to this.
@@ -94,6 +111,9 @@ export class PathShapeSplitter {
   get(fromDistance: number, toDistance: number) {
     fromDistance = Math.max(0, fromDistance);
     toDistance = Math.min(this.length, toDistance);
+    if (fromDistance == 0 && toDistance == this.length) {
+      return this.whole;
+    }
     if (fromDistance >= toDistance) {
       toDistance = fromDistance;
     }

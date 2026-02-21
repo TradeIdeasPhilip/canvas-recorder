@@ -105,26 +105,24 @@ export class PathElement {
     let start = 0;
     const items = pathElements.map((pathElement) => {
       const fullShape = pathElement.pathShape;
-      const length = fullShape.getLength();
-      const item = { fullShape, length, pathElement, start };
+      const splitter = new PathShapeSplitter(fullShape);
+      const length = splitter.length;
+      const item = { fullShape, splitter, length, pathElement, start };
       start += length;
       return item;
     });
     const getDistance = makeLinear(startMs, 0, endMs, start);
-    function draw(showOptions: ShowOptions) {
+    function drawHandwriting(showOptions: ShowOptions) {
       const distance = getDistance(showOptions.timeInMs);
       items.forEach((item) => {
         const relativeDistance = distance - item.start;
         if (relativeDistance > 0) {
-          // TODO PathShapeSplitter is cached and meant to be reused.
-          item.pathElement.pathShape = new PathShapeSplitter(
-            item.fullShape,
-          ).get(0, relativeDistance);
+          item.pathElement.pathShape = item.splitter.get(0, relativeDistance);
           item.pathElement.show(showOptions);
         }
       });
     }
-    return draw;
+    return drawHandwriting;
   }
 }
 

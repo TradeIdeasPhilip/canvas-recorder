@@ -272,6 +272,8 @@ export class ParagraphLayout {
      * @param left Where to start drawing.  The default of 0 leaves no margin.
      * @param top Where to start drawing.  The default of 0 leaves no margin.
      * @returns
+     * @deprecated See PathShapeSplitter.  It generally works better than dashes.
+     * Also see fancy-text.ts PathElement.handwriting()
      */
     function drawPartial(left = 0, top = 0) {
       // See createHandwriting in handwriting.ts.
@@ -289,6 +291,12 @@ export class ParagraphLayout {
           return result;
         });
       const totalLength = start;
+      /**
+       *
+       * @param length
+       * @param context
+       * @deprecated See PathShapeSplitter.  It generally works better than dashes.
+       */
       function drawTo(length: number, context: CanvasRenderingContext2D) {
         // TODO This doesn't work perfectly.
         // It's like PathShape.getLength() doesn't match perfectly with the canvas's idea of the path length.

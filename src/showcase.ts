@@ -353,10 +353,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.strokeStyle = BLUE;
         {
           const basePath = pathByTag.get("handwriting")!.translate(0.25, 1.5);
-          const splitter = new PathShapeSplitter(basePath); // TODO hmm, this was meant to be reused.  I could optimize this differently.
           const progress = (timeInMs / this.duration) * 2;
-          const distance = progress * splitter.length;
-          const pathShape = splitter.get(0, distance);
+          const pathShape = PathShapeSplitter.trimProgress(
+            basePath,
+            0,
+            progress,
+          );
           context.stroke(pathShape.canvasPath);
         }
         {

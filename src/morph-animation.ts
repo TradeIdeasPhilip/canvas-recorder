@@ -465,6 +465,12 @@ export function matchShapes(a: PathShape, b: PathShape) {
     return result;
   }
   function interpolate(progress: number) {
+    if (progress <= 0) {
+      return a;
+    }
+    if (progress >= 1) {
+      return b;
+    }
     const from = makeRoundedCorners(finalACommands, aCorners, 1 - progress);
     const to = makeRoundedCorners(finalBCommands, bCorners, progress);
     const result = qCommandInterpolation(from, to, progress);

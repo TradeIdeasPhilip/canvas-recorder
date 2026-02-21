@@ -72,7 +72,9 @@ const background: Showable = {
     context.strokeStyle="orange";
     context.lineWidth= 0.05;
     path.setCanvasPath(context);
+    context.setLineDash([10,18]);
     context.stroke();
+    context.setLineDash([]);
     */
   },
 };
@@ -226,6 +228,7 @@ function zero(): PathElement {
     width,
     alignment: "center",
   }).translate(margin, margin);
+  const titleSplitter = new PathShapeSplitter(titlePathShape);
   const numberPathShapes = (() => {
     const font = makeLineFont(0.5);
     const paragraphLayout = new ParagraphLayout(font);
@@ -277,8 +280,7 @@ function zero(): PathElement {
     if (length <= 0) {
       return;
     }
-    // TODO performance one time yada yada
-    const pathShape = new PathShapeSplitter(titlePathShape).get(0, length);
+    const pathShape = titleSplitter.get(0, length);
     const path = pathShape.canvasPath;
     const glowFactor = titleOscillator1(timeInMs) ?? titleOscillator2(timeInMs);
 
