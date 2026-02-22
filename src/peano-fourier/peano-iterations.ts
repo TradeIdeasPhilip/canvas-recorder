@@ -20,7 +20,8 @@ import {
   interpolateColors,
   makePathShapeInterpolator,
 } from "../interpolate";
-import { blackBackground, BLUE } from "../utility";
+import { blackBackground } from "../utility";
+import { myRainbow } from "../glib/my-rainbow";
 
 const font = Font.cursive(0.37);
 function makeHandwritingForText(
@@ -227,7 +228,7 @@ const state2 = {
 };
 const state3 = {
   iteration: 3,
-  color: BLUE,
+  color: myRainbow.myBlue,
   strokeWidth: 0.015,
 };
 
@@ -279,12 +280,17 @@ builder.add(blackBackground);
 }
 
 {
-  const peanoShowable = makeHandwritingForPeano(3, 18000, BLUE, 0.015);
+  const peanoShowable = makeHandwritingForPeano(
+    3,
+    18000,
+    myRainbow.myBlue,
+    0.015,
+  );
   const chapterTitle = makeHandwritingForText(
     "Third iteration",
     12,
     0.375,
-    BLUE,
+    myRainbow.myBlue,
   );
   builder.addJustified(chapterTitle, CHAPTER_TITLE_DELAY + inSeries.duration);
   builder.addJustified(peanoShowable, inSeries.duration);

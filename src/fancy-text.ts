@@ -3,7 +3,7 @@ import { Font } from "./glib/letters-base";
 import { ParagraphLayout, WordInPlace } from "./glib/paragraph-layout";
 import { Command, PathShape } from "./glib/path-shape";
 import { ShowOptions } from "./showable";
-import { strokeColors, StrokeColorsOptions } from "./utility";
+import { strokeColors, StrokeColorsOptions } from "./stroke-colors";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 
 type CommonSettings = Partial<
@@ -117,7 +117,7 @@ export class PathElement {
       items.forEach((item) => {
         const relativeDistance = distance - item.start;
         if (relativeDistance > 0) {
-          item.pathElement.pathShape = item.splitter.get(0, relativeDistance);
+          item.pathElement.pathShape = item.splitter.trim(0, relativeDistance);
           item.pathElement.show(showOptions);
         }
       });

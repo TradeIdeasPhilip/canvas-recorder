@@ -235,3 +235,10 @@ function runTests() {
 }
 // Run the tests
 runTests();
+
+export function applyTransform(
+  context: CanvasRenderingContext2D,
+  matrix: DOMMatrixReadOnly,
+) {
+  context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+}

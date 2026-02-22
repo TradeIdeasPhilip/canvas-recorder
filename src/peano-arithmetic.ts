@@ -18,7 +18,8 @@ import {
   Showable,
   ShowOptions,
 } from "./showable";
-import { doTableLayout, mapEachPair, myRainbow } from "./utility";
+import { doTableLayout, mapEachPair } from "./utility";
+import { myRainbow } from "./glib/my-rainbow";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import {
   FancyLayout,
@@ -36,7 +37,6 @@ import {
   timedKeyframes,
   interpolateColor,
   ease,
-  easeIn,
 } from "./interpolate";
 import { getById } from "phil-lib/client-misc";
 
@@ -280,7 +280,7 @@ function zero(): PathElement {
     if (length <= 0) {
       return;
     }
-    const pathShape = titleSplitter.get(0, length);
+    const pathShape = titleSplitter.trim(0, length);
     const path = pathShape.canvasPath;
     const glowFactor = titleOscillator1(timeInMs) ?? titleOscillator2(timeInMs);
 
@@ -417,7 +417,7 @@ function zero(): PathElement {
             if (progress <= 0) {
               return PathShape.EMPTY;
             } else {
-              return splitter.get(0, progress * splitter.length);
+              return splitter.trim(0, progress * splitter.length);
             }
           };
         } else {

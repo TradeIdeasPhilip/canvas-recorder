@@ -7,7 +7,8 @@ import {
   samplesToFourier,
 } from "./fourier-shared";
 import { MakeShowableInParallel, Showable, ShowOptions } from "../showable";
-import { blackBackground, BLUE } from "../utility";
+import { blackBackground } from "../utility";
+import { myRainbow } from "../glib/my-rainbow";
 import { easeOut, timedKeyframes } from "../interpolate";
 import { FULL_CIRCLE, lerp } from "phil-lib/misc";
 
@@ -142,7 +143,7 @@ createExample(
   3,
   new DOMMatrixReadOnly("translateX(13px) translateY(2px) scale(0.75)"),
   13,
-  BLUE,
+  myRainbow.myBlue,
   0.02,
   keyframes,
 );

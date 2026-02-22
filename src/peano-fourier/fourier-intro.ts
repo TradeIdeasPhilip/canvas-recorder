@@ -9,7 +9,8 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./fourier-shared";
-import { blackBackground, BLUE } from "../utility";
+import { blackBackground } from "../utility";
+import { myRainbow } from "../glib/my-rainbow";
 
 const builder = new MakeShowableInParallel("Fourier intro");
 
@@ -41,7 +42,9 @@ function makeHandwriting(
 }
 builder.addJustified(makeHandwriting("Less detail", 0.95, 0.375, "red"));
 builder.addJustified(makeHandwriting("Some detail", 6.2, 0.375, "white"));
-builder.addJustified(makeHandwriting("More detail", 11.65, 0.375, BLUE));
+builder.addJustified(
+  makeHandwriting("More detail", 11.65, 0.375, myRainbow.myBlue),
+);
 
 /**
  * source:  https://commons.wikimedia.org/wiki/File:Silhouette_of_a_walking_man.svg
@@ -84,6 +87,13 @@ function addAnimation(
 
 addAnimation("man on left", [2, 3, 6, 9, 12], "red", 0, 1.25, 0.06);
 addAnimation("man in center", [12, 25, 31, 43, 50], "white", 5.5, 1.25, 0.04);
-addAnimation("man on right", [50, 75, 100, 150, 1000], BLUE, 11, 1.25, 0.02);
+addAnimation(
+  "man on right",
+  [50, 75, 100, 150, 1000],
+  myRainbow.myBlue,
+  11,
+  1.25,
+  0.02,
+);
 
 export const fourierIntro: Showable = builder.build();

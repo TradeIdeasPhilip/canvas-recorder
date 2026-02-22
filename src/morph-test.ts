@@ -30,7 +30,9 @@ import {
   makeQCommand,
   matchShapes,
 } from "./morph-animation";
-import { blackBackground, BLUE, myRainbow, strokeColors } from "./utility";
+import { blackBackground } from "./utility";
+import { myRainbow } from "./glib/my-rainbow";
+import { strokeColors } from "./stroke-colors";
 import {
   ease,
   easeAndBack,
@@ -666,7 +668,7 @@ if (false) {
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = 0.08;
-      context.strokeStyle = BLUE;
+      context.strokeStyle = myRainbow.myBlue;
       const shape = interpolator(progress);
       context.stroke(shape.canvasPath);
     },
@@ -1110,7 +1112,7 @@ if (false) {
           const to = layer.pathEnd(timeInMs);
           if (to > 0) {
             const from = layer.pathStart(timeInMs);
-            const path = splitter.get(from, to);
+            const path = splitter.trim(from, to);
             context.strokeStyle = layer.color;
             context.stroke(path.canvasPath);
           }

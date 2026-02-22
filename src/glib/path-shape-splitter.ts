@@ -11,7 +11,7 @@ export class PathShapeSplitter {
   ) {
     // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
     const splitter = new PathShapeSplitter(initial);
-    return splitter.get(
+    return splitter.trim(
       splitter.length * fromProgress,
       splitter.length * toProgress,
     );
@@ -19,7 +19,7 @@ export class PathShapeSplitter {
   static trim(initial: PathShape, from: number, to: number) {
     // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
     const splitter = new PathShapeSplitter(initial);
-    return splitter.get(from, to);
+    return splitter.trim(from, to);
   }
   readonly whole: PathShape;
   /**
@@ -108,7 +108,7 @@ export class PathShapeSplitter {
    * @param toDistance End here.
    * @returns
    */
-  get(fromDistance: number, toDistance: number) {
+  trim(fromDistance: number, toDistance: number) {
     fromDistance = Math.max(0, fromDistance);
     toDistance = Math.min(this.length, toDistance);
     if (fromDistance == 0 && toDistance == this.length) {

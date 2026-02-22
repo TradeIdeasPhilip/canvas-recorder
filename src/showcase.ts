@@ -1,10 +1,4 @@
-import {
-  FULL_CIRCLE,
-  lerp,
-  MAX_DATE,
-  radiansPerDegree,
-  ReadOnlyRect,
-} from "phil-lib/misc";
+import { FULL_CIRCLE, lerp, ReadOnlyRect } from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { easeAndBack, easeIn, interpolateNumbers } from "./interpolate";
@@ -13,17 +7,14 @@ import {
   MakeShowableInSeries,
   Showable,
 } from "./showable";
-import {
-  applyTransform,
-  blackBackground,
-  BLUE,
-  myRainbow,
-  strokeColors,
-} from "./utility";
+import { blackBackground } from "./utility";
+import { applyTransform } from "./glib/transforms";
+import { myRainbow } from "./glib/my-rainbow";
+import { strokeColors } from "./stroke-colors";
 import { panAndZoom } from "./glib/transforms";
 import { Font } from "./glib/letters-base";
 import { makePolygon } from "./peano-fourier/fourier-shared";
-import { fromBezier, PathShape, QCommand } from "./glib/path-shape";
+import { fromBezier, PathShape } from "./glib/path-shape";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 
 // Some of my examples constantly change as I try new things.
@@ -204,7 +195,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           alignment: "left",
           width: 16 - 2 * margin,
         }).translate(margin, 6.25).canvasPath;
-        context.strokeStyle = BLUE;
+        context.strokeStyle = myRainbow.myBlue;
         context.stroke(path);
       },
     };
@@ -231,7 +222,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           context.lineCap = "round";
           context.lineJoin = "round";
           context.lineWidth = 0.07;
-          context.strokeStyle = BLUE;
+          context.strokeStyle = myRainbow.myBlue;
           context.stroke(path);
         }
       },
@@ -290,7 +281,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.04;
-        context.strokeStyle = BLUE;
+        context.strokeStyle = myRainbow.myBlue;
         const pathByTag = layoutInfo.pathShapeByTag();
         context.stroke(
           pathByTag.get(undefined)!.translate(0.25, 1.5).canvasPath,
@@ -300,7 +291,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           context.stroke(
             pathByTag.get("cursor")!.translate(0.25, 1.5).canvasPath,
           );
-          context.strokeStyle = BLUE;
+          context.strokeStyle = myRainbow.myBlue;
         }
         context.lineWidth = 0.08;
         context.stroke(pathByTag.get("bold")!.translate(0.25, 1.5).canvasPath);
@@ -310,7 +301,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         );
         context.strokeStyle = "red";
         context.stroke(pathByTag.get("red")!.translate(0.25, 1.5).canvasPath);
-        context.strokeStyle = BLUE;
+        context.strokeStyle = myRainbow.myBlue;
         context.stroke(
           pathByTag
             .get("shaking")!
@@ -350,7 +341,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
             bBox.y.size,
           );
         }
-        context.strokeStyle = BLUE;
+        context.strokeStyle = myRainbow.myBlue;
         {
           const basePath = pathByTag.get("handwriting")!.translate(0.25, 1.5);
           const progress = (timeInMs / this.duration) * 2;
@@ -365,7 +356,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           const path = pathByTag.get("dashes")!.translate(0.25, 1.5).canvasPath;
           context.strokeStyle = "blue";
           context.stroke(path);
-          context.strokeStyle = BLUE;
+          context.strokeStyle = myRainbow.myBlue;
           context.setLineDash([0.1]);
           context.lineDashOffset = timeInMs / 5000;
           context.lineCap = "butt";
