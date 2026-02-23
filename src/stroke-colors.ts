@@ -9,7 +9,7 @@ import { myRainbow } from "./glib/my-rainbow";
 import { PathShape } from "./glib/path-shape";
 
 export function strokeColorsOriginal(options: StrokeColorsOptions) {
-  const splitter = new PathShapeSplitter(options.pathShape);
+  const splitter = PathShapeSplitter.create(options.pathShape);
   if (splitter.length == 0) {
     // This is more than an optimization.
     // If you take this away an empty path will cause an exception.
@@ -61,7 +61,7 @@ export function strokeColorsOriginal(options: StrokeColorsOptions) {
 }
 export function strokeColors(options: StrokeColorsOptions) {
   const lineCap = options.context.lineCap;
-  const splitter = new PathShapeSplitter(options.pathShape);
+  const splitter = PathShapeSplitter.create(options.pathShape);
   if (splitter.length == 0) {
     // This is more than an optimization.
     // If you take this away an empty path will cause an exception.

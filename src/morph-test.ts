@@ -1086,7 +1086,7 @@ if (false) {
       "I'’m just putting in my ten thousand (10,000) hours.",
       font,
     );
-    const splitter = new PathShapeSplitter(initialShape);
+    const splitter = PathShapeSplitter.create(initialShape);
     const layers = myRainbow.map((color, index, array) => {
       const startTime = (duration / array.length) * index;
       const endTime = (duration / array.length) * (index + 1);

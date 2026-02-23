@@ -228,7 +228,7 @@ function zero(): PathElement {
     width,
     alignment: "center",
   }).translate(margin, margin);
-  const titleSplitter = new PathShapeSplitter(titlePathShape);
+  const titleSplitter = PathShapeSplitter.create(titlePathShape);
   const numberPathShapes = (() => {
     const font = makeLineFont(0.5);
     const paragraphLayout = new ParagraphLayout(font);
@@ -412,7 +412,7 @@ function zero(): PathElement {
         if (a.value == b.value) {
           return () => a.value;
         } else if (a.value.isEmpty) {
-          const splitter = new PathShapeSplitter(b.value);
+          const splitter = PathShapeSplitter.create(b.value);
           return (progress: number) => {
             if (progress <= 0) {
               return PathShape.EMPTY;

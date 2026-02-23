@@ -105,7 +105,7 @@ export class PathElement {
     let start = 0;
     const items = pathElements.map((pathElement) => {
       const fullShape = pathElement.pathShape;
-      const splitter = new PathShapeSplitter(fullShape);
+      const splitter = PathShapeSplitter.create(fullShape);
       const length = splitter.length;
       const item = { fullShape, splitter, length, pathElement, start };
       start += length;

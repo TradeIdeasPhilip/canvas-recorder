@@ -1,6 +1,24 @@
 import { Command, CommandSplitter, PathShape, Point } from "./path-shape";
 
 /**
+ * Used internally.
+ *
+ * If you create a PathShapeSplitter for a PathShape,
+ * we cache the result,
+ * and the next time you ask for a splitter for that shape it will reuse the one we already made.
+ */
+const CACHE = Symbol();
+
+/**
+ * Used internally.
+ *
+ * If you create a PathShapeSplitter for a PathShape,
+ * we cache the result,
+ * and the next time you ask for a splitter for that shape it will reuse the one we already made.
+ */
+type Cache = PathShape & { [CACHE]?: PathShapeSplitter };
+
+/**
  * Lets you look up a specific point along a path, or split a path into smaller pieces.
  */
 export class PathShapeSplitter {
@@ -10,7 +28,7 @@ export class PathShapeSplitter {
     toProgress: number,
   ) {
     // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
-    const splitter = new PathShapeSplitter(initial);
+    const splitter = PathShapeSplitter.create(initial);
     return splitter.trim(
       splitter.length * fromProgress,
       splitter.length * toProgress,
@@ -18,14 +36,10 @@ export class PathShapeSplitter {
   }
   static trim(initial: PathShape, from: number, to: number) {
     // TODO PathShapeSplitter objects were meant to be reused.  I could optimize this case better.
-    const splitter = new PathShapeSplitter(initial);
+    const splitter = PathShapeSplitter.create(initial);
     return splitter.trim(from, to);
   }
-  readonly whole: PathShape;
-  /**
-   * All inputs are relative to this.
-   */
-  readonly length: number;
+
   readonly #allCommandInfo: readonly {
     command: Command;
     splitter: CommandSplitter;
@@ -33,9 +47,31 @@ export class PathShapeSplitter {
     length: number;
     end: number;
   }[];
+  /**
+   * Where does this path start relative to the data in #allCommandInfo?
+   *
+   * When we build #allCommandInfo from scratch, we set #offset to 0.
+   *
+   * If we trim a path and start 1 unit in, and we reuse #allCommandInfo that was created for the original path, #offset is 1.
+   *
+   * #offset will never be negative.
+   */
+  readonly #offset: number;
+  readonly #startIndex: number;
+  /**
+   * The largest index of a valid command.
+   *
+   * Never array.length, often array.length - 1.
+   */
+  readonly #endIndex: number;
+  /**
+   *
+   * @param position Assume this.#offset has already been fixed and position will be directly to comparable to this.#allCommandInfo.
+   * @returns
+   */
   #findCommandAt(position: number): number {
-    let low = 0;
-    let high = this.#allCommandInfo.length - 1;
+    let low = this.#startIndex;
+    let high = this.#endIndex;
 
     while (low <= high) {
       const mid = Math.floor(low + (high - low) / 2);
@@ -60,13 +96,68 @@ export class PathShapeSplitter {
 
     return -1;
   }
-  constructor(path: string | PathShape) {
+
+  /**
+   *
+   * @param whole The original path that we are splitting.
+   * @param length
+   * All inputs are relative to this.
+   *
+   * "distance" is on the same scale as length.
+   * "progress" means 0 ... 1.
+   * "bezier parameter" also means 0 - 1, but the mapping between progress and bezier parameter is **not** linear.
+   * progress and distance are linear.
+   * @param allCommandInfo
+   * @param offset
+   * Where does this path start relative to the data in #allCommandInfo?
+   *
+   * When we build #allCommandInfo from scratch, we set #offset to 0.
+   *
+   * If we trim a path and start 1 unit in, and we reuse #allCommandInfo that was created for the original path, #offset is 1.
+   *
+   * offset should never be negative.
+   * @param startIndex The first relevant index in this.#allCommandInfo.
+   * @param endIndex The last relevant index in this.#allCommandInfo.
+   * This must be a valid index, i.e. less than this.#allCommandInfo.length.
+   */
+  private constructor(
+    readonly whole: PathShape,
+    readonly length: number,
+    allCommandInfo: readonly {
+      command: Command;
+      splitter: CommandSplitter;
+      start: number;
+      length: number;
+      end: number;
+    }[],
+    offset: number,
+    startIndex: number,
+    endIndex: number,
+  ) {
+    this.#allCommandInfo = allCommandInfo;
+    this.#offset = offset;
+    this.#startIndex = startIndex;
+    this.#endIndex = endIndex - 1;
+    // This was designed for a second construction option.
+    // You can create a splitter for a subpath without
+    // starting from scratch.  You can reuse the bulk of
+    // the data created in create(), saving time and memory.
+    // I thought we were going to need that.
+    // But after adding simple caching in create(),
+    // this second type of constructor seems unnecessary.
+  }
+
+  static create(path: string | PathShape): PathShapeSplitter {
     if (typeof path === "string") {
       path = PathShape.fromRawString(path);
     }
-    this.whole = path;
+    const cache: Cache = path;
+    if (cache[CACHE] instanceof PathShapeSplitter) {
+      //console.log("⭐️")
+      return cache[CACHE];
+    }
     let start = 0;
-    this.#allCommandInfo = path.commands.map((command) => {
+    const allCommandInfo = path.commands.map((command) => {
       const length = command.getLength();
       const end = start + length;
       const result = {
@@ -79,8 +170,18 @@ export class PathShapeSplitter {
       start = end;
       return result;
     });
-    this.length = start;
+    const result = new this(
+      path,
+      start,
+      allCommandInfo,
+      0,
+      0,
+      allCommandInfo.length,
+    );
+    cache[CACHE] = result;
+    return result;
   }
+
   /**
    *
    * @param distance
@@ -90,7 +191,7 @@ export class PathShapeSplitter {
    * @returns The point at the given position along this curve.
    */
   at(distance: number): Point {
-    distance = Math.min(this.length, Math.max(0, distance));
+    distance = Math.min(this.length, Math.max(0, distance)) + this.#offset;
     const index = this.#findCommandAt(distance);
     const info = this.#allCommandInfo[index];
     const relativeToCommand = distance - info.start;
@@ -117,6 +218,8 @@ export class PathShapeSplitter {
     if (fromDistance >= toDistance) {
       toDistance = fromDistance;
     }
+    toDistance += this.#offset;
+    fromDistance += this.#offset;
     const fromIndex = this.#findCommandAt(fromDistance);
     const toIndex = this.#findCommandAt(toDistance);
     if (fromIndex == toIndex) {

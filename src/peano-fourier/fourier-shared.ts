@@ -217,7 +217,7 @@ function samplesFromPathOrig(
   pathString: string,
   numberOfTerms: number,
 ): Complex[] {
-  const splitter = new PathShapeSplitter(pathString);
+  const splitter = PathShapeSplitter.create(pathString);
   const sampleCount = numberOfTerms;
   const segmentCount = sampleCount - 1;
   return initializedArray(sampleCount, (index) => {
