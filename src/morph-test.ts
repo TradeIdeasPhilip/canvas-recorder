@@ -1083,7 +1083,7 @@ if (false) {
   function buildOne(font: Font) {
     const duration = 10000;
     const initialShape = makeShape(
-      "I'’m just putting in my ten thousand (10,000) hours.",
+      "I’m just putting in my ten thousand (10,000) hours.",
       font,
     );
     const splitter = PathShapeSplitter.create(initialShape);

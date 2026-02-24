@@ -841,6 +841,7 @@ export class PathBuilder {
   addCommand(command: Command) {
     this.#commands.push(command);
     this.#recentMove = undefined;
+    return this;
   }
   addCommands(commands: readonly Command[]) {
     commands.forEach((command) => this.addCommand(command));

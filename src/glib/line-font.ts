@@ -1423,7 +1423,7 @@ export function makeLineFontMap(
       .V(baseline - dotHeight).pathShape;
     add("!", shape, advance);
   }
-  // MARK: ,
+  // MARK: , Comma
   {
     const advance = 0;
     const drop = (descender - baseline) / 2;
@@ -1433,7 +1433,111 @@ export function makeLineFontMap(
       .Q_VH(-back, baseline + drop).pathShape;
     add(",", shape, advance);
   }
-  // MARK: '
+  // MARK: left single quote
+  {
+    const drop = descender - baseline;
+    const advance = drop / 2;
+    const shape = new PathShape([
+      QCommand.controlPoints(
+        left,
+        capitalTop,
+        advance * 0.35,
+        capitalTop + drop * 0.65,
+        advance,
+        capitalTop + drop,
+      ),
+    ]);
+    add("‘", shape, advance);
+  }
+  // MARK: ’ right single quote
+  // also very commonly used as a typographic apostrophe
+  {
+    const drop = descender - baseline;
+    const advance = drop / 2;
+    const shape = new PathShape([
+      QCommand.controlPoints(
+        advance,
+        capitalTop,
+        advance * 0.65,
+        capitalTop + drop * 0.65,
+        left,
+        capitalTop + drop,
+      ),
+    ]);
+    add("’", shape, advance);
+  }
+  // MARK: left double quote
+  {
+    const drop = descender - baseline;
+    const singleWidth = drop / 2;
+    const spaceBetween = strokeWidth;
+    const startSecond = singleWidth + spaceBetween;
+    const advance = startSecond + singleWidth;
+    const shape = new PathShape([
+      QCommand.controlPoints(
+        left,
+        capitalTop,
+        singleWidth * 0.35,
+        capitalTop + drop * 0.65,
+        singleWidth,
+        capitalTop + drop,
+      ),
+      QCommand.controlPoints(
+        left + startSecond,
+        capitalTop,
+        singleWidth * 0.35 + startSecond,
+        capitalTop + drop * 0.65,
+        singleWidth + startSecond,
+        capitalTop + drop,
+      ),
+    ]);
+    add("“", shape, advance);
+  }
+  // MARK: right double quote
+  {
+    const drop = descender - baseline;
+    const singleWidth = drop / 2;
+    const spaceBetween = strokeWidth;
+    const startSecond = singleWidth + spaceBetween;
+    const advance = startSecond + singleWidth;
+    const shape = new PathShape([
+      QCommand.controlPoints(
+        singleWidth,
+        capitalTop,
+        singleWidth * 0.65,
+        capitalTop + drop * 0.65,
+        left,
+        capitalTop + drop,
+      ),
+      QCommand.controlPoints(
+        singleWidth + startSecond,
+        capitalTop,
+        singleWidth * 0.65 + startSecond,
+        capitalTop + drop * 0.65,
+        left + startSecond,
+        capitalTop + drop,
+      ),
+    ]);
+    add("”", shape, advance);
+  }
+  // MARK: ʻ Hawaiian ʻokina
+  // A.k.a. MODIFIER LETTER TURNED COMMA
+  {
+    // Looks like a small, raised 6.
+    // In some fonts ‘ (single open quote) looks like a 6 and would pass.
+    // The quotes, like most of line font, look more like lines than circles.
+    // This looks similar to some of the Hershey fonts as those have loops in the punctuation.
+    const drop = descender - baseline;
+    const advance = drop / 2;
+    const shape = PathBuilder.M(advance / 2, capitalTop + drop / 2)
+      .Q_HV(advance, capitalTop + (drop * 3) / 4)
+      .Q_VH(advance / 2, capitalTop + drop)
+      .Q_HV(left, capitalTop + (drop * 2) / 3)
+      .Q_VH((advance * 3) / 4, capitalTop).pathShape;
+
+    add("ʻ", shape, advance);
+  }
+  // MARK: ' ASCII apostrophe (neutral / straight)
   {
     const advance = 0;
     const drop = (descender - baseline) / 2;
@@ -1443,7 +1547,7 @@ export function makeLineFontMap(
     ]);
     add("'", shape, advance);
   }
-  // MARK: `
+  // MARK: ` Backtick / back quote
   {
     const drop = (descender - baseline) / 2;
     const total = drop + dotHeight;
@@ -1468,7 +1572,7 @@ export function makeLineFontMap(
       .L(right, bottom).pathShape;
     add("^", shape, advance);
   }
-  // MARK: "
+  // MARK: " ASCII double quote (neutral / straight)
   {
     const advance = strokeWidth * 2;
     const drop = (descender - baseline) / 2;
