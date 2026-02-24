@@ -6,6 +6,7 @@ import {
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
+  ShowOptions,
 } from "./showable";
 import { blackBackground } from "./utility";
 import { applyTransform } from "./glib/transforms";
@@ -16,6 +17,7 @@ import { Font } from "./glib/letters-base";
 import { makePolygon } from "./peano-fourier/fourier-shared";
 import { fromBezier, PathShape } from "./glib/path-shape";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
+import { FullFormatter, PathElement } from "./fancy-text";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -156,17 +158,42 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "right",
       width: 16 - 2 * margin,
     }).translate(margin, 1.75).canvasPath;
-    const cursivePath = ParagraphLayout.singlePathShape({
-      text: "This is Cursive at size 0.5.  This works especially well with the handwriting effect.",
-      font: Font.cursive(0.5),
-      alignment: "center",
-      width: 16 - 2 * margin,
-    }).translate(margin, 4).canvasPath;
+    const drawCursive = (() => {
+      const formatted = new FullFormatter(Font.cursive(0.5))
+        .add("This is Cursive at size 0.5.  This works especially well with ")
+        .add("the handwriting effect")
+        .add(".")
+        .align({
+          alignment: "center",
+          width: 16 - 2 * margin,
+          left: margin,
+          top: 4,
+        });
+      const fixedElements = formatted.pathElements;
+      const handwritingElements = fixedElements.splice(1, 1);
+      const handwriting = PathElement.handwriting(
+        handwritingElements,
+        2000,
+        8000,
+      );
+      function drawCursive(options: ShowOptions) {
+        fixedElements.forEach((element) => element.show(options));
+        handwriting(options);
+      }
+      return drawCursive;
+    })();
+    // const cursivePath = ParagraphLayout.singlePathShape({
+    //   text: "This is Cursive at size 0.5.  This works especially well with the handwriting effect.",
+    //   font: Font.cursive(0.5),
+    //   alignment: "center",
+    //   width: 16 - 2 * margin,
+    // }).translate(margin, 4).canvasPath;
     const showable: Showable = {
       description: "simple parts",
       duration: 0,
-      show({ context }) {
+      show(options) {
         {
+          const context = options.context;
           context.lineCap = "round";
           context.lineJoin = "round";
           context.lineWidth = 0.07;
@@ -176,7 +203,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           context.strokeStyle = "rgb(128, 0, 255)";
           context.stroke(futuraPath);
           context.strokeStyle = "rgb(0, 0, 255)";
-          context.stroke(cursivePath);
+          drawCursive(options);
         }
       },
     };
