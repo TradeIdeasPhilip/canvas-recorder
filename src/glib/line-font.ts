@@ -154,7 +154,24 @@ export function makeLineFontMap(
     strokeWidth,
   } = fontMetrics;
   const left = 0;
+  /**
+   * @deprecated See dotHeightReplacement.
+   *
+   * The question is how long to draw a line that is supposed to represent a dot.
+   *
+   * This is only meaningful when linecap="butt", and I don't know of that works well with this or any font.
+   *
+   * When linecap="square" or "round" this is not necessary.
+   * A zero length line becomes a square or circle.
+   * In fact, this seems to cause problems.
+   * Maybe best to get rid of it.
+   * Or if there is some value to it, make it an explicit option.
+   *
+   * dotHeight is also used in other places,
+   * and I'm not sure how appropriate it is there.
+   */
   const dotHeight = strokeWidth / 3;
+  const dotHeightReplacement = fontMetrics.mHeight / 30;
   // MARK: Non breaking space
   {
     const advance = fontMetrics.spaceWidth;
@@ -398,7 +415,7 @@ export function makeLineFontMap(
       "cw",
     );
     pathBuilder.Q_angles(center, capitalBottomMiddle, dSouth);
-    pathBuilder.M(center, baseline - dotHeight);
+    pathBuilder.M(center, baseline - dotHeightReplacement);
     pathBuilder.L(center, baseline);
     add("?", pathBuilder.pathShape, advance);
   }
@@ -548,7 +565,7 @@ export function makeLineFontMap(
         new LCommand(left, middle, right, middle),
         new LCommand(
           center,
-          middle - space - dotHeight,
+          middle - space - dotHeightReplacement,
           center,
           middle - space,
         ),
@@ -556,7 +573,7 @@ export function makeLineFontMap(
           center,
           middle + space,
           center,
-          middle + space + dotHeight,
+          middle + space + dotHeightReplacement,
         ),
       ]);
       PathBuilder.M(left, capitalMiddle).H(advance).pathShape;
@@ -1388,7 +1405,7 @@ export function makeLineFontMap(
   {
     const advance = 0;
     // Move straight down.
-    const shape = PathBuilder.M(left, capitalTopMiddle - dotHeight)
+    const shape = PathBuilder.M(left, capitalTopMiddle - dotHeightReplacement)
       .V(capitalTopMiddle)
       .M(left, capitalMiddle)
       .V(baseline).pathShape;
@@ -1403,14 +1420,14 @@ export function makeLineFontMap(
       .Q_VH(center, descender)
       .Q_HV(left, baseline)
       .M(advance, capitalTopMiddle)
-      .V(capitalTopMiddle - dotHeight).pathShape;
+      .V(capitalTopMiddle - dotHeightReplacement).pathShape;
     add("j", shape, advance);
   }
   // MARK: .
   {
     const advance = 0;
     const shape = PathBuilder.M(left, baseline).V(
-      baseline - dotHeight,
+      baseline - dotHeightReplacement,
     ).pathShape;
     add(".", shape, advance);
   }
@@ -1420,7 +1437,7 @@ export function makeLineFontMap(
     const shape = PathBuilder.M(left, capitalTop)
       .V(capitalBottomMiddle)
       .M(left, baseline)
-      .V(baseline - dotHeight).pathShape;
+      .V(baseline - dotHeightReplacement).pathShape;
     add("!", shape, advance);
   }
   // MARK: , Comma
@@ -1428,7 +1445,7 @@ export function makeLineFontMap(
     const advance = 0;
     const drop = (descender - baseline) / 2;
     const back = drop / 2;
-    const shape = PathBuilder.M(left, baseline - dotHeight)
+    const shape = PathBuilder.M(left, baseline - dotHeightReplacement)
       .V(baseline)
       .Q_VH(-back, baseline + drop).pathShape;
     add(",", shape, advance);
@@ -1541,7 +1558,7 @@ export function makeLineFontMap(
   {
     const advance = 0;
     const drop = (descender - baseline) / 2;
-    const total = drop + dotHeight;
+    const total = drop + dotHeightReplacement;
     const shape = new PathShape([
       new LCommand(left, capitalTop, left, capitalTop + total),
     ]);
@@ -1550,7 +1567,7 @@ export function makeLineFontMap(
   // MARK: ` Backtick / back quote
   {
     const drop = (descender - baseline) / 2;
-    const total = drop + dotHeight;
+    const total = drop + dotHeightReplacement;
     const advance = total;
     const right = total;
     const shape = new PathShape([
@@ -1561,7 +1578,7 @@ export function makeLineFontMap(
   // MARK: ^
   {
     const drop = (descender - baseline) / 2;
-    const total = drop + dotHeight;
+    const total = drop + dotHeightReplacement;
     const center = total;
     const advance = total * 2;
     const right = advance;
@@ -1576,7 +1593,7 @@ export function makeLineFontMap(
   {
     const advance = strokeWidth * 2;
     const drop = (descender - baseline) / 2;
-    const total = drop + dotHeight;
+    const total = drop + dotHeightReplacement;
     const shape = new PathShape([
       new LCommand(left, capitalTop, left, capitalTop + total),
       new LCommand(advance, capitalTop, advance, capitalTop + total),
@@ -1588,8 +1605,8 @@ export function makeLineFontMap(
     const advance = 0;
     const topDotTop = capitalMiddle;
     const shape = PathBuilder.M(left, baseline)
-      .V(baseline - dotHeight)
-      .M(left, topDotTop - dotHeight)
+      .V(baseline - dotHeightReplacement)
+      .M(left, topDotTop - dotHeightReplacement)
       .V(topDotTop).pathShape;
     add(":", shape, advance);
   }
@@ -1607,10 +1624,10 @@ export function makeLineFontMap(
     const topDotTop = capitalMiddle;
     const drop = (descender - baseline) / 2;
     const back = drop / 2;
-    const shape = PathBuilder.M(left, baseline - dotHeight)
+    const shape = PathBuilder.M(left, baseline - dotHeightReplacement)
       .V(baseline)
       .Q_VH(-back, baseline + drop)
-      .M(left, topDotTop - dotHeight)
+      .M(left, topDotTop - dotHeightReplacement)
       .V(topDotTop).pathShape;
     add(";", shape, advance);
   }
@@ -1821,6 +1838,60 @@ export function makeLineFontMap(
       .H(advance).pathShape;
     add("z", shape, advance);
   }
+  /**
+   * Commonly used in Spanish.
+   * Top right to bottom left.
+   * @param advance How wide the character is.
+   * The accent mark will be centered within this space.
+   * @returns A command to add to your path.
+   */
+  function makeAcuteAccent(advance: number) {
+    // Inspired by the ` character.
+    // But a mirror image.
+    const drop = (descender - baseline) / 2;
+    const total = drop + dotHeightReplacement;
+    const top = capitalTop;
+    const bottom = top + total;
+    const right = (advance + total) / 2;
+    const left = (advance - total) / 2;
+    const result = new LCommand(right, top, left, bottom);
+    return result;
+  }
+  function addAccent(baseChar: string, finalChar: string) {
+    const base = result.get(baseChar)!;
+    const baseCommands = PathShape.fromCssString(base.cssPath).commands;
+    const accentCommand = makeAcuteAccent(base.advance);
+    const shape = new PathShape([...baseCommands, accentCommand]);
+    add(finalChar, shape, base.advance);
+  }
+  addAccent("n", "ń");
+  addAccent("a", "á");
+  addAccent("e", "é");
+  addAccent("o", "ó");
+  addAccent("u", "ú");
+  {
+    const base = result.get("i")!;
+    const baseCommands = PathShape.fromCssString(base.cssPath).commands;
+    const accentCommand = makeAcuteAccent(base.advance);
+    const shape = new PathShape([baseCommands[1], accentCommand]);
+    add("í", shape, base.advance);
+  }
+  function rotate(baseChar: string, rotatedChar: string) {
+    const base = result.get(baseChar)!;
+    const offsetX = base.advance / 2;
+    const offsetY = capitalMiddle;
+
+    const basePathShape = PathShape.fromCssString(base.cssPath);
+    const rotated = basePathShape.transform(
+      new DOMMatrixReadOnly()
+        .translate(offsetX, offsetY)
+        .rotate(180)
+        .translate(-offsetX, -offsetY),
+    );
+    add(rotatedChar, rotated, base.advance);
+  }
+  rotate("?", "¿");
+  rotate("!", "¡");
   // MARK: ∅ (empty set)
   {
     const advance = digitWidth;

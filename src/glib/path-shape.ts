@@ -1470,6 +1470,19 @@ export class PathShape {
     }
   }
   /**
+   * This is the inverse of the the cssPath property.
+   * @param d
+   * @returns
+   */
+  static fromCssString(d: string): PathShape {
+    const parsed = /^path\('(.*)'\)/.exec(d);
+    if (!parsed) {
+      console.error(d);
+      throw new Error("wtf");
+    }
+    return this.fromRawString(parsed[1]);
+  }
+  /**
    * Convert a string into a `PathShape`.
    * @param d A valid d attribute for an `SVGPathElement`.
    * E.g "M1,2 L3,4".

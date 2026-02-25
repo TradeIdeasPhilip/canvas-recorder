@@ -1,5 +1,12 @@
 import { Showable } from "./showable";
 
+function only<T>(source: ArrayLike<T>): T {
+  if (source.length != 1) {
+    throw new Error("wtf");
+  }
+  return source[0];
+}
+
 // TODO copy this to phil-lib/client-misc.ts
 // Right under download() which only works on strings.
 // Or maybe join them.  The last argument could have type string|Blob.
