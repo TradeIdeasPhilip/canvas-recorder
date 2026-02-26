@@ -2,7 +2,6 @@ import {
   FULL_CIRCLE,
   initializedArray,
   lerp,
-  makeLinear,
   ReadOnlyRect,
   zip,
 } from "phil-lib/misc";
@@ -15,7 +14,6 @@ import {
   interpolateColor,
   interpolateNumbers,
   Keyframes,
-  timedKeyframes,
 } from "./interpolate";
 import {
   MakeShowableInParallel,
@@ -23,8 +21,7 @@ import {
   Showable,
   ShowOptions,
 } from "./showable";
-import { blackBackground } from "./utility";
-import { applyTransform } from "./glib/transforms";
+import { applyTransform, transform } from "./glib/transforms";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
 import { panAndZoom } from "./glib/transforms";
@@ -632,7 +629,7 @@ What the hand, dare sieze the fire?`);
   );
   const scene: Showable = {
     duration: schedules.at(-1)!.at(-1)!.time + 5000,
-    description: "solid",
+    description: "Morphing Text",
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -705,8 +702,42 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+const halftoneBackground: Showable = {
+  description: "halftone background",
+  /**
+   * The intent is to use this in a MakeShowableInParallel.
+   * It will run as long as it needs to.
+   */
+  duration: 0,
+  show({ context }) {
+    context.fillStyle = "black";
+    context.fillRect(0, 0, 16, 9);
+    {
+      context.fillStyle = "color(srgb-linear 0.022 0.022 0.022)";
+      const matrix = new DOMMatrixReadOnly()
+        .translate(8, 4.5)
+        .rotate(-60.6)
+        .translate(-8, -4.5);
+      context.beginPath();
+      const period = 0.25;
+      for (let x = period / 2; x < 16 + period; x += period) {
+        for (let y = period / 2; y < 9 + period; y += period) {
+          const transformed = transform(x, y, matrix);
+          const value = (transformed.x - 8) / 8;
+          if (value > 0) {
+            const radius = ((Math.sqrt(value) * period) / 2) * Math.SQRT2;
+            context.moveTo(x + radius, y);
+            context.arc(x, y, radius, 0, FULL_CIRCLE);
+          }
+        }
+      }
+      context.fill();
+    }
+  },
+};
+
 const mainBuilder = new MakeShowableInParallel("Showcase");
-mainBuilder.add(blackBackground);
+mainBuilder.add(halftoneBackground);
 mainBuilder.add(sceneList.build());
 
 export const showcase = mainBuilder.build();
