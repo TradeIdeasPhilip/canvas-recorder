@@ -1,17 +1,88 @@
 import { FULL_CIRCLE, makeBoundedLinear } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
 import {
+  addMargins,
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
 } from "./showable";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
-import { LCommand, PathShape } from "./glib/path-shape";
+import { Command, LCommand, PathShape } from "./glib/path-shape";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { ease, interpolateNumbers, Keyframes } from "./interpolate";
+import {
+  ease,
+  easeIn,
+  interpolateNumbers,
+  Keyframes,
+  makePathShapeInterpolator,
+} from "./interpolate";
 
 const titleFont = makeLineFont(0.7);
+
+class Map2<K1, K2, V> {
+  readonly #map = new Map<K1, Map<K2, V>>();
+  set(k1: K1, k2: K2, value: V) {
+    let innerMap = this.#map.get(k1);
+    if (!innerMap) {
+      innerMap = new Map();
+      this.#map.set(k1, innerMap);
+    }
+    innerMap.set(k2, value);
+  }
+  get(k1: K1, k2: K2): V | undefined {
+    return this.#map.get(k1)?.get(k2);
+  }
+}
+
+type Point = { readonly x: number; readonly y: number };
+
+class Triangle {
+  /**
+   *
+   * @param depth 0 for a single triangle.
+   * 1 For 3 triangles with an up-side-down triangle between them.
+   */
+  constructor(depth: number) {
+    if (!Number.isSafeInteger(depth)) {
+      throw new Error("wtf");
+    }
+    if (depth < 0) {
+      throw new Error("wtf");
+    }
+    function between(a: Point, b: Point): Point {
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    let pointsAlongPath = [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 1 },
+      { x: -0.5, y: 1 },
+    ];
+    for (let i = 0; i < depth; i++) {
+      const nextPath = new Array<Point>();
+      pointsAlongPath.forEach((start, index, array) => {
+        nextPath.push(start);
+        const end = array[index + (1 % array.length)];
+        const middle = between(start, end);
+        nextPath.push(middle);
+        if (start.y == end.y) {
+          const originalHalfWidth = Math.abs(middle.x - start.x);
+          const newHeight = originalHalfWidth;
+          const newHalfWidth = originalHalfWidth / 2;
+          const invertedBase = middle.y - newHeight;
+          const left = middle.x - newHalfWidth;
+          const right = middle.x + newHalfWidth;
+          nextPath.push(
+            { x: right, y: invertedBase },
+            { x: left, y: invertedBase },
+            middle,
+          );
+        }
+      });
+      pointsAlongPath = nextPath;
+    }
+  }
+}
 
 class MainTriangle {
   private constructor(arg: never) {
@@ -48,7 +119,67 @@ class MainTriangle {
       return command;
     }),
   );
+  static #createInverted(factor: number, startX: number, startY: number) {
+    const width = this.width * factor;
+    const height = this.height * factor;
+    const top = startY - height;
+    const left = startX - width / 2;
+    const right = startX + width / 2;
+    return new PathShape([
+      new LCommand(startX, startY, left, top),
+      new LCommand(left, top, right, top),
+      new LCommand(right, top, startX, startY),
+    ]);
+  }
+  static getMorphablePaths(n: number) {
+    const result = new Array<{
+      simpleFrom: PathShape;
+      from: PathShape;
+      to: PathShape;
+    }>();
+    const needToSplit = new Set<Command>();
+    let simpleFrom = this.pathShape;
+    needToSplit.add(simpleFrom.commands[1]);
+    let factor = 1;
+    while (result.length < n) {
+      factor /= 2;
+      const toCommands = new Array<Command>();
+      const fromCommands = new Array<Command>();
+      simpleFrom.commands.forEach((command) => {
+        if (!needToSplit.has(command)) {
+          toCommands.push(command);
+          fromCommands.push(command);
+        } else {
+          const splitter = command.makeSplitter();
+          const left = splitter.split(0, 0.5 * splitter.length);
+          const right = splitter.split(0.5 * splitter.length, splitter.length);
+          needToSplit.add(left);
+          needToSplit.add(right);
+          toCommands.push(left);
+          fromCommands.push(left);
+          {
+            const startX = right.x0;
+            const startY = right.y0;
+            const additionalPath = this.#createInverted(factor, startX, startY);
+            needToSplit.add(additionalPath.commands[1]);
+            toCommands.push(...additionalPath.commands);
+            const filler = new LCommand(startX, startY, startX, startY);
+            fromCommands.push(filler, filler, filler);
+          }
+          toCommands.push(right);
+          fromCommands.push(right);
+        }
+      });
+      const from = new PathShape(fromCommands);
+      const to = new PathShape(toCommands);
+      result.push({ from, simpleFrom, to });
+      simpleFrom = to;
+    }
+    return result;
+  }
 }
+
+const FILL_ALPHA = 0.25;
 
 const sceneList = new MakeShowableInSeries("Scene List");
 
@@ -65,7 +196,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const textPath = textPathShape.canvasPath;
     const trianglePath = MainTriangle.pathShape.canvasPath;
     (window as any).MainTriangle = MainTriangle;
-    const FILL_ALPHA = 0.25;
     /**
      * Draw the words and the triangle together.
      */
@@ -141,6 +271,31 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(fillIn);
   }
+  sceneList.add(scene.build());
+}
+
+{
+  const scene = new MakeShowableInSeries("expanding");
+  MainTriangle.getMorphablePaths(5).forEach((pathShapes, index) => {
+    const morpher = makePathShapeInterpolator(pathShapes.from, pathShapes.to);
+    const showable: Showable = {
+      description: `expanding: ${index} - ${index + 1}`,
+      duration: 4_000,
+      show({ context, timeInMs }) {
+        const progress = easeIn(timeInMs / this.duration);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.07;
+        context.fillStyle = context.strokeStyle = "yellow";
+        morpher(progress).setCanvasPath(context);
+        context.globalAlpha = FILL_ALPHA;
+        context.fill();
+        context.globalAlpha = 1;
+        context.stroke();
+      },
+    };
+    scene.add(addMargins(showable, { frozenBefore: 500, frozenAfter: 1000 }));
+  });
   sceneList.add(scene.build());
 }
 
