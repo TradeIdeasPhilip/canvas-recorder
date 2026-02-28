@@ -31,6 +31,7 @@ import { fromBezier, PathShape } from "./glib/path-shape";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
+import { blackBackground } from "./utility";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -702,42 +703,8 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
-const halftoneBackground: Showable = {
-  description: "halftone background",
-  /**
-   * The intent is to use this in a MakeShowableInParallel.
-   * It will run as long as it needs to.
-   */
-  duration: 0,
-  show({ context }) {
-    context.fillStyle = "black";
-    context.fillRect(0, 0, 16, 9);
-    {
-      context.fillStyle = "color(srgb-linear 0.022 0.022 0.022)";
-      const matrix = new DOMMatrixReadOnly()
-        .translate(8, 4.5)
-        .rotate(-60.6)
-        .translate(-8, -4.5);
-      context.beginPath();
-      const period = 0.25;
-      for (let x = period / 2; x < 16 + period; x += period) {
-        for (let y = period / 2; y < 9 + period; y += period) {
-          const transformed = transform(x, y, matrix);
-          const value = (transformed.x - 8) / 8;
-          if (value > 0) {
-            const radius = ((Math.sqrt(value) * period) / 2) * Math.SQRT2;
-            context.moveTo(x + radius, y);
-            context.arc(x, y, radius, 0, FULL_CIRCLE);
-          }
-        }
-      }
-      context.fill();
-    }
-  },
-};
-
 const mainBuilder = new MakeShowableInParallel("Showcase");
-mainBuilder.add(halftoneBackground);
+mainBuilder.add(blackBackground);
 mainBuilder.add(sceneList.build());
 
 export const showcase = mainBuilder.build();

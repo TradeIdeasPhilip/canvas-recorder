@@ -1,4 +1,8 @@
-import { FULL_CIRCLE, makeBoundedLinear } from "phil-lib/misc";
+import {
+  assertNonNullable,
+  FULL_CIRCLE,
+  makeBoundedLinear,
+} from "phil-lib/misc";
 import { transform } from "./glib/transforms";
 import {
   addMargins,
@@ -37,52 +41,147 @@ class Map2<K1, K2, V> {
 
 type Point = { readonly x: number; readonly y: number };
 
+type Segment = {
+  readonly from: Point;
+  readonly to: Point;
+  readonly depth: number;
+};
+
 class Triangle {
+  static #paths: (readonly Segment[])[] = [
+    [
+      { x: 0, y: 0 },
+      { x: 0.5, y: 1 },
+      { x: -0.5, y: 1 },
+    ].map((from, index, array): Segment => {
+      const to = array[(index + 1) % array.length];
+      return { to, from, depth: 0 };
+    }),
+  ];
+  static #createNextPath() {
+    function between(a: Point, b: Point): Point {
+      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    }
+    const originalPath = Triangle.#paths.at(-1)!;
+    const nextPath = new Array<Segment>();
+    originalPath.forEach((originalSegment) => {
+      const middle = between(originalSegment.from, originalSegment.to);
+      nextPath.push({
+        from: originalSegment.from,
+        to: middle,
+        depth: originalSegment.depth,
+      });
+      if (originalSegment.to.y == originalSegment.from.y) {
+        const originalHalfWidth = Math.abs(middle.x - originalSegment.from.x);
+        const newHeight = originalHalfWidth;
+        const newHalfWidth = originalHalfWidth / 2;
+        const invertedBase = middle.y - newHeight;
+        const left = middle.x - newHalfWidth;
+        const right = middle.x + newHalfWidth;
+        const topRight: Point = { x: right, y: invertedBase };
+        const topLeft: Point = { x: left, y: invertedBase };
+        const depth = originalSegment.depth + 1;
+        nextPath.push(
+          { from: middle, to: topRight, depth },
+          { from: topRight, to: topLeft, depth },
+          { from: topLeft, to: middle, depth },
+        );
+      }
+      nextPath.push({
+        from: middle,
+        to: originalSegment.to,
+        depth: originalSegment.depth,
+      });
+    });
+    this.#paths.push(nextPath);
+  }
+  static minPaths(min: number) {
+    while (this.#paths.length < min) {
+      this.#createNextPath();
+    }
+  }
+  static get paths(): readonly (readonly Segment[])[] {
+    return this.#paths;
+  }
+  private constructor(_: never) {
+    throw new Error("wtf");
+  }
   /**
    *
    * @param depth 0 for a single triangle.
    * 1 For 3 triangles with an up-side-down triangle between them.
    */
-  constructor(depth: number) {
-    if (!Number.isSafeInteger(depth)) {
-      throw new Error("wtf");
-    }
-    if (depth < 0) {
-      throw new Error("wtf");
-    }
-    function between(a: Point, b: Point): Point {
-      return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-    }
-    let pointsAlongPath = [
-      { x: 0, y: 0 },
-      { x: 0.5, y: 1 },
-      { x: -0.5, y: 1 },
-    ];
-    for (let i = 0; i < depth; i++) {
-      const nextPath = new Array<Point>();
-      pointsAlongPath.forEach((start, index, array) => {
-        nextPath.push(start);
-        const end = array[index + (1 % array.length)];
-        const middle = between(start, end);
-        nextPath.push(middle);
-        if (start.y == end.y) {
-          const originalHalfWidth = Math.abs(middle.x - start.x);
-          const newHeight = originalHalfWidth;
-          const newHalfWidth = originalHalfWidth / 2;
-          const invertedBase = middle.y - newHeight;
-          const left = middle.x - newHalfWidth;
-          const right = middle.x + newHalfWidth;
-          nextPath.push(
-            { x: right, y: invertedBase },
-            { x: left, y: invertedBase },
-            middle,
-          );
+  static alternatePaths(path: readonly Segment[]) {
+    type Vertex = { point: Point; segments: Segment[] };
+    const allVertices = new Map2<number, number, Vertex>();
+    path.forEach((segment) => {
+      function add(point: Point) {
+        let vertex = allVertices.get(point.x, point.y);
+        if (!vertex) {
+          vertex = { point, segments: [] };
+          allVertices.set(point.x, point.y, vertex);
         }
-      });
-      pointsAlongPath = nextPath;
+        vertex.segments.push(segment);
+      }
+      add(segment.from);
+      add(segment.to);
+    });
+    class PathSoFar {
+      #items: ReadonlyArray<{
+        readonly segment: Segment;
+        readonly forward: boolean;
+      }>;
+      private constructor(
+        items: ReadonlyArray<{ segment: Segment; forward: boolean }>,
+      ) {
+        this.#items = items;
+      }
+      static start(segment: Segment) {
+        return new this([{ segment, forward: true }]);
+      }
+      end() {
+        const last = this.#items.at(-1)!;
+        return last.forward ? last.segment.to : last.segment.from;
+      }
+      add(segment: Segment) {
+        const { x, y } = this.end();
+        let forward: boolean;
+        if (segment.from.x == x && segment.from.y == y) {
+          forward = true;
+        } else if (segment.to.x == x && segment.to.y == y) {
+          forward = false;
+        } else {
+          throw new Error("wtf");
+        }
+        return new PathSoFar([...this.#items, { segment, forward }]);
+      }
+      has(segment: Segment) {
+        return (
+          this.#items.findIndex((possible) => possible.segment === segment) >= 0
+        );
+      }
+      *findAll(
+        finalCount: number,
+        available: Map2<number, number, Vertex>,
+      ): Generator<PathSoFar, void, unknown> {
+        if (this.#items.length == finalCount) {
+          yield this;
+        } else {
+          const { x, y } = this.end();
+          const vertex = assertNonNullable(available.get(x, y));
+          for (const segment of vertex.segments) {
+            if (!this.has(segment)) {
+              yield* this.add(segment).findAll(finalCount, available);
+            }
+          }
+        }
+      }
     }
+    const result = PathSoFar.start(path[0]).findAll(path.length, allVertices);
+    return result;
   }
 }
+(window as any).Triangle = Triangle;
 
 class MainTriangle {
   private constructor(arg: never) {
@@ -299,6 +398,33 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+const halftoneBackgroundPath = (() => {
+  // This is slow!!!
+  // This takes 4.16ms.
+  // That would be 1/4 of our total budget of each frame.
+  // After I moved this code here, so it's only run once,
+  // each frame started taking a total of only 0.047ms
+  // I was interpolating between different generations of the triangle.
+  const result = new Path2D();
+  const matrix = new DOMMatrixReadOnly()
+    .translate(8, 4.5)
+    .rotate(-60.6)
+    .translate(-8, -4.5);
+  const period = 0.25;
+  for (let x = period / 2; x < 16 + period; x += period) {
+    for (let y = period / 2; y < 9 + period; y += period) {
+      const transformed = transform(x, y, matrix);
+      const value = (transformed.x - 8) / 8;
+      if (value > 0) {
+        const radius = ((Math.sqrt(value) * period) / 2) * Math.SQRT2;
+        result.moveTo(x + radius, y);
+        result.arc(x, y, radius, 0, FULL_CIRCLE);
+      }
+    }
+  }
+  return result;
+})();
+
 const halftoneBackground: Showable = {
   description: "halftone background",
   /**
@@ -311,24 +437,7 @@ const halftoneBackground: Showable = {
     context.fillRect(0, 0, 16, 9);
     {
       context.fillStyle = "color(srgb-linear 0.022 0.022 0.022)";
-      const matrix = new DOMMatrixReadOnly()
-        .translate(8, 4.5)
-        .rotate(-60.6)
-        .translate(-8, -4.5);
-      context.beginPath();
-      const period = 0.25;
-      for (let x = period / 2; x < 16 + period; x += period) {
-        for (let y = period / 2; y < 9 + period; y += period) {
-          const transformed = transform(x, y, matrix);
-          const value = (transformed.x - 8) / 8;
-          if (value > 0) {
-            const radius = ((Math.sqrt(value) * period) / 2) * Math.SQRT2;
-            context.moveTo(x + radius, y);
-            context.arc(x, y, radius, 0, FULL_CIRCLE);
-          }
-        }
-      }
-      context.fill();
+      context.fill(halftoneBackgroundPath);
     }
   },
 };
