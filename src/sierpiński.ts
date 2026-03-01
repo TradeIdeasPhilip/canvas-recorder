@@ -3,6 +3,7 @@ import {
   FULL_CIRCLE,
   initializedArray,
   makeBoundedLinear,
+  zip,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
 import {
@@ -24,6 +25,7 @@ import {
   makePathShapeInterpolator,
 } from "./interpolate";
 import { myRainbow } from "./glib/my-rainbow";
+import { strokeColors } from "./stroke-colors";
 
 const titleFont = makeLineFont(0.7);
 
@@ -51,6 +53,29 @@ type Segment = {
 };
 
 class Triangle {
+  /**
+   * Internally all items are 1×1.
+   * This will give you a new matrix that will resize the triangles.
+   * The result will have the correct aspect ratio for an equilateral triangle.
+   * The result will be as big as possible, respecting the given limits and the aspect ratio.
+   * I.e. it will completely fit inside the given width and height.
+   * @param maxHeight The resulting width will be limited to this.
+   * @param maxWidth The resulting height will be limited to this.
+   * @returns A new Matrix
+   */
+  static resizeToMax(maxHeight: number, maxWidth: number): DOMMatrix {
+    const impliedWidth = (maxHeight / MainTriangle.height) * MainTriangle.width;
+    let height: number;
+    let width: number;
+    if (impliedWidth < maxWidth) {
+      height = maxHeight;
+      width = impliedWidth;
+    } else {
+      width = maxWidth;
+      height = (width / MainTriangle.width) * MainTriangle.height;
+    }
+    return new DOMMatrix().scale(width, height);
+  }
   static #paths: (readonly Segment[])[] = [
     [
       { x: 0, y: 0 },
@@ -103,6 +128,16 @@ class Triangle {
       this.#createNextPath();
     }
   }
+  /**
+   *
+   * @param index Which path.
+   * 0 For the simplest path, a single triangle.
+   * @returns
+   */
+  static getPath(index: number) {
+    this.minPaths(index + 1);
+    return this.paths[index];
+  }
   static get paths(): readonly (readonly Segment[])[] {
     return this.#paths;
   }
@@ -134,6 +169,25 @@ class Triangle {
         readonly segment: Segment;
         readonly forward: boolean;
       }>;
+      getCommands() {
+        return this.#items.map(({ segment, forward }) => {
+          if (forward) {
+            return new LCommand(
+              segment.from.x,
+              segment.from.y,
+              segment.to.x,
+              segment.to.y,
+            );
+          } else {
+            return new LCommand(
+              segment.to.x,
+              segment.to.y,
+              segment.from.x,
+              segment.from.y,
+            );
+          }
+        });
+      }
       private constructor(
         items: ReadonlyArray<{ segment: Segment; forward: boolean }>,
       ) {
@@ -578,6 +632,62 @@ for (let i = 4; i < 6; i++) {
           myRainbow[(baseColorIndex + 5 - index) % myRainbow.length];
         context.stroke(byDepth[index]);
       }
+    },
+  };
+  sceneList.add(scene);
+}
+
+// MARK: All 16 permutations
+{
+  const paths = Triangle.alternatePaths(Triangle.getPath(1)).toArray();
+  const locations = ((): readonly Point[] => {
+    const yOffset = 0.5;
+    const yPeriod = 9 / 3;
+    const xPeriod = 16 / 6;
+    const xOffset = [xPeriod, xPeriod / 2, xPeriod];
+    const across = [5, 6, 5];
+    return zip(across, xOffset)
+      .flatMap(([across, xOffset], yIndex) => {
+        return initializedArray(across, (xIndex) => {
+          return {
+            x: xOffset + xPeriod * xIndex,
+            y: yOffset + yPeriod * yIndex,
+          };
+        });
+      })
+      .toArray();
+  })();
+  const resize = Triangle.resizeToMax(2.5, 2.25);
+  const transformedPaths = zip(paths, locations)
+    .map(([basePath, point]) => {
+      return new PathShape(basePath.getCommands())
+        .transform(resize)
+        .translate(point.x, point.y);
+    })
+    .toArray();
+  console.log({ paths, locations, transformedPaths });
+  const scene: Showable = {
+    description: "Permutations",
+    duration: 10_000,
+    show({ context, timeInMs }) {
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.05;
+      transformedPaths.forEach((pathShape) => {
+        //    context.strokeStyle="red"
+        //    context.stroke(pathShape.canvasPath);
+        strokeColors({ pathShape, context, relativeOffset: -timeInMs / 10000 });
+      });
+      // false&&  zip(locations,paths).forEach(([point, path],index) => {
+      //     path.getCommands().forEach((command,index) => {
+      //       command = command.translate(point.x, point.y);
+      //       context.strokeStyle=myRainbow[index%myRainbow.length];
+      //       context.beginPath();
+      //       context.moveTo(command.x0,command.y0)
+      //       command.addToPath(context);
+      //       context.stroke();
+      //     })
+      //   })
     },
   };
   sceneList.add(scene);

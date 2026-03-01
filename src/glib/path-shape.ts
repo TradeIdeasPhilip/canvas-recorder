@@ -211,7 +211,7 @@ export class LCommand implements Command {
   }
   readonly incomingAngle;
   readonly outgoingAngle;
-  translate(Δx: number, Δy: number): Command {
+  translate(Δx: number, Δy: number): LCommand {
     return new LCommand(this.x0 + Δx, this.y0 + Δy, this.x + Δx, this.y + Δy);
   }
   toCubic(): CCommand {
