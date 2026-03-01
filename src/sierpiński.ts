@@ -1,6 +1,7 @@
 import {
   assertNonNullable,
   FULL_CIRCLE,
+  initializedArray,
   makeBoundedLinear,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
@@ -18,9 +19,11 @@ import {
   ease,
   easeIn,
   interpolateNumbers,
+  Keyframe,
   Keyframes,
   makePathShapeInterpolator,
 } from "./interpolate";
+import { myRainbow } from "./glib/my-rainbow";
 
 const titleFont = makeLineFont(0.7);
 
@@ -278,6 +281,147 @@ class MainTriangle {
   }
 }
 
+/**
+ * Recursive Triangle.
+ * This creates n levels of sub-triangles.
+ *
+ * This allows you to animate the addition of new triangles.
+ * Each triangle has its own schedule.
+ * The default schedules are all empty,
+ * so you need to create them before using the RTriangle.
+ *
+ * Graphics are set up for a specific purpose.
+ * We draw one continuous path that can be filled.
+ * And we draw a bunch of individual triangles to be stroked.
+ * Those are grouped by depth.
+ * Triangles at the same depth are stroked in the same color.
+ */
+class RTriangle {
+  byDepth() {
+    const result: RTriangle[][] = [];
+    function add(item: RTriangle) {
+      const depth = item.depth;
+      while (result.length <= depth) {
+        result.push([]);
+      }
+      result[depth].push(item);
+      item.children.forEach((child) => {
+        add(child);
+      });
+    }
+    add(this);
+    return result;
+  }
+  readonly schedule: Keyframe<number>[] = [];
+  readonly children: readonly RTriangle[];
+  #flatPartY(progress: number) {
+    return (
+      this.startAndEnd.y + (this.depth == 0 ? +1 : -1) * this.height * progress
+    );
+  }
+  static standard(depthCount: number): RTriangle {
+    return new RTriangle(
+      MainTriangle.topCenter,
+      MainTriangle.width / 2,
+      MainTriangle.height,
+      0,
+      depthCount,
+    );
+  }
+  constructor(
+    readonly startAndEnd: Point,
+    readonly halfWidth: number,
+    readonly height: number,
+    readonly depth: number,
+    desiredDepth: number,
+  ) {
+    const children: RTriangle[] = [];
+    const initializeChildren = (
+      depth: number,
+      left: number,
+      right: number,
+      flatPartY: number,
+      halfWidth: number,
+      height: number,
+    ) => {
+      if (depth >= desiredDepth) {
+        // desiredDepth is like array.length:  depth >= 0 && depth < desiredDepth
+        return;
+      }
+      const center = (left + right) / 2;
+      initializeChildren(
+        depth + 1,
+        center,
+        right,
+        flatPartY,
+        halfWidth / 2,
+        height / 2,
+      );
+      const point: Point = { x: center, y: flatPartY };
+      const child = new RTriangle(
+        point,
+        halfWidth,
+        height,
+        depth + 1,
+        desiredDepth,
+      );
+      children.push(child);
+      initializeChildren(
+        depth + 1,
+        left,
+        center,
+        flatPartY,
+        halfWidth / 2,
+        height / 2,
+      );
+    };
+    const center = this.startAndEnd.x;
+    initializeChildren(
+      depth,
+      center - halfWidth,
+      center + halfWidth,
+      this.#flatPartY(1),
+      this.halfWidth / 2,
+      this.height / 2,
+    );
+    this.children = children;
+  }
+  draw(timeInMs: number, all: CanvasPath, byDepth: readonly CanvasPath[]) {
+    const progress = interpolateNumbers(timeInMs, this.schedule);
+    if (progress <= 0) {
+      return;
+    }
+    const startX = this.startAndEnd.x;
+    const startY = this.startAndEnd.y;
+    const farRight = startX + this.halfWidth * progress;
+    const farLeft = startX - this.halfWidth * progress;
+    const flatPartY = this.#flatPartY(progress);
+    if (this.depth == 0) {
+      all.moveTo(startX, startY);
+    }
+    all.lineTo(farRight, flatPartY);
+    if (progress >= 1) {
+      this.children.forEach((child) => {
+        all.lineTo(child.startAndEnd.x, child.startAndEnd.y);
+        child.draw(timeInMs, all, byDepth);
+        all.lineTo(child.startAndEnd.x, child.startAndEnd.y);
+      });
+    }
+    all.lineTo(farLeft, flatPartY);
+    if (this.depth == 0) {
+      all.closePath();
+    }
+    {
+      const byDepthPath = byDepth[this.depth];
+      byDepthPath.moveTo(startX, startY);
+      byDepthPath.lineTo(farRight, flatPartY);
+      byDepthPath.lineTo(farLeft, flatPartY);
+      byDepthPath.closePath();
+    }
+  }
+}
+(window as any).RTriangle = RTriangle;
+
 const FILL_ALPHA = 0.25;
 
 const sceneList = new MakeShowableInSeries("Scene List");
@@ -398,6 +542,47 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// Show a triangle with i levels of recursion.
+// Animate the individual triangles.
+// Make them each grow out of a point, one at a time.
+// Color them based on depth
+for (let i = 4; i < 6; i++) {
+  const duration = 20000;
+  const triangle = RTriangle.standard(i);
+  const depthFirst = triangle.byDepth().flat(1);
+  depthFirst.forEach((triangle, index, array) => {
+    const period = duration / array.length;
+    triangle.schedule.push(
+      { time: period * (index + 0.1), value: 0 },
+      { time: period * (index + 0.9), value: 1 },
+    );
+  });
+  const scene: Showable = {
+    description: `RTriangle.standard(${i})`,
+    duration,
+    show({ context, timeInMs }) {
+      const baseColorIndex = 2;
+      context.fillStyle = myRainbow.violet;
+      context.globalAlpha = FILL_ALPHA;
+      context.beginPath();
+      const byDepth = initializedArray(i + 1, () => new Path2D());
+      triangle.draw(timeInMs, context, byDepth);
+      context.fill();
+      context.globalAlpha = 1;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      //for (let index = byDepth.length - 1; index >= 0; index--) {
+      for (let index = 0; index < byDepth.length; index++) {
+        context.lineWidth = 0.01 * (6 - index);
+        context.strokeStyle =
+          myRainbow[(baseColorIndex + 5 - index) % myRainbow.length];
+        context.stroke(byDepth[index]);
+      }
+    },
+  };
+  sceneList.add(scene);
+}
+
 const halftoneBackgroundPath = (() => {
   // This is slow!!!
   // This takes 4.16ms.
@@ -442,7 +627,7 @@ const halftoneBackground: Showable = {
   },
 };
 
-const mainBuilder = new MakeShowableInParallel("Showcase");
+const mainBuilder = new MakeShowableInParallel("Sierpiński");
 mainBuilder.add(halftoneBackground);
 mainBuilder.add(sceneList.build());
 
