@@ -11,6 +11,7 @@ import {
   MakeShowableInParallel,
   MakeShowableInSeries,
   Showable,
+  ShowOptions,
 } from "./showable";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
@@ -640,52 +641,70 @@ for (let i = 4; i < 6; i++) {
 
 // MARK: All 16 permutations
 {
-  const paths = Triangle.alternatePaths(Triangle.getPath(1)).toArray();
-  const locations = ((): readonly Point[] => {
+  function animateRainbow(pathShape: PathShape, options: ShowOptions) {
+    strokeColors({
+      pathShape,
+      context: options.context,
+      relativeOffset: -options.globalTime / 15000,
+    });
+  }
+  /**
+   * Display all 16 ways around a 2nd generation Sierpiński triangle.
+   *
+   * Focus on the original triangle shape.
+   * Use a slow {@link strokeColors}() animation to highlight the path.
+   */
+  const part1 = (() => {
     const yOffset = 0.5;
     const yPeriod = 9 / 3;
     const xPeriod = 16 / 6;
-    const xOffset = [xPeriod, xPeriod / 2, xPeriod];
-    const across = [5, 6, 5];
-    return zip(across, xOffset)
-      .flatMap(([across, xOffset], yIndex) => {
-        return initializedArray(across, (xIndex) => {
-          return {
-            x: xOffset + xPeriod * xIndex,
-            y: yOffset + yPeriod * yIndex,
-          };
-        });
+    const paths = Triangle.alternatePaths(Triangle.getPath(1)).toArray();
+    const locations = ((): readonly Point[] => {
+      const xOffset = [xPeriod, xPeriod / 2, xPeriod];
+      const across = [5, 6, 5];
+      return zip(across, xOffset)
+        .flatMap(([across, xOffset], yIndex) => {
+          return initializedArray(across, (xIndex) => {
+            return {
+              x: xOffset + xPeriod * xIndex,
+              y: yOffset + yPeriod * yIndex,
+            };
+          });
+        })
+        .toArray();
+    })();
+    const resize = Triangle.resizeToMax(2.5, 2.25);
+    const transformedPaths = zip(paths, locations)
+      .map(([basePath, point]) => {
+        return new PathShape(basePath.getCommands())
+          .transform(resize)
+          .translate(point.x, point.y);
       })
       .toArray();
-  })();
-  const resize = Triangle.resizeToMax(2.5, 2.25);
-  const transformedPaths = zip(paths, locations)
-    .map(([basePath, point]) => {
-      return new PathShape(basePath.getCommands())
-        .transform(resize)
-        .translate(point.x, point.y);
-    })
-    .toArray();
-  console.log({ paths, locations, transformedPaths });
-  const scene: Showable = {
-    description: "Permutations",
-    duration: 10_000,
-    show({ context, timeInMs, globalTime }) {
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.05;
-      transformedPaths.forEach((pathShape) => {
-        strokeColors({
-          pathShape,
-          context,
-          relativeOffset: -globalTime / 15000,
+    console.log({ paths, locations, transformedPaths });
+    const scene: Showable = {
+      description: "Permutations",
+      duration: 10_000,
+      show(options) {
+        const { context } = options;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        transformedPaths.forEach((pathShape) => {
+          animateRainbow(pathShape, options);
         });
-      });
-    },
-  };
-  sceneList.add(scene);
-  {
-    const interpolators = transformedPaths.map((originalPathShape) => {
+      },
+    };
+    sceneList.add(scene);
+    return { transformedPaths, locations, yOffset, yPeriod, xPeriod };
+  })();
+  /**
+   * Round the corners.
+   *
+   * Do it slowly over time.
+   */
+  const part2 = (() => {
+    const interpolators = part1.transformedPaths.map((originalPathShape) => {
       const smallerCommands = originalPathShape.commands.map((command) => {
         const splitter = command.makeSplitter();
         const smallerCommand = splitter.split(
@@ -743,23 +762,187 @@ for (let i = 4; i < 6; i++) {
     const showable: Showable = {
       duration: schedules.at(-1)!.at(-1)!.time + 7000,
       description: "Make rounded corners",
-      show({ context, timeInMs, globalTime }) {
+      show(options) {
+        const { context, timeInMs } = options;
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
         zip(interpolators, schedules).forEach(([interpolator, schedule]) => {
           const progress = interpolateNumbers(timeInMs, schedule);
           const pathShape = interpolator(progress);
-          strokeColors({
-            pathShape,
-            context,
-            relativeOffset: -globalTime / 15000,
-          });
+          animateRainbow(pathShape, options);
         });
       },
     };
     sceneList.add(showable);
-  }
+    return { interpolators };
+  })();
+  /**
+   * Rearrange the pictures with the rounded corners.
+   * Highlight the items that differ only by a rotation or a flip.
+   */
+  const part3 = (() => {
+    //   |c|  |cx  |x|  |xc  ||x
+    // ||c  xc|  xcx  x||  x|c  xxx
+    //   xxc  cx|  c||  c|x  cxx
+    const descriptions: ({
+      column: number;
+      row: number;
+      key: string;
+      index: number;
+    } & (
+      | { duplicate: false }
+      | { duplicate: true; fromIndex: number; relationship: "⇔" | "↻" | "↺" }
+    ))[] = [
+      { column: 5, row: 1, key: "xxx", index: 10, duplicate: false },
+      { column: 2, row: 1, key: "|c|", index: 0, duplicate: false },
+      { column: 1, row: 1, key: "|cx", index: 1, duplicate: false },
+      { column: 3, row: 1, key: "|x|", index: 2, duplicate: false },
+      { column: 4, row: 1, key: "xcx", index: 7, duplicate: false },
+      {
+        column: 0,
+        row: 0,
+        key: "|xc",
+        index: 3,
+        duplicate: true,
+        fromIndex: 1,
+        relationship: "⇔",
+      },
+      {
+        column: 3,
+        row: 0,
+        key: "||x",
+        index: 4,
+        duplicate: true,
+        fromIndex: 2,
+        relationship: "↻",
+      },
+      {
+        column: 2,
+        row: 0,
+        key: "||c",
+        index: 5,
+        duplicate: true,
+        fromIndex: 0,
+        relationship: "↻",
+      },
+      {
+        column: 0,
+        row: 1,
+        key: "xc|",
+        index: 6,
+        duplicate: true,
+        fromIndex: 3,
+        relationship: "↺",
+      },
+      {
+        column: 3,
+        row: 2,
+        key: "x||",
+        index: 8,
+        duplicate: true,
+        fromIndex: 2,
+        relationship: "↺",
+      },
+      {
+        column: 1,
+        row: 0,
+        key: "x|c",
+        index: 9,
+        duplicate: true,
+        fromIndex: 1,
+        relationship: "↻",
+      },
+      {
+        column: 4,
+        row: 0,
+        key: "xxc",
+        index: 11,
+        duplicate: true,
+        fromIndex: 7,
+        relationship: "↻",
+      },
+      {
+        column: 1,
+        row: 2,
+        key: "cx|",
+        index: 12,
+        duplicate: true,
+        fromIndex: 1,
+        relationship: "↺",
+      },
+      {
+        column: 2,
+        row: 2,
+        key: "c||",
+        index: 13,
+        duplicate: true,
+        fromIndex: 0,
+        relationship: "↺",
+      },
+      {
+        column: 0,
+        row: 2,
+        key: "c|x",
+        index: 14,
+        duplicate: true,
+        fromIndex: 3,
+        relationship: "↻",
+      },
+      {
+        column: 4,
+        row: 2,
+        key: "cxx",
+        index: 15,
+        duplicate: true,
+        fromIndex: 7,
+        relationship: "↺",
+      },
+    ];
+    descriptions.sort((a, b) => a.index - b.index);
+    const newTranslations: readonly Point[] = zip(part1.locations, descriptions)
+      .map(([oldPosition, newInfo]) => {
+        const desiredX = (newInfo.column + 0.5) * part1.xPeriod;
+        const desiredY = part1.yOffset + newInfo.row * part1.yPeriod;
+        const x = desiredX - oldPosition.x;
+        const y = desiredY - oldPosition.y;
+        return { x, y };
+      })
+      .toArray();
+    const translationSchedule: Keyframes<number> = [
+      { time: 1000, value: 0, easeAfter: ease },
+      { time: 2500, value: 1 },
+    ];
+    const showable: Showable = {
+      description: "Move to correct position",
+      duration: 10_000,
+      show(options) {
+        const { context, timeInMs } = options;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        const originalMatrix = context.getTransform();
+        const translationProgress = interpolateNumbers(
+          timeInMs,
+          translationSchedule,
+        );
+        zip(newTranslations, part2.interpolators).forEach(
+          ([translation, interpolator]) => {
+            context.translate(
+              translation.x * translationProgress,
+              translation.y * translationProgress,
+            );
+            animateRainbow(interpolator(1), options);
+            context.setTransform(originalMatrix);
+          },
+        );
+      },
+    };
+    sceneList.add(showable);
+    // Display all 16
+    // Full rounded ness
+    // In their final positions.
+  })();
 }
 
 const halftoneBackgroundPath = (() => {
