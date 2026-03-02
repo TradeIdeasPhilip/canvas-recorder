@@ -303,4 +303,74 @@ export type StrokeColorsOptions = {
    * Setting none of these is the same as setting repeatCount to 1.
    */
   colorCount?: number;
+  /**
+   * The default, "auto", means to draw the line caps if we think we should.
+   * I.e. draw them if the shape is open, do not draw them if the shape is closed.
+   *
+   * I'm having lots of issues.  I think and hope these are all temporary.
+   * Eventually this option should go away and it should always be auto.
+   *
+   * If this is "auto" then a normal triangle will not draw itself right.
+   * Assume we start the shape at one of the vertices.
+   * The problem **only** occurs when we start at a vertex.
+   * In a similar piece of code I break one of the segments and start in the middle of that segment to avoid the problem.
+   * See breakFirst() in showcase.ts.
+   *
+   * `strokeColors()` will see this triangle as closed, so linecap is not required.
+   * However, this should be seen as an internal corner.
+   * A normal stroke would look at the lineJoin property in this case.
+   * Forcing showLineCaps to "yes" will fix
+   *
+   *
+   * This is ugly.  I just need to fix the issue.
+   *
+   *
+   * I should only support round linecap and linejoin.
+   * Maybe I can allow linecap = "butt" if you promise there is no need for linejoin.
+   *
+   * I need to deal with linejoin.
+   * The internal ones and the case of the start and end meeting in a closed curve.
+   * Currently I'm ignoring the internal ones.
+   * Those only come up if a color segment starts exactly at a corner.
+   * I haven't seen that happen.
+   * It's probably random where it might come up in just one frame and be hard to reproduce.
+   *
+   *
+   * I need to do all of the linecap / linejoin first, before doing any of the straight lines.
+   * So it's on the bottom.
+   * Draw a **complete** circle at every join or cap.
+   * If the two parts come together in a straight line they will completely cover the circle.
+   * No, I don't want to draw all of these circles!
+   * 
+   * 
+   * 
+   *
+   * **Always** draw with linejoin set to round.
+   * If we break in the middle of a command, we know there was *no* corner there, so nothing to worry about.
+   * If we break between two commands, then we need to deal with the linejoin ourselves.
+   * If the two angles are not identical, even if the difference is small, draw the circle.
+   * Make sure to draw the circles first, before the lines.
+   * The beginning and end of a closed segment will be treated the same way,
+   * we will add circles.
+   *
+   * Add linecap to our options.
+   * Possible values are "butt" or "round".
+   * Draw these the way we are drawing them, plus or minus some bug fixes:
+   * Assume the linejoin for a closed path is handled properly.
+   * And check for a path with internal jumps.
+   * Maybe some but not all of the sub paths will be closed.
+   * 
+   * Do we need an override to force no linejoin?
+   * I'm thinking about something drawn with partial transparency.
+   * You don't want multiple things drawn on top of each other.
+   * Mostly we can avoid that by giving a path that doesn't intersect itself.
+   * Each linecap is already a semicircle, avoiding drawing over the adjacent line.
+   * But what about the internal angles?
+   * Maybe some of those will be really close but not identical.
+   * I see that a lot in the wild, 
+   * an artist will just make something very close to smooth and hope nobody notices.
+   * And I think it might be unavoidable due to round off errors.
+   * Proposal:  Create a small cutoff, maybe ⅒°, and if necessary add that cutoff to the options.
+   */
+  showLineCaps?: "yes" | "no" | "auto";
 };

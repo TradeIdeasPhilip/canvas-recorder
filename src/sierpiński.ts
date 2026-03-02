@@ -65,7 +65,7 @@ class Triangle {
    * @param maxWidth The resulting height will be limited to this.
    * @returns A new Matrix
    */
-  static resizeToMax(maxHeight: number, maxWidth: number): DOMMatrix {
+  static resizeToMax(maxHeight: number, maxWidth: number) {
     const impliedWidth = (maxHeight / MainTriangle.height) * MainTriangle.width;
     let height: number;
     let width: number;
@@ -76,7 +76,8 @@ class Triangle {
       width = maxWidth;
       height = (width / MainTriangle.width) * MainTriangle.height;
     }
-    return new DOMMatrix().scale(width, height);
+    const matrix = new DOMMatrix().scale(width, height);
+    return {width, height, matrix};
   }
   static #paths: (readonly Segment[])[] = [
     [
@@ -673,11 +674,11 @@ for (let i = 4; i < 6; i++) {
         })
         .toArray();
     })();
-    const resize = Triangle.resizeToMax(2.5, 2.25);
+    const triangleSize = Triangle.resizeToMax(2.5, 2.25);
     const transformedPaths = zip(paths, locations)
       .map(([basePath, point]) => {
         return new PathShape(basePath.getCommands())
-          .transform(resize)
+          .transform(triangleSize.matrix)
           .translate(point.x, point.y);
       })
       .toArray();
@@ -696,7 +697,7 @@ for (let i = 4; i < 6; i++) {
       },
     };
     sceneList.add(scene);
-    return { transformedPaths, locations, yOffset, yPeriod, xPeriod };
+    return { transformedPaths, locations, yOffset, yPeriod, xPeriod,triangleSize };
   })();
   /**
    * Round the corners.
@@ -782,6 +783,13 @@ for (let i = 4; i < 6; i++) {
    * Highlight the items that differ only by a rotation or a flip.
    */
   const part3 = (() => {
+    // | means that one of the lines is straight and the other goes near it.
+    // c means that that both lines are curved but they do not cross.
+    // x means that the two lines cross.
+    // The three characters in a row describe the right side of the triangle,
+    // the bottom side, then the left side.
+    // This chart shows the way we've originally laid things out,
+    // the way they came out of the depth first search.
     //   |c|  |cx  |x|  |xc  ||x
     // ||c  xc|  xcx  x||  x|c  xxx
     //   xxc  cx|  c||  c|x  cxx
@@ -913,9 +921,33 @@ for (let i = 4; i < 6; i++) {
       { time: 1000, value: 0, easeAfter: ease },
       { time: 2500, value: 1 },
     ];
+    const topRotationSchedule: Keyframes<number>=[
+      { time: 4000, value: 0, easeAfter:easeIn },
+      { time:5000, value:1,},
+      { time:9000, value:1,easeAfter:easeOut},
+      { time:10000, value:0}
+    ]
+    const topAlphaSchedule : Keyframes<number> = [
+      {time:10000, value:1, easeAfter:ease},
+      {time:12000, value:0.333}
+    ]
+    const bottomRotationSchedule: Keyframes<number>=[
+      { time: 4000+8_000, value: 0, easeAfter:easeIn },
+      { time:5000+8_000, value:1,},
+      { time:9000+8_000, value:1,easeAfter:easeOut},
+      { time:10000+8_000, value:0}
+    ]
+    const bottomAlphaSchedule : Keyframes<number> = [
+      {time:10000+8_000, value:1, easeAfter:ease},
+      {time:12000+8_000, value:0.333}
+    ]
+    const leftAlphaSchedule : Keyframes<number> = [
+      {time:22000, value:1, easeAfter:easeOut},
+      {time:24_000, value:0.333}
+    ]
     const showable: Showable = {
       description: "Move to correct position",
-      duration: 10_000,
+      duration: 25_000,
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
@@ -926,14 +958,35 @@ for (let i = 4; i < 6; i++) {
           timeInMs,
           translationSchedule,
         );
-        zip(newTranslations, part2.interpolators).forEach(
-          ([translation, interpolator]) => {
+        const rotationCenterHeight = part1.triangleSize.width / Math.sqrt(3);
+        zip(newTranslations, part2.interpolators,descriptions,part1.locations).forEach(
+          ([translation, interpolator,description,location]) => {
             context.translate(
               translation.x * translationProgress,
               translation.y * translationProgress,
             );
+            if (description.row == 0) {
+              const alpha = interpolateNumbers(timeInMs, topAlphaSchedule);
+              context.globalAlpha=alpha;
+              const rotationAngle = -FULL_CIRCLE/3 * interpolateNumbers(timeInMs, topRotationSchedule);
+              context.translate(location.x,location.y+rotationCenterHeight);
+              context.rotate(rotationAngle);
+              context.translate(-location.x,-(location.y+rotationCenterHeight));
+            } else
+            if (description.row == 2) {
+              const alpha = interpolateNumbers(timeInMs, bottomAlphaSchedule);
+              context.globalAlpha=alpha;
+              const rotationAngle = FULL_CIRCLE/3 * interpolateNumbers(timeInMs, bottomRotationSchedule);
+              context.translate(location.x,location.y+rotationCenterHeight);
+              context.rotate(rotationAngle);
+              context.translate(-location.x,-(location.y+rotationCenterHeight));
+            } else if (description.column==0) {
+              const alpha = interpolateNumbers(timeInMs, leftAlphaSchedule);
+              context.globalAlpha=alpha;
+            }
             animateRainbow(interpolator(1), options);
             context.setTransform(originalMatrix);
+            context.globalAlpha = 1;
           },
         );
       },
