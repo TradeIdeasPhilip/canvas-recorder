@@ -14,11 +14,12 @@ import {
 } from "./showable";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
-import { Command, LCommand, PathShape } from "./glib/path-shape";
+import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
 import { fixCorners, matchShapes } from "./morph-animation";
 import {
   ease,
   easeIn,
+  easeOut,
   interpolateNumbers,
   Keyframe,
   Keyframes,
@@ -669,28 +670,96 @@ for (let i = 4; i < 6; i++) {
   const scene: Showable = {
     description: "Permutations",
     duration: 10_000,
-    show({ context, timeInMs }) {
+    show({ context, timeInMs, globalTime }) {
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = 0.05;
       transformedPaths.forEach((pathShape) => {
-        //    context.strokeStyle="red"
-        //    context.stroke(pathShape.canvasPath);
-        strokeColors({ pathShape, context, relativeOffset: -timeInMs / 10000 });
+        strokeColors({
+          pathShape,
+          context,
+          relativeOffset: -globalTime / 15000,
+        });
       });
-      // false&&  zip(locations,paths).forEach(([point, path],index) => {
-      //     path.getCommands().forEach((command,index) => {
-      //       command = command.translate(point.x, point.y);
-      //       context.strokeStyle=myRainbow[index%myRainbow.length];
-      //       context.beginPath();
-      //       context.moveTo(command.x0,command.y0)
-      //       command.addToPath(context);
-      //       context.stroke();
-      //     })
-      //   })
     },
   };
   sceneList.add(scene);
+  {
+    const interpolators = transformedPaths.map((originalPathShape) => {
+      const smallerCommands = originalPathShape.commands.map((command) => {
+        const splitter = command.makeSplitter();
+        const smallerCommand = splitter.split(
+          splitter.length / 3,
+          2 * (splitter.length / 3),
+        );
+        return smallerCommand;
+      });
+      const mitered = new Array<Command>();
+      const rounded = new Array<Command>();
+      smallerCommands.forEach((currentCommand, index, array) => {
+        const previousCommand = array.at(index - 1)!;
+        const originalCommand = originalPathShape.commands[index];
+        mitered.push(
+          QCommand.controlPoints(
+            originalCommand.x0,
+            originalCommand.y0,
+            originalCommand.x0,
+            originalCommand.y0,
+            originalCommand.x0,
+            originalCommand.y0,
+          ),
+          originalCommand,
+        );
+        rounded.push(
+          QCommand.controlPoints(
+            previousCommand.x,
+            previousCommand.y,
+            originalCommand.x0,
+            originalCommand.y0,
+            currentCommand.x0,
+            currentCommand.y0,
+          ),
+          currentCommand,
+        );
+      });
+      const interpolator = makePathShapeInterpolator(
+        new PathShape(mitered),
+        new PathShape(rounded),
+      );
+      return interpolator;
+    });
+    const schedules: readonly Keyframe<number>[][] = interpolators.map(
+      (_, index, array): Keyframe<number>[] => {
+        const firstOffset = 1000;
+        const timeBetween = 1000;
+        const timeToComplete = 2500;
+        const startTime = firstOffset + index * timeBetween;
+        return [
+          { time: startTime, value: 0, easeAfter: easeOut },
+          { time: startTime + timeToComplete, value: 1 },
+        ];
+      },
+    );
+    const showable: Showable = {
+      duration: schedules.at(-1)!.at(-1)!.time + 7000,
+      description: "Make rounded corners",
+      show({ context, timeInMs, globalTime }) {
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        zip(interpolators, schedules).forEach(([interpolator, schedule]) => {
+          const progress = interpolateNumbers(timeInMs, schedule);
+          const pathShape = interpolator(progress);
+          strokeColors({
+            pathShape,
+            context,
+            relativeOffset: -globalTime / 15000,
+          });
+        });
+      },
+    };
+    sceneList.add(showable);
+  }
 }
 
 const halftoneBackgroundPath = (() => {
