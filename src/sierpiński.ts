@@ -2,6 +2,7 @@ import {
   assertNonNullable,
   FULL_CIRCLE,
   initializedArray,
+  lerp,
   makeBoundedLinear,
   zip,
 } from "phil-lib/misc";
@@ -77,7 +78,7 @@ class Triangle {
       height = (width / MainTriangle.width) * MainTriangle.height;
     }
     const matrix = new DOMMatrix().scale(width, height);
-    return {width, height, matrix};
+    return { width, height, matrix };
   }
   static #paths: (readonly Segment[])[] = [
     [
@@ -481,6 +482,29 @@ class RTriangle {
 
 const FILL_ALPHA = 0.25;
 
+const fillColors = (() => {
+  const withAlpha = myRainbow.map(
+    (originalColor) => `rgb(from ${originalColor} r g b / ${FILL_ALPHA})`,
+  );
+  const result = initializedArray(
+    16,
+    (index) => withAlpha[index % withAlpha.length],
+  );
+  /**
+   * These are the items that will remain at the end, in order.
+   * Match these entries to the first five colors,
+   * which look good together in this order.
+   * red yellow green blue magenta
+   */
+  const winners = [1, 0, 2, 7, 10];
+  result[1] = withAlpha[0]; // red;
+  result[0] = withAlpha[2]; // yellow;
+  result[2] = withAlpha[3]; // green;
+  result[7] = withAlpha[6]; // blue;
+  result[10] = withAlpha[8]; // magenta;
+  return result;
+})();
+
 const sceneList = new MakeShowableInSeries("Scene List");
 
 {
@@ -642,7 +666,14 @@ for (let i = 4; i < 6; i++) {
 
 // MARK: All 16 permutations
 {
-  function animateRainbow(pathShape: PathShape, options: ShowOptions) {
+  function animateRainbow(
+    pathShape: PathShape,
+    fillStyle: string,
+    options: ShowOptions,
+  ) {
+    const { context } = options;
+    context.fillStyle = fillStyle;
+    context.fill(pathShape.canvasPath, "evenodd");
     strokeColors({
       pathShape,
       context: options.context,
@@ -675,14 +706,14 @@ for (let i = 4; i < 6; i++) {
         .toArray();
     })();
     const triangleSize = Triangle.resizeToMax(2.5, 2.25);
-    const transformedPaths = zip(paths, locations)
+    const pathShapes = zip(paths, locations)
       .map(([basePath, point]) => {
-        return new PathShape(basePath.getCommands())
-          .transform(triangleSize.matrix)
-          .translate(point.x, point.y);
+        return new PathShape(basePath.getCommands()).transform(
+          triangleSize.matrix,
+        );
       })
       .toArray();
-    console.log({ paths, locations, transformedPaths });
+    console.log({ triangleSize, paths, locations, pathShapes });
     const scene: Showable = {
       description: "Permutations",
       duration: 10_000,
@@ -691,13 +722,18 @@ for (let i = 4; i < 6; i++) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
-        transformedPaths.forEach((pathShape) => {
-          animateRainbow(pathShape, options);
-        });
+        const originalTransform = context.getTransform();
+        zip(pathShapes, locations, fillColors).forEach(
+          ([pathShape, location, fillColor]) => {
+            context.translate(location.x, location.y);
+            animateRainbow(pathShape, fillColor, options);
+            context.setTransform(originalTransform);
+          },
+        );
       },
     };
     sceneList.add(scene);
-    return { transformedPaths, locations, yOffset, yPeriod, xPeriod,triangleSize };
+    return { pathShapes, locations, yOffset, yPeriod, xPeriod, triangleSize };
   })();
   /**
    * Round the corners.
@@ -705,7 +741,7 @@ for (let i = 4; i < 6; i++) {
    * Do it slowly over time.
    */
   const part2 = (() => {
-    const interpolators = part1.transformedPaths.map((originalPathShape) => {
+    const interpolators = part1.pathShapes.map((originalPathShape) => {
       const smallerCommands = originalPathShape.commands.map((command) => {
         const splitter = command.makeSplitter();
         const smallerCommand = splitter.split(
@@ -768,11 +804,16 @@ for (let i = 4; i < 6; i++) {
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
-        zip(interpolators, schedules).forEach(([interpolator, schedule]) => {
-          const progress = interpolateNumbers(timeInMs, schedule);
-          const pathShape = interpolator(progress);
-          animateRainbow(pathShape, options);
-        });
+        const originalTransform = context.getTransform();
+        zip(interpolators, part1.locations, schedules, fillColors).forEach(
+          ([interpolator, location, schedule, fillColor]) => {
+            context.translate(location.x, location.y);
+            const progress = interpolateNumbers(timeInMs, schedule);
+            const pathShape = interpolator(progress);
+            animateRainbow(pathShape, fillColor, options);
+            context.setTransform(originalTransform);
+          },
+        );
       },
     };
     sceneList.add(showable);
@@ -908,43 +949,42 @@ for (let i = 4; i < 6; i++) {
       },
     ];
     descriptions.sort((a, b) => a.index - b.index);
-    const newTranslations: readonly Point[] = zip(part1.locations, descriptions)
-      .map(([oldPosition, newInfo]) => {
-        const desiredX = (newInfo.column + 0.5) * part1.xPeriod;
-        const desiredY = part1.yOffset + newInfo.row * part1.yPeriod;
-        const x = desiredX - oldPosition.x;
-        const y = desiredY - oldPosition.y;
+    const finalLocations: readonly Point[] = descriptions.map(
+      ({ column, row }) => {
+        const x = (column + 0.5) * part1.xPeriod;
+        const y = part1.yOffset + row * part1.yPeriod;
         return { x, y };
-      })
-      .toArray();
+      },
+    );
     const translationSchedule: Keyframes<number> = [
       { time: 1000, value: 0, easeAfter: ease },
       { time: 2500, value: 1 },
     ];
-    const topRotationSchedule: Keyframes<number>=[
-      { time: 4000, value: 0, easeAfter:easeIn },
-      { time:5000, value:1,},
-      { time:9000, value:1,easeAfter:easeOut},
-      { time:10000, value:0}
-    ]
-    const topAlphaSchedule : Keyframes<number> = [
-      {time:10000, value:1, easeAfter:ease},
-      {time:12000, value:0.333}
-    ]
-    const bottomRotationSchedule: Keyframes<number>=[
-      { time: 4000+8_000, value: 0, easeAfter:easeIn },
-      { time:5000+8_000, value:1,},
-      { time:9000+8_000, value:1,easeAfter:easeOut},
-      { time:10000+8_000, value:0}
-    ]
-    const bottomAlphaSchedule : Keyframes<number> = [
-      {time:10000+8_000, value:1, easeAfter:ease},
-      {time:12000+8_000, value:0.333}
-    ]
-    const leftAlphaSchedule : Keyframes<number> = [
-      {time:22000, value:1, easeAfter:easeOut},
-      {time:24_000, value:0.333}
-    ]
+    const topRotationSchedule: Keyframes<number> = [
+      { time: 4000, value: 0, easeAfter: easeIn },
+      { time: 5000, value: 1 },
+      { time: 9000, value: 1, easeAfter: easeOut },
+      { time: 10000, value: 0 },
+    ];
+    const outgoingAlpha = 0.333;
+    const topAlphaSchedule: Keyframes<number> = [
+      { time: 10000, value: 1, easeAfter: ease },
+      { time: 12000, value: outgoingAlpha },
+    ];
+    const bottomRotationSchedule: Keyframes<number> = [
+      { time: 4000 + 8_000, value: 0, easeAfter: easeIn },
+      { time: 5000 + 8_000, value: 1 },
+      { time: 9000 + 8_000, value: 1, easeAfter: easeOut },
+      { time: 10000 + 8_000, value: 0 },
+    ];
+    const bottomAlphaSchedule: Keyframes<number> = [
+      { time: 10000 + 8_000, value: 1, easeAfter: ease },
+      { time: 12000 + 8_000, value: outgoingAlpha },
+    ];
+    const leftAlphaSchedule: Keyframes<number> = [
+      { time: 22000, value: 1, easeAfter: easeOut },
+      { time: 24_000, value: outgoingAlpha },
+    ];
     const showable: Showable = {
       description: "Move to correct position",
       duration: 25_000,
@@ -959,32 +999,54 @@ for (let i = 4; i < 6; i++) {
           translationSchedule,
         );
         const rotationCenterHeight = part1.triangleSize.width / Math.sqrt(3);
-        zip(newTranslations, part2.interpolators,descriptions,part1.locations).forEach(
-          ([translation, interpolator,description,location]) => {
-            context.translate(
-              translation.x * translationProgress,
-              translation.y * translationProgress,
+        zip(
+          finalLocations,
+          part2.interpolators,
+          descriptions,
+          part1.locations,
+          fillColors,
+        ).forEach(
+          ([
+            finalLocation,
+            interpolator,
+            description,
+            previousLocation,
+            fillColor,
+          ]) => {
+            const x = lerp(
+              previousLocation.x,
+              finalLocation.x,
+              translationProgress,
             );
+            const y = lerp(
+              previousLocation.y,
+              finalLocation.y,
+              translationProgress,
+            );
+            context.translate(x, y);
             if (description.row == 0) {
               const alpha = interpolateNumbers(timeInMs, topAlphaSchedule);
-              context.globalAlpha=alpha;
-              const rotationAngle = -FULL_CIRCLE/3 * interpolateNumbers(timeInMs, topRotationSchedule);
-              context.translate(location.x,location.y+rotationCenterHeight);
+              context.globalAlpha = alpha;
+              const rotationAngle =
+                (-FULL_CIRCLE / 3) *
+                interpolateNumbers(timeInMs, topRotationSchedule);
+              context.translate(0, rotationCenterHeight);
               context.rotate(rotationAngle);
-              context.translate(-location.x,-(location.y+rotationCenterHeight));
-            } else
-            if (description.row == 2) {
+              context.translate(0, -rotationCenterHeight);
+            } else if (description.row == 2) {
               const alpha = interpolateNumbers(timeInMs, bottomAlphaSchedule);
-              context.globalAlpha=alpha;
-              const rotationAngle = FULL_CIRCLE/3 * interpolateNumbers(timeInMs, bottomRotationSchedule);
-              context.translate(location.x,location.y+rotationCenterHeight);
+              context.globalAlpha = alpha;
+              const rotationAngle =
+                (FULL_CIRCLE / 3) *
+                interpolateNumbers(timeInMs, bottomRotationSchedule);
+              context.translate(0, rotationCenterHeight);
               context.rotate(rotationAngle);
-              context.translate(-location.x,-(location.y+rotationCenterHeight));
-            } else if (description.column==0) {
+              context.translate(0, -rotationCenterHeight);
+            } else if (description.column == 0) {
               const alpha = interpolateNumbers(timeInMs, leftAlphaSchedule);
-              context.globalAlpha=alpha;
+              context.globalAlpha = alpha;
             }
-            animateRainbow(interpolator(1), options);
+            animateRainbow(interpolator(1), fillColor, options);
             context.setTransform(originalMatrix);
             context.globalAlpha = 1;
           },
@@ -992,9 +1054,91 @@ for (let i = 4; i < 6; i++) {
       },
     };
     sceneList.add(showable);
-    // Display all 16
-    // Full rounded ness
-    // In their final positions.
+    const winners = descriptions
+      .filter((description) => {
+        return description.row == 1 && description.column > 0;
+      })
+      .sort((a, b) => {
+        return a.column - b.column;
+      })
+      .map((description) => {
+        return description.index;
+      });
+    console.log({ finalLocations, winners, outgoingAlpha });
+    return { finalLocations, winners, outgoingAlpha };
+  })();
+  /**
+   * Move the 5 interesting triangles into the top center.
+   * To make room for 5 Fourier animations.
+   *
+   * Make the other triangles fade out.
+   *
+   * Start from the tableau where I highlighted the rotations and mirror images.
+   */
+  const part4 = (() => {
+    const finalLocations: readonly Point[] = (() => {
+      const left = 9 / 2;
+      const right = 16 - left;
+      const { height, width } = part1.triangleSize;
+      const leftColumnX = left + 0.2 + width / 2;
+      const rightColumnX = right - 0.2 - width / 2;
+      const topRowY = 0.2;
+      const bottomRowY = 0.4 + part1.triangleSize.height;
+      return [
+        { x: leftColumnX, y: topRowY },
+        { x: leftColumnX, y: bottomRowY },
+        { x: (left + right) / 2, y: (topRowY + bottomRowY) / 2 },
+        { x: rightColumnX, y: bottomRowY },
+        { x: rightColumnX, y: topRowY },
+      ];
+    })();
+    const alphaSchedule: Keyframes<number> = [
+      { time: 500, value: part3.outgoingAlpha },
+      { time: 3000, value: 0 },
+    ];
+    const movementSchedule: Keyframes<number> = [
+      { time: 1000, value: 0, easeAfter: easeIn },
+      { time: 3000, value: 1 },
+    ];
+    const duration = 10000;
+    const winners = new Map(zip(part3.winners, finalLocations));
+    const scene: Showable = {
+      description: "move and hide small triangles",
+      duration,
+      show(options) {
+        const { context, timeInMs } = options;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        const originalMatrix = context.getTransform();
+        part2.interpolators.forEach((interpolator, index) => {
+          function drawAt(x: number, y: number) {
+            const pathShape = interpolator(1);
+            context.translate(x, y);
+            animateRainbow(pathShape, fillColors[index], options);
+            context.setTransform(originalMatrix);
+          }
+          const finalLocation = winners.get(index);
+          if (finalLocation) {
+            const initialLocation = part3.finalLocations[index];
+            const progress = interpolateNumbers(timeInMs, movementSchedule);
+            const x = lerp(initialLocation.x, finalLocation.x, progress);
+            const y = lerp(initialLocation.y, finalLocation.y, progress);
+            drawAt(x, y);
+          } else {
+            const alpha = interpolateNumbers(timeInMs, alphaSchedule);
+            if (alpha > 0) {
+              context.globalAlpha = alpha;
+              const location = part3.finalLocations[index];
+              drawAt(location.x, location.y);
+              context.globalAlpha = 1;
+            }
+          }
+        });
+      },
+    };
+    sceneList.add(scene);
+    return "TODO" as const;
   })();
 }
 
