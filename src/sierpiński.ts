@@ -483,9 +483,12 @@ class RTriangle {
 const FILL_ALPHA = 0.25;
 
 const fillColors = (() => {
-  const withAlpha = myRainbow.map(
-    (originalColor) => `rgb(from ${originalColor} r g b / ${FILL_ALPHA})`,
-  );
+  const withAlpha = myRainbow.map((originalColor) => {
+    const color = originalColor === myRainbow.yellow ? "yellow" : originalColor;
+    const fillAlpha =
+      originalColor === myRainbow.cssBlue ? 2 * FILL_ALPHA : FILL_ALPHA;
+    return `rgb(from ${color} r g b / ${fillAlpha})`;
+  });
   const result = initializedArray(
     16,
     (index) => withAlpha[index % withAlpha.length],
@@ -501,7 +504,7 @@ const fillColors = (() => {
   result[0] = withAlpha[2]; // yellow;
   result[2] = withAlpha[3]; // green;
   result[7] = withAlpha[6]; // blue;
-  result[10] = withAlpha[8]; // magenta;
+  result[10] = withAlpha[7]; // violet;
   return result;
 })();
 
@@ -1138,7 +1141,74 @@ for (let i = 4; i < 6; i++) {
       },
     };
     sceneList.add(scene);
-    return "TODO" as const;
+    const winnerInfo: readonly { strokeStyle: string; circleCenter: Point }[] =
+      [
+        { strokeStyle: myRainbow.red, circleCenter: { x: 9 / 4, y: 9 / 4 } },
+        {
+          strokeStyle: myRainbow.yellow,
+          circleCenter: { x: 16 / 6, y: (9 * 3) / 4 },
+        },
+        {
+          strokeStyle: myRainbow.green,
+          circleCenter: { x: 16 / 2, y: (9 * 3) / 4 },
+        },
+        {
+          strokeStyle: myRainbow.cssBlue,
+          circleCenter: { x: (16 * 5) / 6, y: (9 * 3) / 4 },
+        },
+        {
+          strokeStyle: myRainbow.violet,
+          circleCenter: { x: 16 - 9 / 4, y: 9 / 4 },
+        },
+      ];
+    const fourierInstances = zip(part3.winners, finalLocations, winnerInfo)
+      .map(
+        ([externalIndex, referenceLocation, { strokeStyle, circleCenter }]) => {
+          const interpolator = part2.interpolators[externalIndex];
+          const fillStyle = fillColors[externalIndex];
+          return {
+            referenceLocation,
+            circleCenter,
+            strokeStyle,
+            fillStyle,
+            interpolator,
+          };
+        },
+      )
+      .toArray();
+    return { fourierInstances };
+  })();
+  const part5 = (() => {
+    const scene: Showable = {
+      description: "fourier of 5 2nd generation triangles",
+      duration: 10000,
+      show(options) {
+        const { context, timeInMs } = options;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        const originalMatrix = context.getTransform();
+        part4.fourierInstances.forEach((info) => {
+          const pathShape = info.interpolator(1);
+          context.translate(info.referenceLocation.x, info.referenceLocation.y);
+          animateRainbow(pathShape, info.fillStyle, options);
+          context.setTransform(originalMatrix);
+          context.fillStyle = info.fillStyle;
+          context.strokeStyle = info.strokeStyle;
+          context.beginPath();
+          context.arc(
+            info.circleCenter.x,
+            info.circleCenter.y,
+            2,
+            0,
+            FULL_CIRCLE,
+          );
+          context.fill();
+          context.stroke();
+        });
+      },
+    };
+    sceneList.add(scene);
   })();
 }
 
