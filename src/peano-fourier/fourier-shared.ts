@@ -235,13 +235,16 @@ function samplesFromPathOrig(
 // Originally this was a lot faster, too, but since removing PathCaliper that does not
 // seem to be an issue.
 export function samplesFromPath(
-  pathString: string,
-  numberOfTerms: number,
+  pathShape: PathShape | string,
+  numberOfTerms: number = numberOfFourierSamples,
 ): Complex[] {
   // I added the following line just to test samplesFromPathOrig().
   //return samplesFromPathOrig(pathString, numberOfTerms);
+  if (!(pathShape instanceof PathShape)) {
+    pathShape = PathShape.fromRawString(pathShape);
+  }
   try {
-    const commands = PathShape.fromRawString(pathString).commands;
+    const commands = pathShape.commands;
     if (commands.length == 0) {
       throw new Error("wtf");
     }
@@ -355,7 +358,7 @@ export function samplesFromPath(
      */
   } catch (reason) {
     console.warn("using fallback", reason);
-    return samplesFromPathOrig(pathString, numberOfTerms);
+    return samplesFromPathOrig(pathShape.rawPath, numberOfTerms);
   }
 }
 
@@ -384,7 +387,7 @@ function makeEasing(x1: number, x2: number) {
  * This does a lot of one time setup for displaying all of the animations.
  * The return value hides a lot of internal state.
  *
- * @returns An array of functions each of which take progress of 0-1 as input and return a path string.
+ * @returns An array of functions each of which take progress of 0-1 as input and return a PathShape.
  *
  * Note that there is one entry in the array for each _transition_.
  * Fencepost!

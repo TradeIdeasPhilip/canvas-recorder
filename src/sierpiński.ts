@@ -29,6 +29,11 @@ import {
 } from "./interpolate";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
+import {
+  getAnimationRules,
+  samplesFromPath,
+  samplesToFourier,
+} from "./peano-fourier/fourier-shared";
 
 const titleFont = makeLineFont(0.7);
 
@@ -78,7 +83,8 @@ class Triangle {
       height = (width / MainTriangle.width) * MainTriangle.height;
     }
     const matrix = new DOMMatrix().scale(width, height);
-    return { width, height, matrix };
+    const circleRadius = width / Math.sqrt(3);
+    return { width, height, circleRadius, matrix };
   }
   static #paths: (readonly Segment[])[] = [
     [
@@ -598,7 +604,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(fillIn);
   }
-  sceneList.add(scene.build());
+  //sceneList.add(scene.build());
 }
 
 {
@@ -623,7 +629,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(addMargins(showable, { frozenBefore: 500, frozenAfter: 1000 }));
   });
-  sceneList.add(scene.build());
+  //sceneList.add(scene.build());
 }
 
 // Show a triangle with i levels of recursion.
@@ -664,7 +670,7 @@ for (let i = 4; i < 6; i++) {
       }
     },
   };
-  sceneList.add(scene);
+  //sceneList.add(scene);
 }
 
 // MARK: All 16 permutations
@@ -719,7 +725,7 @@ for (let i = 4; i < 6; i++) {
     console.log({ triangleSize, paths, locations, pathShapes });
     const scene: Showable = {
       description: "Permutations",
-      duration: 10_000,
+      duration: 4_000,
       show(options) {
         const { context } = options;
         context.lineCap = "round";
@@ -1001,7 +1007,7 @@ for (let i = 4; i < 6; i++) {
           timeInMs,
           translationSchedule,
         );
-        const rotationCenterHeight = part1.triangleSize.width / Math.sqrt(3);
+        const rotationCenterHeight = part1.triangleSize.circleRadius;
         zip(
           finalLocations,
           part2.interpolators,
@@ -1179,22 +1185,68 @@ for (let i = 4; i < 6; i++) {
     return { fourierInstances };
   })();
   const part5 = (() => {
+    const keyframes = [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      //  21, 22, 22, 24, 26, 28, 30, 32, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70,
+      //      74, 78, 82, 86, 90, 94, 98, 102, 106, 110, 114, 118, 122, 132, 142, 152,
+      //    162, 172, 182, 192, 202, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450,
+      // 475,
+      // 1022, 1022,
+    ];
+    const livePathMakers = part4.fourierInstances.map((info) => {
+      /**
+       * This is the original version of the triangle with sharp corners.
+       *
+       * I'm removing the 0 length segments.
+       * I added these because they will grow in the rounded corners animation.
+       * I'm afraid they will break `samplesFromPath()`.
+       * samplesFromPath() went out of its way to give weight to small segments.
+       */
+      const simplePath = new PathShape(
+        info
+          .interpolator(0)
+          .commands.filter(
+            (command) => command.x != command.x0 || command.y != command.y0,
+          ),
+      );
+      //console.log(simplePath.rawPath, info.interpolator(0).rawPath)
+      /**
+       * Try to draw this in the center of the reference image.
+       * It will start there and quickly move to the right place.
+       */
+      const translatedPath = simplePath.translate(
+        info.circleCenter.x - info.referenceLocation.x,
+        info.circleCenter.y -
+          info.referenceLocation.y -
+          2 * part1.triangleSize.circleRadius,
+      );
+      const samples = samplesFromPath(translatedPath);
+      const terms = samplesToFourier(samples);
+      const livePathMaker = getAnimationRules(terms, keyframes);
+      return livePathMaker;
+    });
     const scene: Showable = {
       description: "fourier of 5 2nd generation triangles",
-      duration: 10000,
+      duration: 60_000,
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
         const originalMatrix = context.getTransform();
-        part4.fourierInstances.forEach((info) => {
-          const pathShape = info.interpolator(1);
-          context.translate(info.referenceLocation.x, info.referenceLocation.y);
-          animateRainbow(pathShape, info.fillStyle, options);
-          context.setTransform(originalMatrix);
-          context.fillStyle = info.fillStyle;
-          context.strokeStyle = info.strokeStyle;
+        zip(part4.fourierInstances, livePathMakers).forEach(
+          ([info, livePathMaker]) => {
+            const pathShape = info.interpolator(1);
+            context.translate(
+              info.referenceLocation.x,
+              info.referenceLocation.y,
+            );
+            animateRainbow(pathShape, info.fillStyle, options);
+            context.translate(0, part1.triangleSize.circleRadius);
+            //   context.setTransform(originalMatrix);
+            context.fillStyle = info.fillStyle;
+            context.strokeStyle = info.strokeStyle;
+            /*
           context.beginPath();
           context.arc(
             info.circleCenter.x,
@@ -1203,9 +1255,24 @@ for (let i = 4; i < 6; i++) {
             0,
             FULL_CIRCLE,
           );
-          context.fill();
-          context.stroke();
-        });
+          */
+            //    context.translate(info.circleCenter.x, info.circleCenter.y);
+            const progress = easeIn(timeInMs / this.duration);
+            const whichSegment = livePathMaker.length * progress;
+            const segmentIndex = Math.min(
+              livePathMaker.length - 1,
+              Math.floor(whichSegment),
+            );
+            const progressWithinSegment = whichSegment - segmentIndex;
+            const livePathShape = livePathMaker[segmentIndex](
+              progressWithinSegment,
+            );
+            livePathShape.setCanvasPath(context);
+            context.fill("evenodd");
+            context.stroke();
+            context.setTransform(originalMatrix);
+          },
+        );
       },
     };
     sceneList.add(scene);
