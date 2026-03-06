@@ -1329,7 +1329,7 @@ for (let i = 4; i < 6; i++) {
           amplitudes: number[];
         }
       >();
-      importantFourierTerms.flat().forEach((term) => {
+      part5.allTerms.flat().forEach((term) => {
         let accumulator = frequencyCounter.get(term.frequency);
         if (!accumulator) {
           accumulator = {
@@ -1347,9 +1347,10 @@ for (let i = 4; i < 6; i++) {
       const interestingCommonFrequencies = frequencyCounter
         .values()
         .toArray()
+        //.sort((a, b) => Math.min(...b.amplitudes) - Math.min(...a.amplitudes));
         .sort((a, b) => b.totalAmplitude - a.totalAmplitude);
-      const startWith = interestingCommonFrequencies.slice(0, 9);
-      const endWith = interestingCommonFrequencies.slice(9, 11).reverse();
+      const startWith = interestingCommonFrequencies.slice(0, 7);
+      const endWith = interestingCommonFrequencies.slice(7, 11).reverse();
       console.log({ startWith, endWith });
       const terms = part5.allTerms.map((originalTerms) => {
         const termsAvailable = originalTerms.slice();
@@ -1416,7 +1417,7 @@ for (let i = 4; i < 6; i++) {
     })();
     const scene: Showable = {
       description: "fourier again more artistically",
-      duration: 60_000,
+      duration: 80_000,
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
@@ -1464,7 +1465,7 @@ for (let i = 4; i < 6; i++) {
         );
       },
     };
-    sceneList.add(scene);
+    sceneList.add(addMargins(scene, { frozenAfter: 3000 }));
   })();
 }
 const halftoneBackgroundPath = (() => {
