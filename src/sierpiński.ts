@@ -1,9 +1,11 @@
 import {
   assertNonNullable,
+  count,
   FULL_CIRCLE,
   initializedArray,
   lerp,
   makeBoundedLinear,
+  sum,
   zip,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
@@ -30,10 +32,12 @@ import {
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
 import {
+  FourierTerm,
   getAnimationRules,
   samplesFromPath,
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
+import { only } from "./utility";
 
 const titleFont = makeLineFont(0.7);
 
@@ -492,7 +496,9 @@ const fillColors = (() => {
   const withAlpha = myRainbow.map((originalColor) => {
     const color = originalColor === myRainbow.yellow ? "yellow" : originalColor;
     const fillAlpha =
-      originalColor === myRainbow.cssBlue ? 2 * FILL_ALPHA : FILL_ALPHA;
+      originalColor === myRainbow.cssBlue || originalColor === myRainbow.violet
+        ? 1.5 * FILL_ALPHA
+        : FILL_ALPHA;
     return `rgb(from ${color} r g b / ${fillAlpha})`;
   });
   const result = initializedArray(
@@ -1186,13 +1192,43 @@ for (let i = 4; i < 6; i++) {
   })();
   const part5 = (() => {
     const keyframes = [
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      50,
+      100,
+      150,
+      200,
+      250,
+      300,
+      400,
+      500,
+      600, //,700,800,900,1023
       //  21, 22, 22, 24, 26, 28, 30, 32, 34, 38, 42, 46, 50, 54, 58, 62, 66, 70,
       //      74, 78, 82, 86, 90, 94, 98, 102, 106, 110, 114, 118, 122, 132, 142, 152,
       //    162, 172, 182, 192, 202, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450,
       // 475,
       // 1022, 1022,
     ];
+    const allTerms: (readonly FourierTerm[])[] = [];
     const livePathMakers = part4.fourierInstances.map((info) => {
       /**
        * This is the original version of the triangle with sharp corners.
@@ -1221,7 +1257,8 @@ for (let i = 4; i < 6; i++) {
           2 * part1.triangleSize.circleRadius,
       );
       const samples = samplesFromPath(translatedPath);
-      const terms = samplesToFourier(samples);
+      const terms: readonly FourierTerm[] = samplesToFourier(samples);
+      allTerms.push(terms);
       const livePathMaker = getAnimationRules(terms, keyframes);
       return livePathMaker;
     });
@@ -1276,9 +1313,160 @@ for (let i = 4; i < 6; i++) {
       },
     };
     sceneList.add(scene);
+    return { allTerms };
+  })();
+  const part6 = (() => {
+    const importantFourierTerms: FourierTerm[][] = part5.allTerms.map((terms) =>
+      terms.toSorted((a, b) => b.amplitude - a.amplitude).splice(0, 20),
+    );
+    const livePathMakers = (() => {
+      const frequencyCounter = new Map<
+        number,
+        {
+          frequency: number;
+          count: number;
+          totalAmplitude: number;
+          amplitudes: number[];
+        }
+      >();
+      importantFourierTerms.flat().forEach((term) => {
+        let accumulator = frequencyCounter.get(term.frequency);
+        if (!accumulator) {
+          accumulator = {
+            frequency: term.frequency,
+            count: 0,
+            totalAmplitude: 0,
+            amplitudes: [],
+          };
+          frequencyCounter.set(term.frequency, accumulator);
+        }
+        accumulator.count++;
+        accumulator.totalAmplitude += term.amplitude;
+        accumulator.amplitudes.push(term.amplitude);
+      });
+      const interestingCommonFrequencies = frequencyCounter
+        .values()
+        .toArray()
+        .sort((a, b) => b.totalAmplitude - a.totalAmplitude);
+      const startWith = interestingCommonFrequencies.slice(0, 9);
+      const endWith = interestingCommonFrequencies.slice(9, 11).reverse();
+      console.log({ startWith, endWith });
+      const terms = part5.allTerms.map((originalTerms) => {
+        const termsAvailable = originalTerms.slice();
+        const initialTerms = new Array<FourierTerm>();
+        startWith.forEach(({ frequency }) => {
+          const index = termsAvailable.findIndex(
+            (term) => term.frequency == frequency,
+          );
+          if (index >= 0) {
+            initialTerms.push(only(termsAvailable.splice(index, 1)));
+          }
+        });
+        const finalTerms = new Array<FourierTerm>();
+        endWith.forEach(({ frequency }) => {
+          const index = termsAvailable.findIndex(
+            (term) => term.frequency == frequency,
+          );
+          if (index >= 0) {
+            finalTerms.push(only(termsAvailable.splice(index, 1)));
+          }
+        });
+        const intermediateTerms = termsAvailable.splice(
+          0,
+          600 - initialTerms.length - finalTerms.length,
+        );
+        return { initialTerms, intermediateTerms, finalTerms };
+      });
+      console.log(terms);
+      console.table(
+        terms.map((info) => ({
+          initialCount: info.initialTerms.length,
+          initialAmplitude: sum(
+            info.initialTerms.map((term) => term.amplitude),
+          ),
+          intermediateCount: info.intermediateTerms.length,
+          intermediateAmplitude: sum(
+            info.intermediateTerms.map((term) => term.amplitude),
+          ),
+          finalCount: info.finalTerms.length,
+          finalAmplitude: sum(info.finalTerms.map((term) => term.amplitude)),
+        })),
+      );
+      const combinedTerms = terms.map(
+        ({ initialTerms, intermediateTerms, finalTerms }) => [
+          ...initialTerms,
+          ...intermediateTerms,
+          ...finalTerms,
+        ],
+      );
+      const keyframes = new Array<number>();
+      {
+        const { initialTerms, intermediateTerms, finalTerms } = terms[0];
+        keyframes.push(...count(0, initialTerms.length + 1));
+        const restartAfter = initialTerms.length + intermediateTerms.length;
+        keyframes.push(
+          ...count(restartAfter, restartAfter + finalTerms.length + 1),
+        );
+        console.log(keyframes);
+      }
+      const livePathMakers = combinedTerms.map((terms) =>
+        getAnimationRules(terms, keyframes),
+      );
+      return livePathMakers;
+    })();
+    const scene: Showable = {
+      description: "fourier again more artistically",
+      duration: 60_000,
+      show(options) {
+        const { context, timeInMs } = options;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.05;
+        const originalMatrix = context.getTransform();
+        zip(part4.fourierInstances, livePathMakers).forEach(
+          ([info, livePathMaker]) => {
+            const pathShape = info.interpolator(1);
+            context.translate(
+              info.referenceLocation.x,
+              info.referenceLocation.y,
+            );
+            animateRainbow(pathShape, info.fillStyle, options);
+            context.translate(0, part1.triangleSize.circleRadius);
+            //   context.setTransform(originalMatrix);
+            context.fillStyle = info.fillStyle;
+            context.strokeStyle = info.strokeStyle;
+            /*
+          context.beginPath();
+          context.arc(
+            info.circleCenter.x,
+            info.circleCenter.y,
+            2,
+            0,
+            FULL_CIRCLE,
+          );
+          */
+            //    context.translate(info.circleCenter.x, info.circleCenter.y);
+            const progress = timeInMs / this.duration;
+            const whichSegment = livePathMaker.length * progress;
+            const segmentIndex = Math.min(
+              livePathMaker.length - 1,
+              Math.floor(whichSegment),
+            );
+            const progressWithinSegment = whichSegment - segmentIndex;
+            const livePathShape = livePathMaker[segmentIndex](
+              progressWithinSegment,
+            );
+            livePathShape.setCanvasPath(context);
+            context.fill("evenodd");
+            context.stroke();
+            context.setTransform(originalMatrix);
+          },
+        );
+      },
+    };
+    sceneList.add(scene);
   })();
 }
-
 const halftoneBackgroundPath = (() => {
   // This is slow!!!
   // This takes 4.16ms.

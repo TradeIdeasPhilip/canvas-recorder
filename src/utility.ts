@@ -1,6 +1,6 @@
 import { Showable } from "./showable";
 
-function only<T>(source: ArrayLike<T>): T {
+export function only<T>(source: ArrayLike<T>): T {
   if (source.length != 1) {
     throw new Error("wtf");
   }

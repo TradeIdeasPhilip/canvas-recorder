@@ -394,7 +394,7 @@ function makeEasing(x1: number, x2: number) {
  * The number of transitions is one less than the number of states.
  */
 export function getAnimationRules(
-  terms: string | FourierTerm[],
+  terms: string | readonly FourierTerm[],
   keyframes: readonly number[],
 ): ((progress: number) => PathShape)[] {
   // In principal this could be adapted to transition from any curve to any other curve.
