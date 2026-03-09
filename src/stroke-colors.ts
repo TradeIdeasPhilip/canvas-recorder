@@ -1,12 +1,18 @@
 import {
+  angleBetween,
+  assertNonNullable,
   degreesPerRadian,
   initializedArray,
+  polarToRectangular,
   positiveModulo,
+  radiansPerDegree,
 } from "phil-lib/misc";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { countPresent } from "./utility";
 import { myRainbow } from "./glib/my-rainbow";
-import { PathShape } from "./glib/path-shape";
+import { Command, LCommand, PathShape } from "./glib/path-shape";
+
+let debugDumpOnce = true;
 
 export function strokeColorsOriginal(options: StrokeColorsOptions) {
   const splitter = PathShapeSplitter.create(options.pathShape);
@@ -67,51 +73,34 @@ export function strokeColors(options: StrokeColorsOptions) {
     // If you take this away an empty path will cause an exception.
     return;
   }
-  const starts: {
-    readonly distance: number;
-    readonly incomingAngle: number;
-    readonly x: number;
-    readonly y: number;
-  }[] = [];
-  const ends: {
-    readonly distance: number;
-    readonly outgoingAngle: number;
-    readonly x: number;
-    readonly y: number;
-  }[] = [];
-  if (lineCap != "butt") {
-    let start = 0;
-    options.pathShape.splitOnMove().forEach((pathShape) => {
-      const end = start + pathShape.getLength();
+  const connectedSections = (() => {
+    let offset = 0;
+    return options.pathShape.splitOnMove().map((pathShape) => {
+      const indexOfFirst = offset;
+      offset += pathShape.commands.length;
+      const indexOfLast = offset - 1;
       const firstCommand = pathShape.commands[0];
       const lastCommand = pathShape.commands.at(-1);
-      const open = true; //PathShape.needAnM(lastCommand, firstCommand);
-
-      // This is ugly.  We don't really handle closed loops very well.
-      // The ending probably won't be closed after we turn the path into dashes.
-      // I manually fixed that in an example with some triangles, where I broke the first
-      // command into two pieces and moved the first half to the far end of the list.
-      //
-      // This should work well enough with round lineCap, but not square or butt
-      //
-      // TODO can I fix this?  Maybe the same trick as before, splitting the first item.
+      const open = PathShape.needAnM(lastCommand, firstCommand);
+      /*
       if (open) {
         starts.push({
-          distance: start,
+          index: indexOfFirst,
           incomingAngle: firstCommand.incomingAngle,
           x: pathShape.startX,
           y: pathShape.startY,
         });
         ends.push({
-          distance: end,
+          index: indexOfLast,
           outgoingAngle: lastCommand!.outgoingAngle,
           x: pathShape.endX,
           y: pathShape.endY,
         });
       }
-      start = end;
+      */
+      return { indexOfFirst, indexOfLast, open };
     });
-  }
+  })();
   const colorsToUse = options.colors ?? myRainbow;
   if (
     countPresent([
@@ -187,10 +176,228 @@ export function strokeColors(options: StrokeColorsOptions) {
   while (startPosition < splitter.length) {
     const endPosition = startPosition + sectionLength;
     if (endPosition > 0) {
-      const section = splitter.trim(startPosition, endPosition);
-      const path = paths[colorIndex % paths.length];
-      section.appendCanvasPath(path);
+      const details = {
+        offset: NaN,
+        startTrimmed: false,
+        endTrimmed: false,
+      };
+      // HERE
+      // details.startedExactlyHere is only set twice.
+      // I get pc === null at the very beginning, as I should.
+      // pc is also correct in the 4th colorful segment, when we turn from right to down.
+      // But I never see details.startedExactlyHere again.
+      // I'm expecting to see it when I examine the 7th colorful segment,
+      // when we turn from down to left.
+      let singleColorSection = splitter.trim(
+        startPosition,
+        endPosition,
+        details,
+      );
+
+      /**
+       * options.pathShape.commands[indexOfFirstIncluded] is the first command that was included,
+       * in whole or in part, in the trimmed selection.
+       */
+      const indexOfFirstIncluded = details.offset;
+      /**
+       * options.pathShape.commands[indexOfLastIncluded] is the last command that was included,
+       * in whole or in part, in the trimmed selection.
+       */
+      const indexOfLastIncluded =
+        indexOfFirstIncluded + singleColorSection.commands.length - 1;
+      const indexOfFirstComplete = details.startTrimmed
+        ? indexOfFirstIncluded + 1
+        : indexOfFirstIncluded;
+      const indexOfLastComplete = details.endTrimmed
+        ? indexOfLastIncluded - 1
+        : indexOfLastIncluded;
+
+      // MARK: Add 0, 1 or 2 corners.
+      {
+        function addCorner(beforeIndex: number, previousAngle: number) {
+          /**
+           * Mostly aimed at round-off error.
+           * Any small difference can be ignored.
+           * **Bad Math**
+           */
+          const cutoff = radiansPerDegree / 2;
+          const beforeCommand = singleColorSection.commands[beforeIndex];
+          if (
+            Math.abs(angleBetween(previousAngle, beforeCommand.incomingAngle)) >
+            cutoff
+          ) {
+            // The angle is big enough to care about.
+            // Fix it.
+            // Graft a small linear segment onto the front of the path.
+            // The angle should match pc.outgoingAngle
+            /**
+             * The length should be a small fraction of a pixel,
+             * too small to see directly,
+             * but enough to tell the canvas to draw the linejoin for this corner.
+             * **Bad Math**
+             */
+            const small = 0.0001;
+            const offset = polarToRectangular(small, previousAngle);
+            const x = beforeCommand.x0;
+            const y = beforeCommand.y0;
+            const x0 = x - offset.x;
+            const y0 = y - offset.y;
+            const newShortCommand = new LCommand(x0, y0, x, y);
+            const newCommands = singleColorSection.commands.toSpliced(
+              beforeIndex,
+              0,
+              newShortCommand,
+            );
+            singleColorSection = new PathShape(newCommands);
+          }
+        }
+        // MARK: Last restart
+        {
+          // Look for the last M command in the trimmed section.
+          // Look at the first command after that M.
+          // Look for the largest connectedSections[?].indexOfFirst <= indexOfLastIncluded
+          function findLastStart() {
+            let begin = 0;
+            let end = connectedSections.length;
+            while (begin < end) {
+              const middle = Math.floor((begin + end) / 2);
+              const possible = connectedSections[middle];
+              if (possible.indexOfFirst == indexOfLastIncluded) {
+                return possible;
+              } else if (possible.indexOfFirst > indexOfLastIncluded) {
+                end = middle;
+              } else {
+                begin = middle + 1;
+              }
+            }
+            return connectedSections[begin - 1];
+          }
+          /**
+           * This is the last connected section we could find that starts before the end of the trimmed path.
+           */
+          const connectedSection = findLastStart();
+          if (connectedSection.indexOfFirst > indexOfFirstIncluded) {
+            // There is at least one M after the start of the trimmed segment.
+            // We will deal with the start after this.
+            if (!connectedSection.open) {
+              // We are looking at the start of a CLOSED loop.
+              const endIsAlreadyPresent =
+                !details.endTrimmed &&
+                connectedSection.indexOfLast == indexOfFirstComplete;
+              if (!endIsAlreadyPresent) {
+                /**
+                 * `connectedSection.indexOfFirst` is relative to `options.pathShape.commands`.
+                 * `localIndex` is relative to `singleColorSection.commands`.
+                 */
+                const localIndex =
+                  connectedSection.indexOfFirst - details.offset;
+                /**
+                 * The angle of the piece that would have come right before this piece,
+                 * after joining the end of the loop to the beginning,
+                 * if we hadn't cut the end of the loop off.
+                 */
+                const previousAngle =
+                  options.pathShape.commands[connectedSection.indexOfLast]
+                    .outgoingAngle;
+                addCorner(localIndex, previousAngle);
+              }
+            }
+          }
+        }
+        // MARK: Initial restart
+        if (!details.startTrimmed) {
+          // The trimmed path starts at the beginning of one of the original commands.
+          // Check to see if this command is the start of a connected section.
+          // Look for a connected section that starts at exactly the beginning of the trimmed path.
+          function findInitialRestart() {
+            const desiredStartIndex = details.offset;
+            let begin = 0;
+            let end = connectedSections.length;
+            while (begin < end) {
+              const middle = Math.floor((begin + end) / 2);
+              const possible = connectedSections[middle];
+              if (possible.indexOfFirst == desiredStartIndex) {
+                return possible;
+              } else if (possible.indexOfFirst > desiredStartIndex) {
+                end = middle;
+              } else {
+                begin = middle + 1;
+              }
+            }
+            // Not found
+            return undefined;
+          }
+          const initialConnectedSection = findInitialRestart();
+          if (initialConnectedSection && !initialConnectedSection.open) {
+            // The trimmed path starts at the start of a closed section.
+            // Now check if the entire closed section is part of the trimmed path.
+            if (initialConnectedSection.indexOfLast > indexOfLastComplete) {
+              // The end of this connected section has been trimmed.
+              // We need to add the corner ourselves.
+              /**
+               * This branch **only** looks at the first command.
+               */
+              const localIndex = 0;
+              /**
+               * The angle of the piece that would have come right before this piece,
+               * after joining the end of the loop to the beginning,
+               * if we hadn't cut the end of the loop off.
+               */
+              const previousAngle =
+                options.pathShape.commands[initialConnectedSection.indexOfLast]
+                  .outgoingAngle;
+              addCorner(localIndex, previousAngle);
+            }
+          }
+        }
+      }
+
+      singleColorSection.appendCanvasPath(paths[colorIndex % paths.length]);
       const fillablePath = fillablePaths[colorIndex % paths.length];
+
+      details;
+      connectedSections;
+      {
+        for (
+          let connectedSectionIndex = 0;
+          connectedSectionIndex < connectedSections.length;
+          connectedSectionIndex++
+        ) {
+          const connectedSection = connectedSections[connectedSectionIndex];
+          if (connectedSection.indexOfFirst > indexOfLastIncluded) {
+            break;
+          }
+          if (connectedSection.open) {
+            if (
+              connectedSection.indexOfFirst >= indexOfFirstComplete &&
+              connectedSection.indexOfFirst <= indexOfLastIncluded
+            ) {
+              const command =
+                options.pathShape.commands[connectedSection.indexOfFirst];
+              fillablePath.addPath(
+                linecapArchetype,
+                new DOMMatrix()
+                  .translateSelf(command.x0, command.y0)
+                  .rotateSelf(command.incomingAngle * degreesPerRadian),
+              );
+            }
+            if (
+              connectedSection.indexOfLast >= indexOfFirstIncluded &&
+              connectedSection.indexOfLast <= indexOfLastComplete
+            ) {
+              const command =
+                options.pathShape.commands[connectedSection.indexOfLast];
+              fillablePath.addPath(
+                linecapArchetype,
+                new DOMMatrix()
+                  .translateSelf(command.x, command.y)
+                  .rotateSelf(command.outgoingAngle * degreesPerRadian + 180),
+              );
+            }
+          }
+        }
+      }
+      /*
       for (let index = 0; index < starts.length; index++) {
         const { distance } = starts[index];
         if (distance >= endPosition) {
@@ -207,10 +414,9 @@ export function strokeColors(options: StrokeColorsOptions) {
             .rotateSelf(incomingAngle * degreesPerRadian),
         );
       }
-
       for (let index = 0; index < ends.length; index++) {
         const { distance } = ends[index];
-        if (distance >= endPosition) {
+        if (distance > endPosition) {
           break;
         }
         if (distance < startPosition) {
@@ -224,10 +430,12 @@ export function strokeColors(options: StrokeColorsOptions) {
             .rotateSelf(outgoingAngle * degreesPerRadian + 180),
         );
       }
+      */
     }
     startPosition = endPosition;
     colorIndex++;
   }
+  debugDumpOnce = false;
   options.context.lineCap = "butt";
   for (let i = 0; i < paths.length; i++) {
     const color = colorsToUse[i];
@@ -325,8 +533,10 @@ export type StrokeColorsOptions = {
    * This is ugly.  I just need to fix the issue.
    *
    *
-   * I should only support round linecap and linejoin.
-   * Maybe I can allow linecap = "butt" if you promise there is no need for linejoin.
+   * I should only support round linejoin.
+   *
+   * linecap can be anything (and that part already works) as long as I fix linejoin.
+   * My current linecap problems are actually linejoin problems.
    *
    * I need to deal with linejoin.
    * The internal ones and the case of the start and end meeting in a closed curve.
@@ -341,9 +551,9 @@ export type StrokeColorsOptions = {
    * Draw a **complete** circle at every join or cap.
    * If the two parts come together in a straight line they will completely cover the circle.
    * No, I don't want to draw all of these circles!
-   * 
-   * 
-   * 
+   *
+   *
+   *
    *
    * **Always** draw with linejoin set to round.
    * If we break in the middle of a command, we know there was *no* corner there, so nothing to worry about.
@@ -359,7 +569,7 @@ export type StrokeColorsOptions = {
    * Assume the linejoin for a closed path is handled properly.
    * And check for a path with internal jumps.
    * Maybe some but not all of the sub paths will be closed.
-   * 
+   *
    * Do we need an override to force no linejoin?
    * I'm thinking about something drawn with partial transparency.
    * You don't want multiple things drawn on top of each other.
@@ -367,7 +577,7 @@ export type StrokeColorsOptions = {
    * Each linecap is already a semicircle, avoiding drawing over the adjacent line.
    * But what about the internal angles?
    * Maybe some of those will be really close but not identical.
-   * I see that a lot in the wild, 
+   * I see that a lot in the wild,
    * an artist will just make something very close to smooth and hope nobody notices.
    * And I think it might be unavoidable due to round off errors.
    * Proposal:  Create a small cutoff, maybe ⅒°, and if necessary add that cutoff to the options.

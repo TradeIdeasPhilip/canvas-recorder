@@ -207,9 +207,49 @@ export class PathShapeSplitter {
    * If to <= from, this will return a path with a single point, the point at to.
    * @param fromDistance Start here.
    * @param toDistance End here.
-   * @returns
+   * @param details This allows you to capture some details about how the result was created.
+   * The default value of `undefined` means don't share these details.
+   * @param tooSmall If a proposed cut is within this distance of the start of a command,
+   * move the cut to the start of this command.
+   * Sometimes those tiny segments can cause problems, especially when the distance is close to Number.EPSILON.
+   * I've had segments that looked real to my code, literally dx=Number.EPSILON and dy=Number.EPSILON, but they disappeared when I handed them to the canvas.
+   *
+   * Also, if I have 9 colors spread around an equilateral triangle, I expect each segment to have exactly 3 colors.
+   * When they don't, I assume that's because of round off error.
+   *
+   * Common problem:
+   * I want the corners of my equilateral triangle to respect linejoin.
+   * But I might be breaking the triangle right at a corner, Right where linejoin should apply.
+   * I would need to detect that case and deal with it manually.
+   * Now imagine that the trim algorithm tries to cut **very close** to the start of a command.
+   * It leaves just a tiny sliver of a command at the beginning, before the command you might think would be at the beginning.
+   * My algorithm sees the sliver and assumes that the canvas will draw the corner.
+   * The canvas sees a zero length path (after rounding from doubles to floats to run on the GPU) and ignores it and does not draw the corner.
+   *
+   * *Hopefully* This number will be too small to notice directly (much smaller than a pixel) but large enough that the canvas can correctly read the angle of the resulting segment.
+   * Remember I generally assume that my canvas has been transformed and I have no idea what a pixel is.
+   * (I don't even want to believe pixels are real.)
+   * So this is something of a wild guess.
+   * **Bad Math**
+   * @returns Creates a new path, as requested.
+   *
+   * This will return the original path, rather than creating a new path identical to that path.
+   *
+   * If you request a very tiny slice, The resulting path might or might not be empty.
+   * Details of the implementation are in flux.
+   *
+   *
+   *
+   * problem:
+   * is it closed?
+   * We ask at the top
    */
-  trim(fromDistance: number, toDistance: number) {
+  trim(
+    fromDistance: number,
+    toDistance: number,
+    details?: { offset: number; startTrimmed: boolean; endTrimmed: boolean },
+    tooSmall = 0.0001,
+  ) {
     fromDistance = Math.max(0, fromDistance);
     toDistance = Math.min(this.length, toDistance);
     if (fromDistance == 0 && toDistance == this.length) {
@@ -224,10 +264,32 @@ export class PathShapeSplitter {
     const toIndex = this.#findCommandAt(toDistance);
     if (fromIndex == toIndex) {
       const info = this.#allCommandInfo[fromIndex];
-      const command = info.splitter.split(
-        fromDistance - info.start,
-        toDistance - info.start,
-      );
+      let localFromDistance = fromDistance - info.start;
+      if (localFromDistance < tooSmall) {
+        localFromDistance = 0;
+      }
+      let localToDistance = toDistance - info.start;
+      if (localToDistance > info.length - tooSmall) {
+        localToDistance = info.length;
+      }
+      const command = info.splitter.split(localFromDistance, localToDistance);
+      if (details) {
+        details.offset = fromIndex;
+        details.startTrimmed = localFromDistance > 0;
+        details.endTrimmed = localToDistance < info.length;
+        // Each command,
+        //   what command came right before it?
+        //   Maybe nothing, in which case we'd already tag it for a starting linecap.
+        //   Maybe the command right before it in the list, which would be the default.
+        //   Or maybe this is the first command in a loop, and the previous command is the last command in the loop.
+        //   We can look for those at the same time as we look for the linecap and we can store those commands in a map.
+        // Each time we create a new section of the original path:
+        //   If we start in the middle of a command, do nothing special.
+        //   If there is no previous command, do nothing special.
+        //   If the previous command's outgoing angle is the same as the first command's incoming angle, do nothing special.
+        //   Otherwise there is a corner right where we are splitting this thing and we need to create it ourselves.
+        //   Add a prefix, a very small line segment pointing in the right direction to create the corner, but far less than one pixel long.
+      }
       return new PathShape([command]);
     } else {
       const commands = new Array<Command>();
@@ -235,14 +297,27 @@ export class PathShapeSplitter {
         // Handle first command
         const info = this.#allCommandInfo[fromIndex];
         const localDistance = fromDistance - info.start;
-        if (localDistance <= 0) {
+        if (localDistance <= tooSmall) {
           // Keep the entire thing
           commands.push(info.command);
-        } else if (localDistance >= info.length) {
+          if (details) {
+            details.offset = fromIndex;
+            details.startTrimmed = false;
+          }
+        } else if (localDistance >= info.length - tooSmall) {
           // Skip the entire thing.
+          // console.warn("⁉️ skipping the first item ⁉️");
+          if (details) {
+            details.offset = fromIndex + 1;
+            details.startTrimmed = false;
+          }
         } else {
           // Split it.
           commands.push(info.splitter.split(localDistance, info.length));
+          if (details) {
+            details.offset = fromIndex;
+            details.startTrimmed = true;
+          }
         }
       }
       // Copy the middle commands as is.
@@ -253,15 +328,24 @@ export class PathShapeSplitter {
         // Handle last command
         const info = this.#allCommandInfo[toIndex];
         const localDistance = toDistance - info.start;
-        if (localDistance >= info.length) {
+        if (localDistance >= info.length - tooSmall) {
           // > 1 is possible because of round-off error.
           // Keep the entire thing
           commands.push(info.command);
-        } else if (localDistance <= 0) {
+          if (details) {
+            details.endTrimmed = false;
+          }
+        } else if (localDistance <= tooSmall) {
           // Skip the entire thing.
+          if (details) {
+            details.endTrimmed = false;
+          }
         } else {
           // Split it.
           commands.push(info.splitter.split(0, localDistance));
+          if (details) {
+            details.endTrimmed = true;
+          }
         }
       }
       return new PathShape(commands);

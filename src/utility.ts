@@ -1,5 +1,10 @@
 import { Showable } from "./showable";
 
+/**
+ * Assert that `source` has exactly one element and return that element.
+ * @returns The element.
+ * @throws An exception if source does not have exactly 1 element.
+ */
 export function only<T>(source: ArrayLike<T>): T {
   if (source.length != 1) {
     throw new Error("wtf");

@@ -610,7 +610,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(fillIn);
   }
-  //sceneList.add(scene.build());
+  sceneList.add(scene.build());
 }
 
 {
@@ -676,7 +676,7 @@ for (let i = 4; i < 6; i++) {
       }
     },
   };
-  //sceneList.add(scene);
+  sceneList.add(scene);
 }
 
 // MARK: All 16 permutations
@@ -1420,6 +1420,41 @@ for (let i = 4; i < 6; i++) {
       duration: 80_000,
       show(options) {
         const { context, timeInMs } = options;
+
+        // I created very short segments on both sides of the normal size segment.
+        // Question:  What if we want a specific linejoin at the corners, but one of the corners is right where we switch colors?
+        // I used those to create a linejoin at the end of the segment pointing ing a specific direction.
+        // These look odd on their own, but would probably work if I did that to both sides of the corner.
+        context.lineCap = "butt";
+        context.lineJoin = "round";
+        context.lineWidth = 0.2;
+        context.strokeStyle = "red";
+        context.beginPath();
+        context.moveTo(0.25, 0.25);
+        context.lineTo(0.75, 0.25);
+        context.stroke();
+        context.beginPath();
+        const small = 0.0001;
+        context.moveTo(0.25 + small, 0.5 + small);
+        context.lineTo(0.25, 0.5);
+        context.lineTo(0.75, 0.5);
+        context.lineTo(0.75 + small, 0.5 + small);
+        context.stroke();
+        context.lineJoin = "bevel";
+        context.beginPath();
+        context.moveTo(0.25 + small, 0.75 + small);
+        context.lineTo(0.25, 0.75);
+        context.lineTo(0.75, 0.75);
+        context.lineTo(0.75 + small, 0.75 + small);
+        context.stroke();
+        context.lineJoin = "miter";
+        context.beginPath();
+        context.moveTo(0.25 + small, 1 + small);
+        context.lineTo(0.25, 1);
+        context.lineTo(0.75, 1);
+        context.lineTo(0.75 + small, 1 + small);
+        context.stroke();
+
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.05;
@@ -1465,7 +1500,7 @@ for (let i = 4; i < 6; i++) {
         );
       },
     };
-    sceneList.add(addMargins(scene, { frozenAfter: 3000 }));
+    sceneList.add(addMargins(scene, { frozenBefore: 500, frozenAfter: 4500 }));
   })();
 }
 const halftoneBackgroundPath = (() => {
@@ -1484,7 +1519,7 @@ const halftoneBackgroundPath = (() => {
   for (let x = period / 2; x < 16 + period; x += period) {
     for (let y = period / 2; y < 9 + period; y += period) {
       const transformed = transform(x, y, matrix);
-      const value = (transformed.x - 8) / 8;
+      const value = (transformed.x - 8) / 12;
       if (value > 0) {
         const radius = ((Math.sqrt(value) * period) / 2) * Math.SQRT2;
         result.moveTo(x + radius, y);
