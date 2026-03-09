@@ -1,7 +1,7 @@
-import { myRainbow } from "../glib/my-rainbow";
-import { Command, LCommand, PathShape } from "../glib/path-shape";
-import { Showable } from "../showable";
-import { strokeColors } from "../stroke-colors";
+import { myRainbow } from "./glib/my-rainbow";
+import { Command, LCommand, PathShape } from "./glib/path-shape";
+import { Showable } from "./showable";
+import { strokeColors } from "./stroke-colors";
 
 const squarePathShape = new PathShape([
   new LCommand(0, 0, 1, 0),

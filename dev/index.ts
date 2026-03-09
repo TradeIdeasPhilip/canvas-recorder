@@ -30,7 +30,7 @@ import { top } from "../src/peano-fourier/top.ts";
 import { showcase } from "../src/showcase.ts";
 import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
-import { strokeColorsTest } from "../src/peano-fourier/stroke-colors-test.ts";
+import { strokeColorsTest } from "../src/stroke-colors-test.ts";
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -38,7 +38,7 @@ const context = assertNonNullable(canvas.getContext("2d"));
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = strokeColorsTest;
+const toShow = sierpińskiTop;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.

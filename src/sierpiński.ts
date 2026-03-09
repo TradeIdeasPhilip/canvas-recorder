@@ -586,7 +586,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(morph);
 
-    const timeToAlpha = makeBoundedLinear(0, 0, 1000, FILL_ALPHA);
+    const timeToAlpha = makeBoundedLinear(0, 0, 1000, FILL_ALPHA * 2);
     /**
      * Fill in the inside of the triangle.
      *
@@ -817,7 +817,7 @@ for (let i = 4; i < 6; i++) {
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
-        context.lineJoin = "round";
+        context.lineJoin = "miter";
         context.lineWidth = 0.05;
         const originalTransform = context.getTransform();
         zip(interpolators, part1.locations, schedules, fillColors).forEach(
