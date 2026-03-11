@@ -735,7 +735,7 @@ for (let i = 4; i < 6; i++) {
       show(options) {
         const { context } = options;
         context.lineCap = "round";
-        context.lineJoin = "round";
+        context.lineJoin = "miter";
         context.lineWidth = 0.05;
         const originalTransform = context.getTransform();
         zip(pathShapes, locations, fillColors).forEach(
@@ -793,11 +793,41 @@ for (let i = 4; i < 6; i++) {
           currentCommand,
         );
       });
-      const interpolator = makePathShapeInterpolator(
+      /**
+       * 0 for the mitered version, 1 for the rounded version.
+       * Interpolate in between.
+       */
+      const baseInterpolator = makePathShapeInterpolator(
         new PathShape(mitered),
         new PathShape(rounded),
       );
-      return interpolator;
+      /**
+       * This is similar to baseInterpolator except for inputs that are 0 or close to 0.
+       * In those cases this function returns the original path without changes.
+       * baseInterpolator always adds small paths in the corners when progress is close to 0,
+       * and it adds empty paths then progress is 0.
+       * Those 0 length paths caused problems for stroke-colors.
+       *
+       * See the end of https://youtu.be/MxpNJ2k86U0?si=MsMT6XuIL7teFC3o&t=2372
+       * to see what happened before I created zeroAvoidingInterpolator.
+       * In that case I was returning baseInterpolator as is.
+       * @param progress 0 for the mitered version, 1 for the rounded version, or somewhere in between.
+       * @returns
+       */
+      function zeroAvoidingInterpolator(progress: number): PathShape {
+        const ideal = baseInterpolator(progress);
+        const newCurve = ideal.commands[0];
+        /**
+         * This should be too small for a user to notice, but big enough for the canvas to notice.
+         */
+        const tooSmall = 0.00001;
+        if (newCurve.getLength() < tooSmall) {
+          return originalPathShape;
+        } else {
+          return ideal;
+        }
+      }
+      return zeroAvoidingInterpolator;
     });
     const schedules: readonly Keyframe<number>[][] = interpolators.map(
       (_, index, array): Keyframe<number>[] => {
