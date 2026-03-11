@@ -18,7 +18,13 @@ import {
 } from "./showable";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
-import { Command, LCommand, PathShape, QCommand } from "./glib/path-shape";
+import {
+  Command,
+  fromBezier,
+  LCommand,
+  PathShape,
+  QCommand,
+} from "./glib/path-shape";
 import { fixCorners, matchShapes } from "./morph-animation";
 import {
   ease,
@@ -38,6 +44,7 @@ import {
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
 import { only } from "./utility";
+import { Bezier } from "bezier-js";
 
 const titleFont = makeLineFont(0.7);
 
@@ -757,6 +764,10 @@ for (let i = 4; i < 6; i++) {
    */
   const part2 = (() => {
     const interpolators = part1.pathShapes.map((originalPathShape) => {
+      /**
+       * Each of the original line segments will get broken into three parts.
+       * `smallerCommands` will contain the middle third of each line segment.
+       */
       const smallerCommands = originalPathShape.commands.map((command) => {
         const splitter = command.makeSplitter();
         const smallerCommand = splitter.split(
@@ -765,69 +776,84 @@ for (let i = 4; i < 6; i++) {
         );
         return smallerCommand;
       });
+      /**
+       * These commands retain the sharp corners of the original input.
+       * The `smallerCommands` are connected with additional line segments.
+       * These show off the mitered nature of the triangles.
+       */
       const mitered = new Array<Command>();
+      /**
+       * These commands follow the same basic path, but with no sharp corners.
+       * Each adjacent pair of `smallerCommands` are connected with a parabola.
+       * I break each of those parabolas into two equal pieces.
+       * I do this to match the two line segments in `mitered` that this curve will be replacing.
+       */
       const rounded = new Array<Command>();
-      smallerCommands.forEach((currentCommand, index, array) => {
-        const previousCommand = array.at(index - 1)!;
+      smallerCommands.forEach((smallerCommand, index) => {
+        const previousSmallerCommand = smallerCommands.at(index - 1)!;
         const originalCommand = originalPathShape.commands[index];
-        mitered.push(
-          QCommand.controlPoints(
-            originalCommand.x0,
-            originalCommand.y0,
-            originalCommand.x0,
-            originalCommand.y0,
-            originalCommand.x0,
-            originalCommand.y0,
-          ),
-          originalCommand,
+        /**
+         * Connect the two `smallerCommands` with a parabola so there are no corners.
+         */
+        const fullCurve = new Bezier(
+          previousSmallerCommand.x,
+          previousSmallerCommand.y,
+          originalCommand.x0,
+          originalCommand.y0,
+          smallerCommand.x0,
+          smallerCommand.y0,
         );
-        rounded.push(
-          QCommand.controlPoints(
-            previousCommand.x,
-            previousCommand.y,
-            originalCommand.x0,
-            originalCommand.y0,
-            currentCommand.x0,
-            currentCommand.y0,
-          ),
-          currentCommand,
+        const halves = fullCurve.split(0.5);
+        /**
+         * To match the line segment immediately before the corner.
+         */
+        const firstRoundCommand = fromBezier(halves.left);
+        /**
+         * To match the line segment immediately after the corner.
+         */
+        const secondRoundCommand = fromBezier(halves.right);
+        if (
+          !(
+            firstRoundCommand instanceof QCommand &&
+            secondRoundCommand instanceof QCommand
+          )
+        ) {
+          throw new Error("wtf");
+        }
+        const firstMiteredCommand = QCommand.controlPoints(
+          firstRoundCommand.x0,
+          firstRoundCommand.y0,
+          firstRoundCommand.x1,
+          firstRoundCommand.y1,
+          originalCommand.x0,
+          originalCommand.y0,
         );
+        const secondMiteredCommand = QCommand.controlPoints(
+          originalCommand.x0,
+          originalCommand.y0,
+          secondRoundCommand.x1,
+          secondRoundCommand.y1,
+          secondRoundCommand.x,
+          secondRoundCommand.y,
+        );
+        mitered.push(firstMiteredCommand, secondMiteredCommand, smallerCommand);
+        rounded.push(firstRoundCommand, secondRoundCommand, smallerCommand);
       });
+      /**
+       * Start at the top of the triangle, just like the original.
+       * The previous scene shows the original paths, and we don't want the colors to jump when we switch scenes.
+       */
+      mitered.push(mitered.shift()!);
+      rounded.push(rounded.shift()!);
       /**
        * 0 for the mitered version, 1 for the rounded version.
        * Interpolate in between.
        */
-      const baseInterpolator = makePathShapeInterpolator(
+      const interpolator = makePathShapeInterpolator(
         new PathShape(mitered),
         new PathShape(rounded),
       );
-      /**
-       * This is similar to baseInterpolator except for inputs that are 0 or close to 0.
-       * In those cases this function returns the original path without changes.
-       * baseInterpolator always adds small paths in the corners when progress is close to 0,
-       * and it adds empty paths then progress is 0.
-       * Those 0 length paths caused problems for stroke-colors.
-       *
-       * See the end of https://youtu.be/MxpNJ2k86U0?si=MsMT6XuIL7teFC3o&t=2372
-       * to see what happened before I created zeroAvoidingInterpolator.
-       * In that case I was returning baseInterpolator as is.
-       * @param progress 0 for the mitered version, 1 for the rounded version, or somewhere in between.
-       * @returns
-       */
-      function zeroAvoidingInterpolator(progress: number): PathShape {
-        const ideal = baseInterpolator(progress);
-        const newCurve = ideal.commands[0];
-        /**
-         * This should be too small for a user to notice, but big enough for the canvas to notice.
-         */
-        const tooSmall = 0.00001;
-        if (newCurve.getLength() < tooSmall) {
-          return originalPathShape;
-        } else {
-          return ideal;
-        }
-      }
-      return zeroAvoidingInterpolator;
+      return interpolator;
     });
     const schedules: readonly Keyframe<number>[][] = interpolators.map(
       (_, index, array): Keyframe<number>[] => {
