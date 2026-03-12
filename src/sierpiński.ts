@@ -71,6 +71,8 @@ type Segment = {
   readonly depth: number;
 };
 
+// MARK: Triangle
+
 class Triangle {
   /**
    * Internally all items are 1×1.
@@ -261,6 +263,8 @@ class Triangle {
 }
 (window as any).Triangle = Triangle;
 
+// MARK: MainTriangle
+
 class MainTriangle {
   private constructor(arg: never) {
     throw new Error("wtf");
@@ -355,6 +359,8 @@ class MainTriangle {
     return result;
   }
 }
+
+// MARK: RTriangle
 
 /**
  * Recursive Triangle.
@@ -529,6 +535,7 @@ const fillColors = (() => {
 
 const sceneList = new MakeShowableInSeries("Scene List");
 
+// MARK: Title
 {
   const scene = new MakeShowableInSeries("Title");
   {
@@ -539,40 +546,15 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "center",
       width: 16,
     });
-    const textPath = textPathShape.canvasPath;
-    const trianglePath = MainTriangle.pathShape.canvasPath;
     (window as any).MainTriangle = MainTriangle;
-    /**
-     * Draw the words and the triangle together.
-     */
-    const bothEnds: Showable = {
-      description: "Both Ends",
-      duration: 5_000,
-      show({ context }) {
-        {
-          context.lineCap = "round";
-          context.lineJoin = "round";
-          context.lineWidth = 0.07;
-          context.strokeStyle = "yellow";
-          context.stroke(textPath);
-          context.strokeStyle = "orange";
-          context.stroke(trianglePath);
-          context.fillStyle = context.strokeStyle;
-          context.globalAlpha = FILL_ALPHA;
-          context.fill(trianglePath);
-          context.globalAlpha = 1;
-        }
-      },
-    };
-    scene.add(bothEnds);
 
     const morpher = matchShapes(
       fixCorners(textPathShape),
       fixCorners(MainTriangle.pathShape),
     );
     const morphSchedule: Keyframes<number> = [
-      { time: 1_500, value: 0, easeAfter: ease },
-      { time: 5_500, value: 1 },
+      { time: 1_000, value: 0, easeAfter: ease },
+      { time: 3_000, value: 1 },
     ];
     /**
      * Change between the text and the triangle.
@@ -605,7 +587,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       duration: 3_000,
       show({ context, timeInMs }) {
         context.lineCap = "round";
-        context.lineJoin = "round";
+        context.lineJoin = "miter";
         context.lineWidth = 0.07;
         context.fillStyle = context.strokeStyle = "yellow";
         context.globalAlpha = timeToAlpha(timeInMs);
@@ -673,7 +655,7 @@ for (let i = 4; i < 6; i++) {
       context.fill();
       context.globalAlpha = 1;
       context.lineCap = "round";
-      context.lineJoin = "round";
+      context.lineJoin = "miter";
       //for (let index = byDepth.length - 1; index >= 0; index--) {
       for (let index = 0; index < byDepth.length; index++) {
         context.lineWidth = 0.01 * (6 - index);
