@@ -312,6 +312,12 @@ class MainTriangle {
       new LCommand(right, top, startX, startY),
     ]);
   }
+  /**
+   *
+   * @param n
+   * @returns
+   * @deprecated Basically replaced by RTriangle, which is more flexible.
+   */
   static getMorphablePaths(n: number) {
     const result = new Array<{
       simpleFrom: PathShape;
@@ -567,7 +573,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.lineCap = "round";
         context.lineJoin = "round";
         context.lineWidth = 0.07;
-        context.strokeStyle = "yellow";
+        context.strokeStyle = myRainbow.violet;
         const progress = interpolateNumbers(timeInMs, morphSchedule);
         const pathShape = morpher(progress);
         context.stroke(pathShape.canvasPath);
@@ -589,7 +595,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.lineCap = "round";
         context.lineJoin = "miter";
         context.lineWidth = 0.07;
-        context.fillStyle = context.strokeStyle = "yellow";
+        context.fillStyle = context.strokeStyle = myRainbow.violet;
         context.globalAlpha = timeToAlpha(timeInMs);
         MainTriangle.pathShape.setCanvasPath(context);
         context.fill();
@@ -602,44 +608,24 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
-{
-  const scene = new MakeShowableInSeries("expanding");
-  MainTriangle.getMorphablePaths(5).forEach((pathShapes, index) => {
-    const morpher = makePathShapeInterpolator(pathShapes.from, pathShapes.to);
-    const showable: Showable = {
-      description: `expanding: ${index} - ${index + 1}`,
-      duration: 4_000,
-      show({ context, timeInMs }) {
-        const progress = easeIn(timeInMs / this.duration);
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.lineWidth = 0.07;
-        context.fillStyle = context.strokeStyle = "yellow";
-        morpher(progress).setCanvasPath(context);
-        context.globalAlpha = FILL_ALPHA;
-        context.fill();
-        context.globalAlpha = 1;
-        context.stroke();
-      },
-    };
-    scene.add(addMargins(showable, { frozenBefore: 500, frozenAfter: 1000 }));
-  });
-  //sceneList.add(scene.build());
-}
-
 // Show a triangle with i levels of recursion.
 // Animate the individual triangles.
 // Make them each grow out of a point, one at a time.
 // Color them based on depth
-for (let i = 4; i < 6; i++) {
-  const duration = 20000;
+for (let i = 5; i < 6; i++) {
+  const duration = 20_000;
   const triangle = RTriangle.standard(i);
   const depthFirst = triangle.byDepth().flat(1);
   depthFirst.forEach((triangle, index, array) => {
-    const period = duration / array.length;
+    //
+    /**
+     * Start with the first triangle fully formed.
+     * Spread the time evenly between the remaining triangles.
+     */
+    const period = duration / (array.length - 1);
     triangle.schedule.push(
-      { time: period * (index + 0.1), value: 0 },
-      { time: period * (index + 0.9), value: 1 },
+      { time: period * (index - 1 + 0.0), value: 0 },
+      { time: period * (index - 1 + 0.8), value: 1 },
     );
   });
   const scene: Showable = {
@@ -648,10 +634,14 @@ for (let i = 4; i < 6; i++) {
     show({ context, timeInMs }) {
       const baseColorIndex = 2;
       context.fillStyle = myRainbow.violet;
-      context.globalAlpha = FILL_ALPHA;
+      context.globalAlpha = FILL_ALPHA * 2;
       context.beginPath();
       const byDepth = initializedArray(i + 1, () => new Path2D());
-      triangle.draw(timeInMs, context, byDepth);
+      triangle.draw(
+        easeIn(timeInMs / this.duration) * duration,
+        context,
+        byDepth,
+      );
       context.fill();
       context.globalAlpha = 1;
       context.lineCap = "round";
@@ -665,7 +655,7 @@ for (let i = 4; i < 6; i++) {
       }
     },
   };
-  sceneList.add(scene);
+  sceneList.add(addMargins(scene, { frozenAfter: 2_000 }));
 }
 
 // MARK: All 16 permutations
