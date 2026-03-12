@@ -591,7 +591,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
      */
     const fillIn: Showable = {
       description: "fill in",
-      duration: 3_000,
+      duration: 1_500,
       show({ context, timeInMs }) {
         context.lineCap = "round";
         context.lineJoin = "miter";
@@ -615,32 +615,55 @@ const recursiveTriangles = (() => {
   // Make them each grow out of a point, one at a time.
   // Color them based on depth
   const level = 5;
-  const duration = 20_000;
+  const growEndTime = 20_000;
+  const shrinkStartTime = 25_000;
+  const shrinkEndTime = 29_000;
   const triangle = RTriangle.standard(level);
-  const depthFirst = triangle.byDepth().flat(1);
+  const byDepth = triangle.byDepth();
+  const depthFirst = byDepth.flat(1);
   depthFirst.forEach((triangle, index, array) => {
     //
     /**
      * Start with the first triangle fully formed.
      * Spread the time evenly between the remaining triangles.
      */
-    const period = duration / (array.length - 1);
+    const period = growEndTime / (array.length - 1);
     triangle.schedule.push(
       { time: period * (index - 1 + 0.0), value: 0 },
       { time: period * (index - 1 + 0.8), value: 1 },
     );
   });
+  byDepth.forEach((atThisDepth, depth, array) => {
+    const keep = 2;
+    if (depth >= 2) {
+      const totalTime = shrinkEndTime - shrinkStartTime;
+      const period = totalTime / (array.length - keep);
+      const startTime =
+        shrinkStartTime + period * (array.length - keep - depth);
+      const endTime = startTime + period * 0.99;
+      atThisDepth.forEach((triangle) => {
+        triangle.schedule.push(
+          { time: startTime, value: 1 },
+          { time: endTime, value: 0 },
+        );
+      });
+    }
+  });
   const scene: Showable = {
     description: `RTriangle.standard(${level})`,
-    duration,
+    duration: shrinkEndTime + 1000,
     show({ context, timeInMs }) {
       const baseColorIndex = 2;
       context.fillStyle = myRainbow.violet;
       context.globalAlpha = FILL_ALPHA * 2;
       context.beginPath();
       const byDepth = initializedArray(level + 1, () => new Path2D());
+      const tweakedTime =
+        timeInMs <= growEndTime
+          ? easeIn(timeInMs / growEndTime) * growEndTime
+          : timeInMs;
       triangle.draw(
-        easeIn(timeInMs / this.duration) * duration,
+        tweakedTime, //easeIn(timeInMs / this.duration) * this.duration,
         context,
         byDepth,
       );
@@ -657,7 +680,7 @@ const recursiveTriangles = (() => {
       }
     },
   };
-  sceneList.add(addMargins(scene, { frozenAfter: 2_000 }));
+  sceneList.add(scene);
   return { scene };
 })();
 
