@@ -45,6 +45,7 @@ import {
 } from "./peano-fourier/fourier-shared";
 import { only } from "./utility";
 import { Bezier } from "bezier-js";
+import { slideLeft } from "./transition";
 
 const titleFont = makeLineFont(0.7);
 
@@ -608,13 +609,14 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
-// Show a triangle with i levels of recursion.
-// Animate the individual triangles.
-// Make them each grow out of a point, one at a time.
-// Color them based on depth
-for (let i = 5; i < 6; i++) {
+const recursiveTriangles = (() => {
+  // Show a triangle with i levels of recursion.
+  // Animate the individual triangles.
+  // Make them each grow out of a point, one at a time.
+  // Color them based on depth
+  const level = 5;
   const duration = 20_000;
-  const triangle = RTriangle.standard(i);
+  const triangle = RTriangle.standard(level);
   const depthFirst = triangle.byDepth().flat(1);
   depthFirst.forEach((triangle, index, array) => {
     //
@@ -629,14 +631,14 @@ for (let i = 5; i < 6; i++) {
     );
   });
   const scene: Showable = {
-    description: `RTriangle.standard(${i})`,
+    description: `RTriangle.standard(${level})`,
     duration,
     show({ context, timeInMs }) {
       const baseColorIndex = 2;
       context.fillStyle = myRainbow.violet;
       context.globalAlpha = FILL_ALPHA * 2;
       context.beginPath();
-      const byDepth = initializedArray(i + 1, () => new Path2D());
+      const byDepth = initializedArray(level + 1, () => new Path2D());
       triangle.draw(
         easeIn(timeInMs / this.duration) * duration,
         context,
@@ -656,7 +658,8 @@ for (let i = 5; i < 6; i++) {
     },
   };
   sceneList.add(addMargins(scene, { frozenAfter: 2_000 }));
-}
+  return { scene };
+})();
 
 // MARK: All 16 permutations
 {
@@ -726,6 +729,7 @@ for (let i = 5; i < 6; i++) {
         );
       },
     };
+    sceneList.add(slideLeft(recursiveTriangles.scene, scene, 1500));
     sceneList.add(scene);
     return { pathShapes, locations, yOffset, yPeriod, xPeriod, triangleSize };
   })();
