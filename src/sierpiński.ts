@@ -45,7 +45,7 @@ import {
 } from "./peano-fourier/fourier-shared";
 import { only } from "./utility";
 import { Bezier } from "bezier-js";
-import { slideLeft } from "./transition";
+import { fadeOut, slideLeft } from "./transitions";
 
 const titleFont = makeLineFont(0.7);
 
@@ -170,8 +170,7 @@ class Triangle {
   }
   /**
    *
-   * @param depth 0 for a single triangle.
-   * 1 For 3 triangles with an up-side-down triangle between them.
+   * @returns An iterator listing every legal permutation of the given path.
    */
   static alternatePaths(path: readonly Segment[]) {
     type Vertex = { point: Point; segments: Segment[] };
@@ -512,15 +511,27 @@ class RTriangle {
 
 const FILL_ALPHA = 0.25;
 
+/**
+ * Make a partially transparent color from a base color.
+ * Mostly I set the alpha to {@link FILL_ALPHA},
+ * but I adjust that for some colors.
+ * I make the apparent brightness of all colors in {@link myColors} the same.
+ * @param originalColor The solid version of the color.
+ * This function is aimed at {@link myRainbow} colors,
+ * but it will work on any color.
+ * @returns A partially transparent color.
+ */
+function addAlpha(originalColor: string) {
+  const color = originalColor === myRainbow.yellow ? "yellow" : originalColor;
+  const fillAlpha =
+    originalColor === myRainbow.cssBlue || originalColor === myRainbow.violet
+      ? 1.5 * FILL_ALPHA
+      : FILL_ALPHA;
+  return `rgb(from ${color} r g b / ${fillAlpha})`;
+}
+
 const fillColors = (() => {
-  const withAlpha = myRainbow.map((originalColor) => {
-    const color = originalColor === myRainbow.yellow ? "yellow" : originalColor;
-    const fillAlpha =
-      originalColor === myRainbow.cssBlue || originalColor === myRainbow.violet
-        ? 1.5 * FILL_ALPHA
-        : FILL_ALPHA;
-    return `rgb(from ${color} r g b / ${fillAlpha})`;
-  });
+  const withAlpha = myRainbow.map(addAlpha);
   const result = initializedArray(
     16,
     (index) => withAlpha[index % withAlpha.length],
@@ -1134,7 +1145,7 @@ const recursiveTriangles = (() => {
       .map((description) => {
         return description.index;
       });
-    console.log({ finalLocations, winners, outgoingAlpha });
+    //console.log({ finalLocations, winners, outgoingAlpha });
     return { finalLocations, winners, outgoingAlpha };
   })();
   /**
@@ -1406,7 +1417,7 @@ const recursiveTriangles = (() => {
         .sort((a, b) => b.totalAmplitude - a.totalAmplitude);
       const startWith = interestingCommonFrequencies.slice(0, 7);
       const endWith = interestingCommonFrequencies.slice(7, 11).reverse();
-      console.log({ startWith, endWith });
+      //console.log({ startWith, endWith });
       const terms = part5.allTerms.map((originalTerms) => {
         const termsAvailable = originalTerms.slice();
         const initialTerms = new Array<FourierTerm>();
@@ -1433,6 +1444,7 @@ const recursiveTriangles = (() => {
         );
         return { initialTerms, intermediateTerms, finalTerms };
       });
+      /*
       console.log(terms);
       console.table(
         terms.map((info) => ({
@@ -1448,6 +1460,7 @@ const recursiveTriangles = (() => {
           finalAmplitude: sum(info.finalTerms.map((term) => term.amplitude)),
         })),
       );
+      */
       const combinedTerms = terms.map(
         ({ initialTerms, intermediateTerms, finalTerms }) => [
           ...initialTerms,
@@ -1463,7 +1476,7 @@ const recursiveTriangles = (() => {
         keyframes.push(
           ...count(restartAfter, restartAfter + finalTerms.length + 1),
         );
-        console.log(keyframes);
+        //console.log(keyframes);
       }
       const livePathMakers = combinedTerms.map((terms) =>
         getAnimationRules(terms, keyframes),
@@ -1475,40 +1488,6 @@ const recursiveTriangles = (() => {
       duration: 80_000,
       show(options) {
         const { context, timeInMs } = options;
-
-        // I created very short segments on both sides of the normal size segment.
-        // Question:  What if we want a specific linejoin at the corners, but one of the corners is right where we switch colors?
-        // I used those to create a linejoin at the end of the segment pointing ing a specific direction.
-        // These look odd on their own, but would probably work if I did that to both sides of the corner.
-        context.lineCap = "butt";
-        context.lineJoin = "round";
-        context.lineWidth = 0.2;
-        context.strokeStyle = "red";
-        context.beginPath();
-        context.moveTo(0.25, 0.25);
-        context.lineTo(0.75, 0.25);
-        context.stroke();
-        context.beginPath();
-        const small = 0.0001;
-        context.moveTo(0.25 + small, 0.5 + small);
-        context.lineTo(0.25, 0.5);
-        context.lineTo(0.75, 0.5);
-        context.lineTo(0.75 + small, 0.5 + small);
-        context.stroke();
-        context.lineJoin = "bevel";
-        context.beginPath();
-        context.moveTo(0.25 + small, 0.75 + small);
-        context.lineTo(0.25, 0.75);
-        context.lineTo(0.75, 0.75);
-        context.lineTo(0.75 + small, 0.75 + small);
-        context.stroke();
-        context.lineJoin = "miter";
-        context.beginPath();
-        context.moveTo(0.25 + small, 1 + small);
-        context.lineTo(0.25, 1);
-        context.lineTo(0.75, 1);
-        context.lineTo(0.75 + small, 1 + small);
-        context.stroke();
 
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -1524,19 +1503,9 @@ const recursiveTriangles = (() => {
             animateRainbow(pathShape, info.fillStyle, options);
             context.translate(0, part1.triangleSize.circleRadius);
             //   context.setTransform(originalMatrix);
+            //    context.translate(info.circleCenter.x, info.circleCenter.y);
             context.fillStyle = info.fillStyle;
             context.strokeStyle = info.strokeStyle;
-            /*
-          context.beginPath();
-          context.arc(
-            info.circleCenter.x,
-            info.circleCenter.y,
-            2,
-            0,
-            FULL_CIRCLE,
-          );
-          */
-            //    context.translate(info.circleCenter.x, info.circleCenter.y);
             const progress = timeInMs / this.duration;
             const whichSegment = livePathMaker.length * progress;
             const segmentIndex = Math.min(
@@ -1556,8 +1525,103 @@ const recursiveTriangles = (() => {
       },
     };
     sceneList.add(addMargins(scene, { frozenBefore: 500, frozenAfter: 4500 }));
+    sceneList.add(fadeOut(scene, 2000));
   })();
 }
+
+// MARK: Reference for 6
+{
+  const growEndTime = 15_000;
+  /**
+   * Lines on the triangle get different colors based on how deep the recursion.
+   */
+  const strokeColors: readonly string[] = [
+    myRainbow.violet,
+    myRainbow.myBlue,
+    myRainbow.green,
+    myRainbow.yellow,
+    myRainbow.orange,
+    myRainbow.red,
+  ];
+  /**
+   * Very tight margins.
+   * We can fit 3 across by 2 down with little space left over.
+   */
+  const triangleSize = Triangle.resizeToMax(9 / 2, 5);
+  console.log(triangleSize);
+  /**
+   * Across, then down, just like English text.
+   */
+  const locations: readonly Point[] = (() => {
+    const x0 = 16 / 6;
+    const x1 = 16 * (3 / 6);
+    const x2 = 16 * (5 / 6);
+    const yMargin = (9 - triangleSize.height * 2) / 3;
+    const y0 = yMargin;
+    const y1 = y0 + triangleSize.height + yMargin;
+    return [
+      { x: x0, y: y0 },
+      { x: x1, y: y0 },
+      { x: x2, y: y0 },
+      { x: x0, y: y1 },
+      { x: x1, y: y1 },
+      { x: x2, y: y1 },
+    ];
+  })();
+  const triangles = initializedArray(strokeColors.length, (level) => {
+    const triangle = new RTriangle(
+      locations[level],
+      triangleSize.width / 2,
+      triangleSize.height,
+      0,
+      level,
+    );
+    triangle.byDepth().forEach((atThisDepth, depth) => {
+      const period = growEndTime / strokeColors.length;
+      const startTime = period * (depth + 0.1);
+      const endTime = period * (depth + 0.9);
+      atThisDepth.forEach((triangle) => {
+        triangle.schedule.push(
+          { time: startTime, value: 0, easeAfter: easeIn },
+          { time: endTime, value: 1 },
+        );
+      });
+    });
+    /**
+     * The innermost color is always red.
+     * The outermost color depends on the level.
+     */
+    const colors = strokeColors.slice(-1 - level);
+    return {
+      triangle,
+      level,
+      strokeColors: colors,
+      fillColor: addAlpha(colors[0]),
+    };
+  });
+  const scene: Showable = {
+    description: `6 levels at once`,
+    duration: growEndTime + 3000,
+    show({ context, timeInMs }) {
+      context.lineCap = "round";
+      context.lineJoin = "miter";
+      triangles.forEach(({ fillColor, level, strokeColors, triangle }) => {
+        context.fillStyle = fillColor;
+        context.beginPath();
+        const byDepth = initializedArray(level + 1, () => new Path2D());
+        triangle.draw(timeInMs, context, byDepth);
+        context.fill();
+        for (let index = 0; index < byDepth.length; index++) {
+          context.lineWidth = 0.01 * (6 - index);
+          context.strokeStyle = strokeColors[index];
+          context.stroke(byDepth[index]);
+        }
+      });
+    },
+  };
+  sceneList.add(scene);
+}
+
 const halftoneBackgroundPath = (() => {
   // This is slow!!!
   // This takes 4.16ms.
