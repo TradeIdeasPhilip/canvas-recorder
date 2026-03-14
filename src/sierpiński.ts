@@ -1569,8 +1569,9 @@ const recursiveTriangles = (() => {
     ];
   })();
   const triangles = initializedArray(strokeColors.length, (level) => {
+    const location = locations[level];
     const triangle = new RTriangle(
-      locations[level],
+      location,
       triangleSize.width / 2,
       triangleSize.height,
       0,
@@ -1587,6 +1588,13 @@ const recursiveTriangles = (() => {
         );
       });
     });
+    const transformStartTime = growEndTime + 1000;
+    //  growEndTime -8000+ (10000 / strokeColors.length) * level;
+    const transformEndTime = growEndTime + 3000;
+    const transformSchedule: Keyframes<number> = [
+      { time: transformStartTime, value: 0, easeAfter: easeOut },
+      { time: transformEndTime, value: 1 },
+    ];
     /**
      * The innermost color is always red.
      * The outermost color depends on the level.
@@ -1597,26 +1605,55 @@ const recursiveTriangles = (() => {
       level,
       strokeColors: colors,
       fillColor: addAlpha(colors[0]),
+      transformSchedule,
+      location,
     };
   });
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 3000,
+    duration: growEndTime + 6000,
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "miter";
-      triangles.forEach(({ fillColor, level, strokeColors, triangle }) => {
-        context.fillStyle = fillColor;
-        context.beginPath();
-        const byDepth = initializedArray(level + 1, () => new Path2D());
-        triangle.draw(timeInMs, context, byDepth);
-        context.fill();
-        for (let index = 0; index < byDepth.length; index++) {
-          context.lineWidth = 0.01 * (6 - index);
-          context.strokeStyle = strokeColors[index];
-          context.stroke(byDepth[index]);
-        }
-      });
+      const originalMatrix = context.getTransform();
+      triangles.forEach(
+        ({
+          fillColor,
+          level,
+          strokeColors,
+          triangle,
+          transformSchedule,
+          location,
+        }) => {
+          const transformProgress = interpolateNumbers(
+            timeInMs,
+            transformSchedule,
+          );
+          if (transformProgress) {
+            context.translate(
+              -1.95 * transformProgress,
+              0.4 * transformProgress,
+            );
+            const x = location.x;
+            const y = location.y; //+ triangleSize.circleRadius;
+            context.translate(x, y);
+            const scale = lerp(1, 0.25, transformProgress);
+            context.scale(scale, scale);
+            context.translate(-x, -y);
+          }
+          context.fillStyle = fillColor;
+          context.beginPath();
+          const byDepth = initializedArray(level + 1, () => new Path2D());
+          triangle.draw(timeInMs, context, byDepth);
+          context.fill();
+          for (let index = 0; index < byDepth.length; index++) {
+            context.lineWidth = 0.01 * (6 - index);
+            context.strokeStyle = strokeColors[index];
+            context.stroke(byDepth[index]);
+          }
+          context.setTransform(originalMatrix);
+        },
+      );
     },
   };
   sceneList.add(scene);
