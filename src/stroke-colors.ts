@@ -1,6 +1,5 @@
 import {
   angleBetween,
-  assertNonNullable,
   degreesPerRadian,
   initializedArray,
   polarToRectangular,
@@ -10,61 +9,13 @@ import {
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { countPresent } from "./utility";
 import { myRainbow } from "./glib/my-rainbow";
-import { Command, LCommand, PathShape } from "./glib/path-shape";
+import { LCommand, PathShape } from "./glib/path-shape";
 
-let debugDumpOnce = true;
-
-export function strokeColorsOriginal(options: StrokeColorsOptions) {
-  const splitter = PathShapeSplitter.create(options.pathShape);
-  if (splitter.length == 0) {
-    // This is more than an optimization.
-    // If you take this away an empty path will cause an exception.
-    return;
-  }
-  const colorsToUse = options.colors ?? myRainbow;
-  if (
-    countPresent([
-      options.sectionLength,
-      options.repeatCount,
-      options.colorCount,
-    ]) > 1
-  ) {
-    throw new Error("wtf");
-  }
-  const sectionLength: number =
-    options.sectionLength ??
-    splitter.length /
-      (options.colorCount ?? (options.repeatCount ?? 1) * colorsToUse.length);
-  if (options.relativeOffset !== undefined && options.offset !== undefined) {
-    throw new Error("wtf");
-  }
-  if (options.offset == undefined) {
-    if (options.relativeOffset == undefined) {
-      options.offset = 0;
-    } else {
-      options.offset =
-        options.relativeOffset * sectionLength * colorsToUse.length;
-    }
-  }
-  if (options.offset < 0) {
-    options.offset = positiveModulo(
-      options.offset,
-      colorsToUse.length * sectionLength,
-    );
-  }
-  let colorIndex = 0;
-  let startPosition = -options.offset;
-  while (startPosition < splitter.length) {
-    const endPosition = startPosition + sectionLength;
-    const section = splitter.trim(startPosition, endPosition);
-    const color = colorsToUse[colorIndex % colorsToUse.length];
-    options.context.strokeStyle = color;
-    section.setCanvasPath(options.context);
-    options.context.stroke();
-    startPosition = endPosition;
-    colorIndex++;
-  }
-}
+/**
+ * Stroke the given path with a series of different colors.
+ * @param options Several required and optional settings.
+ * More details at {@link StrokeColorsOptions}.
+ */
 export function strokeColors(options: StrokeColorsOptions) {
   const lineCap = options.context.lineCap;
   const splitter = PathShapeSplitter.create(options.pathShape);
@@ -304,9 +255,13 @@ export function strokeColors(options: StrokeColorsOptions) {
             }
           }
         }
-        // MARK: Initial restart
+        // MARK: Initial segment
         if (!details.startTrimmed) {
           // The trimmed path starts at the beginning of one of the original commands.
+          /**
+           * This branch **only** looks at the first command.
+           */
+          const localIndex = 0;
           // Check to see if this command is the start of a connected section.
           // Look for a connected section that starts at exactly the beginning of the trimmed path.
           function findInitialRestart() {
@@ -328,26 +283,40 @@ export function strokeColors(options: StrokeColorsOptions) {
             return undefined;
           }
           const initialConnectedSection = findInitialRestart();
-          if (initialConnectedSection && !initialConnectedSection.open) {
-            // The trimmed path starts at the start of a closed section.
-            // Now check if the entire closed section is part of the trimmed path.
-            if (initialConnectedSection.indexOfLast > indexOfLastComplete) {
-              // The end of this connected section has been trimmed.
-              // We need to add the corner ourselves.
-              /**
-               * This branch **only** looks at the first command.
-               */
-              const localIndex = 0;
-              /**
-               * The angle of the piece that would have come right before this piece,
-               * after joining the end of the loop to the beginning,
-               * if we hadn't cut the end of the loop off.
-               */
-              const previousAngle =
-                options.pathShape.commands[initialConnectedSection.indexOfLast]
-                  .outgoingAngle;
-              addCorner(localIndex, previousAngle);
+          if (initialConnectedSection) {
+            // MARK: Initial restart
+            if (!initialConnectedSection.open) {
+              // The trimmed path starts at the start of a closed section.
+              // Now check if the entire closed section is part of the trimmed path.
+              if (initialConnectedSection.indexOfLast > indexOfLastComplete) {
+                // The end of this connected section has been trimmed.
+                // We need to add the corner ourselves.
+                /**
+                 * The angle of the piece that would have come right before this piece,
+                 * after joining the end of the loop to the beginning,
+                 * if we hadn't cut the end of the loop off.
+                 */
+                const previousAngle =
+                  options.pathShape.commands[
+                    initialConnectedSection.indexOfLast
+                  ].outgoingAngle;
+                addCorner(localIndex, previousAngle);
+              }
             }
+          } else {
+            // MARK: Previous segment
+            // ,
+            // and this segment is at the start of the second command.
+            /**
+             * We broke the path between two commands.
+             * `previousCommand` is the command immediately before the break.
+             *
+             * This command occurs immediately before the command we are about to display.
+             * That must be the case, or `initialConnectedSection` would have been true and we would not have gotten here.
+             */
+            const previousCommand =
+              options.pathShape.commands[details.offset - 1];
+            addCorner(localIndex, previousCommand.outgoingAngle);
           }
         }
       }
@@ -355,8 +324,7 @@ export function strokeColors(options: StrokeColorsOptions) {
       singleColorSection.appendCanvasPath(paths[colorIndex % paths.length]);
       const fillablePath = fillablePaths[colorIndex % paths.length];
 
-      details;
-      connectedSections;
+      // MARK: Linecap
       {
         for (
           let connectedSectionIndex = 0;
@@ -397,45 +365,10 @@ export function strokeColors(options: StrokeColorsOptions) {
           }
         }
       }
-      /*
-      for (let index = 0; index < starts.length; index++) {
-        const { distance } = starts[index];
-        if (distance >= endPosition) {
-          break;
-        }
-        if (distance < startPosition) {
-          continue;
-        }
-        const { incomingAngle, x, y } = starts[index];
-        fillablePath.addPath(
-          linecapArchetype,
-          new DOMMatrix()
-            .translateSelf(x, y)
-            .rotateSelf(incomingAngle * degreesPerRadian),
-        );
-      }
-      for (let index = 0; index < ends.length; index++) {
-        const { distance } = ends[index];
-        if (distance > endPosition) {
-          break;
-        }
-        if (distance < startPosition) {
-          continue;
-        }
-        const { outgoingAngle, x, y } = ends[index];
-        fillablePath.addPath(
-          linecapArchetype,
-          new DOMMatrix()
-            .translateSelf(x, y)
-            .rotateSelf(outgoingAngle * degreesPerRadian + 180),
-        );
-      }
-      */
     }
     startPosition = endPosition;
     colorIndex++;
   }
-  debugDumpOnce = false;
   options.context.lineCap = "butt";
   for (let i = 0; i < paths.length; i++) {
     const color = colorsToUse[i];
@@ -448,6 +381,7 @@ export function strokeColors(options: StrokeColorsOptions) {
   }
   options.context.lineCap = lineCap;
 }
+
 export type StrokeColorsOptions = {
   /** Stroke this path. */
   readonly pathShape: PathShape;
@@ -511,76 +445,4 @@ export type StrokeColorsOptions = {
    * Setting none of these is the same as setting repeatCount to 1.
    */
   colorCount?: number;
-  /**
-   * The default, "auto", means to draw the line caps if we think we should.
-   * I.e. draw them if the shape is open, do not draw them if the shape is closed.
-   *
-   * I'm having lots of issues.  I think and hope these are all temporary.
-   * Eventually this option should go away and it should always be auto.
-   *
-   * If this is "auto" then a normal triangle will not draw itself right.
-   * Assume we start the shape at one of the vertices.
-   * The problem **only** occurs when we start at a vertex.
-   * In a similar piece of code I break one of the segments and start in the middle of that segment to avoid the problem.
-   * See breakFirst() in showcase.ts.
-   *
-   * `strokeColors()` will see this triangle as closed, so linecap is not required.
-   * However, this should be seen as an internal corner.
-   * A normal stroke would look at the lineJoin property in this case.
-   * Forcing showLineCaps to "yes" will fix
-   *
-   *
-   * This is ugly.  I just need to fix the issue.
-   *
-   *
-   * I should only support round linejoin.
-   *
-   * linecap can be anything (and that part already works) as long as I fix linejoin.
-   * My current linecap problems are actually linejoin problems.
-   *
-   * I need to deal with linejoin.
-   * The internal ones and the case of the start and end meeting in a closed curve.
-   * Currently I'm ignoring the internal ones.
-   * Those only come up if a color segment starts exactly at a corner.
-   * I haven't seen that happen.
-   * It's probably random where it might come up in just one frame and be hard to reproduce.
-   *
-   *
-   * I need to do all of the linecap / linejoin first, before doing any of the straight lines.
-   * So it's on the bottom.
-   * Draw a **complete** circle at every join or cap.
-   * If the two parts come together in a straight line they will completely cover the circle.
-   * No, I don't want to draw all of these circles!
-   *
-   *
-   *
-   *
-   * **Always** draw with linejoin set to round.
-   * If we break in the middle of a command, we know there was *no* corner there, so nothing to worry about.
-   * If we break between two commands, then we need to deal with the linejoin ourselves.
-   * If the two angles are not identical, even if the difference is small, draw the circle.
-   * Make sure to draw the circles first, before the lines.
-   * The beginning and end of a closed segment will be treated the same way,
-   * we will add circles.
-   *
-   * Add linecap to our options.
-   * Possible values are "butt" or "round".
-   * Draw these the way we are drawing them, plus or minus some bug fixes:
-   * Assume the linejoin for a closed path is handled properly.
-   * And check for a path with internal jumps.
-   * Maybe some but not all of the sub paths will be closed.
-   *
-   * Do we need an override to force no linejoin?
-   * I'm thinking about something drawn with partial transparency.
-   * You don't want multiple things drawn on top of each other.
-   * Mostly we can avoid that by giving a path that doesn't intersect itself.
-   * Each linecap is already a semicircle, avoiding drawing over the adjacent line.
-   * But what about the internal angles?
-   * Maybe some of those will be really close but not identical.
-   * I see that a lot in the wild,
-   * an artist will just make something very close to smooth and hope nobody notices.
-   * And I think it might be unavoidable due to round off errors.
-   * Proposal:  Create a small cutoff, maybe ⅒°, and if necessary add that cutoff to the options.
-   */
-  showLineCaps?: "yes" | "no" | "auto";
 };

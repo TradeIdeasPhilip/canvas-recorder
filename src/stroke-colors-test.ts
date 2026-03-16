@@ -57,7 +57,7 @@ export const strokeColorsTest: Showable = {
     const relativeOffset = globalTime / 5_000;
 
     // MARK: squarePathShape
-    const squareColors = [...myRainbow, "black", "#888", "white"];
+    const squareColors = ["red", "black", "#888", "white"]; //   [...myRainbow, "black", "#888", "white"];
     context.lineCap = "butt";
     context.lineJoin = "bevel";
     strokeColors({
@@ -80,49 +80,9 @@ export const strokeColorsTest: Showable = {
       colors: squareColors,
       relativeOffset,
     });
-    /*
-    context.lineCap = "square";
-    context.lineJoin = "bevel";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(2.5, 1),
-      colors: squareColors,
-    });
-    context.lineJoin = "miter";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(2.5, 2.5),
-      colors: squareColors,
-    });
-    context.lineJoin = "round";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(2.5, 4),
-      colors: squareColors,
-    });
-    context.lineCap = "round";
-    context.lineJoin = "bevel";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(4, 1),
-      colors: squareColors,
-    });
-    context.lineJoin = "miter";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(4, 2.5),
-      colors: squareColors,
-    });
-    context.lineJoin = "round";
-    strokeColors({
-      context,
-      pathShape: squarePathShape.translate(4, 4),
-      colors: squareColors,
-    });
-    */
 
     // MARK: trianglePathShape
-    const triangleColors = [...myRainbow];
+    const triangleColors = ["cyan", "magenta", "yellow"]; //[...myRainbow];
     context.lineCap = "butt";
     context.lineJoin = "bevel";
     strokeColors({
