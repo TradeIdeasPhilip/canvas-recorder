@@ -780,7 +780,25 @@ const recursiveTriangles = (() => {
   return { scene };
 })();
 
-function makeCornerRounder(originalPathShape: PathShape) {
+/**
+ *
+ * @param originalPathShape Add corners to this.
+ * @param amountOfCurve What portion of each segment to replace with a curve.
+ * Each end will get this, so it must be less than 0.5.
+ * 0.5 would mean there's nothing but a curve with no straight part.
+ * 0 would mean no change, still a sharp corner.
+ * @returns A function that will take in a progress value and return a PathShape.
+ * If the input is 0 or less, the function will return the original PathShape.
+ * If the input is 1 or more, the function will return a version of the PathShape with completely rounded corners.
+ * If the input is in between, the result will be interpolated.
+ */
+function makeCornerRounder(
+  originalPathShape: PathShape,
+  amountOfCurve = 1 / 3,
+) {
+  if (amountOfCurve <= 0 || amountOfCurve >= 0.5) {
+    throw new Error("wtf");
+  }
   /**
    * Each of the original line segments will get broken into three parts.
    * `smallerCommands` will contain the middle third of each line segment.
@@ -788,8 +806,8 @@ function makeCornerRounder(originalPathShape: PathShape) {
   const smallerCommands = originalPathShape.commands.map((command) => {
     const splitter = command.makeSplitter();
     const smallerCommand = splitter.split(
-      splitter.length / 3,
-      2 * (splitter.length / 3),
+      splitter.length * amountOfCurve,
+      splitter.length * (1 - amountOfCurve),
     );
     return smallerCommand;
   });
@@ -951,7 +969,9 @@ function makeCornerRounder(originalPathShape: PathShape) {
    * Do it slowly over time.
    */
   const part2 = (() => {
-    const interpolators = part1.pathShapes.map(makeCornerRounder);
+    const interpolators = part1.pathShapes.map((pathShape) =>
+      makeCornerRounder(pathShape),
+    );
     const schedules: readonly Keyframe<number>[][] = interpolators.map(
       (_, index): Keyframe<number>[] => {
         const firstOffset = 1000;
@@ -1711,7 +1731,7 @@ function makeCornerRounder(originalPathShape: PathShape) {
         const strokeColors = path.items.map(
           ({ segment }) => triangle.strokeColors[segment.depth],
         );
-        const cornerRounder = makeCornerRounder(basePathShape);
+        const cornerRounder = makeCornerRounder(basePathShape, 0.45);
         triangle.strokeColors;
         return { basePathShape, cornerRounder, strokeColors };
       })
