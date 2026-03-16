@@ -5,7 +5,7 @@ import {
   initializedArray,
   lerp,
   makeBoundedLinear,
-  sum,
+  positiveModulo,
   zip,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
@@ -72,8 +72,151 @@ type Segment = {
   readonly depth: number;
 };
 
+type Vertex = { point: Point; segments: Segment[] };
+
+class PathSoFar {
+  #items: ReadonlyArray<{
+    readonly segment: Segment;
+    readonly forward: boolean;
+  }>;
+  get items() {
+    return this.#items;
+  }
+  getCommands() {
+    return this.#items.map(({ segment, forward }) => {
+      if (forward) {
+        return new LCommand(
+          segment.from.x,
+          segment.from.y,
+          segment.to.x,
+          segment.to.y,
+        );
+      } else {
+        return new LCommand(
+          segment.to.x,
+          segment.to.y,
+          segment.from.x,
+          segment.from.y,
+        );
+      }
+    });
+  }
+  private constructor(
+    items: ReadonlyArray<{ segment: Segment; forward: boolean }>,
+  ) {
+    this.#items = items;
+  }
+  static start(segment: Segment) {
+    return new this([{ segment, forward: true }]);
+  }
+  end() {
+    const last = this.#items.at(-1)!;
+    return last.forward ? last.segment.to : last.segment.from;
+  }
+  add(segment: Segment) {
+    const { x, y } = this.end();
+    let forward: boolean;
+    if (segment.from.x == x && segment.from.y == y) {
+      forward = true;
+    } else if (segment.to.x == x && segment.to.y == y) {
+      forward = false;
+    } else {
+      throw new Error("wtf");
+    }
+    return new PathSoFar([...this.#items, { segment, forward }]);
+  }
+  has(segment: Segment) {
+    return (
+      this.#items.findIndex((possible) => possible.segment === segment) >= 0
+    );
+  }
+  *findAll(
+    finalCount: number,
+    available: Map2<number, number, Vertex>,
+  ): Generator<PathSoFar, void, unknown> {
+    if (this.#items.length == finalCount) {
+      yield this;
+    } else {
+      const { x, y } = this.end();
+      const vertex = assertNonNullable(available.get(x, y));
+      for (const segment of vertex.segments) {
+        if (!this.has(segment)) {
+          yield* this.add(segment).findAll(finalCount, available);
+        }
+      }
+    }
+  }
+  weave(
+    finalCount: number,
+    available: Map2<number, number, Vertex>,
+  ): PathSoFar {
+    let pathSoFar: PathSoFar = this;
+    while (pathSoFar.#items.length < finalCount) {
+      const { x, y } = pathSoFar.end();
+      const last = pathSoFar.#items.at(-1)!;
+      const vertex = assertNonNullable(available.get(x, y));
+      switch (vertex.segments.length) {
+        case 2: {
+          const nextSegment = only(
+            vertex.segments.filter((segment): boolean => {
+              return segment != last.segment;
+            }),
+          );
+          pathSoFar = pathSoFar.add(nextSegment);
+          break;
+        }
+        case 4: {
+          /**
+           *
+           * @param segment Required to be part of `vertex`.
+           * @returns Rounded to be an integer.
+           * It is scaled so that {@link FULL_CIRCLE} → 6.
+           */
+          function angleFromVertex(segment: Segment): number {
+            let segmentFinalX: number;
+            let segmentFinalY: number;
+            if (segment.from.x == x && segment.from.y == y) {
+              segmentFinalX = segment.to.x;
+              segmentFinalY = segment.to.y;
+            } else if (segment.to.x == x && segment.to.y == y) {
+              segmentFinalX = segment.from.x;
+              segmentFinalY = segment.from.y;
+            } else {
+              throw new Error("wtf");
+            }
+            const inRadians = Math.atan2(segmentFinalY - y, segmentFinalX - x);
+            const result = Math.round((inRadians / FULL_CIRCLE) * 6);
+            return result;
+          }
+          const compareTo = angleFromVertex(last.segment);
+          const nextSegment = only(
+            vertex.segments.filter((segment) => {
+              const outgoingAngle = angleFromVertex(segment);
+              const difference = positiveModulo(outgoingAngle - compareTo, 6);
+              return difference == 2 || difference == 4;
+            }),
+          );
+          pathSoFar = pathSoFar.add(nextSegment);
+          break;
+        }
+        default: {
+          throw new Error("wtf");
+        }
+      }
+    }
+    return pathSoFar;
+  }
+}
+
 // MARK: Triangle
 
+/**
+ * Use this to find the nodes and edges of an nth generation Sierpiński triangle.
+ * And to find variations of that triangle.
+ *
+ * These triangles are a fixed size, shape, and positions.
+ * See {@link Triangle.resizeToMax}() for options to transform the triangle.
+ */
 class Triangle {
   /**
    * Internally all items are 1×1.
@@ -132,7 +275,7 @@ class Triangle {
         const right = middle.x + newHalfWidth;
         const topRight: Point = { x: right, y: invertedBase };
         const topLeft: Point = { x: left, y: invertedBase };
-        const depth = originalSegment.depth + 1;
+        const depth = Triangle.#paths.length;
         nextPath.push(
           { from: middle, to: topRight, depth },
           { from: topRight, to: topLeft, depth },
@@ -168,12 +311,7 @@ class Triangle {
   private constructor(_: never) {
     throw new Error("wtf");
   }
-  /**
-   *
-   * @returns An iterator listing every legal permutation of the given path.
-   */
-  static alternatePaths(path: readonly Segment[]) {
-    type Vertex = { point: Point; segments: Segment[] };
+  static getAllVertices(path: readonly Segment[]) {
     const allVertices = new Map2<number, number, Vertex>();
     path.forEach((segment) => {
       function add(point: Point) {
@@ -187,77 +325,24 @@ class Triangle {
       add(segment.from);
       add(segment.to);
     });
-    class PathSoFar {
-      #items: ReadonlyArray<{
-        readonly segment: Segment;
-        readonly forward: boolean;
-      }>;
-      getCommands() {
-        return this.#items.map(({ segment, forward }) => {
-          if (forward) {
-            return new LCommand(
-              segment.from.x,
-              segment.from.y,
-              segment.to.x,
-              segment.to.y,
-            );
-          } else {
-            return new LCommand(
-              segment.to.x,
-              segment.to.y,
-              segment.from.x,
-              segment.from.y,
-            );
-          }
-        });
-      }
-      private constructor(
-        items: ReadonlyArray<{ segment: Segment; forward: boolean }>,
-      ) {
-        this.#items = items;
-      }
-      static start(segment: Segment) {
-        return new this([{ segment, forward: true }]);
-      }
-      end() {
-        const last = this.#items.at(-1)!;
-        return last.forward ? last.segment.to : last.segment.from;
-      }
-      add(segment: Segment) {
-        const { x, y } = this.end();
-        let forward: boolean;
-        if (segment.from.x == x && segment.from.y == y) {
-          forward = true;
-        } else if (segment.to.x == x && segment.to.y == y) {
-          forward = false;
-        } else {
-          throw new Error("wtf");
-        }
-        return new PathSoFar([...this.#items, { segment, forward }]);
-      }
-      has(segment: Segment) {
-        return (
-          this.#items.findIndex((possible) => possible.segment === segment) >= 0
-        );
-      }
-      *findAll(
-        finalCount: number,
-        available: Map2<number, number, Vertex>,
-      ): Generator<PathSoFar, void, unknown> {
-        if (this.#items.length == finalCount) {
-          yield this;
-        } else {
-          const { x, y } = this.end();
-          const vertex = assertNonNullable(available.get(x, y));
-          for (const segment of vertex.segments) {
-            if (!this.has(segment)) {
-              yield* this.add(segment).findAll(finalCount, available);
-            }
-          }
-        }
-      }
-    }
-    const result = PathSoFar.start(path[0]).findAll(path.length, allVertices);
+    return allVertices;
+  }
+  /**
+   *
+   * @returns An iterator listing every legal permutation of the given path.
+   */
+  static alternatePaths(path: readonly Segment[]) {
+    const result = PathSoFar.start(path[0]).findAll(
+      path.length,
+      Triangle.getAllVertices(path),
+    );
+    return result;
+  }
+  static wovenPath(path: readonly Segment[]) {
+    const result = PathSoFar.start(path[0]).weave(
+      path.length,
+      Triangle.getAllVertices(path),
+    );
     return result;
   }
 }
@@ -695,6 +780,99 @@ const recursiveTriangles = (() => {
   return { scene };
 })();
 
+function makeCornerRounder(originalPathShape: PathShape) {
+  /**
+   * Each of the original line segments will get broken into three parts.
+   * `smallerCommands` will contain the middle third of each line segment.
+   */
+  const smallerCommands = originalPathShape.commands.map((command) => {
+    const splitter = command.makeSplitter();
+    const smallerCommand = splitter.split(
+      splitter.length / 3,
+      2 * (splitter.length / 3),
+    );
+    return smallerCommand;
+  });
+  /**
+   * These commands retain the sharp corners of the original input.
+   * The `smallerCommands` are connected with additional line segments.
+   * These show off the mitered nature of the triangles.
+   */
+  const mitered = new Array<Command>();
+  /**
+   * These commands follow the same basic path, but with no sharp corners.
+   * Each adjacent pair of `smallerCommands` are connected with a parabola.
+   * I break each of those parabolas into two equal pieces.
+   * I do this to match the two line segments in `mitered` that this curve will be replacing.
+   */
+  const rounded = new Array<Command>();
+  smallerCommands.forEach((smallerCommand, index) => {
+    const previousSmallerCommand = smallerCommands.at(index - 1)!;
+    const originalCommand = originalPathShape.commands[index];
+    /**
+     * Connect the two `smallerCommands` with a parabola so there are no corners.
+     */
+    const fullCurve = new Bezier(
+      previousSmallerCommand.x,
+      previousSmallerCommand.y,
+      originalCommand.x0,
+      originalCommand.y0,
+      smallerCommand.x0,
+      smallerCommand.y0,
+    );
+    const halves = fullCurve.split(0.5);
+    /**
+     * To match the line segment immediately before the corner.
+     */
+    const firstRoundCommand = fromBezier(halves.left);
+    /**
+     * To match the line segment immediately after the corner.
+     */
+    const secondRoundCommand = fromBezier(halves.right);
+    if (
+      !(
+        firstRoundCommand instanceof QCommand &&
+        secondRoundCommand instanceof QCommand
+      )
+    ) {
+      throw new Error("wtf");
+    }
+    const firstMiteredCommand = QCommand.controlPoints(
+      firstRoundCommand.x0,
+      firstRoundCommand.y0,
+      firstRoundCommand.x1,
+      firstRoundCommand.y1,
+      originalCommand.x0,
+      originalCommand.y0,
+    );
+    const secondMiteredCommand = QCommand.controlPoints(
+      originalCommand.x0,
+      originalCommand.y0,
+      secondRoundCommand.x1,
+      secondRoundCommand.y1,
+      secondRoundCommand.x,
+      secondRoundCommand.y,
+    );
+    mitered.push(firstMiteredCommand, secondMiteredCommand, smallerCommand);
+    rounded.push(firstRoundCommand, secondRoundCommand, smallerCommand);
+  });
+  /**
+   * Start at the top of the triangle, just like the original.
+   * The previous scene shows the original paths, and we don't want the colors to jump when we switch scenes.
+   */
+  mitered.push(mitered.shift()!);
+  rounded.push(rounded.shift()!);
+  /**
+   * 0 for the mitered version, 1 for the rounded version.
+   * Interpolate in between.
+   */
+  const interpolator = makePathShapeInterpolator(
+    new PathShape(mitered),
+    new PathShape(rounded),
+  );
+  return interpolator;
+}
+
 // MARK: All 16 permutations
 {
   function animateRainbow(
@@ -773,100 +951,9 @@ const recursiveTriangles = (() => {
    * Do it slowly over time.
    */
   const part2 = (() => {
-    const interpolators = part1.pathShapes.map((originalPathShape) => {
-      /**
-       * Each of the original line segments will get broken into three parts.
-       * `smallerCommands` will contain the middle third of each line segment.
-       */
-      const smallerCommands = originalPathShape.commands.map((command) => {
-        const splitter = command.makeSplitter();
-        const smallerCommand = splitter.split(
-          splitter.length / 3,
-          2 * (splitter.length / 3),
-        );
-        return smallerCommand;
-      });
-      /**
-       * These commands retain the sharp corners of the original input.
-       * The `smallerCommands` are connected with additional line segments.
-       * These show off the mitered nature of the triangles.
-       */
-      const mitered = new Array<Command>();
-      /**
-       * These commands follow the same basic path, but with no sharp corners.
-       * Each adjacent pair of `smallerCommands` are connected with a parabola.
-       * I break each of those parabolas into two equal pieces.
-       * I do this to match the two line segments in `mitered` that this curve will be replacing.
-       */
-      const rounded = new Array<Command>();
-      smallerCommands.forEach((smallerCommand, index) => {
-        const previousSmallerCommand = smallerCommands.at(index - 1)!;
-        const originalCommand = originalPathShape.commands[index];
-        /**
-         * Connect the two `smallerCommands` with a parabola so there are no corners.
-         */
-        const fullCurve = new Bezier(
-          previousSmallerCommand.x,
-          previousSmallerCommand.y,
-          originalCommand.x0,
-          originalCommand.y0,
-          smallerCommand.x0,
-          smallerCommand.y0,
-        );
-        const halves = fullCurve.split(0.5);
-        /**
-         * To match the line segment immediately before the corner.
-         */
-        const firstRoundCommand = fromBezier(halves.left);
-        /**
-         * To match the line segment immediately after the corner.
-         */
-        const secondRoundCommand = fromBezier(halves.right);
-        if (
-          !(
-            firstRoundCommand instanceof QCommand &&
-            secondRoundCommand instanceof QCommand
-          )
-        ) {
-          throw new Error("wtf");
-        }
-        const firstMiteredCommand = QCommand.controlPoints(
-          firstRoundCommand.x0,
-          firstRoundCommand.y0,
-          firstRoundCommand.x1,
-          firstRoundCommand.y1,
-          originalCommand.x0,
-          originalCommand.y0,
-        );
-        const secondMiteredCommand = QCommand.controlPoints(
-          originalCommand.x0,
-          originalCommand.y0,
-          secondRoundCommand.x1,
-          secondRoundCommand.y1,
-          secondRoundCommand.x,
-          secondRoundCommand.y,
-        );
-        mitered.push(firstMiteredCommand, secondMiteredCommand, smallerCommand);
-        rounded.push(firstRoundCommand, secondRoundCommand, smallerCommand);
-      });
-      /**
-       * Start at the top of the triangle, just like the original.
-       * The previous scene shows the original paths, and we don't want the colors to jump when we switch scenes.
-       */
-      mitered.push(mitered.shift()!);
-      rounded.push(rounded.shift()!);
-      /**
-       * 0 for the mitered version, 1 for the rounded version.
-       * Interpolate in between.
-       */
-      const interpolator = makePathShapeInterpolator(
-        new PathShape(mitered),
-        new PathShape(rounded),
-      );
-      return interpolator;
-    });
+    const interpolators = part1.pathShapes.map(makeCornerRounder);
     const schedules: readonly Keyframe<number>[][] = interpolators.map(
-      (_, index, array): Keyframe<number>[] => {
+      (_, index): Keyframe<number>[] => {
         const firstOffset = 1000;
         const timeBetween = 1000;
         const timeToComplete = 2500;
@@ -1535,7 +1622,7 @@ const recursiveTriangles = (() => {
   /**
    * Lines on the triangle get different colors based on how deep the recursion.
    */
-  const strokeColors: readonly string[] = [
+  const strokeColorByDepth: readonly string[] = [
     myRainbow.violet,
     myRainbow.myBlue,
     myRainbow.green,
@@ -1568,7 +1655,7 @@ const recursiveTriangles = (() => {
       { x: x2, y: y1 },
     ];
   })();
-  const triangles = initializedArray(strokeColors.length, (level) => {
+  const triangles = initializedArray(strokeColorByDepth.length, (level) => {
     const location = locations[level];
     const triangle = new RTriangle(
       location,
@@ -1578,7 +1665,7 @@ const recursiveTriangles = (() => {
       level,
     );
     triangle.byDepth().forEach((atThisDepth, depth) => {
-      const period = growEndTime / strokeColors.length;
+      const period = growEndTime / strokeColorByDepth.length;
       const startTime = period * (depth + 0.1);
       const endTime = period * (depth + 0.9);
       atThisDepth.forEach((triangle) => {
@@ -1599,7 +1686,7 @@ const recursiveTriangles = (() => {
      * The innermost color is always red.
      * The outermost color depends on the level.
      */
-    const colors = strokeColors.slice(-1 - level);
+    const colors = strokeColorByDepth.slice(-1 - level);
     return {
       triangle,
       level,
@@ -1609,6 +1696,33 @@ const recursiveTriangles = (() => {
       location,
     };
   });
+  const allWoven =
+    //  triangles.map((triangle) =>
+    //   Triangle.wovenPath(Triangle.getPath(triangle.level)),
+    // );
+    //  const pathShapes =
+    zip(triangles, locations)
+      .map(([triangle, point]) => {
+        const originalPath = Triangle.getPath(triangle.level);
+        const path = Triangle.wovenPath(originalPath);
+        const basePathShape = new PathShape(path.getCommands()).transform(
+          triangleSize.matrix,
+        );
+        const strokeColors = path.items.map(
+          ({ segment }) => triangle.strokeColors[segment.depth],
+        );
+        const cornerRounder = makeCornerRounder(basePathShape);
+        triangle.strokeColors;
+        return { basePathShape, cornerRounder, strokeColors };
+      })
+      .toArray();
+  const wovenDisplayStart = growEndTime + 1667;
+  const wovenAnimationStart = growEndTime + 2000;
+  const wovenAnimationEnd = growEndTime + 5000;
+  const wovenAnimationSchedule: Keyframes<number> = [
+    { time: wovenAnimationStart, value: 0 },
+    { time: wovenAnimationEnd, value: 1 },
+  ];
   const scene: Showable = {
     description: `6 levels at once`,
     duration: growEndTime + 6000,
@@ -1654,6 +1768,19 @@ const recursiveTriangles = (() => {
           context.setTransform(originalMatrix);
         },
       );
+      if (timeInMs >= wovenDisplayStart) {
+        const progress = interpolateNumbers(timeInMs, wovenAnimationSchedule);
+        context.lineCap = "round";
+        context.lineJoin = "miter";
+        allWoven.forEach((info, index) => {
+          context.lineWidth = 0.01 * (6 - index);
+          const pathShape = info.cornerRounder(progress);
+          const location = locations[index];
+          context.translate(location.x, location.y);
+          strokeColors({ context, pathShape, colors: info.strokeColors });
+          context.setTransform(originalMatrix);
+        });
+      }
     },
   };
   sceneList.add(scene);
