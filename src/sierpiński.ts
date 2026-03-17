@@ -1745,7 +1745,7 @@ function makeCornerRounder(
   ];
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 6000,
+    duration: growEndTime + 16000,
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "miter";
@@ -1797,7 +1797,11 @@ function makeCornerRounder(
           const pathShape = info.cornerRounder(progress);
           const location = locations[index];
           context.translate(location.x, location.y);
+          const triangle = triangles[index];
+          context.fillStyle = triangle.fillColor;
+          context.fill(pathShape.canvasPath, "evenodd");
           strokeColors({ context, pathShape, colors: info.strokeColors });
+          //strokeColors({ context, pathShape, colors: info.strokeColors, relativeOffset: (easeAndBack(timeInMs/1000)-0.5)*0.01 });
           context.setTransform(originalMatrix);
         });
       }
