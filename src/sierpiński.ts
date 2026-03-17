@@ -1676,9 +1676,11 @@ function makeCornerRounder(
     ];
   })();
   const triangles = initializedArray(strokeColorByDepth.length, (level) => {
-    const location = locations[level];
+    /**
+     * For the introduction.
+     */
     const triangle = new RTriangle(
-      location,
+      { x: 0, y: 0 },
       triangleSize.width / 2,
       triangleSize.height,
       0,
@@ -1695,52 +1697,54 @@ function makeCornerRounder(
         );
       });
     });
-    const transformStartTime = growEndTime + 1000;
-    //  growEndTime -8000+ (10000 / strokeColors.length) * level;
-    const transformEndTime = growEndTime + 3000;
+    const transformStartTime = growEndTime + 6000;
+    const transformEndTime = growEndTime + 8000;
     const transformSchedule: Keyframes<number> = [
       { time: transformStartTime, value: 0, easeAfter: easeOut },
       { time: transformEndTime, value: 1 },
     ];
     /**
+     * Use this palette used to stroke this triangle.
      * The innermost color is always red.
      * The outermost color depends on the level.
      */
-    const colors = strokeColorByDepth.slice(-1 - level);
+    const availableColors = strokeColorByDepth.slice(-1 - level);
+    // MARK: Correct path
+    const originalPath = Triangle.getPath(level);
+    const path = Triangle.wovenPath(originalPath);
+    /**
+     * This is the exact PathShape that we plan to do a fourier transform of.
+     * We also use this for the rounded corners reference animation,
+     * to show exactly what we will be doing a fourier transform of.
+     * This is different from the path we used in the animation that introduced the triangles.
+     */
+    const wovenPathShape = new PathShape(path.getCommands()).transform(
+      triangleSize.matrix,
+    );
+    /**
+     * This will be fed to the `colors` option of the `strokeColors()` function.
+     */
+    const strokeColorsColors = path.items.map(
+      ({ segment }) => availableColors[segment.depth],
+    );
+    const cornerRounder = makeCornerRounder(wovenPathShape, 0.45);
     return {
       triangle,
       level,
-      strokeColors: colors,
-      fillColor: addAlpha(colors[0]),
+      availableColors,
+      fillColor: addAlpha(availableColors[0]),
       transformSchedule,
-      location,
+      location: locations[level],
+      wovenPathShape,
+      cornerRounder,
+      strokeColorsColors,
     };
   });
-  const allWoven =
-    //  triangles.map((triangle) =>
-    //   Triangle.wovenPath(Triangle.getPath(triangle.level)),
-    // );
-    //  const pathShapes =
-    zip(triangles, locations)
-      .map(([triangle, point]) => {
-        const originalPath = Triangle.getPath(triangle.level);
-        const path = Triangle.wovenPath(originalPath);
-        const basePathShape = new PathShape(path.getCommands()).transform(
-          triangleSize.matrix,
-        );
-        const strokeColors = path.items.map(
-          ({ segment }) => triangle.strokeColors[segment.depth],
-        );
-        const cornerRounder = makeCornerRounder(basePathShape, 0.45);
-        triangle.strokeColors;
-        return { basePathShape, cornerRounder, strokeColors };
-      })
-      .toArray();
   const wovenDisplayStart = growEndTime + 1667;
   const wovenAnimationStart = growEndTime + 2000;
   const wovenAnimationEnd = growEndTime + 5000;
   const wovenAnimationSchedule: Keyframes<number> = [
-    { time: wovenAnimationStart, value: 0 },
+    { time: wovenAnimationStart, value: 0, easeAfter: easeIn },
     { time: wovenAnimationEnd, value: 1 },
   ];
   const scene: Showable = {
@@ -1751,14 +1755,25 @@ function makeCornerRounder(
       context.lineJoin = "miter";
       const originalMatrix = context.getTransform();
       triangles.forEach(
-        ({
-          fillColor,
-          level,
-          strokeColors,
-          triangle,
-          transformSchedule,
-          location,
-        }) => {
+        (
+          {
+            fillColor,
+            level,
+            availableColors,
+            triangle,
+            transformSchedule,
+            location,
+            cornerRounder,
+            strokeColorsColors,
+          },
+          triangleIndex,
+        ) => {
+          // Each triangle's top center vertex is at 0,0.
+          // Move it to the location reserved for it.
+          context.translate(location.x, location.y);
+          /**
+           * Move the reference triangle from the center of the reserved space to the top left corner of the space.
+           */
           const transformProgress = interpolateNumbers(
             timeInMs,
             transformSchedule,
@@ -1768,43 +1783,34 @@ function makeCornerRounder(
               -1.95 * transformProgress,
               0.4 * transformProgress,
             );
-            const x = location.x;
-            const y = location.y; //+ triangleSize.circleRadius;
-            context.translate(x, y);
             const scale = lerp(1, 0.25, transformProgress);
             context.scale(scale, scale);
-            context.translate(-x, -y);
           }
           context.fillStyle = fillColor;
-          context.beginPath();
-          const byDepth = initializedArray(level + 1, () => new Path2D());
-          triangle.draw(timeInMs, context, byDepth);
-          context.fill();
-          for (let index = 0; index < byDepth.length; index++) {
-            context.lineWidth = 0.01 * (6 - index);
-            context.strokeStyle = strokeColors[index];
-            context.stroke(byDepth[index]);
+          context.lineWidth = 0.01 * (6 - triangleIndex);
+          if (timeInMs >= wovenDisplayStart) {
+            // show off the rounded corners
+            const progress = interpolateNumbers(
+              timeInMs,
+              wovenAnimationSchedule,
+            );
+            const pathShape = cornerRounder(progress);
+            context.fill(pathShape.canvasPath, "evenodd");
+            strokeColors({ context, pathShape, colors: strokeColorsColors });
+          } else {
+            context.beginPath();
+            const byDepth = initializedArray(level + 1, () => new Path2D());
+            triangle.draw(timeInMs, context, byDepth);
+            context.fill();
+            for (let index = 0; index < byDepth.length; index++) {
+              //context.lineWidth = 0.01 * (6 - index);
+              context.strokeStyle = availableColors[index];
+              context.stroke(byDepth[index]);
+            }
           }
           context.setTransform(originalMatrix);
         },
       );
-      if (timeInMs >= wovenDisplayStart) {
-        const progress = interpolateNumbers(timeInMs, wovenAnimationSchedule);
-        context.lineCap = "round";
-        context.lineJoin = "miter";
-        allWoven.forEach((info, index) => {
-          context.lineWidth = 0.01 * (6 - index);
-          const pathShape = info.cornerRounder(progress);
-          const location = locations[index];
-          context.translate(location.x, location.y);
-          const triangle = triangles[index];
-          context.fillStyle = triangle.fillColor;
-          context.fill(pathShape.canvasPath, "evenodd");
-          strokeColors({ context, pathShape, colors: info.strokeColors });
-          //strokeColors({ context, pathShape, colors: info.strokeColors, relativeOffset: (easeAndBack(timeInMs/1000)-0.5)*0.01 });
-          context.setTransform(originalMatrix);
-        });
-      }
     },
   };
   sceneList.add(scene);
