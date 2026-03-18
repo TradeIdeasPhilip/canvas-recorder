@@ -5,6 +5,7 @@ import {
   initializedArray,
   lerp,
   makeBoundedLinear,
+  makeLinear,
   positiveModulo,
   zip,
 } from "phil-lib/misc";
@@ -1453,19 +1454,8 @@ function makeCornerRounder(
             );
             animateRainbow(pathShape, info.fillStyle, options);
             context.translate(0, part1.triangleSize.circleRadius);
-            //   context.setTransform(originalMatrix);
             context.fillStyle = info.fillStyle;
             context.strokeStyle = info.strokeStyle;
-            /*
-          context.beginPath();
-          context.arc(
-            info.circleCenter.x,
-            info.circleCenter.y,
-            2,
-            0,
-            FULL_CIRCLE,
-          );
-          */
             //    context.translate(info.circleCenter.x, info.circleCenter.y);
             const progress = easeIn(timeInMs / this.duration);
             const whichSegment = livePathMaker.length * progress;
@@ -1740,16 +1730,39 @@ function makeCornerRounder(
       strokeColorsColors,
     };
   });
-  const wovenDisplayStart = growEndTime + 1667;
-  const wovenAnimationStart = growEndTime + 2000;
-  const wovenAnimationEnd = growEndTime + 5000;
+  const wovenDisplayStart = growEndTime;
+  const wovenAnimationStart = growEndTime + 500;
+  const wovenAnimationEnd = growEndTime + 5500;
   const wovenAnimationSchedule: Keyframes<number> = [
     { time: wovenAnimationStart, value: 0, easeAfter: easeIn },
     { time: wovenAnimationEnd, value: 1 },
   ];
+  const fourierKeyframes = [
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1023,
+  ];
+  const fourierInstances = triangles.map((triangle) => {
+    triangle.fillColor;
+    const samples = samplesFromPath(triangle.wovenPathShape);
+    const terms: readonly FourierTerm[] = samplesToFourier(samples);
+    const livePathMaker = getAnimationRules(terms, fourierKeyframes);
+    const schedule = makeLinear(
+      271407 - 247500,
+      0,
+      growEndTime + 56000 - 1000,
+      livePathMaker.length,
+    );
+    return {
+      livePathMaker,
+      location: triangle.location,
+      strokeColorsColors: triangle.strokeColorsColors,
+      fillColor: triangle.fillColor,
+      schedule,
+    };
+  });
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 16000,
+    duration: growEndTime + 56000,
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "miter";
@@ -1811,6 +1824,28 @@ function makeCornerRounder(
           context.setTransform(originalMatrix);
         },
       );
+      fourierInstances.forEach((fourierInfo) => {
+        const segment = fourierInfo.schedule(timeInMs);
+        if (segment < 0) {
+          return;
+        }
+        const segmentIndex = Math.min(
+          fourierInfo.livePathMaker.length - 1,
+          Math.floor(segment),
+        );
+        const progressWithinSegment = Math.min(1, segment - segmentIndex);
+        const livePathShape = fourierInfo.livePathMaker[segmentIndex](
+          progressWithinSegment,
+        );
+        context.translate(fourierInfo.location.x, fourierInfo.location.y);
+        livePathShape.setCanvasPath(context);
+        context.fillStyle = fourierInfo.fillColor;
+        context.fill("evenodd");
+        context.lineWidth = 0.03;
+        context.strokeStyle = /* fourierInfo.strokeColorsColors[0] */ "white";
+        context.stroke();
+        context.setTransform(originalMatrix);
+      });
     },
   };
   sceneList.add(scene);
