@@ -892,6 +892,10 @@ function makeCornerRounder(
   return interpolator;
 }
 
+function scaleProgressWithinSegment(progress: number) {
+  return ease(Math.min(1, Math.max(0, progress)));
+}
+
 // MARK: All 16 permutations
 {
   function animateRainbow(
@@ -1463,7 +1467,9 @@ function makeCornerRounder(
               livePathMaker.length - 1,
               Math.floor(whichSegment),
             );
-            const progressWithinSegment = whichSegment - segmentIndex;
+            const progressWithinSegment = scaleProgressWithinSegment(
+              whichSegment - segmentIndex,
+            );
             const livePathShape = livePathMaker[segmentIndex](
               progressWithinSegment,
             );
@@ -1609,7 +1615,9 @@ function makeCornerRounder(
               livePathMaker.length - 1,
               Math.floor(whichSegment),
             );
-            const progressWithinSegment = whichSegment - segmentIndex;
+            const progressWithinSegment = scaleProgressWithinSegment(
+              whichSegment - segmentIndex,
+            );
             const livePathShape = livePathMaker[segmentIndex](
               progressWithinSegment,
             );
@@ -1739,17 +1747,20 @@ function makeCornerRounder(
   ];
   const fourierKeyframes = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 800, 900, 1023,
+    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
+    40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 400, 500, 600, 700,
+    800, 900, 1023,
+    //    1200,1400,1800, 2000//,2047
   ];
   const fourierInstances = triangles.map((triangle) => {
     triangle.fillColor;
-    const samples = samplesFromPath(triangle.wovenPathShape);
+    const samples = samplesFromPath(triangle.wovenPathShape, 1024 * 4);
     const terms: readonly FourierTerm[] = samplesToFourier(samples);
     const livePathMaker = getAnimationRules(terms, fourierKeyframes);
     const schedule = makeLinear(
       271407 - 247500,
       0,
-      growEndTime + 56000 - 1000,
+      growEndTime + 156000 - 1000,
       livePathMaker.length,
     );
     return {
@@ -1760,9 +1771,10 @@ function makeCornerRounder(
       schedule,
     };
   });
+  //  const scaleProgressWithinSegment= makeBoundedLinear(0.1, 0, 0.9,1);
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 56000,
+    duration: growEndTime + 158000,
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "miter";
@@ -1824,7 +1836,7 @@ function makeCornerRounder(
           context.setTransform(originalMatrix);
         },
       );
-      fourierInstances.forEach((fourierInfo) => {
+      fourierInstances.forEach((fourierInfo, index, array) => {
         const segment = fourierInfo.schedule(timeInMs);
         if (segment < 0) {
           return;
@@ -1833,7 +1845,9 @@ function makeCornerRounder(
           fourierInfo.livePathMaker.length - 1,
           Math.floor(segment),
         );
-        const progressWithinSegment = Math.min(1, segment - segmentIndex);
+        const progressWithinSegment = scaleProgressWithinSegment(
+          segment - segmentIndex,
+        );
         const livePathShape = fourierInfo.livePathMaker[segmentIndex](
           progressWithinSegment,
         );
@@ -1842,9 +1856,24 @@ function makeCornerRounder(
         context.fillStyle = fourierInfo.fillColor;
         context.fill("evenodd");
         context.lineWidth = 0.03;
-        context.strokeStyle = /* fourierInfo.strokeColorsColors[0] */ "white";
-        context.stroke();
+        strokeColors({
+          context,
+          pathShape: livePathShape,
+          colors: fourierInfo.strokeColorsColors,
+        });
         context.setTransform(originalMatrix);
+        if (index == array.length - 1) {
+          // Verdana is one of the few web safe fonts with equal sized digit widths.
+          // (Tahoma is close, but in an animation you can see things wiggle.)
+          context.font = "0.5px Verdana";
+          context.fillStyle = "white";
+          context.textBaseline = "top";
+          context.fillText(
+            `${segmentIndex} ${progressWithinSegment.toFixed(3)}: ${fourierKeyframes[segmentIndex]} → ${fourierKeyframes[segmentIndex + 1]}`,
+            0.25,
+            0.25,
+          );
+        }
       });
     },
   };

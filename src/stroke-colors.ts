@@ -11,6 +11,13 @@ import { countPresent } from "./utility";
 import { myRainbow } from "./glib/my-rainbow";
 import { LCommand, PathShape } from "./glib/path-shape";
 
+// Bug / TODO
+// Display a zero length path.
+// I get nothing.
+// I should get a circle or a square based on the linecap setting.
+// This comes up in the standard fourier algorithm before we add any terms,
+// or only the frequency=0 term, and you should see a point.
+
 /**
  * Stroke the given path with a series of different colors.
  * @param options Several required and optional settings.
@@ -307,6 +314,13 @@ export function strokeColors(options: StrokeColorsOptions) {
             // MARK: Previous segment
             // ,
             // and this segment is at the start of the second command.
+
+            // Bug!  Somehow I got 5 copies of
+            // Uncaught TypeError: Cannot read properties of undefined (reading 'incomingAngle')
+            // in my console.
+            // I was running the last fourier of the sierpiński script at the time.
+            // TODO find and fix.
+
             /**
              * We broke the path between two commands.
              * `previousCommand` is the command immediately before the break.

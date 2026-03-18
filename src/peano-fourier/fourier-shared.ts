@@ -88,9 +88,14 @@ export interface FourierTerm {
 
 export type Complex = [real: number, imaginary: number];
 
+/**
+ * A convenient default.
+ */
+export const numberOfFourierSamples = 1024;
+
 export function samplesFromParametric(
   func: ParametricFunction,
-  numSamples: number = 1024,
+  numSamples: number = numberOfFourierSamples,
 ): Complex[] {
   if (Math.log2(numSamples) % 1 !== 0) {
     throw new Error("numSamples must be a power of 2");
@@ -361,8 +366,6 @@ export function samplesFromPath(
     return samplesFromPathOrig(pathShape.rawPath, numberOfTerms);
   }
 }
-
-export const numberOfFourierSamples = 1024;
 
 // TODO add in y1 and y2, rather than just assuming they are 0 and 1.
 function makeEasing(x1: number, x2: number) {
