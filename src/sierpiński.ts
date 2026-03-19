@@ -1657,21 +1657,78 @@ function scaleProgressWithinSegment(progress: number) {
   /**
    * Across, then down, just like English text.
    */
-  const locations: readonly Point[] = (() => {
+  const locations = (() => {
+    class Location {
+      readonly first: Point;
+      readonly second: Point;
+      readonly secondZoom: number;
+      readonly schedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
+      constructor(
+        firstX: number,
+        firstY: number,
+        secondX: number,
+        secondY: number,
+        secondZoom: number,
+      ) {
+        this.first = { x: firstX, y: firstY };
+        this.second = { x: secondX, y: secondY };
+        this.secondZoom = secondZoom;
+      }
+      doTransform(options: ShowOptions) {
+        const progress = interpolateNumbers(options.timeInMs, this.schedule);
+        const x = lerp(this.first.x, this.second.x, progress);
+        const y = lerp(this.first.y, this.second.y, progress);
+        const zoom = lerp(1, this.secondZoom, progress);
+        const context = options.context;
+        context.translate(x, y);
+        context.scale(zoom, zoom);
+      }
+    }
     const x0 = 16 / 6;
     const x1 = 16 * (3 / 6);
     const x2 = 16 * (5 / 6);
     const yMargin = (9 - triangleSize.height * 2) / 3;
     const y0 = yMargin;
     const y1 = y0 + triangleSize.height + yMargin;
-    return [
-      { x: x0, y: y0 },
-      { x: x1, y: y0 },
-      { x: x2, y: y0 },
-      { x: x0, y: y1 },
-      { x: x1, y: y1 },
-      { x: x2, y: y1 },
+    const smallX0 = 16 / 12;
+    const smallX1 = 16 * (3 / 12);
+    const smallY0 = yMargin / 2;
+    const smallY1 = triangleSize.height / 2 + yMargin;
+    const bigX = 16 * (2 / 3);
+    const bigY = yMargin;
+    const result: readonly Location[] = [
+      new Location(x0, y0, smallX0, smallY0, 0.5),
+      new Location(x1, y0, smallX1, smallY0, 0.5),
+      new Location(x2, y0, smallX1, smallY1, 0.5),
+      new Location(x0, y1, smallX0, smallY1, 0.5),
+      new Location(x1, y1, x0, y1, 1),
+      new Location(x2, y1, bigX, bigY, 2),
     ];
+    result[0].schedule.push(
+      { time: 5000, value: 0, easeAfter: easeOut },
+      { time: 6500, value: 1 },
+    );
+    result[1].schedule.push(
+      { time: 5750, value: 0, easeAfter: easeOut },
+      { time: 7250, value: 1 },
+    );
+    result[2].schedule.push(
+      { time: 5750 + 750, value: 0, easeAfter: easeOut },
+      { time: 7250 + 750, value: 1 },
+    );
+    result[3].schedule.push(
+      { time: 5750 + 750 + 750, value: 0, easeAfter: easeOut },
+      { time: 7250 + 750 + 750, value: 1 },
+    );
+    result[4].schedule.push(
+      { time: 5750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
+      { time: 7250 + 750 + 750 + 750, value: 1 },
+    );
+    result[5].schedule.push(
+      { time: 5750 + 750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
+      { time: 7250 + 750 + 750 + 750 + 750, value: 1 },
+    );
+    return result;
   })();
   const triangles = initializedArray(strokeColorByDepth.length, (level) => {
     /**
@@ -1775,7 +1832,8 @@ function scaleProgressWithinSegment(progress: number) {
   const scene: Showable = {
     description: `6 levels at once`,
     duration: growEndTime + 158000,
-    show({ context, timeInMs }) {
+    show(options) {
+      const { context, timeInMs } = options;
       context.lineCap = "round";
       context.lineJoin = "miter";
       const originalMatrix = context.getTransform();
@@ -1795,7 +1853,7 @@ function scaleProgressWithinSegment(progress: number) {
         ) => {
           // Each triangle's top center vertex is at 0,0.
           // Move it to the location reserved for it.
-          context.translate(location.x, location.y);
+          location.doTransform(options);
           /**
            * Move the reference triangle from the center of the reserved space to the top left corner of the space.
            */
@@ -1851,7 +1909,9 @@ function scaleProgressWithinSegment(progress: number) {
         const livePathShape = fourierInfo.livePathMaker[segmentIndex](
           progressWithinSegment,
         );
-        context.translate(fourierInfo.location.x, fourierInfo.location.y);
+        // Each triangle's top center vertex is at 0,0.
+        // Move it to the location reserved for it.
+        fourierInfo.location.doTransform(options);
         livePathShape.setCanvasPath(context);
         context.fillStyle = fourierInfo.fillColor;
         context.fill("evenodd");
