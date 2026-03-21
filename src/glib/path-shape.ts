@@ -432,6 +432,11 @@ export class QCommand implements Command {
    *
    * Both angles are pointing _forward_.  So `angle0` is pointing into the
    * curve and `angle1` is pointing out of the curve.
+   *
+   * An angle of NaN is explicitly allowed.
+   * This will cause us to use the fallback, a line segment.
+   * This happens when a segment has a length of 0.
+   * Often we can't remove an empty segment because it will interpolate into a non-empty segment.
    * @param x x of the ending point.
    * @param y y of the ending point.
    * @param angle The direction that the curve is moving at the end point.
@@ -439,6 +444,11 @@ export class QCommand implements Command {
    *
    * Both angles are pointing _forward_.  So `angle0` is pointing into the
    * curve and `angle1` is pointing out of the curve.
+   *
+   * An angle of NaN is explicitly allowed.
+   * This will cause us to use the fallback, a line segment.
+   * This happens when a segment has a length of 0.
+   * Often we can't remove an empty segment because it will interpolate into a non-empty segment.
    * @returns A new `QCommand`.
    */
   static angles(
@@ -449,7 +459,7 @@ export class QCommand implements Command {
     y: number,
     angle: number,
   ) {
-    assertFinite(x0, y0, angle0, x, y, angle);
+    assertFinite(x0, y0, x, y);
     const controlPoint = findIntersection(
       {
         x0,
@@ -1209,34 +1219,18 @@ export class PathBuilder {
       const direction = getDirection(f, t, ε);
       return { t, point, direction };
     });
-    if (samples.some((sample) => !isFinite(sample.direction))) {
-      const { x, y } = samples[0].point;
-      assertFinite(x, y);
-      if (
-        samples.some((sample) => sample.point.x != x || sample.point.y != y)
-      ) {
-        throw new Error(
-          "Unable to create a path from this function.  Unable to compute the derivative.",
-        );
-      }
-      // All of the points are identical so none of the derivatives exist.
-      for (let i = 0; i < numberOfSegments; i++) {
-        this.Q(x, y, x, y);
-      }
-    } else {
-      const segments = initializedArray(numberOfSegments, (index) => ({
-        from: samples[index],
-        to: samples[index + 1],
-      }));
-      segments.forEach((segment) => {
-        this.Q_angles(
-          segment.to.point.x,
-          segment.to.point.y,
-          segment.to.direction,
-          segment.from.direction,
-        );
-      });
-    }
+    const segments = initializedArray(numberOfSegments, (index) => ({
+      from: samples[index],
+      to: samples[index + 1],
+    }));
+    segments.forEach((segment) => {
+      this.Q_angles(
+        segment.to.point.x,
+        segment.to.point.y,
+        segment.to.direction,
+        segment.from.direction,
+      );
+    });
     return this;
   }
 }
@@ -2358,10 +2352,17 @@ export type Point = { readonly x: number; readonly y: number };
  * @returns If the two rays intersect in a single point, return that point.
  * Return undefined if the two rays completely miss each other, or if they overlap.
  * I am **explicitly** talking about **rays, not lines**.
+ * @throws
+ * You are explicitly allowed to send a ray with NaN for the angle.
+ * That will return undefined.
+ * Any other !isFinite input will cause an exception.
  */
 function findIntersection(r1: Ray, r2: Ray): Point | undefined {
+  if (isNaN(r1.angle) || isNaN(r2.angle)) {
+    return undefined;
+  }
   assertFinite(r1.x0, r1.y0, r1.angle, r2.x0, r2.y0, r2.angle);
-  if (isNaN(r1.angle) || isNaN(r2.angle) || r1.angle == r2.angle) {
+  if (r1.angle == r2.angle) {
     return undefined;
   }
   const slope1 = Math.tan(r1.angle);

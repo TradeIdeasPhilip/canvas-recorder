@@ -330,6 +330,10 @@ export function strokeColors(options: StrokeColorsOptions) {
              */
             const previousCommand =
               options.pathShape.commands[details.offset - 1];
+            if (!previousCommand) {
+              debugger;
+              console.error({ options, details });
+            }
             addCorner(localIndex, previousCommand.outgoingAngle);
           }
         }

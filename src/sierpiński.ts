@@ -1692,41 +1692,45 @@ function scaleProgressWithinSegment(progress: number) {
     const y1 = y0 + triangleSize.height + yMargin;
     const smallX0 = 16 / 12;
     const smallX1 = 16 * (3 / 12);
-    const smallY0 = yMargin / 2;
+    const smallY0 = yMargin;
     const smallY1 = triangleSize.height / 2 + yMargin;
     const bigX = 16 * (2 / 3);
     const bigY = yMargin;
     const result: readonly Location[] = [
-      new Location(x0, y0, smallX0, smallY0, 0.5),
-      new Location(x1, y0, smallX1, smallY0, 0.5),
-      new Location(x2, y0, smallX1, smallY1, 0.5),
-      new Location(x0, y1, smallX0, smallY1, 0.5),
+      new Location(x0, y0, smallX0, smallY0, 0.45),
+      new Location(x1, y0, smallX1, smallY0, 0.45),
+      new Location(x2, y0, smallX1, smallY1, 0.45),
+      new Location(x0, y1, smallX0, smallY1, 0.45),
       new Location(x1, y1, x0, y1, 1),
       new Location(x2, y1, bigX, bigY, 2),
     ];
     result[0].schedule.push(
-      { time: 5000, value: 0, easeAfter: easeOut },
-      { time: 6500, value: 1 },
+      { time: 72500 + 5000, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 - 750, value: 1 },
     );
     result[1].schedule.push(
-      { time: 5750, value: 0, easeAfter: easeOut },
-      { time: 7250, value: 1 },
+      { time: 72500 + 5750, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000, value: 1 },
     );
     result[2].schedule.push(
-      { time: 5750 + 750, value: 0, easeAfter: easeOut },
-      { time: 7250 + 750, value: 1 },
+      { time: 72500 + 5750 + 750, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 + 750, value: 1 },
     );
     result[3].schedule.push(
-      { time: 5750 + 750 + 750, value: 0, easeAfter: easeOut },
-      { time: 7250 + 750 + 750, value: 1 },
+      { time: 72500 + 5750 + 750 + 750, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 + 750 + 750, value: 1 },
     );
     result[4].schedule.push(
-      { time: 5750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
-      { time: 7250 + 750 + 750 + 750, value: 1 },
+      { time: 72500 + 5750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 + 750 + 750 + 750, value: 1 },
     );
     result[5].schedule.push(
-      { time: 5750 + 750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
-      { time: 7250 + 750 + 750 + 750 + 750, value: 1 },
+      {
+        time: 72500 + 5750 + 750 + 750 + 750 + 750,
+        value: 0,
+        easeAfter: easeOut,
+      },
+      { time: 72500 + 8000 + 750 + 750 + 750 + 750, value: 1 },
     );
     return result;
   })();
@@ -1831,7 +1835,7 @@ function scaleProgressWithinSegment(progress: number) {
   //  const scaleProgressWithinSegment= makeBoundedLinear(0.1, 0, 0.9,1);
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 158000,
+    duration: growEndTime + 158000 + 6000,
     show(options) {
       const { context, timeInMs } = options;
       context.lineCap = "round";
@@ -1863,7 +1867,7 @@ function scaleProgressWithinSegment(progress: number) {
           );
           if (transformProgress) {
             context.translate(
-              -1.95 * transformProgress,
+              1.95 * transformProgress,
               0.4 * transformProgress,
             );
             const scale = lerp(1, 0.25, transformProgress);
