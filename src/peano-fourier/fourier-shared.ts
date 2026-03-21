@@ -616,16 +616,16 @@ const PAUSE_AFTER_LAST = 500;
 export function createFourierAnimation(
   animationRules: readonly ((t: number) => PathShape)[],
 ): {
-  getInfo(timeInMS: number): {
+  getInfo(timeInMs: number): {
     pathShape: PathShape;
     index: number;
     progress: number;
   };
   duration: number;
 } {
-  function getInfo(timeInMS: number) {
+  function getInfo(timeInMs: number) {
     const unitized =
-      (timeInMS - PAUSE_BEFORE_FIRST) / (PLAY_DURATION + PAUSE_BETWEEN);
+      (timeInMs - PAUSE_BEFORE_FIRST) / (PLAY_DURATION + PAUSE_BETWEEN);
     let index: number;
     let progress: number;
     if (unitized <= 0) {

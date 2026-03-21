@@ -30,7 +30,7 @@ function createExample(
   lineWidth: number,
   keyframes: readonly number[],
   livePathChanges?: (
-    timeInMS: number,
+    timeInMs: number,
     context: CanvasRenderingContext2D,
   ) => void,
 ) {
@@ -104,10 +104,10 @@ createExample(
     { time: animationStartTime + animationDuration, value: 0 },
   ];
   function animateTransform(
-    timeInMS: number,
+    timeInMs: number,
     context: CanvasRenderingContext2D,
   ): void {
-    const relevant = timedKeyframes(timeInMS, transformKeyframes);
+    const relevant = timedKeyframes(timeInMs, transformKeyframes);
     if (relevant.single && relevant.value == 0) {
       // An optimization.
       // Most of the time we do nothing.

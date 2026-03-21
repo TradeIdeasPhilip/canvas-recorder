@@ -212,16 +212,16 @@ const audioElement = querySelector("audio", HTMLAudioElement);
  *
  * This is for live / realtime drawing.  This is disabled when we are saving the file.
  */
-const animationLoop = new AnimationLoop((timeInMS: number) => {
+const animationLoop = new AnimationLoop((timeInMs: number) => {
   if (syncWithAudio) {
     playOffset = NaN;
-    timeInMS = sectionStartTime + audioElement.currentTime * 1000;
-    loadPlayPositionSeconds(timeInMS);
+    timeInMs = sectionStartTime + audioElement.currentTime * 1000;
+    loadPlayPositionSeconds(timeInMs);
     loadPlayPositionRange();
   } else if (!playCheckBox.checked) {
     // Paused.  Copy time from the numerical input.
     playPositionSeconds.disabled = false;
-    timeInMS = playPositionSeconds.valueAsNumber * 1000;
+    timeInMs = playPositionSeconds.valueAsNumber * 1000;
     playOffset = NaN;
   } else {
     // Playing.  (Not paused.)
@@ -235,24 +235,24 @@ const animationLoop = new AnimationLoop((timeInMS: number) => {
         // At the end.  Jump to the beginning.
         loadPlayPositionSeconds(sectionStartTime);
       }
-      playOffset = timeInMS - playPositionSeconds.valueAsNumber * 1000;
+      playOffset = timeInMs - playPositionSeconds.valueAsNumber * 1000;
     }
-    timeInMS -= playOffset;
-    if (timeInMS >= sectionEndTime && !continueRadioButton.checked) {
+    timeInMs -= playOffset;
+    if (timeInMs >= sectionEndTime && !continueRadioButton.checked) {
       // At the end and not instructed to continue past the end.
       playOffset = NaN;
       if (repeatRadioButton.checked) {
-        timeInMS = sectionStartTime;
+        timeInMs = sectionStartTime;
       } else {
-        timeInMS = sectionEndTime;
+        timeInMs = sectionEndTime;
         playCheckBox.checked = false;
         playPositionSeconds.disabled = false;
       }
     }
-    loadPlayPositionSeconds(timeInMS);
+    loadPlayPositionSeconds(timeInMs);
     loadPlayPositionRange();
   }
-  showFrame(timeInMS, "live");
+  showFrame(timeInMs, "live");
 });
 
 playPositionRange.addEventListener("input", () => {
@@ -362,12 +362,12 @@ async function startRecording() {
   // Offline loop: draw + push frames (not limited to realtime)
   let frameNumber = 0;
   while (!canceled) {
-    const timeInMS = (frameNumber + 0.5) * frameDuration;
-    if (timeInMS > toShow.duration) {
+    const timeInMs = (frameNumber + 0.5) * frameDuration;
+    if (timeInMs > toShow.duration) {
       break;
     }
-    showFrame(timeInMS, "4k");
-    loadPlayPositionSeconds(timeInMS);
+    showFrame(timeInMs, "4k");
+    loadPlayPositionSeconds(timeInMs);
     loadPlayPositionRange();
     // Push frame (timestamp/duration in seconds)
     const timestampSec = frameNumber / FPS;
