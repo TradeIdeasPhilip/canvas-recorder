@@ -203,8 +203,6 @@ export class PathShapeSplitter {
    * Inputs are clamped if they are out of range.
    * 0 is the start.
    * this.length is the end.
-   *
-   * If to <= from, this will return a path with a single point, the point at to.
    * @param fromDistance Start here.
    * @param toDistance End here.
    * @param details This allows you to capture some details about how the result was created.
@@ -238,11 +236,12 @@ export class PathShapeSplitter {
    * If you request a very tiny slice, The resulting path might or might not be empty.
    * Details of the implementation are in flux.
    *
+   * If to < from, this will return an empty path with no commands.
+   * This is a recent change.
    *
-   *
-   * problem:
-   * is it closed?
-   * We ask at the top
+   * If to == from you will probably get a zero length path with a single command.
+   * But see my notes about very short paths.
+   * Details are uncertain and in flux.
    */
   trim(
     fromDistance: number,
@@ -255,8 +254,12 @@ export class PathShapeSplitter {
     if (fromDistance == 0 && toDistance == this.length) {
       return this.whole;
     }
-    if (fromDistance >= toDistance) {
-      toDistance = fromDistance;
+    if (fromDistance > toDistance) {
+      // This used to return a zero length path with one command.
+      // Now it returns an empty path with no commands.
+      // I'm curious if anyone used to old answer.
+      debugger;
+      return PathShape.EMPTY;
     }
     toDistance += this.#offset;
     fromDistance += this.#offset;

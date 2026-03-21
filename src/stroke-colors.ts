@@ -139,246 +139,232 @@ export function strokeColors(options: StrokeColorsOptions) {
         startTrimmed: false,
         endTrimmed: false,
       };
-      // HERE
-      // details.startedExactlyHere is only set twice.
-      // I get pc === null at the very beginning, as I should.
-      // pc is also correct in the 4th colorful segment, when we turn from right to down.
-      // But I never see details.startedExactlyHere again.
-      // I'm expecting to see it when I examine the 7th colorful segment,
-      // when we turn from down to left.
       let singleColorSection = splitter.trim(
         startPosition,
         endPosition,
         details,
       );
+      if (singleColorSection.commands.length > 0) {
+        /**
+         * options.pathShape.commands[indexOfFirstIncluded] is the first command that was included,
+         * in whole or in part, in the trimmed selection.
+         */
+        const indexOfFirstIncluded = details.offset;
+        /**
+         * options.pathShape.commands[indexOfLastIncluded] is the last command that was included,
+         * in whole or in part, in the trimmed selection.
+         */
+        const indexOfLastIncluded =
+          indexOfFirstIncluded + singleColorSection.commands.length - 1;
+        const indexOfFirstComplete = details.startTrimmed
+          ? indexOfFirstIncluded + 1
+          : indexOfFirstIncluded;
+        const indexOfLastComplete = details.endTrimmed
+          ? indexOfLastIncluded - 1
+          : indexOfLastIncluded;
 
-      /**
-       * options.pathShape.commands[indexOfFirstIncluded] is the first command that was included,
-       * in whole or in part, in the trimmed selection.
-       */
-      const indexOfFirstIncluded = details.offset;
-      /**
-       * options.pathShape.commands[indexOfLastIncluded] is the last command that was included,
-       * in whole or in part, in the trimmed selection.
-       */
-      const indexOfLastIncluded =
-        indexOfFirstIncluded + singleColorSection.commands.length - 1;
-      const indexOfFirstComplete = details.startTrimmed
-        ? indexOfFirstIncluded + 1
-        : indexOfFirstIncluded;
-      const indexOfLastComplete = details.endTrimmed
-        ? indexOfLastIncluded - 1
-        : indexOfLastIncluded;
-
-      // MARK: Add 0, 1 or 2 corners.
-      {
-        function addCorner(beforeIndex: number, previousAngle: number) {
-          /**
-           * Mostly aimed at round-off error.
-           * Any small difference can be ignored.
-           * **Bad Math**
-           */
-          const cutoff = radiansPerDegree / 2;
-          const beforeCommand = singleColorSection.commands[beforeIndex];
-          if (
-            Math.abs(angleBetween(previousAngle, beforeCommand.incomingAngle)) >
-            cutoff
-          ) {
-            // The angle is big enough to care about.
-            // Fix it.
-            // Graft a small linear segment onto the front of the path.
-            // The angle should match pc.outgoingAngle
+        // MARK: Add 0, 1 or 2 corners.
+        {
+          function addCorner(beforeIndex: number, previousAngle: number) {
             /**
-             * The length should be a small fraction of a pixel,
-             * too small to see directly,
-             * but enough to tell the canvas to draw the linejoin for this corner.
+             * Mostly aimed at round-off error.
+             * Any small difference can be ignored.
              * **Bad Math**
              */
-            const small = 0.0001;
-            const offset = polarToRectangular(small, previousAngle);
-            const x = beforeCommand.x0;
-            const y = beforeCommand.y0;
-            const x0 = x - offset.x;
-            const y0 = y - offset.y;
-            const newShortCommand = new LCommand(x0, y0, x, y);
-            const newCommands = singleColorSection.commands.toSpliced(
-              beforeIndex,
-              0,
-              newShortCommand,
-            );
-            singleColorSection = new PathShape(newCommands);
-          }
-        }
-        // MARK: Last restart
-        {
-          // Look for the last M command in the trimmed section.
-          // Look at the first command after that M.
-          // Look for the largest connectedSections[?].indexOfFirst <= indexOfLastIncluded
-          function findLastStart() {
-            let begin = 0;
-            let end = connectedSections.length;
-            while (begin < end) {
-              const middle = Math.floor((begin + end) / 2);
-              const possible = connectedSections[middle];
-              if (possible.indexOfFirst == indexOfLastIncluded) {
-                return possible;
-              } else if (possible.indexOfFirst > indexOfLastIncluded) {
-                end = middle;
-              } else {
-                begin = middle + 1;
-              }
-            }
-            return connectedSections[begin - 1];
-          }
-          /**
-           * This is the last connected section we could find that starts before the end of the trimmed path.
-           */
-          const connectedSection = findLastStart();
-          if (connectedSection.indexOfFirst > indexOfFirstIncluded) {
-            // There is at least one M after the start of the trimmed segment.
-            // We will deal with the start after this.
-            if (!connectedSection.open) {
-              // We are looking at the start of a CLOSED loop.
-              const endIsAlreadyPresent =
-                !details.endTrimmed &&
-                connectedSection.indexOfLast == indexOfFirstComplete;
-              if (!endIsAlreadyPresent) {
-                /**
-                 * `connectedSection.indexOfFirst` is relative to `options.pathShape.commands`.
-                 * `localIndex` is relative to `singleColorSection.commands`.
-                 */
-                const localIndex =
-                  connectedSection.indexOfFirst - details.offset;
-                /**
-                 * The angle of the piece that would have come right before this piece,
-                 * after joining the end of the loop to the beginning,
-                 * if we hadn't cut the end of the loop off.
-                 */
-                const previousAngle =
-                  options.pathShape.commands[connectedSection.indexOfLast]
-                    .outgoingAngle;
-                addCorner(localIndex, previousAngle);
-              }
+            const cutoff = radiansPerDegree / 2;
+            const beforeCommand = singleColorSection.commands[beforeIndex];
+            if (
+              Math.abs(
+                angleBetween(previousAngle, beforeCommand.incomingAngle),
+              ) > cutoff
+            ) {
+              // The angle is big enough to care about.
+              // Fix it.
+              // Graft a small linear segment onto the front of the path.
+              // The angle should match pc.outgoingAngle
+              /**
+               * The length should be a small fraction of a pixel,
+               * too small to see directly,
+               * but enough to tell the canvas to draw the linejoin for this corner.
+               * **Bad Math**
+               */
+              const small = 0.0001;
+              const offset = polarToRectangular(small, previousAngle);
+              const x = beforeCommand.x0;
+              const y = beforeCommand.y0;
+              const x0 = x - offset.x;
+              const y0 = y - offset.y;
+              const newShortCommand = new LCommand(x0, y0, x, y);
+              const newCommands = singleColorSection.commands.toSpliced(
+                beforeIndex,
+                0,
+                newShortCommand,
+              );
+              singleColorSection = new PathShape(newCommands);
             }
           }
-        }
-        // MARK: Initial segment
-        if (!details.startTrimmed) {
-          // The trimmed path starts at the beginning of one of the original commands.
-          /**
-           * This branch **only** looks at the first command.
-           */
-          const localIndex = 0;
-          // Check to see if this command is the start of a connected section.
-          // Look for a connected section that starts at exactly the beginning of the trimmed path.
-          function findInitialRestart() {
-            const desiredStartIndex = details.offset;
-            let begin = 0;
-            let end = connectedSections.length;
-            while (begin < end) {
-              const middle = Math.floor((begin + end) / 2);
-              const possible = connectedSections[middle];
-              if (possible.indexOfFirst == desiredStartIndex) {
-                return possible;
-              } else if (possible.indexOfFirst > desiredStartIndex) {
-                end = middle;
-              } else {
-                begin = middle + 1;
+          // MARK: Last restart
+          {
+            // Look for the last M command in the trimmed section.
+            // Look at the first command after that M.
+            // Look for the largest connectedSections[?].indexOfFirst <= indexOfLastIncluded
+            function findLastStart() {
+              let begin = 0;
+              let end = connectedSections.length;
+              while (begin < end) {
+                const middle = Math.floor((begin + end) / 2);
+                const possible = connectedSections[middle];
+                if (possible.indexOfFirst == indexOfLastIncluded) {
+                  return possible;
+                } else if (possible.indexOfFirst > indexOfLastIncluded) {
+                  end = middle;
+                } else {
+                  begin = middle + 1;
+                }
               }
+              return connectedSections[begin - 1];
             }
-            // Not found
-            return undefined;
-          }
-          const initialConnectedSection = findInitialRestart();
-          if (initialConnectedSection) {
-            // MARK: Initial restart
-            if (!initialConnectedSection.open) {
-              // The trimmed path starts at the start of a closed section.
-              // Now check if the entire closed section is part of the trimmed path.
-              if (initialConnectedSection.indexOfLast > indexOfLastComplete) {
-                // The end of this connected section has been trimmed.
-                // We need to add the corner ourselves.
-                /**
-                 * The angle of the piece that would have come right before this piece,
-                 * after joining the end of the loop to the beginning,
-                 * if we hadn't cut the end of the loop off.
-                 */
-                const previousAngle =
-                  options.pathShape.commands[
-                    initialConnectedSection.indexOfLast
-                  ].outgoingAngle;
-                addCorner(localIndex, previousAngle);
-              }
-            }
-          } else {
-            // MARK: Previous segment
-            // ,
-            // and this segment is at the start of the second command.
-
-            // Bug!  Somehow I got 5 copies of
-            // Uncaught TypeError: Cannot read properties of undefined (reading 'incomingAngle')
-            // in my console.
-            // I was running the last fourier of the sierpiński script at the time.
-            // TODO find and fix.
-
             /**
-             * We broke the path between two commands.
-             * `previousCommand` is the command immediately before the break.
-             *
-             * This command occurs immediately before the command we are about to display.
-             * That must be the case, or `initialConnectedSection` would have been true and we would not have gotten here.
+             * This is the last connected section we could find that starts before the end of the trimmed path.
              */
-            const previousCommand =
-              options.pathShape.commands[details.offset - 1];
-            if (!previousCommand) {
-              debugger;
-              console.error({ options, details });
+            const connectedSection = findLastStart();
+            if (connectedSection.indexOfFirst > indexOfFirstIncluded) {
+              // There is at least one M after the start of the trimmed segment.
+              // We will deal with the start after this.
+              if (!connectedSection.open) {
+                // We are looking at the start of a CLOSED loop.
+                const endIsAlreadyPresent =
+                  !details.endTrimmed &&
+                  connectedSection.indexOfLast == indexOfFirstComplete;
+                if (!endIsAlreadyPresent) {
+                  /**
+                   * `connectedSection.indexOfFirst` is relative to `options.pathShape.commands`.
+                   * `localIndex` is relative to `singleColorSection.commands`.
+                   */
+                  const localIndex =
+                    connectedSection.indexOfFirst - details.offset;
+                  /**
+                   * The angle of the piece that would have come right before this piece,
+                   * after joining the end of the loop to the beginning,
+                   * if we hadn't cut the end of the loop off.
+                   */
+                  const previousAngle =
+                    options.pathShape.commands[connectedSection.indexOfLast]
+                      .outgoingAngle;
+                  addCorner(localIndex, previousAngle);
+                }
+              }
             }
-            addCorner(localIndex, previousCommand.outgoingAngle);
+          }
+          // MARK: Initial segment
+          if (!details.startTrimmed) {
+            // The trimmed path starts at the beginning of one of the original commands.
+            /**
+             * This branch **only** looks at the first command.
+             */
+            const localIndex = 0;
+            // Check to see if this command is the start of a connected section.
+            // Look for a connected section that starts at exactly the beginning of the trimmed path.
+            function findInitialRestart() {
+              const desiredStartIndex = details.offset;
+              let begin = 0;
+              let end = connectedSections.length;
+              while (begin < end) {
+                const middle = Math.floor((begin + end) / 2);
+                const possible = connectedSections[middle];
+                if (possible.indexOfFirst == desiredStartIndex) {
+                  return possible;
+                } else if (possible.indexOfFirst > desiredStartIndex) {
+                  end = middle;
+                } else {
+                  begin = middle + 1;
+                }
+              }
+              // Not found
+              return undefined;
+            }
+            const initialConnectedSection = findInitialRestart();
+            if (initialConnectedSection) {
+              // MARK: Initial restart
+              if (!initialConnectedSection.open) {
+                // The trimmed path starts at the start of a closed section.
+                // Now check if the entire closed section is part of the trimmed path.
+                if (initialConnectedSection.indexOfLast > indexOfLastComplete) {
+                  // The end of this connected section has been trimmed.
+                  // We need to add the corner ourselves.
+                  /**
+                   * The angle of the piece that would have come right before this piece,
+                   * after joining the end of the loop to the beginning,
+                   * if we hadn't cut the end of the loop off.
+                   */
+                  const previousAngle =
+                    options.pathShape.commands[
+                      initialConnectedSection.indexOfLast
+                    ].outgoingAngle;
+                  addCorner(localIndex, previousAngle);
+                }
+              }
+            } else {
+              // MARK: Previous segment
+              /**
+               * We broke the path between two commands.
+               * `previousCommand` is the command immediately before the break.
+               *
+               * This command occurs immediately before the command we are about to display.
+               * That must be the case, or `initialConnectedSection` would have been true and we would not have gotten here.
+               */
+              const previousCommand =
+                options.pathShape.commands[details.offset - 1];
+              if (!previousCommand) {
+                debugger;
+                console.error({ options, details });
+              }
+              addCorner(localIndex, previousCommand.outgoingAngle);
+            }
           }
         }
-      }
 
-      singleColorSection.appendCanvasPath(paths[colorIndex % paths.length]);
-      const fillablePath = fillablePaths[colorIndex % paths.length];
+        singleColorSection.appendCanvasPath(paths[colorIndex % paths.length]);
+        const fillablePath = fillablePaths[colorIndex % paths.length];
 
-      // MARK: Linecap
-      {
-        for (
-          let connectedSectionIndex = 0;
-          connectedSectionIndex < connectedSections.length;
-          connectedSectionIndex++
-        ) {
-          const connectedSection = connectedSections[connectedSectionIndex];
-          if (connectedSection.indexOfFirst > indexOfLastIncluded) {
-            break;
-          }
-          if (connectedSection.open) {
-            if (
-              connectedSection.indexOfFirst >= indexOfFirstComplete &&
-              connectedSection.indexOfFirst <= indexOfLastIncluded
-            ) {
-              const command =
-                options.pathShape.commands[connectedSection.indexOfFirst];
-              fillablePath.addPath(
-                linecapArchetype,
-                new DOMMatrix()
-                  .translateSelf(command.x0, command.y0)
-                  .rotateSelf(command.incomingAngle * degreesPerRadian),
-              );
+        // MARK: Linecap
+        {
+          for (
+            let connectedSectionIndex = 0;
+            connectedSectionIndex < connectedSections.length;
+            connectedSectionIndex++
+          ) {
+            const connectedSection = connectedSections[connectedSectionIndex];
+            if (connectedSection.indexOfFirst > indexOfLastIncluded) {
+              break;
             }
-            if (
-              connectedSection.indexOfLast >= indexOfFirstIncluded &&
-              connectedSection.indexOfLast <= indexOfLastComplete
-            ) {
-              const command =
-                options.pathShape.commands[connectedSection.indexOfLast];
-              fillablePath.addPath(
-                linecapArchetype,
-                new DOMMatrix()
-                  .translateSelf(command.x, command.y)
-                  .rotateSelf(command.outgoingAngle * degreesPerRadian + 180),
-              );
+            if (connectedSection.open) {
+              if (
+                connectedSection.indexOfFirst >= indexOfFirstComplete &&
+                connectedSection.indexOfFirst <= indexOfLastIncluded
+              ) {
+                const command =
+                  options.pathShape.commands[connectedSection.indexOfFirst];
+                fillablePath.addPath(
+                  linecapArchetype,
+                  new DOMMatrix()
+                    .translateSelf(command.x0, command.y0)
+                    .rotateSelf(command.incomingAngle * degreesPerRadian),
+                );
+              }
+              if (
+                connectedSection.indexOfLast >= indexOfFirstIncluded &&
+                connectedSection.indexOfLast <= indexOfLastComplete
+              ) {
+                const command =
+                  options.pathShape.commands[connectedSection.indexOfLast];
+                fillablePath.addPath(
+                  linecapArchetype,
+                  new DOMMatrix()
+                    .translateSelf(command.x, command.y)
+                    .rotateSelf(command.outgoingAngle * degreesPerRadian + 180),
+                );
+              }
             }
           }
         }
