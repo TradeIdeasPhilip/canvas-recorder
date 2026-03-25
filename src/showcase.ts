@@ -3,7 +3,6 @@ import {
   initializedArray,
   lerp,
   ReadOnlyRect,
-  zip,
 } from "phil-lib/misc";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout, WordInPlace } from "./glib/paragraph-layout";
@@ -32,6 +31,7 @@ import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground } from "./utility";
+import { zipper } from "./zipper";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -607,10 +607,10 @@ What the hand, dare sieze the fire?`);
     );
     return result;
   }
-  const morphers = zip(
+  const morphers = zipper([
     makeWordList(leftResult, leftTextLeft, leftTextTop),
     makeWordList(rightResult, rightTextLeft, rightTextTop),
-  )
+  ])
     .map(([from, to]) => {
       return matchShapes(fixCorners(from), fixCorners(to));
     })
@@ -645,7 +645,7 @@ What the hand, dare sieze the fire?`);
       //context.strokeStyle = toColor;
       //context.stroke(rightPath);
 
-      zip(morphers, schedules).forEach(([makePath, schedule]) => {
+      zipper([morphers, schedules]).forEach(([makePath, schedule]) => {
         const progress = interpolateNumbers(timeInMs, schedule);
         if (progress <= 0) {
           return;

@@ -5,9 +5,7 @@ import {
   initializedArray,
   lerp,
   makeBoundedLinear,
-  makeLinear,
   positiveModulo,
-  zip,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
 import {
@@ -47,6 +45,8 @@ import {
 import { only } from "./utility";
 import { Bezier } from "bezier-js";
 import { fadeOut, slideLeft } from "./transitions";
+import "./binary-search";
+import { zipper } from "./zipper";
 
 const titleFont = makeLineFont(0.7);
 
@@ -926,7 +926,7 @@ function scaleProgressWithinSegment(progress: number) {
     const locations = ((): readonly Point[] => {
       const xOffset = [xPeriod, xPeriod / 2, xPeriod];
       const across = [5, 6, 5];
-      return zip(across, xOffset)
+      return zipper([across, xOffset])
         .flatMap(([across, xOffset], yIndex) => {
           return initializedArray(across, (xIndex) => {
             return {
@@ -938,7 +938,7 @@ function scaleProgressWithinSegment(progress: number) {
         .toArray();
     })();
     const triangleSize = Triangle.resizeToMax(2.5, 2.25);
-    const pathShapes = zip(paths, locations)
+    const pathShapes = zipper([paths, locations])
       .map(([basePath, point]) => {
         return new PathShape(basePath.getCommands()).transform(
           triangleSize.matrix,
@@ -955,7 +955,7 @@ function scaleProgressWithinSegment(progress: number) {
         context.lineJoin = "miter";
         context.lineWidth = 0.05;
         const originalTransform = context.getTransform();
-        zip(pathShapes, locations, fillColors).forEach(
+        zipper([pathShapes, locations, fillColors]).forEach(
           ([pathShape, location, fillColor]) => {
             context.translate(location.x, location.y);
             animateRainbow(pathShape, fillColor, options);
@@ -998,7 +998,7 @@ function scaleProgressWithinSegment(progress: number) {
         context.lineJoin = "miter";
         context.lineWidth = 0.05;
         const originalTransform = context.getTransform();
-        zip(interpolators, part1.locations, schedules, fillColors).forEach(
+        zipper([interpolators, part1.locations, schedules, fillColors]).forEach(
           ([interpolator, location, schedule, fillColor]) => {
             context.translate(location.x, location.y);
             const progress = interpolateNumbers(timeInMs, schedule);
@@ -1192,13 +1192,13 @@ function scaleProgressWithinSegment(progress: number) {
           translationSchedule,
         );
         const rotationCenterHeight = part1.triangleSize.circleRadius;
-        zip(
+        zipper([
           finalLocations,
           part2.interpolators,
           descriptions,
           part1.locations,
           fillColors,
-        ).forEach(
+        ]).forEach(
           ([
             finalLocation,
             interpolator,
@@ -1294,7 +1294,8 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 3000, value: 1 },
     ];
     const duration = 10000;
-    const winners = new Map(zip(part3.winners, finalLocations));
+    const qqq = zipper([part3.winners, finalLocations]);
+    const winners = new Map(qqq);
     const scene: Showable = {
       description: "move and hide small triangles",
       duration,
@@ -1351,7 +1352,7 @@ function scaleProgressWithinSegment(progress: number) {
           circleCenter: { x: 16 - 9 / 4, y: 9 / 4 },
         },
       ];
-    const fourierInstances = zip(part3.winners, finalLocations, winnerInfo)
+    const fourierInstances = zipper([part3.winners, finalLocations, winnerInfo])
       .map(
         ([externalIndex, referenceLocation, { strokeStyle, circleCenter }]) => {
           const interpolator = part2.interpolators[externalIndex];
@@ -1449,7 +1450,7 @@ function scaleProgressWithinSegment(progress: number) {
         context.lineJoin = "round";
         context.lineWidth = 0.05;
         const originalMatrix = context.getTransform();
-        zip(part4.fourierInstances, livePathMakers).forEach(
+        zipper([part4.fourierInstances, livePathMakers]).forEach(
           ([info, livePathMaker]) => {
             const pathShape = info.interpolator(1);
             context.translate(
@@ -1596,7 +1597,7 @@ function scaleProgressWithinSegment(progress: number) {
         context.lineJoin = "round";
         context.lineWidth = 0.05;
         const originalMatrix = context.getTransform();
-        zip(part4.fourierInstances, livePathMakers).forEach(
+        zipper([part4.fourierInstances, livePathMakers]).forEach(
           ([info, livePathMaker]) => {
             const pathShape = info.interpolator(1);
             context.translate(
@@ -1810,37 +1811,55 @@ function scaleProgressWithinSegment(progress: number) {
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
     21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
     40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 400, 500, 600, 700,
-    800, 900, 1023,
-    //    1200,1400,1800, 2000//,2047
+    800, 900, 1000, 2000, 3000, 4000,
   ];
+  {
+    const currentStart = 271407;
+    const currentEnd = growEndTime + 156000 - 1000 + 247500;
+    const currentDuration = currentEnd - currentStart;
+    console.log({
+      fourierKeyframes,
+      currentStart,
+      currentEnd,
+      currentDuration,
+      currentPer: currentDuration / fourierKeyframes.length,
+    });
+  }
+  const fourierSchedule: Keyframes<number> = (() => {
+    const startTime = 271407 - 247500;
+    const runTime = 3500;
+    const pauseTime = 500;
+    let time = startTime;
+    const result = new Array<Keyframe<number>>();
+    for (let index = 0; index < fourierKeyframes.length - 2; index++) {
+      result.push({ time, value: index });
+      time += runTime;
+      result.push({ time, value: index + 1 });
+      time += pauseTime;
+    }
+    return result;
+  })();
   const fourierInstances = triangles.map((triangle) => {
     triangle.fillColor;
     const samples = samplesFromPath(triangle.wovenPathShape, 1024 * 4);
     const terms: readonly FourierTerm[] = samplesToFourier(samples);
     const livePathMaker = getAnimationRules(terms, fourierKeyframes);
-    const schedule = makeLinear(
-      271407 - 247500,
-      0,
-      growEndTime + 156000 - 1000,
-      livePathMaker.length,
-    );
     return {
       livePathMaker,
       location: triangle.location,
       strokeColorsColors: triangle.strokeColorsColors,
       fillColor: triangle.fillColor,
-      schedule,
     };
   });
-  //  const scaleProgressWithinSegment= makeBoundedLinear(0.1, 0, 0.9,1);
   const scene: Showable = {
     description: `6 levels at once`,
-    duration: growEndTime + 158000 + 6000,
+    duration: fourierSchedule.at(-1)!.time + 5000,
     show(options) {
       const { context, timeInMs } = options;
       context.lineCap = "round";
       context.lineJoin = "miter";
       const originalMatrix = context.getTransform();
+      // MARK: 6 × Reference
       triangles.forEach(
         (
           {
@@ -1898,18 +1917,11 @@ function scaleProgressWithinSegment(progress: number) {
           context.setTransform(originalMatrix);
         },
       );
+      // MARK: 6 × Fourier
+      const segment = interpolateNumbers(timeInMs, fourierSchedule);
+      const segmentIndex = Math.floor(segment);
+      const progressWithinSegment = segment - segmentIndex;
       fourierInstances.forEach((fourierInfo, index, array) => {
-        const segment = fourierInfo.schedule(timeInMs);
-        if (segment < 0) {
-          return;
-        }
-        const segmentIndex = Math.min(
-          fourierInfo.livePathMaker.length - 1,
-          Math.floor(segment),
-        );
-        const progressWithinSegment = scaleProgressWithinSegment(
-          segment - segmentIndex,
-        );
         const livePathShape = fourierInfo.livePathMaker[segmentIndex](
           progressWithinSegment,
         );
@@ -1943,6 +1955,8 @@ function scaleProgressWithinSegment(progress: number) {
   };
   sceneList.add(scene);
 }
+
+// MARK:  Halftone Background
 
 const halftoneBackgroundPath = (() => {
   // This is slow!!!
