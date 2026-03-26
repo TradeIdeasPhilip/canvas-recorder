@@ -1436,6 +1436,14 @@ export class PathShape {
     return sum;
   }
   /**
+   * An optimized version of this.getLength() == 0.
+   */
+  zeroLength() {
+    return this.commands.every((command) => {
+      return command.getLength() == 0;
+    });
+  }
+  /**
    * Create another path that will look the same, but backwards.
    * If you stroke or fill the path, it will look just like the original.
    * But some animations can tell the difference.
@@ -1928,30 +1936,19 @@ export class PathShape {
     return false;
   }
   appendCanvasPath(path: CanvasPath) {
-    let segmentStart: Command | undefined;
-    this.commands.forEach(function makeCanvasPath(command, index, array) {
-      const previous = array[index - 1];
-      if (PathShape.needAnM(previous, command)) {
-        // Starting a new segment.
-        if (
-          previous &&
-          segmentStart &&
-          previous.x == segmentStart.x0 &&
-          previous.y == segmentStart.y0
-        ) {
-          path.closePath();
-        }
-        path.moveTo(command.x0, command.y0);
-        segmentStart = command;
-      }
-      command.addToPath(path);
-    });
-    if (segmentStart) {
-      const last = this.commands.at(-1)!;
-      if (last.x == segmentStart.x0 && last.y == segmentStart.y0) {
+    this.splitOnMove().forEach(function makeCanvasPath(segment) {
+      path.moveTo(segment.startX, segment.startY);
+      segment.commands.forEach((command) => {
+        command.addToPath(path);
+      });
+      if (
+        segment.startX == segment.endX &&
+        segment.startY == segment.endY &&
+        !segment.zeroLength()
+      ) {
         path.closePath();
       }
-    }
+    });
   }
   setCanvasPath(context: CanvasRenderingContext2D) {
     context.beginPath();
@@ -1983,7 +1980,11 @@ export class PathShape {
         segment.commands.forEach((command) =>
           result.push(command.makeString()),
         );
-        if (segment.startX == segment.endX && segment.startY == segment.endY) {
+        if (
+          segment.startX == segment.endX &&
+          segment.startY == segment.endY &&
+          !segment.zeroLength()
+        ) {
           result.push("Z");
         }
         return result;

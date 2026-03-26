@@ -43,6 +43,7 @@ type Y = any[] extends any[] ? true : false;
  * @param mustFinish Any number of iterables.
  * If any of the iterables still has data when we stop, we throw an `Error`.
  * @param support Any number of iterables.
+ * These can run longer.
  */
 export function* zipper<T extends Array<any>, U extends Array<any> = []>(
   mustFinish: Iterableify<T>,

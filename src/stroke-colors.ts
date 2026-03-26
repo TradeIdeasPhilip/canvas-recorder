@@ -26,11 +26,6 @@ import { LCommand, PathShape } from "./glib/path-shape";
 export function strokeColors(options: StrokeColorsOptions) {
   const lineCap = options.context.lineCap;
   const splitter = PathShapeSplitter.create(options.pathShape);
-  if (splitter.length == 0) {
-    // This is more than an optimization.
-    // If you take this away an empty path will cause an exception.
-    return;
-  }
   const connectedSections = (() => {
     let offset = 0;
     return options.pathShape.splitOnMove().map((pathShape) => {
@@ -39,7 +34,8 @@ export function strokeColors(options: StrokeColorsOptions) {
       const indexOfLast = offset - 1;
       const firstCommand = pathShape.commands[0];
       const lastCommand = pathShape.commands.at(-1);
-      const open = PathShape.needAnM(lastCommand, firstCommand);
+      const open =
+        PathShape.needAnM(lastCommand, firstCommand) || pathShape.zeroLength();
       /*
       if (open) {
         starts.push({
@@ -131,19 +127,54 @@ export function strokeColors(options: StrokeColorsOptions) {
       break;
     }
   }
-  while (startPosition < splitter.length) {
-    const endPosition = startPosition + sectionLength;
-    if (endPosition > 0) {
+  const tooSmall = options.tooSmall ?? 0.0001;
+  // TODO small, appearing elsewhere, should be the same as this.
+  /**
+   * The path is too small to split properly.
+   *
+   * This was originally causing tiny paths to disappear completely.
+   * We should always see the linecap, even if the line is 0 length.
+   * So we take special action in this case.
+   */
+  const forceSingleColor = splitter.length <= tooSmall;
+  /**
+   * A zero length path with a single command should draw a point.
+   * Just draw the linecap's, making a circle or square.
+   *
+   * What about if you jump around a lot?
+   * several disconnected 0 length segments within a zero length path?
+   * Seems like we should handle it but we aren't yet.  TODO
+   */
+  let firstTimeThrough = true;
+  while (
+    startPosition < splitter.length ||
+    (firstTimeThrough && splitter.length == 0)
+  ) {
+    const endPosition = forceSingleColor
+      ? splitter.length
+      : startPosition + sectionLength;
+    if (endPosition > 0 || (firstTimeThrough && endPosition == 0)) {
+      firstTimeThrough = false;
       const details = {
         offset: NaN,
         startTrimmed: false,
         endTrimmed: false,
       };
-      let singleColorSection = splitter.trim(
-        startPosition,
-        endPosition,
-        details,
-      );
+      let singleColorSection: PathShape;
+      if (forceSingleColor) {
+        singleColorSection = splitter.whole;
+        details.offset = 0;
+        details.startTrimmed = false;
+        details.endTrimmed = false;
+      } else {
+        singleColorSection = splitter.trim(
+          startPosition,
+          endPosition,
+          details,
+          forceSingleColor ? 0 : tooSmall,
+        );
+      }
+
       if (singleColorSection.commands.length > 0) {
         /**
          * options.pathShape.commands[indexOfFirstIncluded] is the first command that was included,
@@ -449,4 +480,16 @@ export type StrokeColorsOptions = {
    * Setting none of these is the same as setting repeatCount to 1.
    */
   colorCount?: number;
+  /**
+   * Try to avoid cutting the path into pieces smaller than this.
+   *
+   * We get into trouble when we try to make segments too small.
+   * The graphics tools get confused and/or round off error becomes an issue.
+   *  *Hopefully* This number will be too small to notice directly (much smaller than a pixel) but large enough that the canvas can correctly read the angle of the requested segments.
+   * Remember I generally assume that my canvas has been transformed and I have no idea what a pixel is.
+   * (I don't even want to believe pixels are real.)
+   * So this is something of a wild guess.
+   * **Bad Math**
+   */
+  tooSmall?: number;
 };

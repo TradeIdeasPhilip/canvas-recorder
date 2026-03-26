@@ -1831,6 +1831,7 @@ function scaleProgressWithinSegment(progress: number) {
     const pauseTime = 500;
     let time = startTime;
     const result = new Array<Keyframe<number>>();
+    result.push({ time: -1, value: -1 });
     for (let index = 0; index < fourierKeyframes.length - 2; index++) {
       result.push({ time, value: index });
       time += runTime;
@@ -1919,38 +1920,42 @@ function scaleProgressWithinSegment(progress: number) {
       );
       // MARK: 6 × Fourier
       const segment = interpolateNumbers(timeInMs, fourierSchedule);
-      const segmentIndex = Math.floor(segment);
-      const progressWithinSegment = segment - segmentIndex;
-      fourierInstances.forEach((fourierInfo, index, array) => {
-        const livePathShape = fourierInfo.livePathMaker[segmentIndex](
-          progressWithinSegment,
-        );
-        // Each triangle's top center vertex is at 0,0.
-        // Move it to the location reserved for it.
-        fourierInfo.location.doTransform(options);
-        livePathShape.setCanvasPath(context);
-        context.fillStyle = fourierInfo.fillColor;
-        context.fill("evenodd");
-        context.lineWidth = 0.03;
-        strokeColors({
-          context,
-          pathShape: livePathShape,
-          colors: fourierInfo.strokeColorsColors,
-        });
-        context.setTransform(originalMatrix);
-        if (index == array.length - 1) {
-          // Verdana is one of the few web safe fonts with equal sized digit widths.
-          // (Tahoma is close, but in an animation you can see things wiggle.)
-          context.font = "0.5px Verdana";
-          context.fillStyle = "white";
-          context.textBaseline = "top";
-          context.fillText(
-            `${segmentIndex} ${progressWithinSegment.toFixed(3)}: ${fourierKeyframes[segmentIndex]} → ${fourierKeyframes[segmentIndex + 1]}`,
-            0.25,
-            0.25,
+      if (segment >= 0) {
+        // Note:  Time 0 shows a single point.
+        // Times before 0 show nothing.
+        const segmentIndex = Math.floor(segment);
+        const progressWithinSegment = segment - segmentIndex;
+        fourierInstances.forEach((fourierInfo, index, array) => {
+          const livePathShape = fourierInfo.livePathMaker[segmentIndex](
+            progressWithinSegment,
           );
-        }
-      });
+          // Each triangle's top center vertex is at 0,0.
+          // Move it to the location reserved for it.
+          fourierInfo.location.doTransform(options);
+          livePathShape.setCanvasPath(context);
+          context.fillStyle = fourierInfo.fillColor;
+          context.fill("evenodd");
+          context.lineWidth = 0.03;
+          strokeColors({
+            context,
+            pathShape: livePathShape,
+            colors: fourierInfo.strokeColorsColors,
+          });
+          context.setTransform(originalMatrix);
+          if (index == array.length - 1) {
+            // Verdana is one of the few web safe fonts with equal sized digit widths.
+            // (Tahoma is close, but in an animation you can see things wiggle.)
+            context.font = "0.5px Verdana";
+            context.fillStyle = "white";
+            context.textBaseline = "top";
+            context.fillText(
+              `${segmentIndex} ${progressWithinSegment.toFixed(3)}: ${fourierKeyframes[segmentIndex]} → ${fourierKeyframes[segmentIndex + 1]}`,
+              0.25,
+              0.25,
+            );
+          }
+        });
+      }
     },
   };
   sceneList.add(scene);
