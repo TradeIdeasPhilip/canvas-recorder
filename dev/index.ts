@@ -23,6 +23,7 @@ import { Selectable, Showable } from "../src/showable.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { Point } from "../src/glib/path-shape.ts";
 import { transform } from "../src/glib/transforms.ts";
+import { AudioBuilder } from "./audio-builder.ts";
 
 // Consider setting toShow equal to one of these:
 import { morphTest } from "../src/morph-test.ts";
@@ -206,6 +207,19 @@ const audioElement = querySelector("audio", HTMLAudioElement);
     }
   });
 }
+
+(async () => {
+  const audioContent = new AudioBuilder(toShow.duration);
+  // This is just a random collection for testing.
+  // TODO read the correct values from toShow
+  await audioContent.add("./Define + for ℕ.m4a", 0);
+  await audioContent.add("./Define = for ℕ.m4a", 120000);
+  await audioContent.add(
+    "./Peano arithmetic Title Screen.m4a",
+    120000 + 3.25 * 60000,
+  );
+  await audioContent.assignToAudioElement(audioElement);
+})();
 
 /**
  * Redraw the canvas and update some other controls.
