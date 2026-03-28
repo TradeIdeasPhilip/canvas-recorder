@@ -1718,20 +1718,20 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 72500 + 8000 + 750, value: 1 },
     );
     result[3].schedule.push(
-      { time: 72500 + 5750 + 750 + 750, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 + 750 + 750, value: 1 },
+      { time: 72500 + 5750 + 750 + 75, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 + 750 + 75, value: 1 },
     );
     result[4].schedule.push(
-      { time: 72500 + 5750 + 750 + 750 + 750, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 + 750 + 750 + 750, value: 1 },
+      { time: 72500 + 5750 + 750 + 750 + 75, value: 0, easeAfter: easeOut },
+      { time: 72500 + 8000 + 750 + 750 + 75, value: 1 },
     );
     result[5].schedule.push(
       {
-        time: 72500 + 5750 + 750 + 750 + 750 + 750,
+        time: 72500 + 5750 + 750 + 750 + 750 + 75,
         value: 0,
         easeAfter: easeOut,
       },
-      { time: 72500 + 8000 + 750 + 750 + 750 + 750, value: 1 },
+      { time: 72500 + 8000 + 750 + 750 + 750 + 75, value: 1 },
     );
     return result;
   })();
