@@ -1,25 +1,18 @@
 export class AudioBuilder {
   private audioContext: AudioContext;
   private buffer: AudioBuffer;
-  private sampleRate: number;
 
   constructor(totalDurationMs: number) {
     this.audioContext = new (
       window.AudioContext || (window as any).webkitAudioContext
     )();
-    this.sampleRate = this.audioContext.sampleRate;
+    const sampleRate = this.audioContext.sampleRate;
+    const totalSamples = Math.ceil((totalDurationMs / 1000) * sampleRate);
 
-    const totalSamples = Math.ceil((totalDurationMs / 1000) * this.sampleRate);
-    this.buffer = this.audioContext.createBuffer(
-      2,
-      totalSamples,
-      this.sampleRate,
-    ); // 2 channels (stereo)
+    // Create buffer with 1 or 2 channels — we'll decide later based on first file
+    this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate); // Start with mono
   }
 
-  /**
-   * Add an audio clip from a URL at a specific time in the final track
-   */
   async add(
     url: string,
     startMsInResult: number,
@@ -28,56 +21,69 @@ export class AudioBuilder {
   ): Promise<void> {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
-    const audioBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    const inputBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
 
-    const startSample = Math.floor((startMsInResult / 1000) * this.sampleRate);
-    let samplesToCopy = audioBuffer.length;
+    // If this is the first file and it's stereo, upgrade our buffer to stereo
+    if (
+      this.buffer.numberOfChannels === 1 &&
+      inputBuffer.numberOfChannels === 2
+    ) {
+      const newBuffer = this.audioContext.createBuffer(
+        2,
+        this.buffer.length,
+        this.buffer.sampleRate,
+      );
+      // Copy existing mono data to both channels
+      for (let ch = 0; ch < 2; ch++) {
+        newBuffer.getChannelData(ch).set(this.buffer.getChannelData(0));
+      }
+      this.buffer = newBuffer;
+    }
 
-    // Apply trimming
-    const trimStartSamples = Math.floor(
-      (trimFromStartMs / 1000) * this.sampleRate,
-    );
-    const trimEndSamples = Math.floor((trimFromEndMs / 1000) * this.sampleRate);
+    const sampleRate = this.buffer.sampleRate;
+    let startSample = Math.floor((startMsInResult / 1000) * sampleRate);
+    let samplesToCopy = inputBuffer.length;
+
+    const trimStartSamples = Math.floor((trimFromStartMs / 1000) * sampleRate);
+    const trimEndSamples = Math.floor((trimFromEndMs / 1000) * sampleRate);
+
     samplesToCopy = Math.max(
       0,
       samplesToCopy - trimStartSamples - trimEndSamples,
     );
-
     if (samplesToCopy <= 0) return;
 
     const sourceStart = trimStartSamples;
-    const destStart = startSample;
 
-    // Copy each channel
-    for (let ch = 0; ch < Math.min(2, audioBuffer.numberOfChannels); ch++) {
-      const sourceData = audioBuffer.getChannelData(ch);
+    const numChannels = Math.min(
+      this.buffer.numberOfChannels,
+      inputBuffer.numberOfChannels,
+    );
+
+    for (let ch = 0; ch < numChannels; ch++) {
+      const sourceData = inputBuffer.getChannelData(ch);
       const destData = this.buffer.getChannelData(ch);
 
       for (let i = 0; i < samplesToCopy; i++) {
-        const destIndex = destStart + i;
-        if (destIndex >= this.buffer.length) break;
-        destData[destIndex] = sourceData[sourceStart + i];
+        const destIdx = startSample + i;
+        if (destIdx >= this.buffer.length) break;
+        destData[destIdx] = sourceData[sourceStart + i];
       }
     }
   }
 
-  /**
-   * Convert the built buffer to a WAV Blob (ready for <audio> or Mediabunny)
-   */
   async toBlob(): Promise<Blob> {
     const wavArrayBuffer = this.audioBufferToWav(this.buffer);
     return new Blob([wavArrayBuffer], { type: "audio/wav" });
   }
 
-  /**
-   * Convenience: Assign the result directly to an <audio> element
-   */
   async assignToAudioElement(audioElement: HTMLAudioElement): Promise<void> {
     const blob = await this.toBlob();
     audioElement.src = URL.createObjectURL(blob);
+    // Optional: audioElement.load();
   }
 
-  // Simple WAV encoder (16-bit PCM)
+  // Simple 16-bit PCM WAV encoder
   private audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
@@ -85,7 +91,6 @@ export class AudioBuilder {
     const arrayBuffer = new ArrayBuffer(length);
     const view = new DataView(arrayBuffer);
 
-    // WAV header
     const writeString = (offset: number, str: string) => {
       for (let i = 0; i < str.length; i++)
         view.setUint8(offset + i, str.charCodeAt(i));
@@ -105,7 +110,6 @@ export class AudioBuilder {
     writeString(36, "data");
     view.setUint32(40, buffer.length * numChannels * 2, true);
 
-    // Write PCM data
     let offset = 44;
     for (let i = 0; i < buffer.length; i++) {
       for (let ch = 0; ch < numChannels; ch++) {
