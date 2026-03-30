@@ -6,6 +6,7 @@ import {
   lerp,
   makeBoundedLinear,
   positiveModulo,
+  sum,
 } from "phil-lib/misc";
 import { transform } from "./glib/transforms";
 import {
@@ -660,10 +661,103 @@ const sceneList = new MakeShowableInSeries("Scene List");
       { time: 1_000, value: 0, easeAfter: ease },
       { time: 3_000, value: 1 },
     ];
+    function distribute<
+      T extends { startMsIntoScene: number; lengthMs: number },
+    >(
+      clips: T[],
+      options: {
+        startFrom?: number;
+        endAt?: number;
+        startWeight?: number;
+        endWeight?: number;
+      },
+    ): T[] {
+      if (clips.length == 0) {
+        return clips;
+      }
+      const startFrom =
+        options.startFrom ??
+        Math.min(...clips.map(({ startMsIntoScene }) => startMsIntoScene));
+      const endAt =
+        options.endAt ??
+        Math.max(
+          ...clips.map(
+            ({ startMsIntoScene, lengthMs }) => startMsIntoScene + lengthMs,
+          ),
+        );
+      const timeAvailable = endAt - startFrom;
+      const timeUsed = sum(clips.map(({ lengthMs }) => lengthMs));
+      const timeToDistribute = timeAvailable - timeUsed;
+      if (timeToDistribute < 0) {
+        throw new Error("wtf");
+      }
+      /**
+       * Distribute the extra space evenly over this many spaces.
+       *
+       * Between each pair of clips is exactly one space.
+       * Before the first clip and after the last, that's configurable.
+       * By default they get 0 spaces.
+       * They can request a non-integer amount of space.
+       */
+      let numberOfSpaces = clips.length - 1;
+      let { startWeight, endWeight } = options;
+      if (numberOfSpaces == 0) {
+        // The default values for startWeight and endWeight are (conceptually) tiny positive numbers.
+        // Most of the time this is so close to 0 that it just gets rounds off to 0.
+        // But if everything else is 0, then all of the weight is given to the one of these that was undefined.
+        // If they are both undefined, then the weight is split evenly between them.
+        if (startWeight === undefined) {
+          if (endWeight === undefined) {
+            startWeight = 0.5;
+            endWeight = 0.5;
+          } else {
+            if (endWeight == 0) {
+              startWeight = 1;
+            } else {
+              startWeight = 0;
+            }
+          }
+        } else {
+          if (endWeight === undefined) {
+            if (startWeight == 0) {
+              endWeight = 1;
+            } else {
+              endWeight = 0;
+            }
+          }
+        }
+      } else {
+        startWeight??=0;
+        endWeight??=0;
+      }
+      if (startWeight < 0 || endWeight< 0  ) {throw new Error("wtf");}
+      numberOfSpaces += startWeight+endWeight;
+      if (numberOfSpaces <=0) {throw new Error("wtf");}
+      const msPerSpace = timeToDistribute/ numberOfSpaces;
+      let start = startFrom+ startWeight*msPerSpace;
+      clips.forEach((clip) => {
+        clip.startMsIntoScene = start;
+        start+= clip.lengthMs + msPerSpace;
+      })
+      return clips;
+    }
+    const qqq = distribute([], {});
     /**
      * Change between the text and the triangle.
      */
     const morph: Showable = {
+      soundClips: [
+        {
+          source: "./Sierpiński part 1.m4a",
+          lengthMs: 18000,
+          startMsIntoScene: 1000,
+        },
+        {
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: 24000,
+          startMsIntoClip: 18000,
+        },
+      ],
       duration: morphSchedule.at(-1)!.time,
       description: "morph",
       show(options) {

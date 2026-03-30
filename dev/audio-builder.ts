@@ -13,20 +13,70 @@ export class AudioBuilder {
     this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate); // Start with mono
   }
 
+  /**
+   * Add a new clip to the soundtrack.
+   * Overwrite any existing sounds at that position.
+   * @param url Where to find the file.
+   *
+   * I typically use vite dev mode to run my project.
+   * I put the files in the `/public` directory of the project.
+   * And the url will start with "./".
+   *
+   * CORS can be an issue depending on the server.
+   * Local files are forbidden.
+   * @param startMsInDestination 0 to play the new clip at the the beginning of the video.
+   * 1000 to start this clip 1 second after the video starts.
+   *
+   * Negative numbers are explicitly prohibited.
+   * @param trimFromStartMs Where to start the clip.
+   * 0 to play the entire clip.
+   * 500 to trim the first half second from the clip.
+   * The default is 0.
+   *
+   * If you fast forward the resulting video to `startMsInDestination` in your video player,
+   * and you fast forward the initial clip in another player to `trimFromStartMs`,
+   * and you hit play in both at the same time,
+   * they'd play the same thing.
+   * @param length How much of this clip to include.
+   * Stop copying this many milliseconds after `trimFromStartMs`.
+   *
+   * This value will be clamped to a reasonable range.
+   * Requesting 0 or fewer milliseconds means to copy nothing.
+   * We stop copying when we get to this much time,
+   * the end of the source, or the end of the destination,
+   * whichever comes first.
+   *
+   * The default is `Infinity`, to copy the entire clip or as much as will fit.
+   * @returns This promise will resolve (or reject) when the request is complete.
+   */
   async add(
     url: string,
-    startMsInResult: number,
+    startMsInDestination: number,
     trimFromStartMs: number = 0,
-    trimFromEndMs: number = 0,
+    length: number = Infinity,
   ): Promise<void> {
+    if (trimFromStartMs < 0 || startMsInDestination < 0) {
+      // I could deal with these in a ration way.
+      // If required I would.
+      // But I can't imagine any case where I need that.
+      // It would make the code more complicated, harder to read and harder to test.
+      /*
+        if (startMsInResult < 0) {
+          trimFromStartMs -= startMsInResult;
+          length += startMsInResult;
+          startMsInResult=0;
+        }
+      */
+      throw new Error("wtf");
+    }
     const response = await fetch(url);
-    const arrayBuffer = await response.arrayBuffer();
-    const inputBuffer = await this.audioContext.decodeAudioData(arrayBuffer);
+    const encodedSource = await response.arrayBuffer();
+    const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
 
     // If this is the first file and it's stereo, upgrade our buffer to stereo
     if (
       this.buffer.numberOfChannels === 1 &&
-      inputBuffer.numberOfChannels === 2
+      sourceBuffer.numberOfChannels === 2
     ) {
       const newBuffer = this.audioContext.createBuffer(
         2,
@@ -40,34 +90,32 @@ export class AudioBuilder {
       this.buffer = newBuffer;
     }
 
-    const sampleRate = this.buffer.sampleRate;
-    let startSample = Math.floor((startMsInResult / 1000) * sampleRate);
-    let samplesToCopy = inputBuffer.length;
-
-    const trimStartSamples = Math.floor((trimFromStartMs / 1000) * sampleRate);
-    const trimEndSamples = Math.floor((trimFromEndMs / 1000) * sampleRate);
-
-    samplesToCopy = Math.max(
-      0,
-      samplesToCopy - trimStartSamples - trimEndSamples,
+    const samplesPerMs = this.buffer.sampleRate / 1000;
+    const destinationStartIndex = Math.floor(
+      startMsInDestination * samplesPerMs,
     );
-    if (samplesToCopy <= 0) return;
-
-    const sourceStart = trimStartSamples;
+    const maxSamplesToCopy = Math.floor(length * samplesPerMs);
+    const sourceStartIndex = Math.floor(trimFromStartMs * samplesPerMs);
 
     const numChannels = Math.min(
       this.buffer.numberOfChannels,
-      inputBuffer.numberOfChannels,
+      sourceBuffer.numberOfChannels,
     );
 
     for (let ch = 0; ch < numChannels; ch++) {
-      const sourceData = inputBuffer.getChannelData(ch);
-      const destData = this.buffer.getChannelData(ch);
+      const sourceData = sourceBuffer.getChannelData(ch);
+      const destinationData = this.buffer.getChannelData(ch);
 
-      for (let i = 0; i < samplesToCopy; i++) {
-        const destIdx = startSample + i;
-        if (destIdx >= this.buffer.length) break;
-        destData[destIdx] = sourceData[sourceStart + i];
+      for (let i = 0; i < maxSamplesToCopy; i++) {
+        const destinationIndex = destinationStartIndex + i;
+        if (destinationIndex >= this.buffer.length) {
+          break;
+        }
+        const sourceIndex = sourceStartIndex + i;
+        if (sourceIndex >= sourceData.length) {
+          break;
+        }
+        destinationData[destinationIndex] = sourceData[sourceStartIndex + i];
       }
     }
   }

@@ -32,6 +32,13 @@ export type Selectable = {
     readonly start: number;
     readonly child: Selectable;
   }[];
+
+  readonly soundClips?: readonly {
+    readonly source: string;
+    readonly startMsIntoScene: number;
+    readonly startMsIntoClip?: number;
+    readonly lengthMs?: number;
+  }[];
 };
 
 /**

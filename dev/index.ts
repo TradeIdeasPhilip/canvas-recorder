@@ -210,14 +210,24 @@ const audioElement = querySelector("audio", HTMLAudioElement);
 
 (async () => {
   const audioContent = new AudioBuilder(toShow.duration);
-  // This is just a random collection for testing.
-  // TODO read the correct values from toShow
-  await audioContent.add("./Define + for ℕ.m4a", 0);
-  await audioContent.add("./Define = for ℕ.m4a", 120000);
-  await audioContent.add(
-    "./Peano arithmetic Title Screen.m4a",
-    120000 + 3.25 * 60000,
-  );
+  async function doIt(item: Selectable, offset: number) {
+    if (item.soundClips) {
+      for (const clip of item.soundClips) {
+        await audioContent.add(
+          clip.source,
+          offset + clip.startMsIntoScene,
+          clip.startMsIntoClip,
+          clip.lengthMs,
+        );
+      }
+    }
+    if (item.children) {
+      for (const { child, start } of item.children) {
+        await doIt(child, offset + start);
+      }
+    }
+  }
+  await doIt(toShow, 0);
   await audioContent.assignToAudioElement(audioElement);
 })();
 
