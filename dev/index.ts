@@ -195,7 +195,7 @@ function loadPlayPositionRange() {
 let playOffset = NaN;
 
 let syncWithAudio = false;
-const audioElement = querySelector("audio", HTMLAudioElement);
+const audioElement = querySelector("#mainAudio", HTMLAudioElement);
 {
   const playControlsFieldset = getById("play-controls", HTMLFieldSetElement);
   const lockAudioAndVideoInput = getById("lock-audio-video", HTMLInputElement);

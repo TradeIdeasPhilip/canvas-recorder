@@ -72,6 +72,8 @@ export class AudioBuilder {
     const response = await fetch(url);
     const encodedSource = await response.arrayBuffer();
     const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
+    //console.log(this.audioContext.sampleRate)
+    // this.audioContext.sampleRate → 48000.
 
     // If this is the first file and it's stereo, upgrade our buffer to stereo
     if (
