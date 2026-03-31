@@ -135,17 +135,7 @@ function redraw() {
     context.textBaseline = "middle";
     context.fillText("Empty file.", canvas.width / 2, canvas.height / 2);
   } else {
-    const triangleHeight = canvasSize.height / 20;
-    const triangleBase = (triangleHeight * 2) / Math.sqrt(3);
-    const clientHeight = canvasSize.height - triangleHeight;
-    const zoom = 10;
-    context.beginPath();
-    context.moveTo(canvasSize.width / 2, clientHeight);
-    context.lineTo((canvasSize.width - triangleBase) / 2, canvasSize.height);
-    context.lineTo((canvasSize.width + triangleBase) / 2, canvasSize.height);
-    context.closePath();
-    context.fillStyle = "lime";
-    context.fill();
+    const chartHeight = canvasSize.height;
     const startingInputIndex = sourceRange.startIndex;
     const endInputIndex = sourceRange.endIndex;
     const startingX = 0;
@@ -165,6 +155,7 @@ function redraw() {
       endInputIndex,
       endX,
     );
+    const sampleValueToY = makeLinear(1, 0, -1, chartHeight);
     const indexFromAudio = audioElement.currentTime * audioContext.sampleRate;
     context.fillStyle = "white";
     context.fillRect(0, 0, inputIndexToX(indexFromAudio), canvasSize.height);
@@ -172,21 +163,33 @@ function redraw() {
       const start = xToInputIndex(x);
       const end = xToInputIndex(x + 1);
       if (end > start) {
-        let sumOfSquares = 0;
-        let maxValue = 0;
+        let maxValue = -Infinity;
+        let minValue = Infinity;
         for (let index = start; index < end; index++) {
           const sample = soundData[index];
-          sumOfSquares += sample * sample;
-          maxValue = Math.max(maxValue, Math.abs(sample));
+          maxValue = Math.max(maxValue, sample);
+          minValue = Math.min(minValue, sample);
         }
         /**
          * Range should be 0 to 1.
          */
-        context.fillStyle = "magenta";
-        context.fillRect(x, clientHeight, 1, maxValue * -clientHeight);
         context.fillStyle = "black";
-        const value = Math.sqrt(sumOfSquares / (end - start));
-        context.fillRect(x, clientHeight, 1, value * -clientHeight);
+        /**
+         * The largest sample value corresponds to the smallest y value,
+         * i.e. the top of the rectangle.
+         */
+        const top = sampleValueToY(maxValue);
+        /**
+         * The smallest sample value corresponds to the largest y value,
+         * i.e. the bottom of the rectangle.
+         */
+        const bottom = sampleValueToY(minValue);
+        /**
+         * A *positive* number,
+         * meaning that we go *down* from the starting point.
+         */
+        const height = bottom - top;
+        context.fillRect(x, top, 1, height);
       }
     }
   }
