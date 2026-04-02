@@ -100,6 +100,14 @@ let audioTimeAtLastRedraw = audioElement.currentTime;
 let inputIndexToX: LinearFunction = makeLinear(0, 0, 1, 1);
 let xToInputIndexContinuous: LinearFunction = makeLinear(0, 0, 1, 1);
 
+const clips: {
+  color: string;
+  startIndex: number;
+  endIndex: number;
+  notes: string;
+  row: HTMLTableRowElement;
+}[] = [];
+
 /**
  * Update the display to match {@link soundData}.
  *
@@ -173,6 +181,13 @@ function redraw() {
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = "#ddd";
     context.fillRect(0, 0, inputIndexToX(indexFromAudio), canvasSize.height);
+    clips.forEach((clip) => {
+      context.fillStyle = clip.color;
+      const left = inputIndexToX(clip.startIndex);
+      const right = inputIndexToX(clip.endIndex);
+      const width = right - left;
+      context.fillRect(left, 0, width, canvasSize!.height / 3);
+    });
     for (let x = 0; x < canvasSize.width; x++) {
       const start = xToInputIndex(x);
       const end = xToInputIndex(x + 1);
@@ -226,13 +241,6 @@ new AnimationLoop(() => {
 const sssss = (() => {
   const samplesTable = getById("soundClips", HTMLTableElement);
   const colorsAvailable = [...myRainbow];
-  const clips: {
-    color: String;
-    startIndex: number;
-    endIndex: number;
-    notes: string;
-    row: HTMLTableRowElement;
-  }[] = [];
   function playClip(x0: number, x1: number) {
     const startSeconds = xToInputIndexContinuous(x0) / audioContext.sampleRate;
     const endSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
@@ -268,7 +276,7 @@ const sssss = (() => {
     notesCell.textContent = "Type here.";
     notesCell.contentEditable = "plaintext-only";
     const recycleButton = document.createElement("button");
-    recycleButton.textContent = "♲";
+    recycleButton.textContent = "🗑️"; //♻
     buttonsCell.appendChild(recycleButton);
     const resizeLeftButton = document.createElement("button");
     resizeLeftButton.textContent = "⇤";
@@ -290,6 +298,7 @@ const sssss = (() => {
       notes: "TODO",
     };
     clips.push(clipInfo);
+    needRedraw = true;
     recycleButton.addEventListener("click", (event) => {
       row.remove();
       const index = clips.findIndex((clip) => clip == clipInfo);
@@ -332,5 +341,46 @@ const sssss = (() => {
     },
   });
 })();
+
+{
+  getById("zoomOut", HTMLButtonElement).addEventListener("click", () => {
+    if (!soundData) {
+      return;
+    }
+    const center = (sourceRange.endIndex + sourceRange.startIndex) / 2;
+    const originalSize = sourceRange.endIndex - sourceRange.startIndex;
+    const newSize = Math.min(originalSize * 2, soundData.length);
+    let newStart = Math.max(0, Math.floor(center - newSize / 2));
+    let newEnd = newStart + newSize;
+    if (newEnd > soundData.length) {
+      newStart -= newEnd - soundData.length;
+      newEnd = soundData.length;
+    }
+    setSourceRange(newStart, newEnd);
+  });
+  getById("panLeft", HTMLButtonElement).addEventListener("click", () => {
+    if (!soundData) {
+      return;
+    }
+    const size = sourceRange.endIndex - sourceRange.startIndex;
+    const move = size * -0.9;
+    const newStart = Math.max(0, sourceRange.startIndex + move);
+    const newEnd = newStart + size;
+    setSourceRange(newStart, newEnd);
+  });
+  getById("panRight", HTMLButtonElement).addEventListener("click", () => {
+    if (!soundData) {
+      return;
+    }
+    const size = sourceRange.endIndex - sourceRange.startIndex;
+    const move = size * +0.9;
+    const newEnd = Math.min(soundData.length, sourceRange.endIndex + move);
+    const newStart = newEnd - size;
+    setSourceRange(newStart, newEnd);
+  });
+  getById("recenter", HTMLButtonElement).addEventListener("click", () => {
+    alert("TODO");
+  });
+}
 
 (window as any).PDS = { redraw };

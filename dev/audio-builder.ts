@@ -1,5 +1,15 @@
+/**
+ * This creates a complete audio clip by joining multiple clips.
+ * It starts with all silence and you can add the clips wherever you need them.
+ */
 export class AudioBuilder {
+  /**
+   * This is the default audio context.
+   */
   private audioContext: AudioContext;
+  /**
+   * This is the sound we are building.
+   */
   private buffer: AudioBuffer;
 
   constructor(totalDurationMs: number) {
