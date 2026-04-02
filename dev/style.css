@@ -4,12 +4,14 @@
   aspect-ratio: 16 / 9;
 }
 
-td:nth-child(3) {
+#relevantRows td:nth-child(3) {
   text-align: right;
+  font-family: Verdana;
 }
 
-td:nth-child(4) {
+#relevantRows td:nth-child(4) {
   text-align: right;
+  font-family: Verdana;
 }
 
 .range-container {
@@ -27,4 +29,28 @@ body {
 
 audio {
   width: unset;
+}
+
+#soundClips {
+  border-collapse: collapse;
+  font-family: Verdana;
+}
+
+#soundClips tr td {
+  padding: 0 0.5em;
+}
+
+#soundClips td:nth-child(1) {
+  text-align: right;
+  font-family: Verdana;
+}
+
+#soundClips td:nth-child(2) {
+  text-align: right;
+  font-family: Verdana;
+}
+
+#soundClips td:nth-child(3) {
+  text-align: right;
+  font-family: Verdana;
 }

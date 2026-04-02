@@ -1,9 +1,17 @@
 import { AnimationLoop, getById } from "phil-lib/client-misc";
-import { assertFinite, assertNonNullable, makeLinear } from "phil-lib/misc";
+import {
+  assertFinite,
+  assertNonNullable,
+  LinearFunction,
+  makeLinear,
+} from "phil-lib/misc";
+import { clickDragAndOnce } from "../src/click-and-drag";
+import { myRainbow } from "../src/glib/my-rainbow";
 
 export {};
 
 const audioElement = getById("soundExplorer", HTMLAudioElement);
+const statusDiv = getById("soundStatus", HTMLDivElement);
 const canvas = getById("audioViewer", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
@@ -29,6 +37,7 @@ function setSourceRange(startIndex: number, endIndex: number) {
 let needRedraw = true;
 
 let soundData: Float32Array<ArrayBuffer> | undefined;
+let sourceBuffer: AudioBuffer | undefined;
 
 /**
  * This can affect the display.
@@ -55,7 +64,7 @@ async function reload() {
     const url = audioElement.src;
     const response = await fetch(url);
     const encodedSource = await response.arrayBuffer();
-    const sourceBuffer = await audioContext.decodeAudioData(encodedSource);
+    sourceBuffer = await audioContext.decodeAudioData(encodedSource);
     if (sourceBuffer.numberOfChannels != 1) {
       console.warn(
         `Multiple channels are not supported.  Found ${sourceBuffer.numberOfChannels} channels in ${url}.`,
@@ -87,6 +96,9 @@ async function reload() {
 let canvasSize: { readonly width: number; readonly height: number } | undefined;
 
 let audioTimeAtLastRedraw = audioElement.currentTime;
+
+let inputIndexToX: LinearFunction = makeLinear(0, 0, 1, 1);
+let xToInputIndexContinuous: LinearFunction = makeLinear(0, 0, 1, 1);
 
 /**
  * Update the display to match {@link soundData}.
@@ -125,7 +137,7 @@ function redraw() {
     // I.e. we need to keep track of if a call is in progress in both cases.
     // The latter seems like a nicety, but the former is really annoying me.
     context.fillText(
-      reloadInProgress ? "Loading" : "No Data.",
+      reloadInProgress ? "Loading..." : "No Data.",
       canvas.width / 2,
       canvas.height / 2,
     );
@@ -140,16 +152,16 @@ function redraw() {
     const endInputIndex = sourceRange.endIndex;
     const startingX = 0;
     const endX = canvasSize.width;
-    const xToInputIndexHelper = makeLinear(
+    xToInputIndexContinuous = makeLinear(
       startingX,
       startingInputIndex,
       endX,
       endInputIndex,
     );
     function xToInputIndex(x: number) {
-      return xToInputIndexHelper(x) | 0;
+      return xToInputIndexContinuous(x) | 0;
     }
-    const inputIndexToX = makeLinear(
+    inputIndexToX = makeLinear(
       startingInputIndex,
       startingX,
       endInputIndex,
@@ -158,6 +170,8 @@ function redraw() {
     const sampleValueToY = makeLinear(1, 0, -1, chartHeight);
     const indexFromAudio = audioElement.currentTime * audioContext.sampleRate;
     context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = "#ddd";
     context.fillRect(0, 0, inputIndexToX(indexFromAudio), canvasSize.height);
     for (let x = 0; x < canvasSize.width; x++) {
       const start = xToInputIndex(x);
@@ -201,14 +215,122 @@ function redraw() {
 const resizeObserver = new ResizeObserver((_entries) => {
   console.log("resize", new Date().toLocaleTimeString());
   canvasSize = undefined;
-  redraw();
 });
 resizeObserver.observe(canvas, { box: "device-pixel-content-box" });
-redraw();
 reload();
 
 new AnimationLoop(() => {
   redraw();
 });
+
+const sssss = (() => {
+  const samplesTable = getById("soundClips", HTMLTableElement);
+  const colorsAvailable = [...myRainbow];
+  const clips: {
+    color: String;
+    startIndex: number;
+    endIndex: number;
+    notes: string;
+    row: HTMLTableRowElement;
+  }[] = [];
+  function playClip(x0: number, x1: number) {
+    const startSeconds = xToInputIndexContinuous(x0) / audioContext.sampleRate;
+    const endSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
+    const durationSeconds = endSeconds - startSeconds;
+    const source = audioContext.createBufferSource();
+    source.buffer = assertNonNullable(sourceBuffer);
+    source.connect(audioContext.destination);
+    source.start(audioContext.currentTime, startSeconds, durationSeconds);
+    // TODO save `source` in case you want to abort the playback.
+    console.log(source);
+  }
+  function createNewClip(x0: number, x1: number) {
+    // Dragging left to right creates a new row.
+    const color = colorsAvailable.shift();
+    if (color === undefined) {
+      return;
+    }
+    const row = samplesTable.insertRow(1);
+    const startTimeCell = row.insertCell();
+    const endTimeCell = row.insertCell();
+    const durationCell = row.insertCell();
+    const notesCell = row.insertCell();
+    const buttonsCell = row.insertCell();
+    row.style.backgroundColor = color;
+    row.style.color = "black";
+    const startIndex = xToInputIndexContinuous(x0);
+    const startSeconds = startIndex / audioContext.sampleRate;
+    const endIndex = xToInputIndexContinuous(x1);
+    const endSeconds = endIndex / audioContext.sampleRate;
+    startTimeCell.textContent = startSeconds.toFixed(3);
+    endTimeCell.textContent = endSeconds.toFixed(3);
+    durationCell.textContent = (endSeconds - startSeconds).toFixed(3);
+    notesCell.textContent = "Type here.";
+    notesCell.contentEditable = "plaintext-only";
+    const recycleButton = document.createElement("button");
+    recycleButton.textContent = "♲";
+    buttonsCell.appendChild(recycleButton);
+    const resizeLeftButton = document.createElement("button");
+    resizeLeftButton.textContent = "⇤";
+    buttonsCell.appendChild(resizeLeftButton);
+    const resizeRightButton = document.createElement("button");
+    resizeRightButton.textContent = "⇥";
+    buttonsCell.appendChild(resizeRightButton);
+    const zoomButton = document.createElement("button");
+    zoomButton.textContent = "🔎";
+    buttonsCell.appendChild(zoomButton);
+    const playButton = document.createElement("button");
+    playButton.textContent = "▶️";
+    buttonsCell.appendChild(playButton);
+    const clipInfo: (typeof clips)[number] = {
+      color,
+      startIndex,
+      endIndex,
+      row,
+      notes: "TODO",
+    };
+    clips.push(clipInfo);
+    recycleButton.addEventListener("click", (event) => {
+      row.remove();
+      const index = clips.findIndex((clip) => clip == clipInfo);
+      if (index < 0) {
+        throw new Error("wtf");
+      }
+      clips.splice(index, 1);
+      colorsAvailable.push(color);
+    });
+    playButton.addEventListener("click", (event) => {
+      playClip(x0, x1);
+    });
+    zoomButton.addEventListener("click", () => {
+      setSourceRange(startIndex, endIndex);
+      //         const startIndex = Math.floor(xToInputIndexContinuous(x1));
+      //  const endIndex = Math.ceil(xToInputIndexContinuous(x0));
+    });
+  }
+  const clickAndDrag = clickDragAndOnce(canvas, {
+    onClick(x, _y) {
+      audioElement.currentTime =
+        xToInputIndexContinuous(x) / audioContext.sampleRate;
+      //   statusDiv.textContent = `${x} pixels, ${(x / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x))}, ${xToInputIndexContinuous(x) / audioContext.sampleRate} seconds`;
+    },
+    onDrag(x0, _y0, x1, _y1, status) {
+      if (status != "mouseup") {
+        return;
+      }
+      if (x0 < x1) {
+        // playClip(x0,x1);
+        // Dragging left to right creates a new clip.
+        createNewClip(x0, x1);
+      } else {
+        // Dragging right to left zooms in.
+        const startIndex = Math.floor(xToInputIndexContinuous(x1));
+        const endIndex = Math.ceil(xToInputIndexContinuous(x0));
+        setSourceRange(startIndex, endIndex);
+      }
+      //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
+    },
+  });
+})();
 
 (window as any).PDS = { redraw };

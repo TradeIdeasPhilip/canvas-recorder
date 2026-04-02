@@ -49,7 +49,7 @@
         ><button id="previousButton">Previous</button
         ><button id="nextButton">Next</button>
       </div>
-      <table>
+      <table id="relevantRows">
         <tr>
           <th></th>
           <th></th>
@@ -129,6 +129,17 @@
     <div style="display: flex; align-items: center; gap: 0.75em">
       <canvas id="audioViewer" style="height: 5em; flex-grow: 1"></canvas>
     </div>
+    <div id="soundStatus">
+      Swipe right → to select. Swipe ← left to zoom. Click to sync the player.
+    </div>
+    <table id="soundClips">
+      <tr>
+        <th>Start</th>
+        <th>End</th>
+        <th>Duration</th>
+        <th>Notes</th>
+      </tr>
+    </table>
     <h1>Assets</h1>
     <img
       id="Peano"
