@@ -300,6 +300,7 @@ const sssss = (() => {
     clips.push(clipInfo);
     needRedraw = true;
     recycleButton.addEventListener("click", (event) => {
+      needRedraw = true;
       row.remove();
       const index = clips.findIndex((clip) => clip == clipInfo);
       if (index < 0) {
