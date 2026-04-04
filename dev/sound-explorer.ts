@@ -8,8 +8,6 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
-export {};
-
 const audioElement = getById("soundExplorer", HTMLAudioElement);
 const statusDiv = getById("soundStatus", HTMLDivElement);
 const canvas = getById("audioViewer", HTMLCanvasElement);
@@ -100,13 +98,205 @@ let audioTimeAtLastRedraw = audioElement.currentTime;
 let inputIndexToX: LinearFunction = makeLinear(0, 0, 1, 1);
 let xToInputIndexContinuous: LinearFunction = makeLinear(0, 0, 1, 1);
 
-const clips: {
-  color: string;
-  startIndex: number;
-  endIndex: number;
-  notes: string;
-  row: HTMLTableRowElement;
-}[] = [];
+type FromClipManager = Parameters<typeof ClipManager.validate>[0];
+
+class Clip {
+  #displayIndex(clipCount: number): string {
+    return (clipCount / audioContext.sampleRate).toFixed(3);
+  }
+  #notify() {
+    this.owner.notify();
+  }
+  #color = "";
+  get color() {
+    return this.#color;
+  }
+  set color(newValue) {
+    if (newValue !== this.#color) {
+      this.#row.style.backgroundColor = newValue;
+      this.#notify();
+    }
+    this.#color = newValue;
+  }
+  #startIndex = -Infinity;
+  get startIndex() {
+    return this.#startIndex;
+  }
+  #startTimeCell: HTMLTableCellElement;
+  #durationCell: HTMLTableCellElement;
+  set startIndex(newValue) {
+    if (newValue !== this.#startIndex) {
+      this.#startIndex = newValue;
+      this.#notify();
+      this.#startTimeCell.textContent = this.#displayIndex(this.#startIndex);
+      this.#durationCell.textContent = this.#displayIndex(
+        this.endIndex - this.startIndex,
+      );
+    }
+  }
+  #endIndex = -Infinity;
+  get endIndex() {
+    return this.#endIndex;
+  }
+  #endTimeCell: HTMLTableCellElement;
+  set endIndex(newValue) {
+    if (newValue !== this.#endIndex) {
+      this.#endIndex = newValue;
+      this.#notify();
+      this.#endTimeCell.textContent = this.#displayIndex(this.#endIndex);
+      this.#durationCell.textContent = this.#displayIndex(
+        this.endIndex - this.startIndex,
+      );
+    }
+  }
+  #notes = "";
+  get notes() {
+    return this.#notes;
+  }
+  #notesCell: HTMLTableCellElement;
+  set notes(newValue) {
+    if (newValue !== this.#notes) {
+      this.#notesCell.textContent = this.#notes = newValue;
+      this.#notify();
+    }
+  }
+  readonly #row: HTMLTableRowElement;
+  constructor(
+    readonly owner: ClipManager,
+    onlyClipManagerIsAllowedToCallThisConstructor: FromClipManager,
+  ) {
+    ClipManager.validate(onlyClipManagerIsAllowedToCallThisConstructor);
+    {
+      const row = (this.#row = this.owner.samplesTable.insertRow(1));
+      this.#startTimeCell = row.insertCell();
+      this.#endTimeCell = row.insertCell();
+      this.#durationCell = row.insertCell();
+      this.#notesCell = row.insertCell();
+      this.#notesCell.contentEditable = "plaintext-only";
+      // TODO When the user updates that, call this.#notify()
+      const buttonsCell = row.insertCell();
+      const recycleButton = document.createElement("button");
+      recycleButton.textContent = "🗑️"; //♻
+      buttonsCell.appendChild(recycleButton);
+      recycleButton.addEventListener("click", () => {
+        this.remove();
+      });
+      const resizeLeftButton = document.createElement("button");
+      resizeLeftButton.textContent = "⇤";
+      buttonsCell.appendChild(resizeLeftButton);
+      const resizeRightButton = document.createElement("button");
+      resizeRightButton.textContent = "⇥";
+      buttonsCell.appendChild(resizeRightButton);
+      const zoomButton = document.createElement("button");
+      zoomButton.textContent = "🔎";
+      buttonsCell.appendChild(zoomButton);
+      zoomButton.addEventListener("click", () => {
+        setSourceRange(this.startIndex, this.endIndex);
+      });
+      const playButton = document.createElement("button");
+      playButton.textContent = "▶️";
+      buttonsCell.appendChild(playButton);
+      playButton.addEventListener("click", () => {
+        this.play();
+      });
+
+      row.style.color = "black";
+      // Now that we've created the GUI,
+      // set the default properties here.
+      // This will populate the GUI.
+      this.color = "rgb(1, 141, 115)";
+      this.notes = "Type here.";
+      this.startIndex = 0;
+      this.endIndex = 0;
+    }
+  }
+  /**
+   * If anyone but the {@link ClipManager} calls this, pass the request on to the clip manager.
+   */
+  remove(): void;
+  /**
+   * Remove the entry in the GUI.
+   * @param fromClipManager Set this if called from the clip manager.
+   */
+  remove(fromClipManager: FromClipManager): void;
+  remove(fromClipManager?: FromClipManager) {
+    if (fromClipManager === undefined) {
+      this.owner.remove(this);
+    } else {
+      ClipManager.validate(fromClipManager);
+      this.#row.remove();
+    }
+  }
+  readonly guid = crypto.randomUUID();
+  play() {
+    const startSeconds = this.startIndex / audioContext.sampleRate;
+    const endSeconds = this.endIndex / audioContext.sampleRate;
+    const durationSeconds = endSeconds - startSeconds;
+    const source = audioContext.createBufferSource();
+    source.buffer = assertNonNullable(sourceBuffer);
+    source.connect(audioContext.destination);
+    source.start(audioContext.currentTime, startSeconds, durationSeconds);
+    // TODO save `source` in case you want to abort the playback.
+    console.log(source);
+  }
+}
+
+class ClipManager {
+  private static readonly symbol: unique symbol = Symbol(
+    "Valid Clip Constructor Request",
+  );
+  static validate(symbol: typeof this.symbol) {
+    if (symbol !== this.symbol) {
+      throw new Error("wtf");
+    }
+  }
+  constructor(
+    readonly samplesTable = getById("soundClips", HTMLTableElement),
+  ) {}
+  #clips = new Array<Clip>();
+  get clips(): ReadonlyArray<Clip> {
+    return this.#clips;
+  }
+  createClip(
+    initialValues: {
+      color?: string;
+      startIndex?: number;
+      endIndex?: number;
+      notes?: string;
+    } = {},
+  ) {
+    const result = new Clip(this, ClipManager.symbol);
+    result.color = initialValues.color ?? result.color;
+    result.startIndex = initialValues.startIndex ?? result.startIndex;
+    result.endIndex = initialValues.endIndex ?? result.endIndex;
+    result.notes = initialValues.notes ?? result.notes;
+    this.#clips.push(result);
+    this.notify();
+    return result;
+  }
+  notify() {
+    needRedraw = true;
+    if (!this.#pushPending) {
+      this.#pushPending = true;
+      setTimeout(() => {
+        this.#pushPending = false;
+        this.#pushNow();
+      }, 1);
+    }
+  }
+  #pushPending = false;
+  #pushNow() {}
+  remove(clip: Clip) {
+    const index = this.#clips.findIndex((atThisIndex) => atThisIndex == clip);
+    if (index < 0) {
+      throw new Error("not found");
+    }
+    this.notify();
+    clip.remove(ClipManager.symbol);
+    this.#clips.splice(index, 1);
+  }
+}
+const clipManager = new ClipManager();
 
 /**
  * Update the display to match {@link soundData}.
@@ -181,7 +371,7 @@ function redraw() {
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = "#ddd";
     context.fillRect(0, 0, inputIndexToX(indexFromAudio), canvasSize.height);
-    clips.forEach((clip) => {
+    clipManager.clips.forEach((clip) => {
       context.fillStyle = clip.color;
       const left = inputIndexToX(clip.startIndex);
       const right = inputIndexToX(clip.endIndex);
@@ -258,65 +448,9 @@ const sssss = (() => {
     if (color === undefined) {
       return;
     }
-    const row = samplesTable.insertRow(1);
-    const startTimeCell = row.insertCell();
-    const endTimeCell = row.insertCell();
-    const durationCell = row.insertCell();
-    const notesCell = row.insertCell();
-    const buttonsCell = row.insertCell();
-    row.style.backgroundColor = color;
-    row.style.color = "black";
     const startIndex = xToInputIndexContinuous(x0);
-    const startSeconds = startIndex / audioContext.sampleRate;
     const endIndex = xToInputIndexContinuous(x1);
-    const endSeconds = endIndex / audioContext.sampleRate;
-    startTimeCell.textContent = startSeconds.toFixed(3);
-    endTimeCell.textContent = endSeconds.toFixed(3);
-    durationCell.textContent = (endSeconds - startSeconds).toFixed(3);
-    notesCell.textContent = "Type here.";
-    notesCell.contentEditable = "plaintext-only";
-    const recycleButton = document.createElement("button");
-    recycleButton.textContent = "🗑️"; //♻
-    buttonsCell.appendChild(recycleButton);
-    const resizeLeftButton = document.createElement("button");
-    resizeLeftButton.textContent = "⇤";
-    buttonsCell.appendChild(resizeLeftButton);
-    const resizeRightButton = document.createElement("button");
-    resizeRightButton.textContent = "⇥";
-    buttonsCell.appendChild(resizeRightButton);
-    const zoomButton = document.createElement("button");
-    zoomButton.textContent = "🔎";
-    buttonsCell.appendChild(zoomButton);
-    const playButton = document.createElement("button");
-    playButton.textContent = "▶️";
-    buttonsCell.appendChild(playButton);
-    const clipInfo: (typeof clips)[number] = {
-      color,
-      startIndex,
-      endIndex,
-      row,
-      notes: "TODO",
-    };
-    clips.push(clipInfo);
-    needRedraw = true;
-    recycleButton.addEventListener("click", (event) => {
-      needRedraw = true;
-      row.remove();
-      const index = clips.findIndex((clip) => clip == clipInfo);
-      if (index < 0) {
-        throw new Error("wtf");
-      }
-      clips.splice(index, 1);
-      colorsAvailable.push(color);
-    });
-    playButton.addEventListener("click", (event) => {
-      playClip(x0, x1);
-    });
-    zoomButton.addEventListener("click", () => {
-      setSourceRange(startIndex, endIndex);
-      //         const startIndex = Math.floor(xToInputIndexContinuous(x1));
-      //  const endIndex = Math.ceil(xToInputIndexContinuous(x0));
-    });
+    const clip = clipManager.createClip({ color, startIndex, endIndex });
   }
   const clickAndDrag = clickDragAndOnce(canvas, {
     onClick(x, _y) {
