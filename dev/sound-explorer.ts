@@ -35,17 +35,32 @@ const context = assertNonNullable(canvas.getContext("2d"));
 
 const audioContext = new AudioContext();
 
-let sourceRange: { readonly startIndex: number; readonly endIndex: number } = {
+/**
+ * What to draw in the chart.
+ * More specifically, how much to zoom in.
+ *
+ */
+let sourceRange: {
+  readonly startIndex: number;
+  readonly endIndex: number;
+} = {
   startIndex: 0,
   endIndex: 0,
 };
+/**
+ * What to draw in the chart.
+ * More specifically, how much to zoom in.
+ * @param startIndex First thing to show.  Measured in number of samples.
+ * @param endIndex Last thing to show.  Measured in number of samples.
+ */
 function setSourceRange(startIndex: number, endIndex: number) {
   needRedraw = true;
   assertFinite(startIndex, endIndex);
+  if (endIndex < startIndex) {
+    throw new Error("wtf");
+  }
   sourceRange = { startIndex, endIndex };
 }
-(window as any).setSourceRange = setSourceRange;
-
 const colorsAvailable = [...myRainbow];
 function createNewClip(x0: number, x1: number) {
   // Dragging left to right creates a new row.
@@ -57,19 +72,105 @@ function createNewClip(x0: number, x1: number) {
   const endIndex = xToInputIndexContinuous(x1);
   const clip = clipManager.createClip({ color, startIndex, endIndex });
 }
+/**
+ * This class ensures that no more than one sound is playing at a time.
+ * This class can report status used to draw the chart, e.g. where is the play head.
+ */
+class RangePlaying {
+  private constructor() {
+    audioElement.addEventListener("play", () => {
+      this.stopTemporaries();
+    });
+  }
+  /**
+   * This might stick around after the clip is done playing.
+   *
+   * For one thing, there's no event to say that the clip is done playing.
+   * If this object exists, it could refer to a sound that is playing or the last one to finish.
+   *
+   * Sometimes we want to leave this in place, even after we are done playing it.
+   * When you do a quick swipe to do a play, you might want this to remain on the screen.
+   * If you like what you heard you might want to use that to guide your next clicks.
+   * (This paragraph describes a GUI that's coming soon and I don't know the details.)
+   */
+  #rangePlaying:
+    | {
+        realtimeStartSeconds: number;
+        rangeStartSeconds: number;
+        rangeEndSeconds: number;
+        source: AudioBufferSourceNode;
+      }
+    | undefined;
+  status(): {
+    playing: "main" | "clip" | "none";
+    secondsFromStart: number;
+    subrange?: {
+      realtimeStartSeconds: number;
+      rangeStartSeconds: number;
+      rangeEndSeconds: number;
+    };
+  } {
+    let playing: "main" | "clip" | "none" = audioElement.paused
+      ? "none"
+      : "main";
+    let secondsFromStart: number = audioElement.currentTime;
+    if (this.#rangePlaying) {
+      const timePassed = this.#rangePlaying.realtimeStartSeconds;
+      const proposedSecondsFromStart =
+        this.#rangePlaying.rangeStartSeconds + timePassed;
+      if (proposedSecondsFromStart < this.#rangePlaying.rangeEndSeconds) {
+        playing = "clip";
+        secondsFromStart = proposedSecondsFromStart;
+      }
+    }
+    return {
+      playing,
+      secondsFromStart,
+      subrange: this.#rangePlaying
+        ? {
+            rangeStartSeconds: this.#rangePlaying.rangeStartSeconds,
+            rangeEndSeconds: this.#rangePlaying.rangeEndSeconds,
+            realtimeStartSeconds: this.#rangePlaying.realtimeStartSeconds,
+          }
+        : undefined,
+    };
+  }
+  stopTemporaries() {
+    if (this.#rangePlaying) {
+      this.#rangePlaying.source.stop();
+      this.#rangePlaying = undefined;
+    }
+  }
+  stopAll() {
+    this.stopTemporaries();
+    audioElement.pause();
+  }
+  playTemporary(rangeStartSeconds: number, rangeEndSeconds: number) {
+    this.stopAll();
+    const durationSeconds = rangeEndSeconds - rangeStartSeconds;
+    const source = audioContext.createBufferSource();
+    source.buffer = assertNonNullable(sourceBuffer);
+    source.connect(audioContext.destination);
+    const realtimeStartSeconds = audioContext.currentTime;
+    source.start(realtimeStartSeconds, rangeStartSeconds, durationSeconds);
+    this.#rangePlaying = {
+      rangeStartSeconds,
+      rangeEndSeconds,
+      realtimeStartSeconds,
+      source,
+    };
+  }
+  static readonly instance = new this();
+}
+
 function playPixelRange(x0: number, x1: number) {
   if (x0 > x1) {
     [x0, x1] = [x1, x0];
   }
-  const startSeconds = xToInputIndexContinuous(x0) / audioContext.sampleRate;
-  const endSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
-  const durationSeconds = endSeconds - startSeconds;
-  const source = audioContext.createBufferSource();
-  source.buffer = assertNonNullable(sourceBuffer);
-  source.connect(audioContext.destination);
-  source.start(audioContext.currentTime, startSeconds, durationSeconds);
-  // TODO save `source` in case you want to abort the playback.
-  console.log(source);
+  const rangeStartSeconds =
+    xToInputIndexContinuous(x0) / audioContext.sampleRate;
+  const RangeEndSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
+  RangePlaying.instance.playTemporary(rangeStartSeconds, RangeEndSeconds);
 }
 const clickAndDrag = clickDragAndOnce(canvas, {
   onClick(x, _y) {
@@ -408,16 +509,18 @@ class Clip {
   play() {
     const startSeconds = this.startIndex / audioContext.sampleRate;
     const endSeconds = this.endIndex / audioContext.sampleRate;
-    const durationSeconds = endSeconds - startSeconds;
-    const source = audioContext.createBufferSource();
-    source.buffer = assertNonNullable(sourceBuffer);
-    source.connect(audioContext.destination);
-    source.start(audioContext.currentTime, startSeconds, durationSeconds);
-    // TODO save `source` in case you want to abort the playback.
-    console.log(source);
+    RangePlaying.instance.playTemporary(startSeconds, endSeconds);
   }
 }
 
+/**
+ * A list of all of the clips.
+ * This is the official source.
+ *
+ * This appears on the screen in a table.
+ *
+ * This will be synchronized with persistent storage.
+ */
 class ClipManager {
   private static readonly symbol: unique symbol = Symbol(
     "Valid Clip Constructor Request",
@@ -462,7 +565,9 @@ class ClipManager {
     }
   }
   #pushPending = false;
-  #pushNow() {}
+  #pushNow() {
+    // TODO push to persistent storage.
+  }
   remove(clip: Clip) {
     const index = this.#clips.findIndex((atThisIndex) => atThisIndex == clip);
     if (index < 0) {
@@ -646,4 +751,4 @@ new AnimationLoop(() => {
   });
 }
 
-(window as any).PDS = { redraw };
+(window as any).PDS = { redraw, setSourceRange };
