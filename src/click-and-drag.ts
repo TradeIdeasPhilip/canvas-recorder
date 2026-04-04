@@ -5,14 +5,28 @@ type ClickAndDragListener = {
     y0: number,
     x1: number,
     y1: number,
-    status: "mousemove" | "mouseup" | "mouseleave",
+    status: "mouseup" | "mouseleave",
+  ) => void;
+  onMove: (
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    status: "drag" | "click",
   ) => void;
 };
 
-// Add these event handlers to your canvas
+//
+/**
+ * Add these event handlers to your canvas.
+ * @param canvas
+ * @param listener
+ * @param dragThreshold To distinguish click from drag (in canvas pixels)
+ */
 export function setupClickAndDrag(
   canvas: HTMLCanvasElement,
   listener: ClickAndDragListener,
+  dragThreshold = 5,
 ): void {
   let isDragging = false;
   let startX = 0;
@@ -28,6 +42,19 @@ export function setupClickAndDrag(
       x: (e.clientX - rect.left) * scaleX,
       y: (e.clientY - rect.top) * scaleY,
     };
+  }
+
+  /**
+   *
+   * @param x The current x in canvas coordinates.
+   * @param y The current y in canvas coordinates.
+   * @returns True if this move is small enough to be called a click.
+   * False if the move is big enough to be called a drag.
+   */
+  function tinyMove(x: number, y: number) {
+    const dx = x - startX;
+    const dy = y - startY;
+    return Math.abs(dx) < dragThreshold && Math.abs(dy) < dragThreshold;
   }
 
   // Mouse down
@@ -47,7 +74,7 @@ export function setupClickAndDrag(
     const { x, y } = getCanvasCoords(e);
 
     // Call onDrag with current start and current position
-    listener.onDrag(startX, startY, x, y, "mousemove");
+    listener.onMove(startX, startY, x, y, tinyMove(x, y) ? "click" : "drag");
   });
 
   // Mouse up
@@ -57,13 +84,7 @@ export function setupClickAndDrag(
 
     const { x, y } = getCanvasCoords(e);
 
-    const dx = x - startX;
-    const dy = y - startY;
-
-    // Threshold to distinguish click from drag (in canvas pixels)
-    const dragThreshold = 5; // pixels
-
-    if (Math.abs(dx) < dragThreshold && Math.abs(dy) < dragThreshold) {
+    if (tinyMove(x, y)) {
       // It's a click
       listener.onClick(startX, startY);
     } else {
@@ -80,8 +101,6 @@ export function setupClickAndDrag(
       isDragging = false;
       const { x, y } = getCanvasCoords(e);
       listener.onDrag(startX, startY, x, y, "mouseleave");
-      // Optional: you could call onDrag one last time with last known position
-      // but usually better to just cancel
     }
   });
 
@@ -91,6 +110,13 @@ export function setupClickAndDrag(
 
 type ClickDragAndOnceListener = ClickAndDragListener & { onAbort(): void };
 
+/**
+ * This is similar to {@link setupClickAndDrag}(),
+ * but this allows temporary overrides.
+ * @param canvas Attach the listeners to this.
+ * @param defaultListener Use this listener except when a one time request is in effect.
+ * @returns An object that can be used to add or cancel a temporary listener.
+ */
 export function clickDragAndOnce(
   canvas: HTMLCanvasElement,
   defaultListener: ClickAndDragListener,
@@ -121,14 +147,19 @@ export function clickDragAndOnce(
     },
     onDrag(x0, y0, x1, y1, status) {
       if (nextTime) {
-        if (status != "mousemove") {
-          const listener = nextTime;
-          // Clear this first, in case the callback wants to register another callback.
-          nextTime = undefined;
-          listener.onDrag(x0, y0, x1, y1, status);
-        }
+        const listener = nextTime;
+        // Clear this first, in case the callback wants to register another callback.
+        nextTime = undefined;
+        listener.onDrag(x0, y0, x1, y1, status);
       } else {
         defaultListener.onDrag(x0, y0, x1, y1, status);
+      }
+    },
+    onMove(x0, y0, x1, y1, status) {
+      if (nextTime) {
+        nextTime.onMove(x0, y0, x1, y1, status);
+      } else {
+        defaultListener.onMove(x0, y0, x1, y1, status);
       }
     },
   });

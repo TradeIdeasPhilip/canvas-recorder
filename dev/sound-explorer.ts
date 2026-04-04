@@ -8,6 +8,26 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
+// TODO
+// Better mouse cursors
+// Make SVGs
+// Similar to ⇤ and ⇥
+// Make it very clear which pixel we are pointing to!
+// Maybe the next point makes this obsolete.
+
+// TODO
+// Better preview.
+// Whenever you are dragging, the start and end areas should be highlighted well.
+// To show you what is selected.
+// And to give you an idea of what operation is going on.
+// Lke the preview should look exactly like the final thing when adding a section.
+// But something else for zoom and something else for play snippet.
+
+// TODO
+// Add more feedback on move start or end.
+// Update the cursor on mouse move, even when not mouse down.
+// At minimum an arrow in one direction and "not-allowed" in the other.
+
 const audioElement = getById("soundExplorer", HTMLAudioElement);
 const statusDiv = getById("soundStatus", HTMLDivElement);
 const canvas = getById("audioViewer", HTMLCanvasElement);
@@ -58,20 +78,31 @@ const clickAndDrag = clickDragAndOnce(canvas, {
     //   statusDiv.textContent = `${x} pixels, ${(x / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x))}, ${xToInputIndexContinuous(x) / audioContext.sampleRate} seconds`;
   },
   onDrag(x0, _y0, x1, _y1, status) {
-    if (status != "mouseup") {
-      return;
+    // Ending
+    if (status == "mouseup") {
+      if (x0 < x1) {
+        // Dragging left to right creates a new clip.
+        createNewClip(x0, x1);
+      } else {
+        // Dragging right to left zooms in.
+        const startIndex = Math.floor(xToInputIndexContinuous(x1));
+        const endIndex = Math.ceil(xToInputIndexContinuous(x0));
+        setSourceRange(startIndex, endIndex);
+      }
     }
-    if (x0 < x1) {
-      // playClip(x0,x1);
+    canvas.style.cursor = "";
+    //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
+  },
+  onMove(x0, _y0, x1, _y1, status) {
+    if (status == "click") {
+      canvas.style.cursor = "";
+    } else if (x0 < x1) {
       // Dragging left to right creates a new clip.
-      createNewClip(x0, x1);
+      canvas.style.cursor = "e-resize";
     } else {
       // Dragging right to left zooms in.
-      const startIndex = Math.floor(xToInputIndexContinuous(x1));
-      const endIndex = Math.ceil(xToInputIndexContinuous(x0));
-      setSourceRange(startIndex, endIndex);
+      canvas.style.cursor = "zoom-in";
     }
-    //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
   },
 });
 
@@ -261,6 +292,17 @@ class Clip {
                 addListener();
               }
             },
+            onMove(x0, _y0, x1, _y1, status) {
+              // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
+              // Need a different cursor for playing vs creating?
+              if (status == "click") {
+                canvas.style.cursor = "";
+              } else if (x0 < x1) {
+                canvas.style.cursor = "e-resize";
+              } else {
+                canvas.style.cursor = "w-resize";
+              }
+            },
             onAbort: function (): void {
               // TODO cleanup
             },
@@ -283,6 +325,10 @@ class Clip {
               // That can cause trouble when you hit the play button.
               // Maybe update the instructions and stay in this mode?
               // TODO
+              // Or maybe swap the two values?
+
+              // Restore help TODO
+              canvas.style.cursor = "";
             },
             onDrag: function (
               x0: number,
@@ -291,14 +337,27 @@ class Clip {
               _y1: number,
               status: "mousemove" | "mouseup" | "mouseleave",
             ): void {
-              // Restore help and mouse cursor
+              // Restore help TODO
+              canvas.style.cursor = "";
               if (status == "mouseup") {
                 playPixelRange(x0, x1);
                 addListener();
               }
             },
+            onMove(x0, _y0, x1, _y1, status) {
+              // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
+              // Need a different cursor for playing vs creating?
+              if (status == "click") {
+                canvas.style.cursor = "";
+              } else if (x0 < x1) {
+                canvas.style.cursor = "e-resize";
+              } else {
+                canvas.style.cursor = "w-resize";
+              }
+            },
             onAbort: function (): void {
-              // TODO clean up
+              // Restore help TODO
+              canvas.style.cursor = "";
             },
           });
         }

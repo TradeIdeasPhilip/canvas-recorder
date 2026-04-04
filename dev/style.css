@@ -54,3 +54,7 @@ audio {
   text-align: right;
   font-family: Verdana;
 }
+
+#audioViewer {
+  cursor: col-resize;
+}
