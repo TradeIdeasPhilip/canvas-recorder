@@ -26,6 +26,55 @@ function setSourceRange(startIndex: number, endIndex: number) {
 }
 (window as any).setSourceRange = setSourceRange;
 
+const colorsAvailable = [...myRainbow];
+function createNewClip(x0: number, x1: number) {
+  // Dragging left to right creates a new row.
+  const color = colorsAvailable.shift();
+  if (color === undefined) {
+    return;
+  }
+  const startIndex = xToInputIndexContinuous(x0);
+  const endIndex = xToInputIndexContinuous(x1);
+  const clip = clipManager.createClip({ color, startIndex, endIndex });
+}
+function playPixelRange(x0: number, x1: number) {
+  if (x0 > x1) {
+    [x0, x1] = [x1, x0];
+  }
+  const startSeconds = xToInputIndexContinuous(x0) / audioContext.sampleRate;
+  const endSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
+  const durationSeconds = endSeconds - startSeconds;
+  const source = audioContext.createBufferSource();
+  source.buffer = assertNonNullable(sourceBuffer);
+  source.connect(audioContext.destination);
+  source.start(audioContext.currentTime, startSeconds, durationSeconds);
+  // TODO save `source` in case you want to abort the playback.
+  console.log(source);
+}
+const clickAndDrag = clickDragAndOnce(canvas, {
+  onClick(x, _y) {
+    audioElement.currentTime =
+      xToInputIndexContinuous(x) / audioContext.sampleRate;
+    //   statusDiv.textContent = `${x} pixels, ${(x / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x))}, ${xToInputIndexContinuous(x) / audioContext.sampleRate} seconds`;
+  },
+  onDrag(x0, _y0, x1, _y1, status) {
+    if (status != "mouseup") {
+      return;
+    }
+    if (x0 < x1) {
+      // playClip(x0,x1);
+      // Dragging left to right creates a new clip.
+      createNewClip(x0, x1);
+    } else {
+      // Dragging right to left zooms in.
+      const startIndex = Math.floor(xToInputIndexContinuous(x1));
+      const endIndex = Math.ceil(xToInputIndexContinuous(x0));
+      setSourceRange(startIndex, endIndex);
+    }
+    //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
+  },
+});
+
 /**
  * We have to check some things directly in the animation frame,
  * like the position in sound file.
@@ -183,10 +232,79 @@ class Clip {
       });
       const resizeLeftButton = document.createElement("button");
       resizeLeftButton.textContent = "⇤";
+      //canvas.style.cursor="TODO"
+      // TODO update the help / instructions
       buttonsCell.appendChild(resizeLeftButton);
+      resizeLeftButton.addEventListener("click", () => {
+        //canvas.style.cursor="TODO"
+        // TODO update the help / instructions
+        const thisClip: Clip = this;
+        function addListener() {
+          clickAndDrag.listenOnce({
+            onClick: function (x: number, _y: number): void {
+              thisClip.startIndex = xToInputIndexContinuous(x);
+              // What if startIndex > endIndex?
+              // That can cause trouble when you hit the play button.
+              // Maybe update the instructions and stay in this mode?
+              // TODO
+            },
+            onDrag: function (
+              x0: number,
+              _y0: number,
+              x1: number,
+              _y1: number,
+              status: "mousemove" | "mouseup" | "mouseleave",
+            ): void {
+              // Restore help and mouse cursor
+              if (status == "mouseup") {
+                playPixelRange(x0, x1);
+                addListener();
+              }
+            },
+            onAbort: function (): void {
+              // TODO cleanup
+            },
+          });
+        }
+        addListener();
+      });
       const resizeRightButton = document.createElement("button");
       resizeRightButton.textContent = "⇥";
       buttonsCell.appendChild(resizeRightButton);
+      resizeRightButton.addEventListener("click", () => {
+        //canvas.style.cursor="TODO"
+        // TODO update the help / instructions
+        const thisClip: Clip = this;
+        function addListener() {
+          clickAndDrag.listenOnce({
+            onClick: function (x: number, _y: number): void {
+              thisClip.endIndex = xToInputIndexContinuous(x);
+              // What if startIndex > endIndex?
+              // That can cause trouble when you hit the play button.
+              // Maybe update the instructions and stay in this mode?
+              // TODO
+            },
+            onDrag: function (
+              x0: number,
+              _y0: number,
+              x1: number,
+              _y1: number,
+              status: "mousemove" | "mouseup" | "mouseleave",
+            ): void {
+              // Restore help and mouse cursor
+              if (status == "mouseup") {
+                playPixelRange(x0, x1);
+                addListener();
+              }
+            },
+            onAbort: function (): void {
+              // TODO clean up
+            },
+          });
+        }
+        addListener();
+      });
+
       const zoomButton = document.createElement("button");
       zoomButton.textContent = "🔎";
       buttonsCell.appendChild(zoomButton);
@@ -427,55 +545,6 @@ reload();
 new AnimationLoop(() => {
   redraw();
 });
-
-const sssss = (() => {
-  const samplesTable = getById("soundClips", HTMLTableElement);
-  const colorsAvailable = [...myRainbow];
-  function playClip(x0: number, x1: number) {
-    const startSeconds = xToInputIndexContinuous(x0) / audioContext.sampleRate;
-    const endSeconds = xToInputIndexContinuous(x1) / audioContext.sampleRate;
-    const durationSeconds = endSeconds - startSeconds;
-    const source = audioContext.createBufferSource();
-    source.buffer = assertNonNullable(sourceBuffer);
-    source.connect(audioContext.destination);
-    source.start(audioContext.currentTime, startSeconds, durationSeconds);
-    // TODO save `source` in case you want to abort the playback.
-    console.log(source);
-  }
-  function createNewClip(x0: number, x1: number) {
-    // Dragging left to right creates a new row.
-    const color = colorsAvailable.shift();
-    if (color === undefined) {
-      return;
-    }
-    const startIndex = xToInputIndexContinuous(x0);
-    const endIndex = xToInputIndexContinuous(x1);
-    const clip = clipManager.createClip({ color, startIndex, endIndex });
-  }
-  const clickAndDrag = clickDragAndOnce(canvas, {
-    onClick(x, _y) {
-      audioElement.currentTime =
-        xToInputIndexContinuous(x) / audioContext.sampleRate;
-      //   statusDiv.textContent = `${x} pixels, ${(x / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x))}, ${xToInputIndexContinuous(x) / audioContext.sampleRate} seconds`;
-    },
-    onDrag(x0, _y0, x1, _y1, status) {
-      if (status != "mouseup") {
-        return;
-      }
-      if (x0 < x1) {
-        // playClip(x0,x1);
-        // Dragging left to right creates a new clip.
-        createNewClip(x0, x1);
-      } else {
-        // Dragging right to left zooms in.
-        const startIndex = Math.floor(xToInputIndexContinuous(x1));
-        const endIndex = Math.ceil(xToInputIndexContinuous(x0));
-        setSourceRange(startIndex, endIndex);
-      }
-      //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
-    },
-  });
-})();
 
 {
   getById("zoomOut", HTMLButtonElement).addEventListener("click", () => {

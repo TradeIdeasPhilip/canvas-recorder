@@ -111,8 +111,10 @@ export function clickDragAndOnce(
   setupClickAndDrag(canvas, {
     onClick(x, y) {
       if (nextTime) {
-        nextTime.onClick(x, y);
+        const listener = nextTime;
+        // Clear this first, in case the callback wants to register another callback.
         nextTime = undefined;
+        listener.onClick(x, y);
       } else {
         defaultListener.onClick(x, y);
       }
@@ -120,8 +122,10 @@ export function clickDragAndOnce(
     onDrag(x0, y0, x1, y1, status) {
       if (nextTime) {
         if (status != "mousemove") {
-          nextTime.onDrag(x0, y0, x1, y1, status);
+          const listener = nextTime;
+          // Clear this first, in case the callback wants to register another callback.
           nextTime = undefined;
+          listener.onDrag(x0, y0, x1, y1, status);
         }
       } else {
         defaultListener.onDrag(x0, y0, x1, y1, status);
