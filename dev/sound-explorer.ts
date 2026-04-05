@@ -61,6 +61,27 @@ function setSourceRange(startIndex: number, endIndex: number) {
   }
   sourceRange = { startIndex, endIndex };
 }
+/**
+ * This can be requested by different bits of code,
+ * depending what's going on at the moment.
+ *
+ * If present, this requests a rectangle be drawn in the given color
+ * and the given left and right positions.
+ * It is always drawn in the bottom third of the display.
+ */
+let dragRectangle:
+  | {
+      readonly color: string;
+      readonly leftIndex: number;
+      readonly rightIndex: number;
+    }
+  | undefined;
+/**
+ * Read from the front.
+ *
+ * Push recycled items onto the back.
+ * It's a FIFO.
+ */
 const colorsAvailable = [...myRainbow];
 function createNewClip(x0: number, x1: number) {
   // Dragging left to right creates a new row.
@@ -110,16 +131,29 @@ class RangePlaying {
       rangeEndSeconds: number;
     };
   } {
+    // First check the <audio> element, the "main" source.
     let playing: "main" | "clip" | "none" = audioElement.paused
       ? "none"
       : "main";
     let secondsFromStart: number = audioElement.currentTime;
+    // But if a temporary clip is playing, that overrides the <audio>
     if (this.#rangePlaying) {
+      /**
+       * How long the clip has been playing.
+       *
+       * There is no property analogous to HtmlAudioElement.currentTime, so I compute it myself.
+       */
       const timePassed =
         audioContext.currentTime - this.#rangePlaying.realtimeStartSeconds;
+      /**
+       * Time relative to the *entire* contents of the <audio>.
+       */
       const proposedSecondsFromStart =
         this.#rangePlaying.rangeStartSeconds + timePassed;
       if (proposedSecondsFromStart < this.#rangePlaying.rangeEndSeconds) {
+        // The clip is still running.
+        // There is no more direct way to request this info.
+        // (Although there is an "ended" event, that doesn't seem any easier.)
         playing = "clip";
         secondsFromStart = proposedSecondsFromStart;
       }
@@ -163,7 +197,11 @@ class RangePlaying {
   }
   static readonly instance = new this();
 }
-
+/**
+ * Start a temporary playback without creating a clip.
+ * @param x0 Start, in canvas coordinates.
+ * @param x1 End, in canvas coordinates.
+ */
 function playPixelRange(x0: number, x1: number) {
   if (x0 > x1) {
     [x0, x1] = [x1, x0];
@@ -193,17 +231,33 @@ const clickAndDrag = clickDragAndOnce(canvas, {
       }
     }
     canvas.style.cursor = "";
+    dragRectangle = undefined;
+    needRedraw = true;
     //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
   },
   onMove(x0, _y0, x1, _y1, status) {
     if (status == "click") {
       canvas.style.cursor = "";
+      dragRectangle = undefined;
+      needRedraw = true;
     } else if (x0 < x1) {
       // Dragging left to right creates a new clip.
       canvas.style.cursor = "e-resize";
+      dragRectangle = {
+        color: colorsAvailable.at(0) ?? "silver",
+        leftIndex: xToInputIndexContinuous(x0),
+        rightIndex: xToInputIndexContinuous(x1),
+      };
+      needRedraw = true;
     } else {
       // Dragging right to left zooms in.
       canvas.style.cursor = "zoom-in";
+      dragRectangle = {
+        color: "silver",
+        leftIndex: xToInputIndexContinuous(x1),
+        rightIndex: xToInputIndexContinuous(x0),
+      };
+      needRedraw = true;
     }
   },
 });
@@ -686,6 +740,18 @@ function redraw() {
       const width = right - left;
       context.fillRect(left, 0, width, canvasSize!.height / 3);
     });
+    if (dragRectangle) {
+      context.fillStyle = dragRectangle.color;
+      const left = inputIndexToX(dragRectangle.leftIndex);
+      const right = inputIndexToX(dragRectangle.rightIndex);
+      const width = right - left;
+      context.fillRect(
+        left,
+        (canvasSize.height * 2) / 3,
+        width,
+        canvasSize.height,
+      );
+    }
     for (let x = 0; x < canvasSize.width; x++) {
       const start = xToInputIndex(x);
       const end = xToInputIndex(x + 1);
