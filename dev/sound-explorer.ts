@@ -8,28 +8,75 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
-// TODO
-// Better mouse cursors
-// Make SVGs
-// Similar to ⇤ and ⇥
-// Make it very clear which pixel we are pointing to!
-// Maybe the next point makes this obsolete.
+type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
-// TODO
-// Better preview.
-// Whenever you are dragging, the start and end areas should be highlighted well.
-// To show you what is selected.
-// And to give you an idea of what operation is going on.
-// Lke the preview should look exactly like the final thing when adding a section.
-// But something else for zoom and something else for play snippet.
+class Color {
+  readonly #index: number;
+  private constructor(index: number) {
+    this.#index = index;
+  }
+  toJSON() {
+    return this.#index;
+  }
+  toCanvas(): CanvasFillStyle {
+    return myRainbow[this.#index];
+  }
+  toCss(): string {
+    return myRainbow[this.#index];
+  }
+  static #available = new Map(
+    myRainbow.map((_, index) => [index, new Color(index)] as const),
+  );
+  static peekNextAvailable(): Color | undefined {
+    const nextAvailableValue = this.#available.values().next();
+    if (nextAvailableValue.done) {
+      return undefined;
+    } else {
+      return nextAvailableValue.value;
+    }
+  }
+  static takeNextAvailable(): Color | undefined {
+    const nextAvailableEntry = this.#available.entries().next();
+    if (nextAvailableEntry.done) {
+      return undefined;
+    } else {
+      const [key, value] = nextAvailableEntry.value;
+      this.#available.delete(key);
+      return value;
+    }
+  }
+  static recycle(color: Color) {
+    if (this.#available.has(color.#index)) {
+      throw new Error("duplicate");
+    }
+    this.#available.set(color.#index, color);
+  }
+  static takeFromJSON(serializedKey: number) {
+    const result = this.#available.get(serializedKey);
+    this.#available.delete(serializedKey);
+    return result;
+  }
+}
 
-// TODO
-// Add more feedback on move start or end.
-// Update the cursor on mouse move, even when not mouse down.
-// At minimum an arrow in one direction and "not-allowed" in the other.
-
+/**
+ * Load the audio into here, so the user has a standard UI for playing the track.
+ */
 const audioElement = getById("soundExplorer", HTMLAudioElement);
+
+/**
+ * This currently contains instructions.
+ *
+ * TODO make this live.
+ * Show context sensitive help.
+ */
 const statusDiv = getById("soundStatus", HTMLDivElement);
+
+/**
+ * This is my custom chart.
+ * It shows the mix and max levels of the samples over time.
+ * You can interact with it by clicking and dragging and/or by using the <table> in
+ * {@link ClipManager.samplesTable}.
+ */
 const canvas = getById("audioViewer", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
@@ -75,21 +122,14 @@ function setSourceRange(startIndex: number, endIndex: number) {
  */
 let dragRectangle:
   | {
-      readonly color: string;
+      readonly color: CanvasFillStyle;
       readonly leftIndex: number;
       readonly rightIndex: number;
     }
   | undefined;
-/**
- * Read from the front.
- *
- * Push recycled items onto the back.
- * It's a FIFO.
- */
-const colorsAvailable = [...myRainbow];
 function createNewClip(x0: number, x1: number) {
   // Dragging left to right creates a new row.
-  const color = colorsAvailable.shift();
+  const color = Color.takeNextAvailable();
   if (color === undefined) {
     return;
   }
@@ -248,7 +288,7 @@ const clickAndDrag = clickDragAndOnce(canvas, {
       // Dragging left to right creates a new clip.
       canvas.style.cursor = "e-resize";
       dragRectangle = {
-        color: colorsAvailable.at(0) ?? "silver",
+        color: Color.peekNextAvailable()?.toCanvas() ?? "silver",
         leftIndex: xToInputIndexContinuous(x0),
         rightIndex: xToInputIndexContinuous(x1),
       };
@@ -348,13 +388,14 @@ class Clip {
   #notify() {
     this.owner.notify();
   }
-  #color = "";
+  #color!: Color;
   get color() {
     return this.#color;
   }
   set color(newValue) {
     if (newValue !== this.#color) {
-      this.#row.style.backgroundColor = newValue;
+      this.#color = newValue;
+      this.#row.style.backgroundColor = newValue.toCss();
       this.#notify();
     }
     this.#color = newValue;
@@ -404,6 +445,7 @@ class Clip {
   readonly #row: HTMLTableRowElement;
   constructor(
     readonly owner: ClipManager,
+    color: Color,
     onlyClipManagerIsAllowedToCallThisConstructor: FromClipManager,
   ) {
     ClipManager.validate(onlyClipManagerIsAllowedToCallThisConstructor);
@@ -490,7 +532,7 @@ class Clip {
               const fixedEndIndex = thisClip.endIndex;
               if (fixedEndIndex > proposedStartIndex) {
                 dragRectangle = {
-                  color: thisClip.color,
+                  color: thisClip.color.toCanvas(),
                   leftIndex: proposedStartIndex,
                   rightIndex: fixedEndIndex,
                 };
@@ -571,7 +613,7 @@ class Clip {
               const proposedEndIndex = xToInputIndexContinuous(x);
               if (proposedEndIndex > fixedStartIndex) {
                 dragRectangle = {
-                  color: thisClip.color,
+                  color: thisClip.color.toCanvas(),
                   leftIndex: fixedStartIndex,
                   rightIndex: proposedEndIndex,
                 };
@@ -604,7 +646,7 @@ class Clip {
       // Now that we've created the GUI,
       // set the default properties here.
       // This will populate the GUI.
-      this.color = "rgb(1, 141, 115)";
+      this.color = color;
       this.notes = "Type here.";
       this.startIndex = 0;
       this.endIndex = 0;
@@ -627,7 +669,6 @@ class Clip {
       this.#row.remove();
     }
   }
-  readonly guid = crypto.randomUUID();
   play() {
     const startSeconds = this.startIndex / audioContext.sampleRate;
     const endSeconds = this.endIndex / audioContext.sampleRate;
@@ -652,6 +693,15 @@ class ClipManager {
       throw new Error("wtf");
     }
   }
+  /**
+   * Each audio file will be associated with its own set of clips.
+   */
+  readonly key = audioElement.src;
+  /**
+   *
+   * @param samplesTable Where to interact with the user.
+   * One row per clip.
+   */
   constructor(
     readonly samplesTable = getById("soundClips", HTMLTableElement),
   ) {}
@@ -659,16 +709,13 @@ class ClipManager {
   get clips(): ReadonlyArray<Clip> {
     return this.#clips;
   }
-  createClip(
-    initialValues: {
-      color?: string;
-      startIndex?: number;
-      endIndex?: number;
-      notes?: string;
-    } = {},
-  ) {
-    const result = new Clip(this, ClipManager.symbol);
-    result.color = initialValues.color ?? result.color;
+  createClip(initialValues: {
+    color: Color;
+    startIndex?: number;
+    endIndex?: number;
+    notes?: string;
+  }) {
+    const result = new Clip(this, initialValues.color, ClipManager.symbol);
     result.startIndex = initialValues.startIndex ?? result.startIndex;
     result.endIndex = initialValues.endIndex ?? result.endIndex;
     result.notes = initialValues.notes ?? result.notes;
@@ -698,6 +745,7 @@ class ClipManager {
     this.notify();
     clip.remove(ClipManager.symbol);
     this.#clips.splice(index, 1);
+    Color.recycle(clip.color);
   }
 }
 const clipManager = new ClipManager();
@@ -801,7 +849,7 @@ function redraw() {
       }
     }
     clipManager.clips.forEach((clip) => {
-      context.fillStyle = clip.color;
+      context.fillStyle = clip.color.toCanvas();
       const left = inputIndexToX(clip.startIndex);
       const right = inputIndexToX(clip.endIndex);
       const width = right - left;
@@ -910,4 +958,5 @@ new AnimationLoop(() => {
   });
 }
 
-(window as any).PDS = { redraw, setSourceRange };
+// For interactive debugging.
+(window as any).PDS = { redraw, setSourceRange, clipManager, Color };
