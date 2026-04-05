@@ -1,5 +1,25 @@
 type ClickAndDragListener = {
+  /**
+   * In the case of {$link clickDragAndOnce}(), this is the last message the listener will get.
+   * This is when we return control to the default listener.
+   * @param x The x position where the mouse went down.
+   * @param y The y position where the mouse went down.
+   */
   onClick: (x: number, y: number) => void;
+  /**
+   * This is called when the user presses the mouse, moves more than a tiny amount, then releases.
+   * I.e. "drag".  This is called at the end of a drag gesture.
+   *
+   * In the case of {$link clickDragAndOnce}(), this is the last message the listener will get.
+   * This is when we return control to the default listener.
+   * @param x0 The starting x, where the mouse went down
+   * @param y0 The starting y, where the mouse went down
+   * @param x1 The final x, where the mouse button was released
+   * @param y1 The final y, where the mouse button was released
+   * @param status "mouseup" means that this ended in the archetypal mouse up event, i.e. normal.
+   * "mouseleave" means that we stopped tracking the mouse because it left the element.
+   * Some callers might consider that an abort.
+   */
   onDrag: (
     x0: number,
     y0: number,
@@ -7,13 +27,31 @@ type ClickAndDragListener = {
     y1: number,
     status: "mouseup" | "mouseleave",
   ) => void;
-  onMove: (
+  /**
+   * Called each time the mouse moves in the element while a drag is in progress.
+   *
+   * This will **not** cancel a {$link clickDragAndOnce}() session.
+   * Expect any number of these callbacks.
+   * @param x0 The starting x, where the mouse went down
+   * @param y0 The starting y, where the mouse went down
+   * @param x1 The current x, where the mouse is now
+   * @param y1 The current y, where the mouse is now
+   * @param status If the user released the mouse button here,
+   * would the event be a click or a drag.
+   */
+  onDragMove: (
     x0: number,
     y0: number,
     x1: number,
     y1: number,
     status: "drag" | "click",
   ) => void;
+  /**
+   * Called each time the mouse moves and a drag is **not** in progress.
+   * @param x The current x, where the mouse is now.
+   * @param y The current y, where the mouse is now.
+   */
+  onFreeMove: (x: number, y: number) => void;
 };
 
 //
@@ -69,12 +107,18 @@ export function setupClickAndDrag(
 
   // Mouse move - only track when dragging
   canvas.addEventListener("mousemove", (e: MouseEvent) => {
-    if (!isDragging) return;
-
     const { x, y } = getCanvasCoords(e);
-
-    // Call onDrag with current start and current position
-    listener.onMove(startX, startY, x, y, tinyMove(x, y) ? "click" : "drag");
+    if (isDragging) {
+      listener.onDragMove(
+        startX,
+        startY,
+        x,
+        y,
+        tinyMove(x, y) ? "click" : "drag",
+      );
+    } else {
+      listener.onFreeMove(x, y);
+    }
   });
 
   // Mouse up
@@ -155,11 +199,18 @@ export function clickDragAndOnce(
         defaultListener.onDrag(x0, y0, x1, y1, status);
       }
     },
-    onMove(x0, y0, x1, y1, status) {
+    onDragMove(x0, y0, x1, y1, status) {
       if (nextTime) {
-        nextTime.onMove(x0, y0, x1, y1, status);
+        nextTime.onDragMove(x0, y0, x1, y1, status);
       } else {
-        defaultListener.onMove(x0, y0, x1, y1, status);
+        defaultListener.onDragMove(x0, y0, x1, y1, status);
+      }
+    },
+    onFreeMove(x, y) {
+      if (nextTime) {
+        nextTime.onFreeMove(x, y);
+      } else {
+        defaultListener.onFreeMove(x, y);
       }
     },
   });

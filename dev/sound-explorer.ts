@@ -68,6 +68,10 @@ function setSourceRange(startIndex: number, endIndex: number) {
  * If present, this requests a rectangle be drawn in the given color
  * and the given left and right positions.
  * It is always drawn in the bottom third of the display.
+ *
+ * We explicitly work with sample indexes.
+ * In some cases the user can resize the window without this rectangle changing.
+ * The redraw routine will update the scaling as required.
  */
 let dragRectangle:
   | {
@@ -235,7 +239,7 @@ const clickAndDrag = clickDragAndOnce(canvas, {
     needRedraw = true;
     //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
   },
-  onMove(x0, _y0, x1, _y1, status) {
+  onDragMove(x0, _y0, x1, _y1, status) {
     if (status == "click") {
       canvas.style.cursor = "";
       dragRectangle = undefined;
@@ -260,6 +264,7 @@ const clickAndDrag = clickDragAndOnce(canvas, {
       needRedraw = true;
     }
   },
+  onFreeMove(_x, _y) {},
 });
 
 /**
@@ -429,11 +434,14 @@ class Clip {
         function addListener() {
           clickAndDrag.listenOnce({
             onClick: function (x: number, _y: number): void {
-              thisClip.startIndex = xToInputIndexContinuous(x);
-              // What if startIndex > endIndex?
-              // That can cause trouble when you hit the play button.
-              // Maybe update the instructions and stay in this mode?
-              // TODO
+              const proposedStartIndex = xToInputIndexContinuous(x);
+              if (thisClip.endIndex > proposedStartIndex) {
+                thisClip.startIndex = proposedStartIndex;
+              }
+              // Restore help TODO
+              dragRectangle = undefined;
+              needRedraw = true;
+              canvas.style.cursor = "";
             },
             onDrag: function (
               x0: number,
@@ -448,7 +456,7 @@ class Clip {
                 addListener();
               }
             },
-            onMove(x0, _y0, x1, _y1, status) {
+            onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
               // Need a different cursor for playing vs creating?
               if (status == "click") {
@@ -460,7 +468,26 @@ class Clip {
               }
             },
             onAbort: function (): void {
-              // TODO cleanup
+              // Restore help TODO
+              canvas.style.cursor = "";
+              dragRectangle = undefined;
+              needRedraw = true;
+            },
+            onFreeMove(x, y) {
+              const proposedStartIndex = xToInputIndexContinuous(x);
+              const fixedEndIndex = thisClip.endIndex;
+              if (fixedEndIndex > proposedStartIndex) {
+                dragRectangle = {
+                  color: thisClip.color,
+                  leftIndex: proposedStartIndex,
+                  rightIndex: fixedEndIndex,
+                };
+                canvas.style.cursor = "w-resize";
+              } else {
+                dragRectangle = undefined;
+                canvas.style.cursor = "not-allowed";
+              }
+              needRedraw = true;
             },
           });
         }
@@ -476,14 +503,13 @@ class Clip {
         function addListener() {
           clickAndDrag.listenOnce({
             onClick: function (x: number, _y: number): void {
-              thisClip.endIndex = xToInputIndexContinuous(x);
-              // What if startIndex > endIndex?
-              // That can cause trouble when you hit the play button.
-              // Maybe update the instructions and stay in this mode?
-              // TODO
-              // Or maybe swap the two values?
-
+              const proposedEndIndex = xToInputIndexContinuous(x);
+              if (proposedEndIndex > thisClip.startIndex) {
+                thisClip.endIndex = xToInputIndexContinuous(x);
+              }
               // Restore help TODO
+              dragRectangle = undefined;
+              needRedraw = true;
               canvas.style.cursor = "";
             },
             onDrag: function (
@@ -500,7 +526,7 @@ class Clip {
                 addListener();
               }
             },
-            onMove(x0, _y0, x1, _y1, status) {
+            onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
               // Need a different cursor for playing vs creating?
               if (status == "click") {
@@ -514,6 +540,24 @@ class Clip {
             onAbort: function (): void {
               // Restore help TODO
               canvas.style.cursor = "";
+              dragRectangle = undefined;
+              needRedraw = true;
+            },
+            onFreeMove(x, y) {
+              const fixedStartIndex = thisClip.startIndex;
+              const proposedEndIndex = xToInputIndexContinuous(x);
+              if (proposedEndIndex > fixedStartIndex) {
+                dragRectangle = {
+                  color: thisClip.color,
+                  leftIndex: fixedStartIndex,
+                  rightIndex: proposedEndIndex,
+                };
+                canvas.style.cursor = "e-resize";
+              } else {
+                dragRectangle = undefined;
+                canvas.style.cursor = "not-allowed";
+              }
+              needRedraw = true;
             },
           });
         }
@@ -716,7 +760,7 @@ function redraw() {
       const subrangeLastX = inputIndexToX(
         playbackStatus.subrange.rangeEndSeconds * audioContext.sampleRate,
       );
-      context.fillStyle = "#efe";
+      context.fillStyle = "#dfd";
       context.fillRect(
         subrangeFirstX,
         0,
@@ -724,7 +768,7 @@ function redraw() {
         canvasSize.height,
       );
       if (currentAudioX > subrangeFirstX) {
-        context.fillStyle = "#ded";
+        context.fillStyle = "#cec";
         context.fillRect(
           subrangeFirstX,
           0,
