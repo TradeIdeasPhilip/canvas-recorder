@@ -115,7 +115,8 @@ class RangePlaying {
       : "main";
     let secondsFromStart: number = audioElement.currentTime;
     if (this.#rangePlaying) {
-      const timePassed = this.#rangePlaying.realtimeStartSeconds;
+      const timePassed =
+        audioContext.currentTime - this.#rangePlaying.realtimeStartSeconds;
       const proposedSecondsFromStart =
         this.#rangePlaying.rangeStartSeconds + timePassed;
       if (proposedSecondsFromStart < this.#rangePlaying.rangeEndSeconds) {
@@ -274,7 +275,7 @@ async function reload() {
  */
 let canvasSize: { readonly width: number; readonly height: number } | undefined;
 
-let audioTimeAtLastRedraw = audioElement.currentTime;
+let audioTimeAtLastRedraw = RangePlaying.instance.status().secondsFromStart;
 
 let inputIndexToX: LinearFunction = makeLinear(0, 0, 1, 1);
 let xToInputIndexContinuous: LinearFunction = makeLinear(0, 0, 1, 1);
@@ -600,8 +601,8 @@ function redraw() {
     canvas.height = height;
     needRedraw = true;
   }
-  //audioTimeAtLastRedraw = audioElement.currentTime
-  const currentAudioTime = audioElement.currentTime;
+  const playbackStatus = RangePlaying.instance.status();
+  const currentAudioTime = playbackStatus.secondsFromStart;
   if (audioTimeAtLastRedraw == currentAudioTime && !needRedraw) {
     // No recent changes.  No need to redraw.
     return;
@@ -648,11 +649,36 @@ function redraw() {
       endX,
     );
     const sampleValueToY = makeLinear(1, 0, -1, chartHeight);
-    const indexFromAudio = audioElement.currentTime * audioContext.sampleRate;
+    const indexFromAudio = currentAudioTime * audioContext.sampleRate;
     context.fillStyle = "white";
     context.fillRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = "#ddd";
-    context.fillRect(0, 0, inputIndexToX(indexFromAudio), canvasSize.height);
+    context.fillStyle = "#eee";
+    const currentAudioX = inputIndexToX(indexFromAudio);
+    context.fillRect(0, 0, currentAudioX, canvasSize.height);
+    if (playbackStatus.subrange) {
+      const subrangeFirstX = inputIndexToX(
+        playbackStatus.subrange.rangeStartSeconds * audioContext.sampleRate,
+      );
+      const subrangeLastX = inputIndexToX(
+        playbackStatus.subrange.rangeEndSeconds * audioContext.sampleRate,
+      );
+      context.fillStyle = "#efe";
+      context.fillRect(
+        subrangeFirstX,
+        0,
+        subrangeLastX - subrangeFirstX,
+        canvasSize.height,
+      );
+      if (currentAudioX > subrangeFirstX) {
+        context.fillStyle = "#ded";
+        context.fillRect(
+          subrangeFirstX,
+          0,
+          currentAudioX - subrangeFirstX,
+          canvasSize.height,
+        );
+      }
+    }
     clipManager.clips.forEach((clip) => {
       context.fillStyle = clip.color;
       const left = inputIndexToX(clip.startIndex);
