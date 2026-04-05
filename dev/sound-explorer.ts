@@ -447,25 +447,37 @@ class Clip {
               x0: number,
               _y0: number,
               x1: number,
-              _y1: number,
+              y1: number,
               status: "mousemove" | "mouseup" | "mouseleave",
             ): void {
-              // Restore help and mouse cursor
+              // Restore help TODO
+              canvas.style.cursor = "";
               if (status == "mouseup") {
                 playPixelRange(x0, x1);
                 addListener();
               }
+              this.onFreeMove(x1, y1);
             },
             onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
-              // Need a different cursor for playing vs creating?
               if (status == "click") {
                 canvas.style.cursor = "";
-              } else if (x0 < x1) {
-                canvas.style.cursor = "e-resize";
+                dragRectangle = undefined;
               } else {
-                canvas.style.cursor = "w-resize";
+                if (x0 < x1) {
+                  canvas.style.cursor = "e-resize";
+                } else {
+                  canvas.style.cursor = "w-resize";
+                  // Make x0 < x1
+                  [x0, x1] = [x1, x0];
+                }
+                dragRectangle = {
+                  color: "darkgreen",
+                  leftIndex: xToInputIndexContinuous(x0),
+                  rightIndex: xToInputIndexContinuous(x1),
+                };
               }
+              needRedraw = true;
             },
             onAbort: function (): void {
               // Restore help TODO
@@ -516,7 +528,7 @@ class Clip {
               x0: number,
               _y0: number,
               x1: number,
-              _y1: number,
+              y1: number,
               status: "mousemove" | "mouseup" | "mouseleave",
             ): void {
               // Restore help TODO
@@ -525,17 +537,28 @@ class Clip {
                 playPixelRange(x0, x1);
                 addListener();
               }
+              this.onFreeMove(x1, y1);
             },
             onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
-              // Need a different cursor for playing vs creating?
               if (status == "click") {
                 canvas.style.cursor = "";
-              } else if (x0 < x1) {
-                canvas.style.cursor = "e-resize";
+                dragRectangle = undefined;
               } else {
-                canvas.style.cursor = "w-resize";
+                if (x0 < x1) {
+                  canvas.style.cursor = "e-resize";
+                } else {
+                  canvas.style.cursor = "w-resize";
+                  // Make x0 < x1
+                  [x0, x1] = [x1, x0];
+                }
+                dragRectangle = {
+                  color: "darkgreen",
+                  leftIndex: xToInputIndexContinuous(x0),
+                  rightIndex: xToInputIndexContinuous(x1),
+                };
               }
+              needRedraw = true;
             },
             onAbort: function (): void {
               // Restore help TODO
