@@ -8,25 +8,100 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
+// Bug / TODO:
+// If you delete a row while you are trying to extend the corresponding clip,
+// The chart GUI will still keep trying to extend the clip.
+// Need to call the cleanup code on recycle.
+
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
+
+function makeCandyStripe(
+  firstColor: string,
+  secondColor: string,
+  widthInPixels: number,
+): { canvas: CanvasFillStyle; css: string } {
+  function makeCanvasPattern() {
+    const tileSize = Math.ceil(widthInPixels * Math.sqrt(2) * devicePixelRatio);
+    const tile = document.createElement("canvas");
+    tile.width = tileSize;
+    tile.height = tileSize;
+    const tileContext = tile.getContext("2d")!;
+    const quarter = tileSize / 4;
+    tileContext.fillStyle = firstColor;
+    tileContext.fillRect(
+      -quarter,
+      -quarter,
+      tileSize + quarter,
+      tileSize + quarter,
+    );
+
+    tileContext.fillStyle = secondColor;
+    tileContext.beginPath();
+    tileContext.moveTo(-quarter, 0);
+    tileContext.lineTo(0, -quarter);
+    tileContext.lineTo(quarter, 0);
+    tileContext.lineTo(0, quarter);
+    tileContext.closePath();
+    tileContext.moveTo(tileSize - quarter, tileSize);
+    tileContext.lineTo(tileSize, tileSize - quarter);
+    tileContext.lineTo(tileSize + quarter, tileSize);
+    tileContext.lineTo(tileSize, tileSize + quarter);
+    tileContext.closePath();
+    tileContext.moveTo(tileSize, -quarter);
+    tileContext.lineTo(tileSize + quarter, 0);
+    tileContext.lineTo(0, tileSize + quarter);
+    tileContext.lineTo(-quarter, tileSize);
+    tileContext.closePath();
+    tileContext.fill();
+    return assertNonNullable(tileContext.createPattern(tile, "repeat"));
+  }
+
+  const canvas = makeCanvasPattern();
+
+  const css = `repeating-linear-gradient(135deg, ${firstColor} 0px, ${firstColor} ${widthInPixels}px, ${secondColor} ${widthInPixels}px, ${secondColor} ${widthInPixels * 2}px)`;
+
+  return { canvas, css };
+}
 
 class Color {
   readonly #index: number;
-  private constructor(index: number) {
+  private constructor(
+    index: number,
+    readonly canvas: CanvasFillStyle,
+    readonly css: string,
+  ) {
     this.#index = index;
   }
   toJSON() {
     return this.#index;
   }
-  toCanvas(): CanvasFillStyle {
-    return myRainbow[this.#index];
-  }
-  toCss(): string {
-    return myRainbow[this.#index];
-  }
-  static #available = new Map(
-    myRainbow.map((_, index) => [index, new Color(index)] as const),
-  );
+  static #available = (() => {
+    const result = new Map<number, Color>();
+    myRainbow.forEach((color, index) => {
+      result.set(index, new Color(index, color, color));
+    });
+    myRainbow.forEach((firstColor, firstColorIndex) => {
+      for (
+        let secondColorIndex = firstColorIndex + 1;
+        secondColorIndex < myRainbow.length;
+        secondColorIndex++
+      ) {
+        const secondColor = myRainbow[secondColorIndex];
+        const index = result.size;
+        /**
+         * About 1em
+         */
+        const stripeWidth = 16;
+        const { canvas, css } = makeCandyStripe(
+          firstColor,
+          secondColor,
+          stripeWidth,
+        );
+        result.set(index, new Color(index, canvas, css));
+      }
+    });
+    return result;
+  })();
   static peekNextAvailable(): Color | undefined {
     const nextAvailableValue = this.#available.values().next();
     if (nextAvailableValue.done) {
@@ -288,7 +363,7 @@ const clickAndDrag = clickDragAndOnce(canvas, {
       // Dragging left to right creates a new clip.
       canvas.style.cursor = "e-resize";
       dragRectangle = {
-        color: Color.peekNextAvailable()?.toCanvas() ?? "silver",
+        color: Color.peekNextAvailable()?.canvas ?? "silver",
         leftIndex: xToInputIndexContinuous(x0),
         rightIndex: xToInputIndexContinuous(x1),
       };
@@ -395,7 +470,7 @@ class Clip {
   set color(newValue) {
     if (newValue !== this.#color) {
       this.#color = newValue;
-      this.#row.style.backgroundColor = newValue.toCss();
+      this.#row.style.background = newValue.css;
       this.#notify();
     }
     this.#color = newValue;
@@ -531,7 +606,7 @@ class Clip {
               const fixedEndIndex = thisClip.endIndex;
               if (fixedEndIndex > proposedStartIndex) {
                 dragRectangle = {
-                  color: thisClip.color.toCanvas(),
+                  color: thisClip.color.canvas,
                   leftIndex: proposedStartIndex,
                   rightIndex: fixedEndIndex,
                 };
@@ -612,7 +687,7 @@ class Clip {
               const proposedEndIndex = xToInputIndexContinuous(x);
               if (proposedEndIndex > fixedStartIndex) {
                 dragRectangle = {
-                  color: thisClip.color.toCanvas(),
+                  color: thisClip.color.canvas,
                   leftIndex: fixedStartIndex,
                   rightIndex: proposedEndIndex,
                 };
@@ -642,6 +717,7 @@ class Clip {
       });
 
       row.style.color = "black";
+      row.classList.add("white-glow");
       // Now that we've created the GUI,
       // set the default properties here.
       // This will populate the GUI.
@@ -908,7 +984,7 @@ function redraw() {
       }
     }
     clipManager.clips.forEach((clip) => {
-      context.fillStyle = clip.color.toCanvas();
+      context.fillStyle = clip.color.canvas;
       const left = inputIndexToX(clip.startIndex);
       const right = inputIndexToX(clip.endIndex);
       const width = right - left;
