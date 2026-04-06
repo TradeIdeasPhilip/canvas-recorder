@@ -8,6 +8,12 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
+// Bug / TODO:
+// When I change the notes field from the gui,
+// then I save and load the whole state,
+// my changes are gone!
+// Bug demonstrated here:  https://youtu.be/JDWS-qZRlYU
+
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
 class Color {
@@ -702,9 +708,20 @@ class ClipManager {
    * @param samplesTable Where to interact with the user.
    * One row per clip.
    */
-  constructor(
-    readonly samplesTable = getById("soundClips", HTMLTableElement),
-  ) {}
+  constructor(readonly samplesTable = getById("soundClips", HTMLTableElement)) {
+    this.#loadFromStorage();
+    window.addEventListener("storage", (storageEvent) => {
+      if (storageEvent.key == this.key) {
+        this.#loadFromStorage();
+        console.log("update from another window", new Date().toLocaleString());
+      } else if (storageEvent.key === null) {
+        // This seems like the safest option.
+        console.log("Ignoring delete-all request.");
+      } else {
+        console.log(`Ignoring update for “${storageEvent.key}”`);
+      }
+    });
+  }
   #clips = new Array<Clip>();
   get clips(): ReadonlyArray<Clip> {
     return this.#clips;
@@ -735,7 +752,14 @@ class ClipManager {
   }
   #pushPending = false;
   #pushNow() {
-    // TODO push to persistent storage.
+    // Push to persistent storage.
+    localStorage.setItem(this.key, this.dumpToJSON());
+  }
+  #loadFromStorage() {
+    const saved = localStorage.getItem(this.key);
+    if (saved !== null) {
+      this.reloadFromJSON(saved);
+    }
   }
   remove(clip: Clip) {
     const index = this.#clips.findIndex((atThisIndex) => atThisIndex == clip);
@@ -746,6 +770,49 @@ class ClipManager {
     clip.remove(ClipManager.symbol);
     this.#clips.splice(index, 1);
     Color.recycle(clip.color);
+  }
+  dumpToJSON(): string {
+    return JSON.stringify(this.clips, [
+      "color",
+      "startIndex",
+      "endIndex",
+      "notes",
+    ]);
+  }
+  reloadFromJSON(json: string) {
+    const fromJSON = JSON.parse(json);
+    if (!(fromJSON instanceof Array)) {
+      throw new Error("wtf");
+    }
+    fromJSON.forEach((value) => {
+      if (typeof value.color !== "number") {
+        throw new Error("wtf");
+      }
+      if (typeof value.startIndex !== "number") {
+        throw new Error("wtf");
+      }
+      if (typeof value.endIndex !== "number") {
+        throw new Error("wtf");
+      }
+      assertFinite(value.color, value.startIndex, value.endIndex);
+      if (typeof value.notes !== "string") {
+        throw new Error("wtf");
+      }
+    });
+    [...this.clips].forEach((clip) => clip.remove());
+    fromJSON.forEach((value) => {
+      const color = Color.takeFromJSON(value.color);
+      if (!color) {
+        console.error("Can't find color", value);
+      } else {
+        this.createClip({
+          color,
+          startIndex: value.startIndex,
+          endIndex: value.endIndex,
+          notes: value.notes,
+        });
+      }
+    });
   }
 }
 const clipManager = new ClipManager();
