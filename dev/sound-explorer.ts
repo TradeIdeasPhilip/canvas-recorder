@@ -8,12 +8,6 @@ import {
 import { clickDragAndOnce } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
-// Bug / TODO:
-// When I change the notes field from the gui,
-// then I save and load the whole state,
-// my changes are gone!
-// Bug demonstrated here:  https://youtu.be/JDWS-qZRlYU
-
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
 class Color {
@@ -437,14 +431,13 @@ class Clip {
       );
     }
   }
-  #notes = "";
-  get notes() {
-    return this.#notes;
-  }
   #notesCell: HTMLTableCellElement;
+  get notes() {
+    return this.#notesCell.textContent ?? "";
+  }
   set notes(newValue) {
-    if (newValue !== this.#notes) {
-      this.#notesCell.textContent = this.#notes = newValue;
+    if (newValue !== this.notes) {
+      this.#notesCell.textContent = newValue;
       this.#notify();
     }
   }
@@ -462,7 +455,7 @@ class Clip {
       this.#durationCell = row.insertCell();
       this.#notesCell = row.insertCell();
       this.#notesCell.contentEditable = "plaintext-only";
-      // TODO When the user updates that, call this.#notify()
+      this.#notesCell.addEventListener("input", () => this.#notify());
       const buttonsCell = row.insertCell();
       const recycleButton = document.createElement("button");
       recycleButton.textContent = "🗑️"; //♻
@@ -771,13 +764,12 @@ class ClipManager {
     this.#clips.splice(index, 1);
     Color.recycle(clip.color);
   }
-  dumpToJSON(): string {
-    return JSON.stringify(this.clips, [
-      "color",
-      "startIndex",
-      "endIndex",
-      "notes",
-    ]);
+  dumpToJSON(space?: string | number): string {
+    return JSON.stringify(
+      this.clips,
+      ["color", "startIndex", "endIndex", "notes"],
+      space,
+    );
   }
   reloadFromJSON(json: string) {
     const fromJSON = JSON.parse(json);
