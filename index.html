@@ -4,171 +4,33 @@
     <link rel="icon" href="icon.png" type="image/png" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Canvas Recorder Development Environment</title>
+    <title>🗂️ Canvas Recorder Index</title>
     <script type="module" src="/dev/index.ts"></script>
-    <script type="module" src="/dev/sound-explorer.ts"></script>
   </head>
   <body>
-    <h1>Canvas Recorder Development Environment</h1>
-    <canvas id="main" width="3840" height="2160"></canvas>
-    <fieldset id="liveControls">
-      <fieldset id="play-controls">
-        <div class="range-container">
-          <label><input type="checkbox" id="play" />Play</label>
-          <span style="background-color: lightcyan"
-            >&nbsp;(At end
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="pause"
-                checked
-              />Pause</label
-            >
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="repeat"
-              />Repeat</label
-            >
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="continue"
-              />Continue</label
-            >)&nbsp;</span
-          >
-          <input type="number" id="playPositionSeconds" value="0" />
-          <input type="range" id="playPositionRange" value="0" step="any" />
-        </div>
-      </fieldset>
-      <div>
-        <select></select
-        ><button id="previousButton">Previous</button
-        ><button id="nextButton">Next</button>
-      </div>
-      <table id="relevantRows">
-        <tr>
-          <th></th>
-          <th></th>
-          <th>Start</th>
-          <th>End</th>
-        </tr>
-        <tr id="parentRow">
-          <td><button>Parent</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="previousSiblingRow">
-          <td>&emsp;<button>Previous Sibling</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="thisRow">
-          <td>&emsp;This</td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="firstChildRow">
-          <td>&emsp;&emsp;<button>First Child</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="nextSiblingRow">
-          <td>&emsp;<button>Next Sibling</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </table>
-      <div style="display: flex; align-items: center; gap: 0.75em">
-        <label><input type="checkbox" id="lock-audio-video" />🔒</label>
-        <audio id="mainAudio" style="flex-grow: 1" controls></audio>
-      </div>
-      <div>
-        <button id="saveImage">Save Image</button> at
-        <input value="0.000" id="saveImageSeconds" type="number" /> seconds.
-        <button id="currentTimeToSaveImage">← Current Time</button>
-      </div>
-    </fieldset>
-    <div>
-      Current position: <span id="currentPosition"></span>, Last down:
-      <span id="lastDown"></span>, Last up: <span id="lastUp"></span>
-    </div>
-    <div
-      style="
-        border: 0.3em inset rgb(178, 178, 178);
-        padding: 0.5em;
-        margin-top: 0.5em;
-      "
-    >
-      <button id="startRecording">Record and Save Video</button>
-      <button id="cancelRecording" disabled>Stop Recording</button>
-      <div id="info"><i>status goes here</i>...</div>
-    </div>
+    <h1>Index</h1>
+    <ul>
+      <li>
+        <a href="./canvas-recorder.html"
+          >📽️ Canvas Recorder Development Environment</a
+        >
+      </li>
+      <li><a href="./sound-explorer.html">🎤 Sound Explorer</a></li>
+    </ul>
+    <h1>About</h1>
     <p>
-      Hot keys: ⌥0 to jump to the beginning of the current session. ⌥Space to
-      pause or restart. Alt instead of ⌥ on a PC.
+      This front end is made to be used in cooperation with a TypeScript project
+      running in Vite. That is to say, the controls are a hybrid, some things
+      adjusted here and others in the source code.
     </p>
-    <br />
-    <h1>Sound Explorer</h1>
-    <div style="display: flex; align-items: center; gap: 0.75em">
-      <audio
-        id="soundExplorer"
-        src="./Sierpiński part 1.m4a"
-        style="flex-grow: 1"
-        controls
-      ></audio>
-    </div>
-    <div style="display: flex; align-items: center; gap: 0.75em">
-      <canvas
-        id="audioViewer"
-        style="height: 5em; flex-grow: 1; width: 100%"
-      ></canvas>
-    </div>
-    <div>
-      <button id="zoomOut">Zoom Out</button>
-      <button id="panLeft">← Pan Left</button>
-      <button id="recenter">Recenter</button>
-      <button id="panRight">Pan Right →</button>
-    </div>
-    <div id="soundStatus">
-      <p>
-        Drag right → to create a new clip. Drag ← left to zoom. Click to sync
-        the player.
-      </p>
-      <p>
-        Use the ⇤ and ⇥ buttons to change the ends of a section. While in this
-        mode click to change the endpoint. Or drag to quickly play a clip
-        without creating a new entry in the table.
-      </p>
-    </div>
-    <table id="soundClips">
-      <tr>
-        <th>Start</th>
-        <th>End</th>
-        <th>Duration</th>
-        <th>Notes</th>
-      </tr>
-    </table>
-    <h1>Assets</h1>
-    <img
-      id="Peano"
-      src="./Giuseppe_Peano.jpg"
-      style="width: 10em"
-      title="Giuseppe Peano"
-    />
-    <img
-      id="Fourier"
-      src="./Fourier2_-_restoration1.jpg"
-      style="width: 10em"
-      title="Joseph Fourier"
-    />
+    <p>
+      This program remembers your settings. When you change the code, Vite will
+      restart the program, and the program picks up exactly where you left off.
+      If you're not watching closely you might not even realize that the program
+      restarted.
+    </p>
+    <a href="https://github.com/TradeIdeasPhilip/canvas-recorder"
+      >Source code and more information.</a
+    >
   </body>
 </html>

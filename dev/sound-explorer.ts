@@ -1,3 +1,5 @@
+import "./style.css";
+
 import { AnimationLoop, getById } from "phil-lib/client-misc";
 import {
   assertFinite,
@@ -176,7 +178,6 @@ let sourceRange: {
  * @param endIndex Last thing to show.  Measured in number of samples.
  */
 function setSourceRange(startIndex: number, endIndex: number) {
-  needRedraw = true;
   assertFinite(startIndex, endIndex);
   if (endIndex < startIndex) {
     throw new Error("wtf");
@@ -351,14 +352,11 @@ const clickAndDrag = clickDragAndOnce(canvas, {
     }
     canvas.style.cursor = "";
     dragRectangle = undefined;
-    needRedraw = true;
-    //statusDiv.textContent = `${x0} pixels, ${(x0 / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x0))}, ${xToInputIndexContinuous(x0) / audioContext.sampleRate} seconds → ${x1} pixels, ${(x1 / canvas.width) * 100}% ${status}, index of sample: ${Math.round(xToInputIndexContinuous(x1))}, ${xToInputIndexContinuous(x1) / audioContext.sampleRate} seconds`;
   },
   onDragMove(x0, _y0, x1, _y1, status) {
     if (status == "click") {
       canvas.style.cursor = "";
       dragRectangle = undefined;
-      needRedraw = true;
     } else if (x0 < x1) {
       // Dragging left to right creates a new clip.
       canvas.style.cursor = "e-resize";
@@ -367,7 +365,6 @@ const clickAndDrag = clickDragAndOnce(canvas, {
         leftIndex: xToInputIndexContinuous(x0),
         rightIndex: xToInputIndexContinuous(x1),
       };
-      needRedraw = true;
     } else {
       // Dragging right to left zooms in.
       canvas.style.cursor = "zoom-in";
@@ -376,19 +373,10 @@ const clickAndDrag = clickDragAndOnce(canvas, {
         leftIndex: xToInputIndexContinuous(x1),
         rightIndex: xToInputIndexContinuous(x0),
       };
-      needRedraw = true;
     }
   },
   onFreeMove(_x, _y) {},
 });
-
-/**
- * We have to check some things directly in the animation frame,
- * like the position in sound file.
- *
- * Given a choice, though, the preferred thing is to set this variable to true.
- */
-let needRedraw = true;
 
 let soundData: Float32Array<ArrayBuffer> | undefined;
 let sourceBuffer: AudioBuffer | undefined;
@@ -435,7 +423,6 @@ async function reload() {
             startIndex: 0,
             endIndex: soundData.length,
           };
-    needRedraw = true;
   }
 }
 
@@ -448,8 +435,6 @@ async function reload() {
  * This might be overkill outside of an animation loop.
  */
 let canvasSize: { readonly width: number; readonly height: number } | undefined;
-
-let audioTimeAtLastRedraw = RangePlaying.instance.status().secondsFromStart;
 
 let inputIndexToX: LinearFunction = makeLinear(0, 0, 1, 1);
 let xToInputIndexContinuous: LinearFunction = makeLinear(0, 0, 1, 1);
@@ -556,7 +541,6 @@ class Clip {
               }
               // Restore help TODO
               dragRectangle = undefined;
-              needRedraw = true;
               canvas.style.cursor = "";
             },
             onDrag: function (
@@ -593,13 +577,11 @@ class Clip {
                   rightIndex: xToInputIndexContinuous(x1),
                 };
               }
-              needRedraw = true;
             },
             onAbort: function (): void {
               // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
-              needRedraw = true;
             },
             onFreeMove(x, y) {
               const proposedStartIndex = xToInputIndexContinuous(x);
@@ -615,7 +597,6 @@ class Clip {
                 dragRectangle = undefined;
                 canvas.style.cursor = "not-allowed";
               }
-              needRedraw = true;
             },
           });
         }
@@ -637,7 +618,6 @@ class Clip {
               }
               // Restore help TODO
               dragRectangle = undefined;
-              needRedraw = true;
               canvas.style.cursor = "";
             },
             onDrag: function (
@@ -674,13 +654,11 @@ class Clip {
                   rightIndex: xToInputIndexContinuous(x1),
                 };
               }
-              needRedraw = true;
             },
             onAbort: function (): void {
               // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
-              needRedraw = true;
             },
             onFreeMove(x, y) {
               const fixedStartIndex = thisClip.startIndex;
@@ -696,7 +674,6 @@ class Clip {
                 dragRectangle = undefined;
                 canvas.style.cursor = "not-allowed";
               }
-              needRedraw = true;
             },
           });
         }
@@ -810,7 +787,6 @@ class ClipManager {
     return result;
   }
   notify() {
-    needRedraw = true;
     if (!this.#pushPending) {
       this.#pushPending = true;
       setTimeout(() => {
@@ -903,14 +879,9 @@ function redraw() {
     canvasSize = { height, width };
     canvas.width = width;
     canvas.height = height;
-    needRedraw = true;
   }
   const playbackStatus = RangePlaying.instance.status();
   const currentAudioTime = playbackStatus.secondsFromStart;
-  if (audioTimeAtLastRedraw == currentAudioTime && !needRedraw) {
-    // No recent changes.  No need to redraw.
-    return;
-  }
   context.clearRect(0, 0, canvas.width, canvas.height);
   if (!soundData) {
     // em's don't work well here.
@@ -1036,9 +1007,6 @@ function redraw() {
       }
     }
   }
-  // Cache this state.  Don't redraw again until one of these changes.
-  needRedraw = false;
-  audioTimeAtLastRedraw = currentAudioTime;
 }
 
 const resizeObserver = new ResizeObserver((_entries) => {

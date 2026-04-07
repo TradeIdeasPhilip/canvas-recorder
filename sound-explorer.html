@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+  <head>
+    <link rel="icon" href="sound-explorer.svg" type="image/svg" />
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sound Explorer</title>
+    <script type="module" src="/dev/sound-explorer.ts"></script>
+  </head>
+  <body>
+    <h1>Sound Explorer</h1>
+    <div style="display: flex; align-items: center; gap: 0.75em">
+      <audio
+        id="soundExplorer"
+        src="./Sierpiński part 1.m4a"
+        style="flex-grow: 1"
+        controls
+      ></audio>
+    </div>
+    <div style="display: flex; align-items: center; gap: 0.75em">
+      <canvas
+        id="audioViewer"
+        style="height: 5em; flex-grow: 1; width: 100%"
+      ></canvas>
+    </div>
+    <div>
+      <button id="zoomOut">Zoom Out</button>
+      <button id="panLeft">← Pan Left</button>
+      <button id="recenter">Recenter</button>
+      <button id="panRight">Pan Right →</button>
+    </div>
+    <div id="soundStatus">
+      <p>
+        Drag right → to create a new clip. Drag ← left to zoom. Click to sync
+        the player.
+      </p>
+      <p>
+        Use the ⇤ and ⇥ buttons to change the ends of a section. While in this
+        mode click to change the endpoint. Or drag to quickly play a clip
+        without creating a new entry in the table.
+      </p>
+    </div>
+    <table id="soundClips">
+      <tr>
+        <th>Start</th>
+        <th>End</th>
+        <th>Duration</th>
+        <th>Notes</th>
+      </tr>
+    </table>
+  </body>
+</html>
