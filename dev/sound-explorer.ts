@@ -15,6 +15,30 @@ import { myRainbow } from "../src/glib/my-rainbow";
 // The chart GUI will still keep trying to extend the clip.
 // Need to call the cleanup code on recycle.
 
+// Bug / TODO:
+// When I tried to select from the far left I managed to select a negative starting time.
+// It appeared okay in the table, but when I tried to play it I got this:
+//sound-explorer.ts:310 Uncaught RangeError: Failed to execute 'start' on 'AudioBufferSourceNode': The offset provided (-0.181363) is less than the minimum bound (0).
+//    at RangePlaying.playTemporary (sound-explorer.ts:310:12)
+//    at Clip.play (sound-explorer.ts:728:27)
+//    at HTMLButtonElement.<anonymous> (sound-explorer.ts:694:14)
+// Do a better job selecting!!!
+
+// TODO:
+// The esc key should get you out of extend mode.
+// clickDragAndOnce should listen for esc, and that's another way to cancel.
+// Maybe rename the out of bounds event to cancel,
+// leave the cancel listeners in place,
+// AND there's a TODO elsewhere to grab the mouse so the current out of bounds would not be needed any more.
+
+// TODO:
+// Need a way to see where my mouse is hovering at all times.
+// When dragging, show the second time **and** the duration.
+// clickDragAndOnce should have an optional argument,
+//   the `everythingListener`.
+//   All messages go to the everythingListener
+//   Then each message goes to the `defaultListener` or to the one time listener
+
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
 function makeCandyStripe(
@@ -517,6 +541,10 @@ class Clip {
       this.#notesCell.contentEditable = "plaintext-only";
       this.#notesCell.addEventListener("input", () => this.#notify());
       const buttonsCell = row.insertCell();
+      // So you can copy and paste from the table.
+      // You'll get the words and numbers, but not the buttons.
+      // The buttons would never work but would still appear in the clipboard.
+      buttonsCell.style.userSelect = "none";
       const recycleButton = document.createElement("button");
       recycleButton.textContent = "🗑️"; //♻
       buttonsCell.appendChild(recycleButton);
