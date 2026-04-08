@@ -7,7 +7,7 @@ import {
   LinearFunction,
   makeLinear,
 } from "phil-lib/misc";
-import { clickDragAndOnce } from "../src/click-and-drag";
+import { clickDragAndOnce, setupClickAndDrag } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 
 // Bug / TODO:
@@ -30,14 +30,6 @@ import { myRainbow } from "../src/glib/my-rainbow";
 // Maybe rename the out of bounds event to cancel,
 // leave the cancel listeners in place,
 // AND there's a TODO elsewhere to grab the mouse so the current out of bounds would not be needed any more.
-
-// TODO:
-// Need a way to see where my mouse is hovering at all times.
-// When dragging, show the second time **and** the duration.
-// clickDragAndOnce should have an optional argument,
-//   the `everythingListener`.
-//   All messages go to the everythingListener
-//   Then each message goes to the `defaultListener` or to the one time listener
 
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
@@ -401,6 +393,78 @@ const clickAndDrag = clickDragAndOnce(canvas, {
   },
   onFreeMove(_x, _y) {},
 });
+{
+  function xToSeconds(x: number) {
+    return xToInputIndexContinuous(x) / audioContext.sampleRate;
+  }
+  const selectionInfoDiv = getById("selectionInfo", HTMLDivElement);
+  let previousDrag: { startSeconds: number; endSeconds: number } | undefined;
+  function secondsToString(seconds: number) {
+    // sampleRate is almost certainly 48,000hz.
+    // So one sample is 0.00002083 seconds.
+    return seconds.toFixed(5);
+  }
+  function showCurrentState(currentSeconds: number, dragStartSeconds?: number) {
+    let text: string;
+    if (dragStartSeconds === undefined) {
+      // Drag is NOT in progress.
+      text = `${secondsToString(currentSeconds)} seconds.`;
+    } else {
+      // Show start and end
+      text = `${secondsToString(dragStartSeconds)} to ${secondsToString(currentSeconds)} seconds, duration = ${secondsToString(currentSeconds - dragStartSeconds)}.`;
+    }
+    if (previousDrag) {
+      text += `, previous drag was ${secondsToString(previousDrag.startSeconds)} to ${secondsToString(previousDrag.endSeconds)}, duration = ${secondsToString(previousDrag.endSeconds - previousDrag.startSeconds)}.`;
+    }
+    selectionInfoDiv.textContent = text;
+  }
+  setupClickAndDrag(
+    canvas,
+    {
+      onClick: function (x: number, _y: number): void {
+        console.warn("not expected, requested 0 tolerance");
+        const timeInSeconds = xToSeconds(x);
+        previousDrag = {
+          startSeconds: timeInSeconds,
+          endSeconds: timeInSeconds,
+        };
+        showCurrentState(timeInSeconds);
+      },
+      onDrag: function (
+        x0: number,
+        _y0: number,
+        x1: number,
+        _y1: number,
+        _status: "mouseup" | "mouseleave",
+      ): void {
+        const startSeconds = xToSeconds(x0);
+        const endSeconds = xToSeconds(x1);
+        previousDrag = { startSeconds, endSeconds };
+        // Don't show the start position.
+        // That is already available in the "previous drag".
+        // And this is the beginning of the phase where we are just doing moves,
+        // the drag has finished.
+        showCurrentState(endSeconds);
+      },
+      onDragMove: function (
+        x0: number,
+        _y0: number,
+        x1: number,
+        _y1: number,
+        _status: "drag" | "click",
+      ): void {
+        const startSeconds = xToSeconds(x0);
+        const endSeconds = xToSeconds(x1);
+        showCurrentState(endSeconds, startSeconds);
+      },
+      onFreeMove: function (x: number, _y: number): void {
+        const timeInSeconds = xToSeconds(x);
+        showCurrentState(timeInSeconds);
+      },
+    },
+    0,
+  );
+}
 
 let soundData: Float32Array<ArrayBuffer> | undefined;
 let sourceBuffer: AudioBuffer | undefined;
