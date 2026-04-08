@@ -491,7 +491,7 @@ async function reload() {
   reloadInProgress = true;
   let newSoundData: Float32Array<ArrayBuffer> | undefined;
   try {
-    const url = audioElement.src;
+    const url = assertNonNullable(audioElement.getAttribute("src")); //audioElement.src;
     const response = await fetch(url);
     const encodedSource = await response.arrayBuffer();
     sourceBuffer = await audioContext.decodeAudioData(encodedSource);
