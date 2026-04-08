@@ -393,17 +393,17 @@ const clickAndDrag = clickDragAndOnce(canvas, {
   },
   onFreeMove(_x, _y) {},
 });
+function secondsToString(seconds: number) {
+  // sampleRate is almost certainly 48,000hz.
+  // So one sample is 0.00002083 seconds.
+  return seconds.toFixed(5);
+}
 {
   function xToSeconds(x: number) {
     return xToInputIndexContinuous(x) / audioContext.sampleRate;
   }
   const selectionInfoDiv = getById("selectionInfo", HTMLDivElement);
   let previousDrag: { startSeconds: number; endSeconds: number } | undefined;
-  function secondsToString(seconds: number) {
-    // sampleRate is almost certainly 48,000hz.
-    // So one sample is 0.00002083 seconds.
-    return seconds.toFixed(5);
-  }
   function showCurrentState(currentSeconds: number, dragStartSeconds?: number) {
     let text: string;
     if (dragStartSeconds === undefined) {
@@ -531,7 +531,7 @@ type FromClipManager = Parameters<typeof ClipManager.validate>[0];
 
 class Clip {
   #displayIndex(clipCount: number): string {
-    return (clipCount / audioContext.sampleRate).toFixed(3);
+    return secondsToString(clipCount / audioContext.sampleRate);
   }
   #notify() {
     this.owner.notify();

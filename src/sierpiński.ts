@@ -727,18 +727,22 @@ const sceneList = new MakeShowableInSeries("Scene List");
           }
         }
       } else {
-        startWeight??=0;
-        endWeight??=0;
+        startWeight ??= 0;
+        endWeight ??= 0;
       }
-      if (startWeight < 0 || endWeight< 0  ) {throw new Error("wtf");}
-      numberOfSpaces += startWeight+endWeight;
-      if (numberOfSpaces <=0) {throw new Error("wtf");}
-      const msPerSpace = timeToDistribute/ numberOfSpaces;
-      let start = startFrom+ startWeight*msPerSpace;
+      if (startWeight < 0 || endWeight < 0) {
+        throw new Error("wtf");
+      }
+      numberOfSpaces += startWeight + endWeight;
+      if (numberOfSpaces <= 0) {
+        throw new Error("wtf");
+      }
+      const msPerSpace = timeToDistribute / numberOfSpaces;
+      let start = startFrom + startWeight * msPerSpace;
       clips.forEach((clip) => {
         clip.startMsIntoScene = start;
-        start+= clip.lengthMs + msPerSpace;
-      })
+        start += clip.lengthMs + msPerSpace;
+      });
       return clips;
     }
     const qqq = distribute([], {});
@@ -754,8 +758,9 @@ const sceneList = new MakeShowableInSeries("Scene List");
         },
         {
           source: "./Sierpiński part 1.m4a",
-          startMsIntoScene: 24000,
-          startMsIntoClip: 18000,
+          startMsIntoScene: 24900,
+          startMsIntoClip: 18900,
+          lengthMs: 11.383,
         },
       ],
       duration: morphSchedule.at(-1)!.time,
