@@ -743,24 +743,89 @@ const sceneList = new MakeShowableInSeries("Scene List");
         clip.startMsIntoScene = start;
         start += clip.lengthMs + msPerSpace;
       });
+      console.log(clips);
       return clips;
     }
-    const qqq = distribute([], {});
+
     /**
      * Change between the text and the triangle.
      */
     const morph: Showable = {
       soundClips: [
+        /*
         {
           source: "./Sierpiński part 1.m4a",
           lengthMs: 18000,
           startMsIntoScene: 1000,
         },
+        */
+        ...distribute(
+          [
+            {
+              source: "./Sierpiński part 1.m4a",
+              startMsIntoScene: NaN,
+              startMsIntoClip: 0,
+              lengthMs: 3.15716 * 1000,
+            },
+            {
+              source: "./Sierpiński part 1.m4a",
+              startMsIntoScene: NaN,
+              startMsIntoClip: 4.01334 * 1000,
+              lengthMs: 6.52837 * 1000,
+            },
+            {
+              source: "./Sierpiński part 1.m4a",
+              startMsIntoScene: NaN,
+              startMsIntoClip: 12.09353 * 1000,
+              lengthMs: 2.19396 * 1000,
+            },
+            {
+              source: "./Sierpiński part 1.m4a",
+              startMsIntoScene: NaN,
+              startMsIntoClip: 15.57176 * 1000,
+              lengthMs: 2.24747 * 1000,
+            },
+          ],
+          { startFrom: 1000, endAt: 23000 },
+        ),
         {
           source: "./Sierpiński part 1.m4a",
-          startMsIntoScene: 24900,
+          startMsIntoScene: 25500,
           startMsIntoClip: 18900,
-          lengthMs: 11.383,
+          lengthMs: 32.35474 * 1000,
+        },
+        {
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: (0 * 60 + 59) * 1000,
+          startMsIntoClip: 55.41209 * 1000,
+          lengthMs: 2.30309 * 1000,
+        },
+        {
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: (1 * 60 + 4) * 1000,
+          startMsIntoClip: 58.4846 * 1000,
+          lengthMs: 2.41249 * 1000,
+        },
+        {
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: (1 * 60 + 9) * 1000,
+          startMsIntoClip: 61.99367 * 1000,
+          lengthMs: 6.21399 * 1000,
+        },
+        {
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: 76134,
+          startMsIntoClip: 69.31211 * 1000,
+          lengthMs: 4.1385 * 1000,
+        },
+        {
+          // TODO add about 2 seconds before this here and in the video.
+          // Audio and video are lined up.
+          // I just need a bigger pause between this and the previous audio.
+          source: "./Sierpiński part 1.m4a",
+          startMsIntoScene: 81000,
+          startMsIntoClip: 75115.71,
+          lengthMs: 3684.82,
         },
       ],
       duration: morphSchedule.at(-1)!.time,
@@ -1089,7 +1154,7 @@ function scaleProgressWithinSegment(progress: number) {
       },
     );
     const showable: Showable = {
-      duration: schedules.at(-1)!.at(-1)!.time + 7000,
+      duration: schedules.at(-1)!.at(-1)!.time + 1000,
       description: "Make rounded corners",
       show(options) {
         const { context, timeInMs } = options;
@@ -1253,33 +1318,33 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 2500, value: 1 },
     ];
     const topRotationSchedule: Keyframes<number> = [
-      { time: 4000, value: 0, easeAfter: easeIn },
-      { time: 5000, value: 1 },
-      { time: 9000, value: 1, easeAfter: easeOut },
-      { time: 10000, value: 0 },
+      { time: 9000, value: 0, easeAfter: easeIn },
+      { time: 10000, value: 1 },
+      { time: 14000, value: 1, easeAfter: easeOut },
+      { time: 15000, value: 0 },
     ];
     const outgoingAlpha = 0.333;
     const topAlphaSchedule: Keyframes<number> = [
-      { time: 10000, value: 1, easeAfter: ease },
-      { time: 12000, value: outgoingAlpha },
+      { time: 15000, value: 1, easeAfter: ease },
+      { time: 17000, value: outgoingAlpha },
     ];
     const bottomRotationSchedule: Keyframes<number> = [
-      { time: 4000 + 8_000, value: 0, easeAfter: easeIn },
-      { time: 5000 + 8_000, value: 1 },
-      { time: 9000 + 8_000, value: 1, easeAfter: easeOut },
-      { time: 10000 + 8_000, value: 0 },
+      { time: 4000 + 8_000 + 5000, value: 0, easeAfter: easeIn },
+      { time: 5000 + 8_000 + 5000, value: 1 },
+      { time: 9000 + 8_000 + 3000, value: 1, easeAfter: easeOut },
+      { time: 10000 + 8_000 + 3000, value: 0 },
     ];
     const bottomAlphaSchedule: Keyframes<number> = [
-      { time: 10000 + 8_000, value: 1, easeAfter: ease },
-      { time: 12000 + 8_000, value: outgoingAlpha },
+      { time: 10000 + 8_000 + 3000, value: 1, easeAfter: ease },
+      { time: 12000 + 8_000 + 3000, value: outgoingAlpha },
     ];
     const leftAlphaSchedule: Keyframes<number> = [
-      { time: 22000, value: 1, easeAfter: easeOut },
-      { time: 24_000, value: outgoingAlpha },
+      { time: 25000, value: 1, easeAfter: easeOut },
+      { time: 27_000, value: outgoingAlpha },
     ];
     const showable: Showable = {
       description: "Move to correct position",
-      duration: 25_000,
+      duration: 30_000,
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
