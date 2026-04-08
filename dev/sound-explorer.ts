@@ -854,7 +854,7 @@ class ClipManager {
   /**
    * Each audio file will be associated with its own set of clips.
    *
-   * This is the exact name that appears in the html file, e.g. "./Sierpiński part 1.m4a"
+   * This is the exact name that appears in the html file, e.g. "./Sierpinski part 1.m4a"
    * `audioElement.src` gave me something ugly:  "http://localhost:5173/Sierpin%CC%81ski%20part%201.m4a".
    *
    * TODO should I also replace audioElement.src elsewhere in this file?

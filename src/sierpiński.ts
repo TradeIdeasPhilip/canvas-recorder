@@ -754,7 +754,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       soundClips: [
         /*
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           lengthMs: 18000,
           startMsIntoScene: 1000,
         },
@@ -762,25 +762,25 @@ const sceneList = new MakeShowableInSeries("Scene List");
         ...distribute(
           [
             {
-              source: "./Sierpiński part 1.m4a",
+              source: "./Sierpinski part 1.m4a",
               startMsIntoScene: NaN,
               startMsIntoClip: 0,
               lengthMs: 3.15716 * 1000,
             },
             {
-              source: "./Sierpiński part 1.m4a",
+              source: "./Sierpinski part 1.m4a",
               startMsIntoScene: NaN,
               startMsIntoClip: 4.01334 * 1000,
               lengthMs: 6.52837 * 1000,
             },
             {
-              source: "./Sierpiński part 1.m4a",
+              source: "./Sierpinski part 1.m4a",
               startMsIntoScene: NaN,
               startMsIntoClip: 12.09353 * 1000,
               lengthMs: 2.19396 * 1000,
             },
             {
-              source: "./Sierpiński part 1.m4a",
+              source: "./Sierpinski part 1.m4a",
               startMsIntoScene: NaN,
               startMsIntoClip: 15.57176 * 1000,
               lengthMs: 2.24747 * 1000,
@@ -789,31 +789,31 @@ const sceneList = new MakeShowableInSeries("Scene List");
           { startFrom: 1000, endAt: 23000 },
         ),
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: 25500,
           startMsIntoClip: 18900,
           lengthMs: 32.35474 * 1000,
         },
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: (0 * 60 + 59) * 1000,
           startMsIntoClip: 55.41209 * 1000,
           lengthMs: 2.30309 * 1000,
         },
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: (1 * 60 + 4) * 1000,
           startMsIntoClip: 58.4846 * 1000,
           lengthMs: 2.41249 * 1000,
         },
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: (1 * 60 + 9) * 1000,
           startMsIntoClip: 61.99367 * 1000,
           lengthMs: 6.21399 * 1000,
         },
         {
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: 76134,
           startMsIntoClip: 69.31211 * 1000,
           lengthMs: 4.1385 * 1000,
@@ -822,7 +822,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           // TODO add about 2 seconds before this here and in the video.
           // Audio and video are lined up.
           // I just need a bigger pause between this and the previous audio.
-          source: "./Sierpiński part 1.m4a",
+          source: "./Sierpinski part 1.m4a",
           startMsIntoScene: 81000,
           startMsIntoClip: 75115.71,
           lengthMs: 3684.82,
