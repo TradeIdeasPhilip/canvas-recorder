@@ -64,3 +64,7 @@ audio {
     0px 0px 0.25em #ffffff,
     0px 0px 0.5em #ffffff;
 }
+
+.emptyTableMessage:not(:nth-child(2)) {
+  display: none;
+}
