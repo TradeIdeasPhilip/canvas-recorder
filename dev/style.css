@@ -59,10 +59,8 @@ audio {
   cursor: col-resize;
 }
 
-.white-glow {
-  text-shadow:
-    0px 0px 0.25em #ffffff,
-    0px 0px 0.5em #ffffff;
+.white-glow td {
+  box-shadow: 5em 10em rgb(255 255 255 / 36%) inset;
 }
 
 .emptyTableMessage:not(:nth-child(2)) {

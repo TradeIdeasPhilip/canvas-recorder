@@ -640,6 +640,90 @@ const fillColors = (() => {
 
 const sceneList = new MakeShowableInSeries("Scene List");
 
+function distribute<T extends { startMsIntoScene: number; lengthMs: number }>(
+  clips: T[],
+  options: {
+    startFrom?: number;
+    endAt?: number;
+    startWeight?: number;
+    endWeight?: number;
+  },
+): T[] {
+  if (clips.length == 0) {
+    return clips;
+  }
+  const startFrom =
+    options.startFrom ??
+    Math.min(...clips.map(({ startMsIntoScene }) => startMsIntoScene));
+  const endAt =
+    options.endAt ??
+    Math.max(
+      ...clips.map(
+        ({ startMsIntoScene, lengthMs }) => startMsIntoScene + lengthMs,
+      ),
+    );
+  const timeAvailable = endAt - startFrom;
+  const timeUsed = sum(clips.map(({ lengthMs }) => lengthMs));
+  const timeToDistribute = timeAvailable - timeUsed;
+  if (timeToDistribute < 0) {
+    throw new Error("wtf");
+  }
+  /**
+   * Distribute the extra space evenly over this many spaces.
+   *
+   * Between each pair of clips is exactly one space.
+   * Before the first clip and after the last, that's configurable.
+   * By default they get 0 spaces.
+   * They can request a non-integer amount of space.
+   */
+  let numberOfSpaces = clips.length - 1;
+  let { startWeight, endWeight } = options;
+  if (numberOfSpaces == 0) {
+    // The default values for startWeight and endWeight are (conceptually) tiny positive numbers.
+    // Most of the time this is so close to 0 that it just gets rounds off to 0.
+    // But if everything else is 0, then all of the weight is given to the one of these that was undefined.
+    // If they are both undefined, then the weight is split evenly between them.
+    if (startWeight === undefined) {
+      if (endWeight === undefined) {
+        startWeight = 0.5;
+        endWeight = 0.5;
+      } else {
+        if (endWeight == 0) {
+          startWeight = 1;
+        } else {
+          startWeight = 0;
+        }
+      }
+    } else {
+      if (endWeight === undefined) {
+        if (startWeight == 0) {
+          endWeight = 1;
+        } else {
+          endWeight = 0;
+        }
+      }
+    }
+  } else {
+    startWeight ??= 0;
+    endWeight ??= 0;
+  }
+  if (startWeight < 0 || endWeight < 0) {
+    throw new Error("wtf");
+  }
+  numberOfSpaces += startWeight + endWeight;
+  if (numberOfSpaces <= 0) {
+    throw new Error("wtf");
+  }
+  const msPerSpace = timeToDistribute / numberOfSpaces;
+  let start = startFrom + startWeight * msPerSpace;
+  clips.forEach((clip) => {
+    clip.startMsIntoScene = start;
+    start += clip.lengthMs + msPerSpace;
+  });
+  console.log(clips);
+  return clips;
+}
+
 // MARK: Title
 {
   const scene = new MakeShowableInSeries("Title");
@@ -661,104 +745,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
       { time: 1_000, value: 0, easeAfter: ease },
       { time: 3_000, value: 1 },
     ];
-    function distribute<
-      T extends { startMsIntoScene: number; lengthMs: number },
-    >(
-      clips: T[],
-      options: {
-        startFrom?: number;
-        endAt?: number;
-        startWeight?: number;
-        endWeight?: number;
-      },
-    ): T[] {
-      if (clips.length == 0) {
-        return clips;
-      }
-      const startFrom =
-        options.startFrom ??
-        Math.min(...clips.map(({ startMsIntoScene }) => startMsIntoScene));
-      const endAt =
-        options.endAt ??
-        Math.max(
-          ...clips.map(
-            ({ startMsIntoScene, lengthMs }) => startMsIntoScene + lengthMs,
-          ),
-        );
-      const timeAvailable = endAt - startFrom;
-      const timeUsed = sum(clips.map(({ lengthMs }) => lengthMs));
-      const timeToDistribute = timeAvailable - timeUsed;
-      if (timeToDistribute < 0) {
-        throw new Error("wtf");
-      }
-      /**
-       * Distribute the extra space evenly over this many spaces.
-       *
-       * Between each pair of clips is exactly one space.
-       * Before the first clip and after the last, that's configurable.
-       * By default they get 0 spaces.
-       * They can request a non-integer amount of space.
-       */
-      let numberOfSpaces = clips.length - 1;
-      let { startWeight, endWeight } = options;
-      if (numberOfSpaces == 0) {
-        // The default values for startWeight and endWeight are (conceptually) tiny positive numbers.
-        // Most of the time this is so close to 0 that it just gets rounds off to 0.
-        // But if everything else is 0, then all of the weight is given to the one of these that was undefined.
-        // If they are both undefined, then the weight is split evenly between them.
-        if (startWeight === undefined) {
-          if (endWeight === undefined) {
-            startWeight = 0.5;
-            endWeight = 0.5;
-          } else {
-            if (endWeight == 0) {
-              startWeight = 1;
-            } else {
-              startWeight = 0;
-            }
-          }
-        } else {
-          if (endWeight === undefined) {
-            if (startWeight == 0) {
-              endWeight = 1;
-            } else {
-              endWeight = 0;
-            }
-          }
-        }
-      } else {
-        startWeight ??= 0;
-        endWeight ??= 0;
-      }
-      if (startWeight < 0 || endWeight < 0) {
-        throw new Error("wtf");
-      }
-      numberOfSpaces += startWeight + endWeight;
-      if (numberOfSpaces <= 0) {
-        throw new Error("wtf");
-      }
-      const msPerSpace = timeToDistribute / numberOfSpaces;
-      let start = startFrom + startWeight * msPerSpace;
-      clips.forEach((clip) => {
-        clip.startMsIntoScene = start;
-        start += clip.lengthMs + msPerSpace;
-      });
-      console.log(clips);
-      return clips;
-    }
 
     /**
      * Change between the text and the triangle.
      */
     const morph: Showable = {
       soundClips: [
-        /*
-        {
-          source: "./Sierpinski part 1.m4a",
-          lengthMs: 18000,
-          startMsIntoScene: 1000,
-        },
-        */
         ...distribute(
           [
             {
@@ -819,11 +811,8 @@ const sceneList = new MakeShowableInSeries("Scene List");
           lengthMs: 4.1385 * 1000,
         },
         {
-          // TODO add about 2 seconds before this here and in the video.
-          // Audio and video are lined up.
-          // I just need a bigger pause between this and the previous audio.
           source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 81000,
+          startMsIntoScene: 83000,
           startMsIntoClip: 75115.71,
           lengthMs: 3684.82,
         },
@@ -1339,12 +1328,12 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 12000 + 8_000 + 3000, value: outgoingAlpha },
     ];
     const leftAlphaSchedule: Keyframes<number> = [
-      { time: 25000, value: 1, easeAfter: easeOut },
-      { time: 27_000, value: outgoingAlpha },
+      { time: 27000, value: 1, easeAfter: easeOut },
+      { time: 29_000, value: outgoingAlpha },
     ];
     const showable: Showable = {
       description: "Move to correct position",
-      duration: 30_000,
+      duration: 32_000,
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
@@ -1457,12 +1446,20 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 1000, value: 0, easeAfter: easeIn },
       { time: 3000, value: 1 },
     ];
-    const duration = 10000;
+    const duration = 7000;
     const qqq = zipper([part3.winners, finalLocations]);
     const winners = new Map(qqq);
     const scene: Showable = {
       description: "move and hide small triangles",
       duration,
+      soundClips: [
+        {
+          startMsIntoScene: 0,
+          startMsIntoClip: 80201,
+          source: "./Sierpinski part 1.m4a",
+          lengthMs: 5_076,
+        },
+      ],
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
@@ -1608,6 +1605,85 @@ function scaleProgressWithinSegment(progress: number) {
     const scene: Showable = {
       description: "fourier of 5 2nd generation triangles",
       duration: 60_000,
+      soundClips: [
+        ...distribute(
+          [
+            {
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 87507.24,
+              lengthMs: 2178.65,
+            },
+            {
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 90174.98,
+              lengthMs: 2617.59,
+            },
+            {
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 93109.49,
+              lengthMs: 1734.03,
+            },
+          ],
+          {
+            startFrom: 0,
+            endAt: 118772 - 101500 - 2955.49,
+            startWeight: 0.5,
+            endWeight: 1.5,
+          },
+        ),
+
+        {
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 118772 - 101500 - 2955.49,
+          startMsIntoClip: 96642.99,
+          lengthMs: 2955.49,
+        },
+        {
+          // "I love the yellow and green at this stage"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 22000,
+          startMsIntoClip: 100735.01,
+          lengthMs: 2787.64,
+        },
+        {
+          // "The blue one is getting so round"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 27000,
+          startMsIntoClip: 104544.78,
+          lengthMs: 2090.73,
+        },
+        {
+          // "Yellow and green are pretty close to done"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 31_000,
+          startMsIntoClip: 107936.4,
+          lengthMs: 2555.33,
+        },
+        {
+          // "Red's the slowest, but it's moving"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 34_000,
+          startMsIntoClip: 112954.15,
+          lengthMs: 2834.1,
+        },
+        {
+          // "I'm about to speed this up in a moment"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 40_000,
+          startMsIntoClip: 117507.28,
+          lengthMs: 2137.19,
+        },
+        {
+          // "It takes a whole lot of small terms to bring out the corners."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 45_000,
+          startMsIntoClip: 120689.84,
+          lengthMs: 6.14503 * 1000,
+        },
+      ],
       show(options) {
         const { context, timeInMs } = options;
         context.lineCap = "round";
@@ -1754,6 +1830,80 @@ function scaleProgressWithinSegment(progress: number) {
     const scene: Showable = {
       description: "fourier again more artistically",
       duration: 80_000,
+      soundClips: [
+        {
+          // "Okay, that was good but I want to do something slightly different next time.\n"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: -5307.5,
+          startMsIntoClip: 128459.49,
+          lengthMs: 5307.5,
+        },
+        {
+          // "I want to add the terms in a different order."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 5000,
+          startMsIntoClip: 134723.91,
+          lengthMs: 2562.83,
+        },
+        {
+          // TODO Way too much dead space.  Maybe move this clip up a little bit.
+          // Maybe the first clip starts only a brief moment before this scene.
+          // Remove the dead time from the end of the previous scene.
+          // Center the middle clip between these two.
+          // And maybe make this first part run faster.
+          // It could run about 2x as fast without the voiceover overlapping.
+
+          // "Lets start with some familiar curves."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 192230 - 159000 - 2512.53,
+          startMsIntoClip: 137876.57,
+          lengthMs: 2512.53,
+        },
+        /*
+        {
+          // "But then I'm gonna add all the smaller terms."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 141790.32,
+          lengthMs: 3382.25,
+        },
+        {
+          // "So we can see the sharp corners sooner."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 145403.81,
+          lengthMs: 2244.47,
+        },
+        {
+          // "I had to add 600 terms to get sharp corners."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 148355.79,
+          lengthMs: 3317.92,
+        },
+        {
+          // "There they are."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 152527.58,
+          lengthMs: 902.67,
+        },
+        {
+          // "The yellow one reminds me of a medieval helmet."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 155040.42,
+          lengthMs: 2659.21,
+        },
+        {
+          // "You can clearly see how each Fourier version follows it's expected path."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 159236.61,
+          lengthMs: 5269.64,
+        },
+        */
+      ],
       show(options) {
         const { context, timeInMs } = options;
 

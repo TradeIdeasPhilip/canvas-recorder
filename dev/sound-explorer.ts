@@ -31,6 +31,29 @@ import { myRainbow } from "../src/glib/my-rainbow";
 // leave the cancel listeners in place,
 // AND there's a TODO elsewhere to grab the mouse so the current out of bounds would not be needed any more.
 
+// Bug / TODO:
+// Play a selection from a play button in the table and the selection turns green.
+// Click past the green part and that extends the green part.
+// That is wrong!!
+// Hitting the play in the <audio> seems to restore order.
+// Hitting a play button in the table does NOT restore order.
+
+// Bug / TODO:
+// What happens if there is an error on load, so we never read the current state of the table?
+// Do we ever save this busted state of the table?
+// Certainly if I add something new while the table is empty, whatever should have been there will be gone forever.
+// I've seen it just clear itself for no obvious reason.
+// Mostly it works, but this has gotta get fixed.
+
+// TODO:  Performance.
+// At least 1/3 of our startup time comes from building the audio.
+// Mostly from opening and decompressing the file over and over.
+// Cache something!!!
+
+// TODO:
+// Add some sort of copy all to get everything from the table.
+// Or maybe a div showing the same items as the table, always in sync, with the same backgrounds, but showing the copyable code.
+
 type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
 function makeCandyStripe(
