@@ -70,14 +70,17 @@ type MyRainbow = readonly [
    */
   readonly magenta: string;
 };
+
 /**
  * These colors are all bright and distinct and all look good against a black or white background.
  * I hand picked these.
  *
  * Source:  https://tradeideasphilip.github.io/random-svg-tests/colors.html ,
  * https://github.com/TradeIdeasPhilip/random-svg-tests/commit/89a047a44b85186c940e004607f8dcb44b69fe42
+ *
+ * If you want readable black text on a colorful background, consider mixing these with white.
+ * [Example](https://github.com/TradeIdeasPhilip/canvas-recorder/blob/b1a502e6bf2897d0c431aeef2322effde38bc934/dev/sound-explorer.ts#L128)
  */
-
 export const myRainbow = (function () {
   const result = [
     "rgb(255, 0, 0)",
