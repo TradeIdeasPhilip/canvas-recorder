@@ -640,6 +640,27 @@ const fillColors = (() => {
 
 const sceneList = new MakeShowableInSeries("Scene List");
 
+/**
+ * Spread several clips out evenly.
+ *
+ * Create the same amount of space between each pair of clips.
+ * Make them fit in a given range.
+ * @param clips List of items to relocate.
+ * These will remain in order.
+ * @param options
+ * * `startFrom` - Number of milliseconds between the start of the scene and when the first clip starts playing.
+ * This can be negative to start playing before the previous scene ends.
+ * The default is the incoming `startMsIntoScene` of the first element of `clips`.
+ * * `endAt` - Number of milliseconds between the start of the scene and when the last clip finishes.
+ * The default is the incoming end time of the last element of `clips`.
+ * * `startWeight` - How much space to leave between `startFrom and the start of the first clip.
+ * The space between each pair of adjacent clips is given a weight of 1.
+ * The default is 0 space before the first clip.
+ * * `endWeight` - How much space to leave between the end of the last clip and `endAt`.
+ * The space between each pair of adjacent clips is given a weight of 1.
+ * The default is 0 space after the last clip.
+ * @returns `clips`, after the start times of the elements have been adjusted.
+ */
 function distribute<T extends { startMsIntoScene: number; lengthMs: number }>(
   clips: T[],
   options: {
@@ -652,16 +673,13 @@ function distribute<T extends { startMsIntoScene: number; lengthMs: number }>(
   if (clips.length == 0) {
     return clips;
   }
-  const startFrom =
-    options.startFrom ??
-    Math.min(...clips.map(({ startMsIntoScene }) => startMsIntoScene));
+  const startFrom = options.startFrom ?? clips[0].startMsIntoScene;
   const endAt =
     options.endAt ??
-    Math.max(
-      ...clips.map(
-        ({ startMsIntoScene, lengthMs }) => startMsIntoScene + lengthMs,
-      ),
-    );
+    (() => {
+      const { startMsIntoScene, lengthMs } = clips.at(-1)!;
+      return startMsIntoScene + lengthMs;
+    })();
   const timeAvailable = endAt - startFrom;
   const timeUsed = sum(clips.map(({ lengthMs }) => lengthMs));
   const timeToDistribute = timeAvailable - timeUsed;
@@ -1604,7 +1622,7 @@ function scaleProgressWithinSegment(progress: number) {
     });
     const scene: Showable = {
       description: "fourier of 5 2nd generation triangles",
-      duration: 60_000,
+      duration: 60_000 - 4_500,
       soundClips: [
         ...distribute(
           [
@@ -1829,80 +1847,99 @@ function scaleProgressWithinSegment(progress: number) {
     })();
     const scene: Showable = {
       description: "fourier again more artistically",
-      duration: 80_000,
+      duration: 60_000,
       soundClips: [
-        {
-          // "Okay, that was good but I want to do something slightly different next time.\n"
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: -5307.5,
-          startMsIntoClip: 128459.49,
-          lengthMs: 5307.5,
-        },
-        {
-          // "I want to add the terms in a different order."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 5000,
-          startMsIntoClip: 134723.91,
-          lengthMs: 2562.83,
-        },
-        {
-          // TODO Way too much dead space.  Maybe move this clip up a little bit.
-          // Maybe the first clip starts only a brief moment before this scene.
-          // Remove the dead time from the end of the previous scene.
-          // Center the middle clip between these two.
-          // And maybe make this first part run faster.
-          // It could run about 2x as fast without the voiceover overlapping.
-
-          // "Lets start with some familiar curves."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 192230 - 159000 - 2512.53,
-          startMsIntoClip: 137876.57,
-          lengthMs: 2512.53,
-        },
-        /*
-        {
-          // "But then I'm gonna add all the smaller terms."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 141790.32,
-          lengthMs: 3382.25,
-        },
-        {
-          // "So we can see the sharp corners sooner."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 145403.81,
-          lengthMs: 2244.47,
-        },
-        {
-          // "I had to add 600 terms to get sharp corners."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 148355.79,
-          lengthMs: 3317.92,
-        },
-        {
-          // "There they are."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 152527.58,
-          lengthMs: 902.67,
-        },
-        {
-          // "The yellow one reminds me of a medieval helmet."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 155040.42,
-          lengthMs: 2659.21,
-        },
-        {
-          // "You can clearly see how each Fourier version follows it's expected path."
-          source: "./Sierpinski part 1.m4a",
-          startMsIntoScene: 0,
-          startMsIntoClip: 159236.61,
-          lengthMs: 5269.64,
-        },
-        */
+        ...distribute(
+          [
+            {
+              // "Okay, that was good but I want to do something slightly different next time.\n"
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: -780,
+              startMsIntoClip: 128459.49,
+              lengthMs: 5307.5,
+            },
+            {
+              // "I want to add the terms in a different order."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 5000,
+              startMsIntoClip: 134723.91,
+              lengthMs: 2562.83,
+            },
+            {
+              // "Lets start with some familiar curves."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene:
+                192230 -
+                159000 -
+                2512.53 -
+                3000 -
+                (182.3292 - 175.1285) * 1000 -
+                3000,
+              // desired start 175.1285, current start: 182.3292
+              startMsIntoClip: 137876.57,
+              lengthMs: 2512.53,
+            },
+          ],
+          {},
+        ),
+        // beginning of scene: 154.5000
+        ...distribute(
+          [
+            {
+              // "But then I'm gonna add all the smaller terms."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: (177.8471 - 154.5) * 1000,
+              startMsIntoClip: 141790.32,
+              lengthMs: 3382.25,
+            },
+            {
+              // "So we can see the sharp corners sooner."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 145403.81,
+              lengthMs: 2244.47,
+            },
+            {
+              // "I had to add 600 terms to get sharp corners."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 148355.79,
+              lengthMs: 3317.92,
+            },
+            {
+              // "There they are."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: (190.9595 - 154.5) * 1000,
+              startMsIntoClip: 152527.58,
+              lengthMs: 902.67,
+            },
+          ],
+          { startWeight: 1 },
+        ),
+        ...distribute(
+          [
+            {
+              // "You can clearly see how each Fourier version follows it's expected path."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: 0,
+              startMsIntoClip: 159236.61,
+              lengthMs: 5269.64,
+            },
+            {
+              // "The yellow one reminds me of a medieval helmet."
+              source: "./Sierpinski part 1.m4a",
+              startMsIntoScene: (199.1207 - 154.5) * 1000,
+              startMsIntoClip: 155040.42,
+              lengthMs: 2659.21,
+            },
+          ],
+          {
+            startFrom: (199.1207 - 154.5) * 1000 - 2000 - 3000,
+            endAt: 60_000,
+            startWeight: 0,
+            endWeight: 2,
+          },
+        ),
       ],
       show(options) {
         const { context, timeInMs } = options;
@@ -1945,7 +1982,18 @@ function scaleProgressWithinSegment(progress: number) {
       },
     };
     sceneList.add(addMargins(scene, { frozenBefore: 500, frozenAfter: 4500 }));
-    sceneList.add(fadeOut(scene, 2000));
+    sceneList.add({
+      ...fadeOut(scene, 2000),
+      soundClips: [
+        {
+          // "Are you ready for something bigger."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 177115.83,
+          lengthMs: 1651.05,
+        },
+      ],
+    });
   })();
 }
 
@@ -2169,6 +2217,38 @@ function scaleProgressWithinSegment(progress: number) {
   const scene: Showable = {
     description: `6 levels at once`,
     duration: fourierSchedule.at(-1)!.time + 5000,
+    soundClips: [
+      {
+        // "It's time for another channel favorite."
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: 2000,
+        startMsIntoClip: 179689.26,
+        lengthMs: 2032.7,
+      },
+      /*
+        {
+          // "As always theres a link to my source code in the description, below"
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 166319.81,
+          lengthMs: 4893.88,
+        },
+        {
+          // "See how the magic's done."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 172203.45,
+          lengthMs: 1335.11,
+        },
+        {
+          // "Make your own magic."
+          source: "./Sierpinski part 1.m4a",
+          startMsIntoScene: 0,
+          startMsIntoClip: 173569.14,
+          lengthMs: 1121.08,
+        },
+        */
+    ],
     show(options) {
       const { context, timeInMs } = options;
       context.lineCap = "round";

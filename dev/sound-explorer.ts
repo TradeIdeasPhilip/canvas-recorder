@@ -40,16 +40,20 @@ import { interpolateColor } from "../src/interpolate";
 // Hitting a play button in the table does NOT restore order.
 
 // Bug / TODO:
+// Play two adjacent clips from the table.
+// Playing the later one will set the range for the light green rectangle correctly.
+// It will match the clip perfectly.
+// Playing the former will cause the green rectangle to go from the start of the first to the end of the second.
+// Switching back and forth several times and it was consistent.
+// Maybe related to previous bug report about the green selection being wrong.
+// I can't quite describe it completely, but that green rectangle is wrong a lot.
+
+// Bug / TODO:
 // What happens if there is an error on load, so we never read the current state of the table?
 // Do we ever save this busted state of the table?
 // Certainly if I add something new while the table is empty, whatever should have been there will be gone forever.
 // I've seen it just clear itself for no obvious reason.
 // Mostly it works, but this has gotta get fixed.
-
-// TODO:  Performance.
-// At least 1/3 of our startup time comes from building the audio.
-// Mostly from opening and decompressing the file over and over.
-// Cache something!!!
 
 // TODO:
 // Add some sort of copy all to get everything from the table.
