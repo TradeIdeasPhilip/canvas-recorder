@@ -228,8 +228,14 @@ const audioElement = querySelector("#mainAudio", HTMLAudioElement);
       }
     }
   }
+  const time1 = performance.now();
   await doIt(toShow, 0);
+  const time2 = performance.now();
   await audioContent.assignToAudioElement(audioElement);
+  const time3 = performance.now();
+  console.log(
+    `doIt(): ${time2 - time1} ms, assignToAudioElement(): ${time3 - time2}.`,
+  );
 })();
 
 /**

@@ -23,6 +23,37 @@ export class AudioBuilder {
     this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate); // Start with mono
   }
 
+  async #createNewAudioBuffer(url: string) {
+    const time1 = performance.now();
+    const response = await fetch(url);
+    const time2 = performance.now();
+    const encodedSource = await response.arrayBuffer();
+    const time3 = performance.now();
+    // decodeAudioData() takes about ⅜ - ¾ of a second to decode 4 minutes and 18 seconds of audio.
+    const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
+    const time4 = performance.now();
+    console.log(
+      `fetch(): ${time2 - time1} ms, arrayBuffer(): ${time3 - time2} ms, decodeAudioData(): ${time4 - time3} ms`,
+    );
+    return sourceBuffer;
+  }
+
+  readonly #cache = new Map<string, Promise<AudioBuffer>>();
+
+  clearCache() {
+    this.#cache.clear();
+  }
+
+  warmCache(url: string) {
+    this.#findAudioBuffer(url);
+  }
+
+  #findAudioBuffer(url: string): Promise<AudioBuffer> {
+    return this.#cache.getOrInsertComputed(url, (missingUrl) =>
+      this.#createNewAudioBuffer(missingUrl),
+    );
+  }
+
   /**
    * Add a new clip to the soundtrack.
    * Overwrite any existing sounds at that position.
@@ -66,7 +97,7 @@ export class AudioBuilder {
     length: number = Infinity,
   ): Promise<void> {
     if (trimFromStartMs < 0 || startMsInDestination < 0) {
-      // I could deal with these in a ration way.
+      // I could deal with these in a rational way.
       // If required I would.
       // But I can't imagine any case where I need that.
       // It would make the code more complicated, harder to read and harder to test.
@@ -79,11 +110,8 @@ export class AudioBuilder {
       */
       throw new Error("wtf");
     }
-    const response = await fetch(url);
-    const encodedSource = await response.arrayBuffer();
-    const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
-    //console.log(this.audioContext.sampleRate)
-    // this.audioContext.sampleRate → 48000.
+
+    const sourceBuffer = await this.#findAudioBuffer(url);
 
     // If this is the first file and it's stereo, upgrade our buffer to stereo
     if (
@@ -97,6 +125,7 @@ export class AudioBuilder {
       );
       // Copy existing mono data to both channels
       for (let ch = 0; ch < 2; ch++) {
+        console.log("Not expected!");
         newBuffer.getChannelData(ch).set(this.buffer.getChannelData(0));
       }
       this.buffer = newBuffer;
@@ -115,6 +144,7 @@ export class AudioBuilder {
     );
 
     for (let ch = 0; ch < numChannels; ch++) {
+      console.log("📣");
       const sourceData = sourceBuffer.getChannelData(ch);
       const destinationData = this.buffer.getChannelData(ch);
 
@@ -144,7 +174,9 @@ export class AudioBuilder {
   }
 
   // Simple 16-bit PCM WAV encoder
+  // This takes about 0.6 seconds to save 8½ minutes of data.
   private audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
+    console.log("audioBufferToWav()");
     const numChannels = buffer.numberOfChannels;
     const sampleRate = buffer.sampleRate;
     const length = buffer.length * numChannels * 2 + 44;
@@ -171,9 +203,11 @@ export class AudioBuilder {
     view.setUint32(40, buffer.length * numChannels * 2, true);
 
     let offset = 44;
-    for (let i = 0; i < buffer.length; i++) {
-      for (let ch = 0; ch < numChannels; ch++) {
-        const sample = Math.max(-1, Math.min(1, buffer.getChannelData(ch)[i]));
+    for (let ch = 0; ch < numChannels; ch++) {
+      console.log("Wuz lots!");
+      const channel = buffer.getChannelData(ch);
+      for (let i = 0; i < buffer.length; i++) {
+        const sample = Math.max(-1, Math.min(1, channel[i]));
         view.setInt16(
           offset,
           sample < 0 ? sample * 0x8000 : sample * 0x7fff,
