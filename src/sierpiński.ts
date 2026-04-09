@@ -49,7 +49,7 @@ import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
 import { zipper } from "./zipper";
 
-const titleFont = makeLineFont(0.7);
+const QOffset = 20_000;
 
 class Map2<K1, K2, V> {
   readonly #map = new Map<K1, Map<K2, V>>();
@@ -2068,32 +2068,36 @@ function scaleProgressWithinSegment(progress: number) {
       new Location(x2, y1, bigX, bigY, 2),
     ];
     result[0].schedule.push(
-      { time: 72500 + 5000, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 - 750, value: 1 },
+      { time: QOffset + 72500 + 5000, value: 0, easeAfter: easeOut },
+      { time: QOffset + 72500 + 8000 - 750, value: 1 },
     );
     result[1].schedule.push(
-      { time: 72500 + 5750, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000, value: 1 },
+      { time: QOffset + 72500 + 5750, value: 0, easeAfter: easeOut },
+      { time: QOffset + 72500 + 8000, value: 1 },
     );
     result[2].schedule.push(
-      { time: 72500 + 5750 + 750, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 + 750, value: 1 },
+      { time: QOffset + 72500 + 5750 + 750, value: 0, easeAfter: easeOut },
+      { time: QOffset + 72500 + 8000 + 750, value: 1 },
     );
     result[3].schedule.push(
-      { time: 72500 + 5750 + 750 + 75, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 + 750 + 75, value: 1 },
+      { time: QOffset + 72500 + 5750 + 750 + 75, value: 0, easeAfter: easeOut },
+      { time: QOffset + 72500 + 8000 + 750 + 75, value: 1 },
     );
     result[4].schedule.push(
-      { time: 72500 + 5750 + 750 + 750 + 75, value: 0, easeAfter: easeOut },
-      { time: 72500 + 8000 + 750 + 750 + 75, value: 1 },
-    );
-    result[5].schedule.push(
       {
-        time: 72500 + 5750 + 750 + 750 + 750 + 75,
+        time: QOffset + 72500 + 5750 + 750 + 750 + 75,
         value: 0,
         easeAfter: easeOut,
       },
-      { time: 72500 + 8000 + 750 + 750 + 750 + 75, value: 1 },
+      { time: QOffset + 72500 + 8000 + 750 + 750 + 75, value: 1 },
+    );
+    result[5].schedule.push(
+      {
+        time: QOffset + 72500 + 5750 + 750 + 750 + 750 + 75,
+        value: 0,
+        easeAfter: easeOut,
+      },
+      { time: QOffset + 72500 + 8000 + 750 + 750 + 750 + 75, value: 1 },
     );
     return result;
   })();
@@ -2119,12 +2123,7 @@ function scaleProgressWithinSegment(progress: number) {
         );
       });
     });
-    const transformStartTime = growEndTime + 6000;
-    const transformEndTime = growEndTime + 8000;
-    const transformSchedule: Keyframes<number> = [
-      { time: transformStartTime, value: 0, easeAfter: easeOut },
-      { time: transformEndTime, value: 1 },
-    ];
+    const transformSchedule: Keyframe<number>[] = [];
     /**
      * Use this palette used to stroke this triangle.
      * The innermost color is always red.
@@ -2150,6 +2149,7 @@ function scaleProgressWithinSegment(progress: number) {
       ({ segment }) => availableColors[segment.depth],
     );
     const cornerRounder = makeCornerRounder(wovenPathShape, 0.45);
+    const wovenAnimationSchedule: Keyframe<number>[] = [];
     return {
       triangle,
       level,
@@ -2159,36 +2159,96 @@ function scaleProgressWithinSegment(progress: number) {
       location: locations[level],
       wovenPathShape,
       cornerRounder,
+      wovenAnimationSchedule,
       strokeColorsColors,
     };
   });
-  const wovenDisplayStart = growEndTime;
-  const wovenAnimationStart = growEndTime + 500;
-  const wovenAnimationEnd = growEndTime + 5500;
-  const wovenAnimationSchedule: Keyframes<number> = [
-    { time: wovenAnimationStart, value: 0, easeAfter: easeIn },
-    { time: wovenAnimationEnd, value: 1 },
-  ];
+  {
+    /**
+     * How long in milliseconds do we wait in the woven state before starting to round the corners.
+     *
+     * The two types of animation are *almost* seamless.
+     * Ideally we could switch between them any time between when the action of the first animation ends and when the action of the second animation starts.
+     */
+    const silentSwitchTime = 500;
+    triangles.forEach(
+      ({ wovenAnimationSchedule, transformSchedule }, index) => {
+        /**
+         * When will the corners first change from completely normal to just slightly rounded.
+         */
+        let wovenAnimationStart: number = (255 - 221) * 1000;
+        /**
+         * When will the reference triangle first start shrinking and moving out of the way.
+         */
+        let transformStartTime: number;
+        let transformDuration = 2_000;
+        switch (index) {
+          case 0: {
+            wovenAnimationStart = (231 - 221) * 1000;
+            transformStartTime = (239 - 221) * 1000;
+            break;
+          }
+          case 1: {
+            wovenAnimationStart = (236 - 221) * 1000;
+            transformStartTime = (249 - 221) * 1000;
+            break;
+          }
+          case 2: {
+            wovenAnimationStart = (247 - 221) * 1000;
+            transformStartTime = (256 - 221) * 1000;
+            break;
+          }
+          case 3: {
+            transformStartTime = (261 - 221 - 3) * 1000;
+            transformDuration = 3000;
+            break;
+          }
+          case 4: {
+            transformStartTime = (262 - 221 - 3) * 1000;
+            transformDuration = 3000;
+            break;
+          }
+          case 5: {
+            transformStartTime = (263 - 221 - 3) * 1000;
+            transformDuration = 3000;
+            const originalTransformStartTime = QOffset + growEndTime + 6000;
+            const difference = originalTransformStartTime - transformStartTime;
+            const proposedQOffset = QOffset - difference;
+            console.log({
+              transformStartTime,
+              originalTransformStartTime,
+              difference,
+              proposedQOffset,
+            });
+            break;
+          }
+          default: {
+            throw new Error("wtf");
+          }
+        }
+        let wovenAnimationEnd = wovenAnimationStart + 5000;
+        wovenAnimationSchedule.push(
+          { time: wovenAnimationStart - silentSwitchTime - 1, value: -1 },
+          { time: wovenAnimationStart - silentSwitchTime, value: 0 },
+          { time: wovenAnimationStart, value: 0, easeAfter: easeIn },
+          { time: wovenAnimationEnd, value: 1 },
+        );
+        let transformEndTime = transformStartTime + transformDuration;
+        transformSchedule.push(
+          { time: transformStartTime, value: 0, easeAfter: easeOut },
+          { time: transformEndTime, value: 1 },
+        );
+      },
+    );
+  }
   const fourierKeyframes = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
     21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
     40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 400, 500, 600, 700,
     800, 900, 1000, 2000, 3000, 4000,
   ];
-  {
-    const currentStart = 271407;
-    const currentEnd = growEndTime + 156000 - 1000 + 247500;
-    const currentDuration = currentEnd - currentStart;
-    console.log({
-      fourierKeyframes,
-      currentStart,
-      currentEnd,
-      currentDuration,
-      currentPer: currentDuration / fourierKeyframes.length,
-    });
-  }
   const fourierSchedule: Keyframes<number> = (() => {
-    const startTime = 271407 - 247500;
+    const startTime = 271407 - 247500 + QOffset;
     const runTime = 3500;
     const pauseTime = 500;
     let time = startTime;
@@ -2248,6 +2308,39 @@ function scaleProgressWithinSegment(progress: number) {
           lengthMs: 1121.08,
         },
         */
+      // Scene start: 221.000
+      {
+        // "Fourier vs recursive fractals."
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (228 - 221.0) * 1000,
+        startMsIntoClip: 182493.12,
+        lengthMs: 2847.31,
+      },
+
+      {
+        // "That first triangle is simple... turn 120°"
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (232.5 - 221) * 1000,
+        startMsIntoClip: 185710.86,
+        lengthMs: 30872.54,
+      },
+      {
+        // "You ready for this?"
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (265 - 221) * 1000,
+        startMsIntoClip: 218229.94,
+        lengthMs: 1749.44,
+      },
+      /*
+{
+      //freeze everything at timestamp (270-221)*1000!!
+  // "For the longest tme I was afraid to fill these shapes because they are not closed."
+  source: "./Sierpinski part 1.m4a",
+  startMsIntoScene: 0,
+  startMsIntoClip: 221677.37,
+  lengthMs: 4630.88,
+},
+*/
     ],
     show(options) {
       const { context, timeInMs } = options;
@@ -2265,6 +2358,7 @@ function scaleProgressWithinSegment(progress: number) {
             transformSchedule,
             location,
             cornerRounder,
+            wovenAnimationSchedule,
             strokeColorsColors,
           },
           triangleIndex,
@@ -2289,16 +2383,17 @@ function scaleProgressWithinSegment(progress: number) {
           }
           context.fillStyle = fillColor;
           context.lineWidth = 0.01 * (6 - triangleIndex);
-          if (timeInMs >= wovenDisplayStart) {
+          const wovenAnimationProgress = interpolateNumbers(
+            timeInMs,
+            wovenAnimationSchedule,
+          );
+          if (wovenAnimationProgress >= 0) {
             // show off the rounded corners
-            const progress = interpolateNumbers(
-              timeInMs,
-              wovenAnimationSchedule,
-            );
-            const pathShape = cornerRounder(progress);
+            const pathShape = cornerRounder(wovenAnimationProgress);
             context.fill(pathShape.canvasPath, "evenodd");
             strokeColors({ context, pathShape, colors: strokeColorsColors });
           } else {
+            // Show inner triangles appearing and disappearing.
             context.beginPath();
             const byDepth = initializedArray(level + 1, () => new Path2D());
             triangle.draw(timeInMs, context, byDepth);
