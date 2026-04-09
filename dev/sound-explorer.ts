@@ -9,6 +9,7 @@ import {
 } from "phil-lib/misc";
 import { clickDragAndOnce, setupClickAndDrag } from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
+import { interpolateColor } from "../src/interpolate";
 
 // Bug / TODO:
 // If you delete a row while you are trying to extend the corresponding clip,
@@ -118,16 +119,25 @@ class Color {
   }
   static #available = (() => {
     const result = new Map<number, Color>();
-    myRainbow.forEach((color, index) => {
+    /**
+     * Make colors similar to {@link myRainbow} but add some white.
+     * Make it *much* easier to read black text on these colors.
+     *
+     * If you're not looking at them side by side, you might not notice the difference.
+     */
+    const lightColors: readonly string[] = myRainbow.map((base) =>
+      interpolateColor(0.36, base, "white"),
+    );
+    lightColors.forEach((color, index) => {
       result.set(index, new Color(index, color, color));
     });
-    myRainbow.forEach((firstColor, firstColorIndex) => {
+    lightColors.forEach((firstColor, firstColorIndex) => {
       for (
         let secondColorIndex = firstColorIndex + 1;
-        secondColorIndex < myRainbow.length;
+        secondColorIndex < lightColors.length;
         secondColorIndex++
       ) {
-        const secondColor = myRainbow[secondColorIndex];
+        const secondColor = lightColors[secondColorIndex];
         const index = result.size;
         /**
          * About 1em
@@ -823,7 +833,6 @@ class Clip {
       });
 
       row.style.color = "black";
-      row.classList.add("white-glow");
       // Now that we've created the GUI,
       // set the default properties here.
       // This will populate the GUI.
