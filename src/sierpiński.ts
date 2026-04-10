@@ -2176,7 +2176,11 @@ function scaleProgressWithinSegment(progress: number) {
         /**
          * When will the corners first change from completely normal to just slightly rounded.
          */
-        let wovenAnimationStart: number = (255 - 221) * 1000;
+        let wovenAnimationStart: number = (254 - 221) * 1000;
+        /**
+         * If this is undefined, the corners will remain rounded until the end.
+         */
+        let startRestoringCorners: undefined | number;
         /**
          * When will the reference triangle first start shrinking and moving out of the way.
          */
@@ -2185,16 +2189,19 @@ function scaleProgressWithinSegment(progress: number) {
         switch (index) {
           case 0: {
             wovenAnimationStart = (231 - 221) * 1000;
+            startRestoringCorners = (276.5 - 221) * 1000;
             transformStartTime = (239 - 221) * 1000;
             break;
           }
           case 1: {
             wovenAnimationStart = (236 - 221) * 1000;
+            startRestoringCorners = (280 - 221) * 1000;
             transformStartTime = (249 - 221) * 1000;
             break;
           }
           case 2: {
             wovenAnimationStart = (247 - 221) * 1000;
+            startRestoringCorners = (298 - 221) * 1000;
             transformStartTime = (256 - 221) * 1000;
             break;
           }
@@ -2233,6 +2240,13 @@ function scaleProgressWithinSegment(progress: number) {
           { time: wovenAnimationStart, value: 0, easeAfter: easeIn },
           { time: wovenAnimationEnd, value: 1 },
         );
+        if (startRestoringCorners !== undefined) {
+          const back = startRestoringCorners + 6000;
+          wovenAnimationSchedule.push(
+            { time: startRestoringCorners, value: 1 },
+            { time: back, value: 0 },
+          );
+        }
         let transformEndTime = transformStartTime + transformDuration;
         transformSchedule.push(
           { time: transformStartTime, value: 0, easeAfter: easeOut },
@@ -2243,9 +2257,8 @@ function scaleProgressWithinSegment(progress: number) {
   }
   const fourierKeyframes = [
     0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-    40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 400, 500, 600, 700,
-    800, 900, 1000, 2000, 3000, 4000,
+    22, 24, 26, 28, 30, 35, 40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275,
+    300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000,
   ];
   const fourierSchedule: Keyframes<number> = (() => {
     const startTime = 271407 - 247500 + QOffset;
@@ -2256,7 +2269,17 @@ function scaleProgressWithinSegment(progress: number) {
     result.push({ time: -1, value: -1 });
     for (let index = 0; index < fourierKeyframes.length - 2; index++) {
       result.push({ time, value: index });
-      time += runTime;
+      if (index == -2) {
+        // Special case.  Stop half way through to discuss for 5 seconds.
+        const value = 0.5;
+        time += runTime / 2;
+        result.push({ time, value });
+        time += 5_000;
+        result.push({ time, value });
+        time += runTime / 2;
+      } else {
+        time += runTime;
+      }
       result.push({ time, value: index + 1 });
       time += pauseTime;
     }
@@ -2285,7 +2308,77 @@ function scaleProgressWithinSegment(progress: number) {
         startMsIntoClip: 179689.26,
         lengthMs: 2032.7,
       },
+      {
+        // "Fourier vs recursive fractals."
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (228 - 221.0) * 1000,
+        startMsIntoClip: 182493.12,
+        lengthMs: 2847.31,
+      },
+
+      {
+        // "That first triangle is simple... turn 120°"
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (232.5 - 221) * 1000,
+        startMsIntoClip: 185710.86,
+        lengthMs: 30872.54,
+      },
+      {
+        // "You ready for this?"
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (269 - 221) * 1000,
+        startMsIntoClip: 218229.94,
+        lengthMs: 1749.44,
+      },
+      ...distribute(
+        [
+          {
+            // "The first two take form almost immediately."
+            source: "./Sierpinski part 1.m4a",
+            startMsIntoScene: (276 - 221) * 1000 - 3013.38,
+            startMsIntoClip: 237515.34,
+            lengthMs: 3013.38,
+          },
+          {
+            // "The bigger ones all look similar.  We don't have enough detail to distinguish between them, yet."
+            source: "./Sierpinski part 1.m4a",
+            startMsIntoScene: 0,
+            startMsIntoClip: 243092.27,
+            lengthMs: 5382.57,
+          },
+          {
+            // "Hey, hearts!"
+            source: "./Sierpinski part 1.m4a",
+            startMsIntoScene: (287 - 221) * 1000,
+            startMsIntoClip: 253828.63,
+            lengthMs: 1122.57,
+          },
+        ],
+        {},
+      ),
+      {
+        // "And the third one is almost done."
+        source: "./Sierpinski part 1.m4a",
+        startMsIntoScene: (292.613 - 221) * 1000 - 1640.68,
+        startMsIntoClip: 256534.31,
+        lengthMs: 1640.68,
+      },
+      {
+        // "All of part 2"
+        source: "./Sierpinski part 2.m4a",
+        startMsIntoScene: 281.87928 * 1000 - 221 * 1000 + 16149.93,
+        startMsIntoClip: 16149.93,
+        lengthMs: 158059.33,
+      },
+
       /*
+{
+  // "For the longest tme I was afraid to fill these shapes because they are not closed... stained glass vibe."
+  source: "./Sierpinski part 1.m4a",
+  startMsIntoScene: 0,
+  startMsIntoClip: 221677.37,
+  lengthMs: 13180.97,
+},
         {
           // "As always theres a link to my source code in the description, below"
           source: "./Sierpinski part 1.m4a",
@@ -2308,39 +2401,6 @@ function scaleProgressWithinSegment(progress: number) {
           lengthMs: 1121.08,
         },
         */
-      // Scene start: 221.000
-      {
-        // "Fourier vs recursive fractals."
-        source: "./Sierpinski part 1.m4a",
-        startMsIntoScene: (228 - 221.0) * 1000,
-        startMsIntoClip: 182493.12,
-        lengthMs: 2847.31,
-      },
-
-      {
-        // "That first triangle is simple... turn 120°"
-        source: "./Sierpinski part 1.m4a",
-        startMsIntoScene: (232.5 - 221) * 1000,
-        startMsIntoClip: 185710.86,
-        lengthMs: 30872.54,
-      },
-      {
-        // "You ready for this?"
-        source: "./Sierpinski part 1.m4a",
-        startMsIntoScene: (265 - 221) * 1000,
-        startMsIntoClip: 218229.94,
-        lengthMs: 1749.44,
-      },
-      /*
-{
-      //freeze everything at timestamp (270-221)*1000!!
-  // "For the longest tme I was afraid to fill these shapes because they are not closed."
-  source: "./Sierpinski part 1.m4a",
-  startMsIntoScene: 0,
-  startMsIntoClip: 221677.37,
-  lengthMs: 4630.88,
-},
-*/
     ],
     show(options) {
       const { context, timeInMs } = options;
@@ -2431,7 +2491,9 @@ function scaleProgressWithinSegment(progress: number) {
             colors: fourierInfo.strokeColorsColors,
           });
           context.setTransform(originalMatrix);
-          if (index == array.length - 1) {
+          if (false && index == array.length - 1) {
+            // Write info about the current status on the screen.
+            // Only for debug, not for production.
             // Verdana is one of the few web safe fonts with equal sized digit widths.
             // (Tahoma is close, but in an animation you can see things wiggle.)
             context.font = "0.5px Verdana";
