@@ -188,10 +188,67 @@ class Color {
   }
 }
 
+const soundFileSuggestions = [
+  "./Sierpinski part 1.m4a",
+  "./Sierpinski part 2.m4a",
+];
+
+/**
+ * Reads the `?src=` query param. If missing, replaces the page with a
+ * combo-box selection form and throws to halt module execution.
+ * Returns the URL string when present.
+ */
+function resolveSoundUrl(): string {
+  const raw = new URLSearchParams(location.search).get("src");
+  if (raw) {
+    return raw;
+  }
+
+  const h1 = document.createElement("h1");
+  h1.textContent = "Open a sound file";
+
+  const datalist = document.createElement("datalist");
+  datalist.id = "soundSuggestions";
+  for (const suggestion of soundFileSuggestions) {
+    const option = document.createElement("option");
+    option.value = suggestion;
+    datalist.append(option);
+  }
+
+  const input = document.createElement("input");
+  input.setAttribute("list", "soundSuggestions");
+  input.type = "text";
+  input.size = 60;
+  input.placeholder = "Enter URL or choose from list";
+  input.autofocus = true;
+
+  const button = document.createElement("button");
+  button.type = "submit";
+  button.textContent = "Open";
+
+  const form = document.createElement("form");
+  form.append(input, " ", button, datalist);
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const value = input.value.trim();
+    if (value) {
+      const dest = new URL(location.href);
+      dest.searchParams.set("src", value);
+      location.href = dest.href;
+    }
+  });
+
+  document.body.replaceChildren(h1, form);
+  throw new Error("Showing sound file selection.");
+}
+
+const soundUrl = resolveSoundUrl();
+
 /**
  * Load the audio into here, so the user has a standard UI for playing the track.
  */
 const audioElement = getById("soundExplorer", HTMLAudioElement);
+audioElement.src = soundUrl;
 
 /**
  * This currently contains instructions.
@@ -257,6 +314,7 @@ let dragRectangle:
     }
   | undefined;
 function createNewClip(x0: number, x1: number) {
+  if (!clipManager) return; // audio not ready yet
   // Dragging left to right creates a new row.
   const color = Color.takeNextAvailable();
   if (color === undefined) {
@@ -517,37 +575,60 @@ let sourceBuffer: AudioBuffer | undefined;
  */
 let reloadInProgress = false;
 
-async function reload() {
+async function loadAudio(): Promise<void> {
   if (reloadInProgress) {
-    // This could and probably should be fixed.
-    // Really, I don't even know if this is a problem.
-    // This reminds me of a common pattern where the caller is a complicated piece of code that might make several requests within the same even handler.
-    // So we cache redundant requests, and possibly throwing out requests that are obsolete before any work has started.
-    throw new Error("reload() is not reentrant.");
+    throw new Error("loadAudio() is not reentrant.");
   }
   reloadInProgress = true;
-  let newSoundData: Float32Array<ArrayBuffer> | undefined;
   try {
-    const url = assertNonNullable(audioElement.getAttribute("src")); //audioElement.src;
-    const response = await fetch(url);
-    const encodedSource = await response.arrayBuffer();
-    sourceBuffer = await audioContext.decodeAudioData(encodedSource);
-    if (sourceBuffer.numberOfChannels != 1) {
-      console.warn(
-        `Multiple channels are not supported.  Found ${sourceBuffer.numberOfChannels} channels in ${url}.`,
+    let response: Response;
+    try {
+      response = await fetch(soundUrl);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (soundUrl.startsWith("file://")) {
+        throw new Error(
+          "File URLs (file://) are blocked by the browser's security policy. " +
+            "Use a local development server such as Vite instead.",
+        );
+      }
+      if (/cors|cross.origin/i.test(msg)) {
+        throw new Error(
+          "Cross-origin request blocked — the server does not permit access " +
+            "from this page (CORS policy).",
+        );
+      }
+      throw new Error(
+        "Network error — check your internet connection and try again.",
       );
     }
-    newSoundData = sourceBuffer.getChannelData(0);
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error("File not found (404) — check the URL for typos.");
+      }
+      throw new Error(
+        `Server returned an error: ${response.status} ${response.statusText}`,
+      );
+    }
+    const encodedSource = await response.arrayBuffer();
+    let buffer: AudioBuffer;
+    try {
+      buffer = await audioContext.decodeAudioData(encodedSource);
+    } catch (e) {
+      throw new Error(
+        "Failed to decode the audio — the file may be corrupted or in an unsupported format.",
+      );
+    }
+    if (buffer.numberOfChannels != 1) {
+      console.warn(
+        `Multiple channels are not supported.  Found ${buffer.numberOfChannels} channels in ${soundUrl}.`,
+      );
+    }
+    sourceBuffer = buffer;
+    soundData = buffer.getChannelData(0);
+    sourceRange = { startIndex: 0, endIndex: soundData.length };
   } finally {
     reloadInProgress = false;
-    soundData = newSoundData;
-    sourceRange =
-      soundData === undefined
-        ? { startIndex: 0, endIndex: 0 }
-        : {
-            startIndex: 0,
-            endIndex: soundData.length,
-          };
   }
 }
 
@@ -893,11 +974,8 @@ class ClipManager {
    * This is the exact name that appears in the html file, e.g. "./Sierpinski part 1.m4a"
    * `audioElement.src` gave me something ugly:  "http://localhost:5173/Sierpin%CC%81ski%20part%201.m4a".
    *
-   * TODO should I also replace audioElement.src elsewhere in this file?
-   * Should they both use the same constant?
-   * This eventually needs to be configurable and will change in both places.
    */
-  readonly key = assertNonNullable(audioElement.getAttribute("src"));
+  readonly key = soundUrl;
   /**
    *
    * @param samplesTable Where to interact with the user.
@@ -1008,7 +1086,7 @@ class ClipManager {
     });
   }
 }
-const clipManager = new ClipManager();
+let clipManager!: ClipManager;
 
 /**
  * Update the display to match {@link soundData}.
@@ -1163,11 +1241,47 @@ const resizeObserver = new ResizeObserver((_entries) => {
   canvasSize = undefined;
 });
 resizeObserver.observe(canvas, { box: "device-pixel-content-box" });
-reload();
 
-new AnimationLoop(() => {
-  redraw();
-});
+/**
+ * Replaces the page with a user-friendly error message and a link back to the
+ * file-selection menu. Typed `never` because it always throws, which tells
+ * TypeScript that code after a call here is unreachable (nothing is saved).
+ */
+function showErrorPage(message: string): never {
+  const h1 = document.createElement("h1");
+  h1.textContent = "Failed to load audio";
+
+  const urlP = document.createElement("p");
+  urlP.textContent = `URL: ${soundUrl}`;
+
+  const errorP = document.createElement("p");
+  errorP.style.color = "red";
+  errorP.textContent = message;
+
+  const menuDest = new URL(location.href);
+  menuDest.searchParams.delete("src");
+  const a = document.createElement("a");
+  a.href = menuDest.href;
+  a.textContent = "← Choose a different file";
+  const backP = document.createElement("p");
+  backP.append(a);
+
+  document.body.replaceChildren(h1, urlP, errorP, backP);
+  throw new Error("Showing audio load error page.");
+}
+
+(async () => {
+  try {
+    await loadAudio();
+  } catch (e) {
+    showErrorPage(e instanceof Error ? e.message : String(e));
+  }
+  clipManager = new ClipManager();
+  new AnimationLoop(() => {
+    redraw();
+  });
+  (window as any).PDS = { redraw, setSourceRange, clipManager, Color };
+})();
 
 {
   getById("zoomOut", HTMLButtonElement).addEventListener("click", () => {
@@ -1209,6 +1323,3 @@ new AnimationLoop(() => {
     alert("TODO");
   });
 }
-
-// For interactive debugging.
-(window as any).PDS = { redraw, setSourceRange, clipManager, Color };
