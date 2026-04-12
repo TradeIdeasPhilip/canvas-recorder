@@ -39,17 +39,53 @@ import { strokeColorsTest } from "../src/stroke-colors-test.ts";
  * Maps URL `?toShow=` keys to available video options.
  * Fill in the `description` field for each entry — it appears in the selection page.
  */
-const showableOptions = new Map<string, { item: Showable; description: string }>(
+const showableOptions = new Map<
+  string,
+  { item: Showable; description: string }
+>([
+  //["test", {item:undefined!, description:'</a><b>"只有经过中文测试，才算真正经过了测试！'}],
+  ["showcase", { item: showcase, description: "Ideas to copy and paste." }],
   [
-    //["test", {item:undefined!, description:'</a><b>"只有经过中文测试，才算真正经过了测试！'}],
-    ["showcase", { item: showcase, description: "Ideas to copy and paste." }],
-    ["sierpiński", { item: sierpińskiTop, description: "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI" }],
-    ["peano-fourier", { item: top, description: "Fun with math, the last scene of: https://www.youtube.com/watch?v=Imc1w0xNb4E" }],
-    ["peano-arithmetic", { item: peanoArithmetic, description: "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8" }],
-    ["morph-test", { item: morphTest, description: "Morphing the Peano Curve, the first part of https://www.youtube.com/watch?v=Imc1w0xNb4E" }],
-    ["stroke-colors-test", { item: strokeColorsTest, description: "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0" }],
+    "sierpiński",
+    {
+      item: sierpińskiTop,
+      description:
+        "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI",
+    },
   ],
-);
+  [
+    "peano-fourier",
+    {
+      item: top,
+      description:
+        "Fun with math, the last scene of: https://www.youtube.com/watch?v=Imc1w0xNb4E",
+    },
+  ],
+  [
+    "peano-arithmetic",
+    {
+      item: peanoArithmetic,
+      description:
+        "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8",
+    },
+  ],
+  [
+    "morph-test",
+    {
+      item: morphTest,
+      description:
+        "Morphing the Peano Curve, the first part of https://www.youtube.com/watch?v=Imc1w0xNb4E",
+    },
+  ],
+  [
+    "stroke-colors-test",
+    {
+      item: strokeColorsTest,
+      description:
+        "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0",
+    },
+  ],
+]);
 
 /**
  * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.
@@ -87,7 +123,9 @@ function resolveToShow(): Showable {
     ul.append(li);
   }
   document.body.replaceChildren(h1, ul);
-  throw new Error("Showing video selection — no valid 'toShow' query parameter.");
+  throw new Error(
+    "Showing video selection — no valid 'toShow' query parameter.",
+  );
 }
 
 /**
@@ -244,24 +282,78 @@ function loadPlayPositionRange() {
   playPositionRange.valueAsNumber = playPositionSeconds.valueAsNumber * 1000;
 }
 
-/**
- * The play head is located at (wall clock time - playOffset).
- *
- * NaN means uninitialized.  Use playPositionSeconds to reload this when needed.
- */
-let playOffset = NaN;
+const audioCtx = new AudioContext();
+const gainNode = audioCtx.createGain();
+gainNode.connect(audioCtx.destination);
 
-let syncWithAudio = false;
-const audioElement = querySelector("#mainAudio", HTMLAudioElement);
+/** Set to true once the AudioBuffer has been fully built and is safe to play. */
+let audioReady = false;
+let audioSourceNode: AudioBufferSourceNode | null = null;
+/** audioCtx.currentTime at the moment startAudio() last started a source node. */
+let audioCtxStartTime = 0;
+/** Media position (ms) at the moment startAudio() last started a source node. */
+let audioMediaStartMs = 0;
+let audioPlaybackRate = 1;
+
+function currentAudioTimeMs(): number {
+  return (
+    audioMediaStartMs +
+    (audioCtx.currentTime - audioCtxStartTime) * audioPlaybackRate * 1000
+  );
+}
+
+function startAudio(fromMs: number): void {
+  stopAudio();
+  if (!audioReady) return;
+  audioCtx.resume(); // no-op if already running; needed on first play gesture
+  const source = audioCtx.createBufferSource();
+  source.buffer = audioBuilder.getAudioBuffer();
+  source.playbackRate.value = audioPlaybackRate;
+  source.connect(gainNode);
+  const contextNow = audioCtx.currentTime;
+  source.start(contextNow, fromMs / 1000);
+  audioSourceNode = source;
+  audioCtxStartTime = contextNow;
+  audioMediaStartMs = fromMs;
+}
+
+function stopAudio(): void {
+  if (audioSourceNode) {
+    try {
+      audioSourceNode.stop();
+    } catch (_) {}
+    audioSourceNode.disconnect();
+    audioSourceNode = null;
+  }
+}
+
+/**
+ * Change playback speed without a restart or glitch.
+ * Re-anchors the timing so currentAudioTimeMs() stays continuous.
+ */
+function setPlaybackRate(rate: number): void {
+  if (audioSourceNode) {
+    const currentMs = currentAudioTimeMs();
+    audioCtxStartTime = audioCtx.currentTime;
+    audioMediaStartMs = currentMs;
+    audioSourceNode.playbackRate.value = rate;
+  }
+  audioPlaybackRate = rate;
+}
+
 {
-  const playControlsFieldset = getById("play-controls", HTMLFieldSetElement);
-  const lockAudioAndVideoInput = getById("lock-audio-video", HTMLInputElement);
-  lockAudioAndVideoInput.addEventListener("input", () => {
-    syncWithAudio = lockAudioAndVideoInput.checked;
-    playControlsFieldset.disabled = syncWithAudio;
-    if (syncWithAudio && audioElement.paused) {
-      audioElement.currentTime = playPositionSeconds.valueAsNumber;
+  const muteCheckbox = getById("muteAudio", HTMLInputElement);
+  const volumeSlider = getById("volumeAudio", HTMLInputElement);
+  muteCheckbox.addEventListener("input", () => {
+    gainNode.gain.value = muteCheckbox.checked ? 0 : volumeSlider.valueAsNumber;
+  });
+  volumeSlider.addEventListener("input", () => {
+    if (!muteCheckbox.checked) {
+      gainNode.gain.value = volumeSlider.valueAsNumber;
     }
+  });
+  getById("speedAudio", HTMLSelectElement).addEventListener("change", (e) => {
+    setPlaybackRate(parseFloat((e.target as HTMLSelectElement).value));
   });
 }
 
@@ -288,11 +380,8 @@ const audioBuilder = new AudioBuilder(toShow.duration);
   const time1 = performance.now();
   await doIt(toShow, 0);
   const time2 = performance.now();
-  await audioBuilder.assignToAudioElement(audioElement);
-  const time3 = performance.now();
-  console.log(
-    `doIt(): ${time2 - time1} ms, assignToAudioElement(): ${time3 - time2}.`,
-  );
+  audioReady = true;
+  console.log(`Audio ready in ${(time2 - time1).toFixed(0)} ms.`);
 })();
 
 /**
@@ -300,51 +389,63 @@ const audioBuilder = new AudioBuilder(toShow.duration);
  *
  * This is for live / realtime drawing.  This is disabled when we are saving the file.
  */
-const animationLoop = new AnimationLoop((timeInMs: number) => {
-  if (syncWithAudio) {
-    playOffset = NaN;
-    timeInMs = sectionStartTime + audioElement.currentTime * 1000;
-    loadPlayPositionSeconds(timeInMs);
-    loadPlayPositionRange();
-  } else if (!playCheckBox.checked) {
-    // Paused.  Copy time from the numerical input.
+const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
+  if (!playCheckBox.checked) {
+    // Paused.
+    stopAudio();
     playPositionSeconds.disabled = false;
-    timeInMs = playPositionSeconds.valueAsNumber * 1000;
-    playOffset = NaN;
-  } else {
-    // Playing.  (Not paused.)
-    playPositionSeconds.disabled = true;
-    if (isNaN(playOffset)) {
-      // Starting fresh.
-      if (
-        playPositionSeconds.valueAsNumber * 1000 >= sectionEndTime &&
-        !continueRadioButton.checked
-      ) {
-        // At the end.  Jump to the beginning.
-        loadPlayPositionSeconds(sectionStartTime);
-      }
-      playOffset = timeInMs - playPositionSeconds.valueAsNumber * 1000;
-    }
-    timeInMs -= playOffset;
-    if (timeInMs >= sectionEndTime && !continueRadioButton.checked) {
-      // At the end and not instructed to continue past the end.
-      playOffset = NaN;
-      if (repeatRadioButton.checked) {
-        timeInMs = sectionStartTime;
-      } else {
-        timeInMs = sectionEndTime;
-        playCheckBox.checked = false;
-        playPositionSeconds.disabled = false;
-      }
-    }
-    loadPlayPositionSeconds(timeInMs);
-    loadPlayPositionRange();
+    showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+    return;
   }
+
+  // Playing.
+  playPositionSeconds.disabled = true;
+
+  if (!audioSourceNode) {
+    // No source node running: first play, after pause/seek, or after repeat.
+    let startMs = playPositionSeconds.valueAsNumber * 1000;
+    if (startMs >= sectionEndTime && !continueRadioButton.checked) {
+      // At the end — jump to the beginning.
+      startMs = sectionStartTime;
+      loadPlayPositionSeconds(startMs);
+      loadPlayPositionRange();
+    }
+    startAudio(startMs);
+    // If audio isn't built yet, hold the current frame until it is.
+    if (!audioSourceNode) {
+      showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+      return;
+    }
+  }
+
+  const timeInMs = currentAudioTimeMs();
+
+  if (timeInMs >= sectionEndTime && !continueRadioButton.checked) {
+    if (repeatRadioButton.checked) {
+      // Loop: restart from the beginning of the section.
+      loadPlayPositionSeconds(sectionStartTime);
+      startAudio(sectionStartTime);
+      loadPlayPositionRange();
+      showFrame(sectionStartTime, "live");
+    } else {
+      // Pause at end.
+      stopAudio();
+      loadPlayPositionSeconds(sectionEndTime);
+      loadPlayPositionRange();
+      playCheckBox.checked = false;
+      playPositionSeconds.disabled = false;
+      showFrame(sectionEndTime, "live");
+    }
+    return;
+  }
+
+  loadPlayPositionSeconds(timeInMs);
+  loadPlayPositionRange();
   showFrame(timeInMs, "live");
 });
 
 playPositionRange.addEventListener("input", () => {
-  playOffset = NaN;
+  stopAudio();
   loadPlayPositionSeconds(playPositionRange.valueAsNumber);
 });
 playPositionSeconds.addEventListener("input", () => {
@@ -364,11 +465,27 @@ addEventListener("keypress", (event) => {
     case "Digit0": {
       loadPlayPositionSeconds(sectionStartTime);
       loadPlayPositionRange();
-      playOffset = NaN;
+      stopAudio();
+      event.preventDefault();
+      break;
+    }
+    case "KeyB": {
+      getById("back5s", HTMLButtonElement).click();
       event.preventDefault();
       break;
     }
   }
+});
+
+getById("back5s", HTMLButtonElement).addEventListener("click", () => {
+  const backMs = Math.max(
+    sectionStartTime,
+    playPositionSeconds.valueAsNumber * 1000 - 5000,
+  );
+  loadPlayPositionSeconds(backMs);
+  loadPlayPositionRange();
+  stopAudio();
+  playCheckBox.checked = true;
 });
 
 /**
@@ -403,7 +520,7 @@ const liveControls = getById("liveControls", HTMLFieldSetElement);
 let canceled = false;
 
 async function startRecording() {
-  audioElement.pause();
+  stopAudio();
   startRecordingButton.disabled = true;
   liveControls.disabled = true;
   cancelRecordingButton.disabled = false;
@@ -601,7 +718,7 @@ dump(toShow);
 /**
  * The drop down list containing the complete list of sections.
  */
-const select = querySelector("select", HTMLSelectElement);
+const select = getById("chapterSelector", HTMLSelectElement);
 debug.forEach((value) => {
   const option = document.createElement("option");
   option.textContent = value.prefix + value.description;
@@ -700,7 +817,7 @@ const nextButton = getById("nextButton", HTMLButtonElement);
  * Read the current section out of the <select> (drop down) element.
  */
 function updateFromSelect() {
-  playOffset = NaN;
+  stopAudio();
   const info = debug[select.selectedIndex];
   previousButton.disabled = info.absolutePosition == 0;
   nextButton.disabled = info.absolutePosition == debug.length - 1;
@@ -763,10 +880,6 @@ function saveState() {
     querySelector('input[name="onSectionEnd"]:checked', HTMLInputElement).value,
   );
   sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
-  sessionStorage.setItem(
-    "play",
-    playCheckBox.checked ? "checked" : "unchecked",
-  );
 }
 
 if (import.meta.hot) {
@@ -839,10 +952,7 @@ addEventListener("pagehide", (event) => {
         `input[name="onSectionEnd"][value="${state}"]`,
         HTMLInputElement,
       ).checked = true;
-      playOffset = NaN;
     }
-    const playCheckBoxState = sessionStorage.getItem("play");
-    playCheckBox.checked = playCheckBoxState == "checked";
     const saveImageSeconds = parseFloatX(
       sessionStorage.getItem("saveImageSeconds"),
     );

@@ -14,6 +14,7 @@
       <fieldset id="play-controls">
         <div class="range-container">
           <label><input type="checkbox" id="play" />Play</label>
+          <button id="back5s" type="button">⏮5s</button>
           <span style="background-color: lightcyan"
             >&nbsp;(At end
             <label
@@ -44,7 +45,7 @@
         </div>
       </fieldset>
       <div>
-        <select></select
+        <select id="chapterSelector"></select
         ><button id="previousButton">Previous</button
         ><button id="nextButton">Next</button>
       </div>
@@ -86,9 +87,19 @@
           <td></td>
         </tr>
       </table>
-      <div style="display: flex; align-items: center; gap: 0.75em">
-        <label><input type="checkbox" id="lock-audio-video" />🔒</label>
-        <audio id="mainAudio" style="flex-grow: 1" controls></audio>
+      <div style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap">
+        <label><input type="checkbox" id="muteAudio" /> Mute</label>
+        <label>Vol <input type="range" id="volumeAudio" min="0" max="1" step="0.05" value="1" style="width: 5em" /></label>
+        <label>Speed
+          <select id="speedAudio">
+            <option value="0.5">0.5×</option>
+            <option value="0.75">0.75×</option>
+            <option value="1" selected>1×</option>
+            <option value="1.25">1.25×</option>
+            <option value="1.5">1.5×</option>
+            <option value="2">2×</option>
+          </select>
+        </label>
       </div>
       <div>
         <button id="saveImage">Save Image</button> at
@@ -113,8 +124,8 @@
       <div id="info"><i>status goes here</i>...</div>
     </div>
     <p>
-      Hot keys: ⌥0 to jump to the beginning of the current session. ⌥Space to
-      pause or restart. Alt instead of ⌥ on a PC.
+      Hot keys: ⌥Space to play/pause. ⌥B to go back 5 seconds and play. ⌥0 to
+      jump to the start of the current section. Alt instead of ⌥ on a PC.
     </p>
     <br />
     <h1>Assets</h1>
