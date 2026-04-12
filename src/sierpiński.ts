@@ -49,8 +49,6 @@ import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
 import { zipper } from "./zipper";
 
-const QOffset = 20_000;
-
 class Map2<K1, K2, V> {
   readonly #map = new Map<K1, Map<K2, V>>();
   set(k1: K1, k2: K2, value: V) {
@@ -1336,14 +1334,14 @@ function scaleProgressWithinSegment(progress: number) {
       { time: 17000, value: outgoingAlpha },
     ];
     const bottomRotationSchedule: Keyframes<number> = [
-      { time: 4000 + 8_000 + 5000, value: 0, easeAfter: easeIn },
-      { time: 5000 + 8_000 + 5000, value: 1 },
-      { time: 9000 + 8_000 + 3000, value: 1, easeAfter: easeOut },
-      { time: 10000 + 8_000 + 3000, value: 0 },
+      { time: 17_000, value: 0, easeAfter: easeIn },
+      { time: 18_000, value: 1 },
+      { time: 20_000, value: 1, easeAfter: easeOut },
+      { time: 21_000, value: 0 },
     ];
     const bottomAlphaSchedule: Keyframes<number> = [
-      { time: 10000 + 8_000 + 3000, value: 1, easeAfter: ease },
-      { time: 12000 + 8_000 + 3000, value: outgoingAlpha },
+      { time: 21_000, value: 1, easeAfter: ease },
+      { time: 23_000, value: outgoingAlpha },
     ];
     const leftAlphaSchedule: Keyframes<number> = [
       { time: 27000, value: 1, easeAfter: easeOut },
@@ -2068,36 +2066,36 @@ function scaleProgressWithinSegment(progress: number) {
       new Location(x2, y1, bigX, bigY, 2),
     ];
     result[0].schedule.push(
-      { time: QOffset + 72500 + 5000, value: 0, easeAfter: easeOut },
-      { time: QOffset + 72500 + 8000 - 750, value: 1 },
+      { time: 97_500, value: 0, easeAfter: easeOut },
+      { time: 99_750, value: 1 },
     );
     result[1].schedule.push(
-      { time: QOffset + 72500 + 5750, value: 0, easeAfter: easeOut },
-      { time: QOffset + 72500 + 8000, value: 1 },
+      { time: 98_250, value: 0, easeAfter: easeOut },
+      { time: 100_500, value: 1 },
     );
     result[2].schedule.push(
-      { time: QOffset + 72500 + 5750 + 750, value: 0, easeAfter: easeOut },
-      { time: QOffset + 72500 + 8000 + 750, value: 1 },
+      { time: 99_000, value: 0, easeAfter: easeOut },
+      { time: 101_250, value: 1 },
     );
     result[3].schedule.push(
-      { time: QOffset + 72500 + 5750 + 750 + 75, value: 0, easeAfter: easeOut },
-      { time: QOffset + 72500 + 8000 + 750 + 75, value: 1 },
+      { time: 99_075, value: 0, easeAfter: easeOut },
+      { time: 101_325, value: 1 },
     );
     result[4].schedule.push(
       {
-        time: QOffset + 72500 + 5750 + 750 + 750 + 75,
+        time: 99_825,
         value: 0,
         easeAfter: easeOut,
       },
-      { time: QOffset + 72500 + 8000 + 750 + 750 + 75, value: 1 },
+      { time: 102_075, value: 1 },
     );
     result[5].schedule.push(
       {
-        time: QOffset + 72500 + 5750 + 750 + 750 + 750 + 75,
+        time: 100_575,
         value: 0,
         easeAfter: easeOut,
       },
-      { time: QOffset + 72500 + 8000 + 750 + 750 + 750 + 75, value: 1 },
+      { time: 102_825, value: 1 },
     );
     return result;
   })();
@@ -2218,9 +2216,9 @@ function scaleProgressWithinSegment(progress: number) {
           case 5: {
             transformStartTime = (263 - 221 - 3) * 1000;
             transformDuration = 3000;
-            const originalTransformStartTime = QOffset + growEndTime + 6000;
+            const originalTransformStartTime = growEndTime + 26_000;
             const difference = originalTransformStartTime - transformStartTime;
-            const proposedQOffset = QOffset - difference;
+            const proposedQOffset = 20_000 - difference;
             console.log({
               transformStartTime,
               originalTransformStartTime,
@@ -2261,7 +2259,7 @@ function scaleProgressWithinSegment(progress: number) {
     300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000,
   ];
   const fourierSchedule: Keyframes<number> = (() => {
-    const startTime = 271407 - 247500 + QOffset;
+    const startTime = 43_907;
     const runTime = 3500;
     const pauseTime = 500;
     let time = startTime;
