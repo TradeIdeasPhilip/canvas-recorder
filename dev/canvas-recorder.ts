@@ -28,7 +28,6 @@ import { Point } from "../src/glib/path-shape.ts";
 import { transform } from "../src/glib/transforms.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 
-// Consider setting toShow equal to one of these:
 import { morphTest } from "../src/morph-test.ts";
 import { top } from "../src/peano-fourier/top.ts";
 import { showcase } from "../src/showcase.ts";
@@ -36,13 +35,68 @@ import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
 import { strokeColorsTest } from "../src/stroke-colors-test.ts";
 
-const canvas = getById("main", HTMLCanvasElement);
-const context = assertNonNullable(canvas.getContext("2d"));
+/**
+ * Maps URL `?toShow=` keys to available video options.
+ * Fill in the `description` field for each entry — it appears in the selection page.
+ */
+const showableOptions = new Map<string, { item: Showable; description: string }>(
+  [
+    //["test", {item:undefined!, description:'</a><b>"只有经过中文测试，才算真正经过了测试！'}],
+    ["showcase", { item: showcase, description: "Ideas to copy and paste." }],
+    ["sierpiński", { item: sierpińskiTop, description: "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI" }],
+    ["peano-fourier", { item: top, description: "Fun with math, the last scene of: https://www.youtube.com/watch?v=Imc1w0xNb4E" }],
+    ["peano-arithmetic", { item: peanoArithmetic, description: "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8" }],
+    ["morph-test", { item: morphTest, description: "Morphing the Peano Curve, the first part of https://www.youtube.com/watch?v=Imc1w0xNb4E" }],
+    ["stroke-colors-test", { item: strokeColorsTest, description: "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0" }],
+  ],
+);
+
+/**
+ * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.
+ *
+ * Strings are NFC-normalized before comparison so that characters like "ń"
+ * match regardless of how the browser percent-encodes them.
+ *
+ * If the parameter is missing or unrecognized, the page body is replaced with
+ * a minimal link list and this function throws, halting the rest of the module.
+ */
+function resolveToShow(): Showable {
+  const normalizedOptions = new Map(
+    [...showableOptions.entries()].map(([k, v]) => [k.normalize("NFC"), v]),
+  );
+
+  const raw = new URLSearchParams(location.search).get("toShow");
+  if (raw !== null) {
+    const found = normalizedOptions.get(raw.normalize("NFC"));
+    if (found) {
+      return found.item;
+    }
+  }
+
+  const h1 = document.createElement("h1");
+  h1.textContent = "Select a video";
+  const ul = document.createElement("ul");
+  for (const [key, { description }] of showableOptions) {
+    const url = new URL(location.href);
+    url.searchParams.set("toShow", key);
+    const a = document.createElement("a");
+    a.href = url.href;
+    a.textContent = description ? `${key} — ${description}` : key;
+    const li = document.createElement("li");
+    li.append(a);
+    ul.append(li);
+  }
+  document.body.replaceChildren(h1, ul);
+  throw new Error("Showing video selection — no valid 'toShow' query parameter.");
+}
 
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = sierpińskiTop;
+const toShow = resolveToShow();
+
+const canvas = getById("main", HTMLCanvasElement);
+const context = assertNonNullable(canvas.getContext("2d"));
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.
