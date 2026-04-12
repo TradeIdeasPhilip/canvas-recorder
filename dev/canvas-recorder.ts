@@ -19,6 +19,8 @@ import {
   StreamTarget,
   CanvasSource,
   Mp4OutputFormat,
+  AudioBufferSource,
+  QUALITY_HIGH,
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
 import { downloadBlob } from "../src/utility.ts";
@@ -209,12 +211,13 @@ const audioElement = querySelector("#mainAudio", HTMLAudioElement);
   });
 }
 
+const audioBuilder = new AudioBuilder(toShow.duration);
+
 (async () => {
-  const audioContent = new AudioBuilder(toShow.duration);
   async function doIt(item: Selectable, offset: number) {
     if (item.soundClips) {
       for (const clip of item.soundClips) {
-        await audioContent.add(
+        await audioBuilder.add(
           clip.source,
           offset + clip.startMsIntoScene,
           clip.startMsIntoClip,
@@ -231,7 +234,7 @@ const audioElement = querySelector("#mainAudio", HTMLAudioElement);
   const time1 = performance.now();
   await doIt(toShow, 0);
   const time2 = performance.now();
-  await audioContent.assignToAudioElement(audioElement);
+  await audioBuilder.assignToAudioElement(audioElement);
   const time3 = performance.now();
   console.log(
     `doIt(): ${time2 - time1} ms, assignToAudioElement(): ${time3 - time2}.`,
@@ -383,10 +386,20 @@ async function startRecording() {
 
   output.addVideoTrack(videoSource, { frameRate: FPS });
 
+  const audioBuffer = audioBuilder.getAudioBuffer();
+  const audioSource = new AudioBufferSource({
+    codec: "aac",
+    bitrate: QUALITY_HIGH,
+  });
+  output.addAudioTrack(audioSource);
+
   const startTime = performance.now();
 
   await output.start();
   infoDiv.innerHTML = "Recording in progress...";
+
+  // Send it all at once, don't `await`, let Media Bunny figure it out.
+  audioSource.add(audioBuffer);
 
   const frameDuration = 1000 / FPS;
 
@@ -854,6 +867,14 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
 canvas.addEventListener("pointerup", (pointerEvent) => {
   lastUpSpan.innerText = locationString(pointerEvent);
 });
+
+getById("recordJustSound", HTMLButtonElement).addEventListener(
+  "click",
+  async () => {
+    const blob = await audioBuilder.toBlob();
+    downloadBlob("sound_file.wav", blob);
+  },
+);
 
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.

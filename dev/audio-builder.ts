@@ -4,19 +4,25 @@
  */
 export class AudioBuilder {
   /**
-   * This is the default audio context.
+   * Like AudioContext, but this lets you process data at full speed.
+   * AudioContext doesn't allow you to process things faster than realtime.
    */
-  private audioContext: AudioContext;
+  private audioContext: OfflineAudioContext;
   /**
    * This is the sound we are building.
    */
   private buffer: AudioBuffer;
 
+  getAudioBuffer(): AudioBuffer {
+    return this.buffer;
+  }
+
   constructor(totalDurationMs: number) {
-    this.audioContext = new (
-      window.AudioContext || (window as any).webkitAudioContext
-    )();
-    const sampleRate = this.audioContext.sampleRate;
+    const sampleRate = 48000;
+    this.audioContext = new OfflineAudioContext({
+      length: totalDurationMs * 1000,
+      sampleRate,
+    });
     const totalSamples = Math.ceil((totalDurationMs / 1000) * sampleRate);
 
     // Create buffer with 1 or 2 channels — we'll decide later based on first file
