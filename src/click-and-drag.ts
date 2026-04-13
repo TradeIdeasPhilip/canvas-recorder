@@ -7,8 +7,8 @@ type ClickAndDragListener = {
    */
   onClick: (x: number, y: number) => void;
   /**
-   * This is called when the user presses the mouse, moves more than a tiny amount, then releases.
-   * I.e. "drag".  This is called at the end of a drag gesture.
+   * This is called when the user presses the mouse, moves more than a tiny amount, then releases
+   * normally (mouseup).
    *
    * In the case of {$link clickDragAndOnce}(), this is the last message the listener will get.
    * This is when we return control to the default listener.
@@ -16,17 +16,15 @@ type ClickAndDragListener = {
    * @param y0 The starting y, where the mouse went down
    * @param x1 The final x, where the mouse button was released
    * @param y1 The final y, where the mouse button was released
-   * @param status "mouseup" means that this ended in the archetypal mouse up event, i.e. normal.
-   * "mouseleave" means that we stopped tracking the mouse because it left the element.
-   * Some callers might consider that an abort.
    */
-  onDrag: (
-    x0: number,
-    y0: number,
-    x1: number,
-    y1: number,
-    status: "mouseup" | "mouseleave",
-  ) => void;
+  onDrag: (x0: number, y0: number, x1: number, y1: number) => void;
+  /**
+   * Called when a drag in progress is cancelled — either by the Escape key or by the
+   * browser taking the pointer away (e.g. a scroll gesture).
+   * The drag position at the time of cancellation is not reported; callers should
+   * treat this as "nothing happened".
+   */
+  cancel: () => void;
   /**
    * Called each time the mouse moves in the element while a drag is in progress.
    *
@@ -57,6 +55,15 @@ type ClickAndDragListener = {
 //
 /**
  * Add these event handlers to your canvas.
+ *
+ * The pointer is captured on mousedown so dragging outside the canvas continues
+ * to fire move events rather than triggering a leave/cancel.  Coordinates are
+ * clamped to the canvas bounds while a drag is in progress, so dragging way off
+ * to the left snaps to x=0 and dragging way off to the right snaps to x=canvas.width.
+ *
+ * Pressing Escape while a drag is in progress calls onDrag with status "mouseleave"
+ * (i.e. cancel semantics).
+ *
  * @param canvas
  * @param listener
  * @param dragThreshold To distinguish click from drag (in canvas pixels)
@@ -70,24 +77,25 @@ export function setupClickAndDrag(
   let startX = 0;
   let startY = 0;
 
-  // Helper to get canvas-relative coordinates
-  function getCanvasCoords(e: MouseEvent): { x: number; y: number } {
+  // Helper to get canvas-relative coordinates, optionally clamped to canvas bounds.
+  function getCanvasCoords(
+    e: PointerEvent,
+    clamp: boolean,
+  ): { x: number; y: number } {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
-
-    return {
-      x: (e.clientX - rect.left) * scaleX,
-      y: (e.clientY - rect.top) * scaleY,
-    };
+    let x = (e.clientX - rect.left) * scaleX;
+    let y = (e.clientY - rect.top) * scaleY;
+    if (clamp) {
+      x = Math.max(0, Math.min(canvas.width, x));
+      y = Math.max(0, Math.min(canvas.height, y));
+    }
+    return { x, y };
   }
 
   /**
-   *
-   * @param x The current x in canvas coordinates.
-   * @param y The current y in canvas coordinates.
    * @returns True if this move is small enough to be called a click.
-   * False if the move is big enough to be called a drag.
    */
   function tinyMove(x: number, y: number) {
     const dx = x - startX;
@@ -95,19 +103,25 @@ export function setupClickAndDrag(
     return Math.abs(dx) < dragThreshold && Math.abs(dy) < dragThreshold;
   }
 
-  // Mouse down
-  canvas.addEventListener("mousedown", (e: MouseEvent) => {
-    if (e.button !== 0) return; // Only left mouse button
+  function cancelDrag() {
+    isDragging = false;
+    listener.cancel();
+  }
 
-    const { x, y } = getCanvasCoords(e);
+  // Pointer down — capture the pointer so moves continue even outside the canvas.
+  canvas.addEventListener("pointerdown", (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    canvas.setPointerCapture(e.pointerId);
+    const { x, y } = getCanvasCoords(e, false);
     isDragging = true;
     startX = x;
     startY = y;
   });
 
-  // Mouse move - only track when dragging
-  canvas.addEventListener("mousemove", (e: MouseEvent) => {
-    const { x, y } = getCanvasCoords(e);
+  // Pointer move — clamp coordinates to canvas bounds while dragging so that
+  // dragging off-screen maps to the nearest edge rather than out-of-range values.
+  canvas.addEventListener("pointermove", (e: PointerEvent) => {
+    const { x, y } = getCanvasCoords(e, isDragging);
     if (isDragging) {
       listener.onDragMove(
         startX,
@@ -121,30 +135,29 @@ export function setupClickAndDrag(
     }
   });
 
-  // Mouse up
-  canvas.addEventListener("mouseup", (e: MouseEvent) => {
+  // Pointer up — complete the drag (or click) with clamped final position.
+  canvas.addEventListener("pointerup", (e: PointerEvent) => {
     if (!isDragging) return;
     if (e.button !== 0) return;
-
-    const { x, y } = getCanvasCoords(e);
-
+    isDragging = false;
+    const { x, y } = getCanvasCoords(e, true);
     if (tinyMove(x, y)) {
-      // It's a click
       listener.onClick(startX, startY);
     } else {
-      // It's a drag - call onDrag with final position
-      listener.onDrag(startX, startY, x, y, "mouseup");
+      listener.onDrag(startX, startY, x, y);
     }
-
-    isDragging = false;
   });
 
-  // Cancel drag if mouse leaves the canvas
-  canvas.addEventListener("mouseleave", (e) => {
-    if (isDragging) {
-      isDragging = false;
-      const { x, y } = getCanvasCoords(e);
-      listener.onDrag(startX, startY, x, y, "mouseleave");
+  // Pointer cancel — browser took the pointer away (e.g. scroll gesture).
+  canvas.addEventListener("pointercancel", (_e: PointerEvent) => {
+    if (!isDragging) return;
+    cancelDrag();
+  });
+
+  // Escape key — cancel a drag in progress.
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Escape" && isDragging) {
+      cancelDrag();
     }
   });
 
@@ -178,6 +191,16 @@ export function clickDragAndOnce(
     }
     nextTime = undefined;
   }
+
+  // Escape key — abort an active extend-mode session (nextTime listener).
+  document.addEventListener("keydown", (e: KeyboardEvent) => {
+    if (e.key === "Escape" && nextTime) {
+      const listener = nextTime;
+      nextTime = undefined;
+      listener.onAbort();
+    }
+  });
+
   setupClickAndDrag(canvas, {
     onClick(x, y) {
       if (nextTime) {
@@ -189,14 +212,23 @@ export function clickDragAndOnce(
         defaultListener.onClick(x, y);
       }
     },
-    onDrag(x0, y0, x1, y1, status) {
+    onDrag(x0, y0, x1, y1) {
       if (nextTime) {
         const listener = nextTime;
         // Clear this first, in case the callback wants to register another callback.
         nextTime = undefined;
-        listener.onDrag(x0, y0, x1, y1, status);
+        listener.onDrag(x0, y0, x1, y1);
       } else {
-        defaultListener.onDrag(x0, y0, x1, y1, status);
+        defaultListener.onDrag(x0, y0, x1, y1);
+      }
+    },
+    cancel() {
+      if (nextTime) {
+        const listener = nextTime;
+        nextTime = undefined;
+        listener.cancel();
+      } else {
+        defaultListener.cancel();
       }
     },
     onDragMove(x0, y0, x1, y1, status) {

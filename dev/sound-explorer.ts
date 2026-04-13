@@ -16,22 +16,6 @@ import { interpolateColor } from "../src/interpolate";
 // The chart GUI will still keep trying to extend the clip.
 // Need to call the cleanup code on recycle.
 
-// Bug / TODO:
-// When I tried to select from the far left I managed to select a negative starting time.
-// It appeared okay in the table, but when I tried to play it I got this:
-//sound-explorer.ts:310 Uncaught RangeError: Failed to execute 'start' on 'AudioBufferSourceNode': The offset provided (-0.181363) is less than the minimum bound (0).
-//    at RangePlaying.playTemporary (sound-explorer.ts:310:12)
-//    at Clip.play (sound-explorer.ts:728:27)
-//    at HTMLButtonElement.<anonymous> (sound-explorer.ts:694:14)
-// Do a better job selecting!!!
-
-// TODO:
-// The esc key should get you out of extend mode.
-// clickDragAndOnce should listen for esc, and that's another way to cancel.
-// Maybe rename the out of bounds event to cancel,
-// leave the cancel listeners in place,
-// AND there's a TODO elsewhere to grab the mouse so the current out of bounds would not be needed any more.
-
 // TODO:
 // Add some sort of copy all to get everything from the table.
 // Or maybe a div showing the same items as the table, always in sync, with the same backgrounds, but showing the copyable code.
@@ -297,8 +281,8 @@ function createNewClip(x0: number, x1: number) {
   if (color === undefined) {
     return;
   }
-  const startIndex = xToInputIndexContinuous(x0);
-  const endIndex = xToInputIndexContinuous(x1);
+  const startIndex = Math.floor(xToInputIndexContinuous(x0));
+  const endIndex = Math.ceil(xToInputIndexContinuous(x1));
   const clip = clipManager.createClip({ color, startIndex, endIndex });
 }
 /**
@@ -425,19 +409,20 @@ const clickAndDrag = clickDragAndOnce(canvas, {
       xToInputIndexContinuous(x) / audioContext.sampleRate;
     //   statusDiv.textContent = `${x} pixels, ${(x / canvas.width) * 100}%, index of sample: ${Math.round(xToInputIndexContinuous(x))}, ${xToInputIndexContinuous(x) / audioContext.sampleRate} seconds`;
   },
-  onDrag(x0, _y0, x1, _y1, status) {
-    // Ending
-    if (status == "mouseup") {
-      if (x0 < x1) {
-        // Dragging left to right creates a new clip.
-        createNewClip(x0, x1);
-      } else {
-        // Dragging right to left zooms in.
-        const startIndex = Math.floor(xToInputIndexContinuous(x1));
-        const endIndex = Math.ceil(xToInputIndexContinuous(x0));
-        setSourceRange(startIndex, endIndex);
-      }
+  onDrag(x0, _y0, x1, _y1) {
+    if (x0 < x1) {
+      // Dragging left to right creates a new clip.
+      createNewClip(x0, x1);
+    } else {
+      // Dragging right to left zooms in.
+      const startIndex = Math.floor(xToInputIndexContinuous(x1));
+      const endIndex = Math.ceil(xToInputIndexContinuous(x0));
+      setSourceRange(startIndex, endIndex);
     }
+    canvas.style.cursor = "";
+    dragRectangle = undefined;
+  },
+  cancel() {
     canvas.style.cursor = "";
     dragRectangle = undefined;
   },
@@ -507,7 +492,6 @@ function secondsToString(seconds: number) {
         _y0: number,
         x1: number,
         _y1: number,
-        _status: "mouseup" | "mouseleave",
       ): void {
         const startSeconds = xToSeconds(x0);
         const endSeconds = xToSeconds(x1);
@@ -518,6 +502,7 @@ function secondsToString(seconds: number) {
         // the drag has finished.
         showCurrentState(endSeconds);
       },
+      cancel() {},
       onDragMove: function (
         x0: number,
         _y0: number,
@@ -735,15 +720,16 @@ class Clip {
               _y0: number,
               x1: number,
               y1: number,
-              status: "mousemove" | "mouseup" | "mouseleave",
             ): void {
+              canvas.style.cursor = "";
+              playPixelRange(x0, x1);
+              addListener();
+              this.onFreeMove(x1, y1);
+            },
+            cancel: function (): void {
               // Restore help TODO
               canvas.style.cursor = "";
-              if (status == "mouseup") {
-                playPixelRange(x0, x1);
-                addListener();
-              }
-              this.onFreeMove(x1, y1);
+              dragRectangle = undefined;
             },
             onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
@@ -812,15 +798,16 @@ class Clip {
               _y0: number,
               x1: number,
               y1: number,
-              status: "mousemove" | "mouseup" | "mouseleave",
             ): void {
+              canvas.style.cursor = "";
+              playPixelRange(x0, x1);
+              addListener();
+              this.onFreeMove(x1, y1);
+            },
+            cancel: function (): void {
               // Restore help TODO
               canvas.style.cursor = "";
-              if (status == "mouseup") {
-                playPixelRange(x0, x1);
-                addListener();
-              }
-              this.onFreeMove(x1, y1);
+              dragRectangle = undefined;
             },
             onDragMove(x0, _y0, x1, _y1, status) {
               // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
