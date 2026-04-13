@@ -1320,6 +1320,18 @@ function showErrorPage(message: string): never {
     setSourceRange(newStart, newEnd);
   });
   getById("recenter", HTMLButtonElement).addEventListener("click", () => {
-    alert("TODO");
+    if (!soundData) {
+      return;
+    }
+    const size = sourceRange.endIndex - sourceRange.startIndex;
+    const center =
+      RangePlaying.instance.status().secondsFromStart * audioContext.sampleRate;
+    let newStart = Math.max(0, Math.round(center - size / 2));
+    let newEnd = newStart + size;
+    if (newEnd > soundData.length) {
+      newEnd = soundData.length;
+      newStart = newEnd - size;
+    }
+    setSourceRange(newStart, newEnd);
   });
 }

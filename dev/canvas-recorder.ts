@@ -1046,8 +1046,3 @@ getById("recordJustSound", HTMLButtonElement).addEventListener(
 // TODO Reenable other buttons after recording.
 //  * Probably, but no rush.
 //  * It is so easy to hit refresh!
-// TODO Hot Keys
-//  * Add _ for Previous and Next buttons.
-//  * Add P and N as hotkeys.
-//  * Maybe not.  This is possible but not very interesting.
-//  * Instead maybe flip between specific frames or scenes with a hot key.
