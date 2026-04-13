@@ -165,7 +165,7 @@ export function setupClickAndDrag(
   canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 }
 
-type ClickDragAndOnceListener = ClickAndDragListener & { onAbort(): void };
+export type ClickDragAndOnceListener = ClickAndDragListener & { onAbort(): void };
 
 /**
  * This is similar to {@link setupClickAndDrag}(),
@@ -190,6 +190,17 @@ export function clickDragAndOnce(
       throw new Error("wtf");
     }
     nextTime = undefined;
+  }
+  /**
+   * If `listener` is the currently registered one-time listener, abort it —
+   * exactly as if the user pressed Escape.  If it is not current (already
+   * completed, or a different listener is active) this is a no-op.
+   */
+  function cancelIfActive(listener: ClickDragAndOnceListener) {
+    if (listener === nextTime) {
+      nextTime = undefined;
+      listener.onAbort();
+    }
   }
 
   // Escape key — abort an active extend-mode session (nextTime listener).
@@ -246,5 +257,5 @@ export function clickDragAndOnce(
       }
     },
   });
-  return { listenOnce, cancel };
+  return { listenOnce, cancel, cancelIfActive };
 }

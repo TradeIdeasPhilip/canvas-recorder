@@ -7,14 +7,13 @@ import {
   LinearFunction,
   makeLinear,
 } from "phil-lib/misc";
-import { clickDragAndOnce, setupClickAndDrag } from "../src/click-and-drag";
+import {
+  clickDragAndOnce,
+  setupClickAndDrag,
+  type ClickDragAndOnceListener,
+} from "../src/click-and-drag";
 import { myRainbow } from "../src/glib/my-rainbow";
 import { interpolateColor } from "../src/interpolate";
-
-// Bug / TODO:
-// If you delete a row while you are trying to extend the corresponding clip,
-// The chart GUI will still keep trying to extend the clip.
-// Need to call the cleanup code on recycle.
 
 // TODO:
 // Add some sort of copy all to get everything from the table.
@@ -689,10 +688,15 @@ class Clip {
       // You'll get the words and numbers, but not the buttons.
       // The buttons would never work but would still appear in the clipboard.
       buttonsCell.style.userSelect = "none";
+      // Tracks whichever extend listener (⇤ or ⇥) is currently registered so
+      // the recycle button can cancel it if the row is deleted mid-extend.
+      let activeExtendListener: ClickDragAndOnceListener | undefined;
       const recycleButton = document.createElement("button");
       recycleButton.textContent = "🗑️"; //♻
       buttonsCell.appendChild(recycleButton);
       recycleButton.addEventListener("click", () => {
+        if (activeExtendListener)
+          clickAndDrag.cancelIfActive(activeExtendListener);
         this.remove();
       });
       const resizeLeftButton = document.createElement("button");
@@ -705,7 +709,7 @@ class Clip {
         // TODO update the help / instructions
         const thisClip: Clip = this;
         function addListener() {
-          clickAndDrag.listenOnce({
+          const listener: ClickDragAndOnceListener = {
             onClick: function (x: number, _y: number): void {
               const proposedStartIndex = xToInputIndexContinuous(x);
               if (thisClip.endIndex > proposedStartIndex) {
@@ -771,7 +775,9 @@ class Clip {
                 canvas.style.cursor = "not-allowed";
               }
             },
-          });
+          };
+          activeExtendListener = listener;
+          clickAndDrag.listenOnce(listener);
         }
         addListener();
       });
@@ -783,7 +789,7 @@ class Clip {
         // TODO update the help / instructions
         const thisClip: Clip = this;
         function addListener() {
-          clickAndDrag.listenOnce({
+          const listener: ClickDragAndOnceListener = {
             onClick: function (x: number, _y: number): void {
               const proposedEndIndex = xToInputIndexContinuous(x);
               if (proposedEndIndex > thisClip.startIndex) {
@@ -849,7 +855,9 @@ class Clip {
                 canvas.style.cursor = "not-allowed";
               }
             },
-          });
+          };
+          activeExtendListener = listener;
+          clickAndDrag.listenOnce(listener);
         }
         addListener();
       });
