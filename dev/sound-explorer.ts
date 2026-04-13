@@ -32,29 +32,6 @@ import { interpolateColor } from "../src/interpolate";
 // leave the cancel listeners in place,
 // AND there's a TODO elsewhere to grab the mouse so the current out of bounds would not be needed any more.
 
-// Bug / TODO:
-// Play a selection from a play button in the table and the selection turns green.
-// Click past the green part and that extends the green part.
-// That is wrong!!
-// Hitting the play in the <audio> seems to restore order.
-// Hitting a play button in the table does NOT restore order.
-
-// Bug / TODO:
-// Play two adjacent clips from the table.
-// Playing the later one will set the range for the light green rectangle correctly.
-// It will match the clip perfectly.
-// Playing the former will cause the green rectangle to go from the start of the first to the end of the second.
-// Switching back and forth several times and it was consistent.
-// Maybe related to previous bug report about the green selection being wrong.
-// I can't quite describe it completely, but that green rectangle is wrong a lot.
-
-// Bug / TODO:
-// What happens if there is an error on load, so we never read the current state of the table?
-// Do we ever save this busted state of the table?
-// Certainly if I add something new while the table is empty, whatever should have been there will be gone forever.
-// I've seen it just clear itself for no obvious reason.
-// Mostly it works, but this has gotta get fixed.
-
 // TODO:
 // Add some sort of copy all to get everything from the table.
 // Or maybe a div showing the same items as the table, always in sync, with the same backgrounds, but showing the copyable code.
@@ -1152,6 +1129,18 @@ function redraw() {
     );
     const sampleValueToY = makeLinear(1, 0, -1, chartHeight);
     const indexFromAudio = currentAudioTime * audioContext.sampleRate;
+    // Background color:
+    // If there is a subrange selected, it will be drawn in green.
+    // Parts of the subrange that come before the current play position
+    // (i.e. already played) are a slightly darker shade of green and
+    // parts of the subrange that come after the play position (i.e.
+    // to be played soon) are a slightly lighter shade of green.
+    // Outside of the subrange, anything before the play position is light
+    // gray, anything after is white.
+    //
+    // The difference between the lighter part of the background and the darker part
+    // indicate where the play head is.
+    // The effect looks good and works well.
     context.fillStyle = "white";
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = "#eee";
@@ -1171,7 +1160,7 @@ function redraw() {
         subrangeLastX - subrangeFirstX,
         canvasSize.height,
       );
-      if (currentAudioX > subrangeFirstX) {
+      if (currentAudioX > subrangeFirstX && playbackStatus.playing === "clip") {
         context.fillStyle = "#cec";
         context.fillRect(
           subrangeFirstX,
