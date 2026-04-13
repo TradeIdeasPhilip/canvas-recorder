@@ -217,6 +217,12 @@ audioElement.src = soundUrl;
  * Show context sensitive help.
  */
 const statusDiv = getById("soundStatus", HTMLDivElement);
+const helpDefault =
+  "Drag right → to create a new clip. Drag ← left to zoom. Click to sync the player.";
+const helpExtend =
+  "Click to set the new endpoint. Or drag to audition a range without adding a clip. Press Escape to cancel.";
+const helpDragPlay = "Release to play what you've selected.";
+statusDiv.textContent = helpDefault;
 
 /**
  * This is my custom chart.
@@ -701,23 +707,20 @@ class Clip {
       });
       const resizeLeftButton = document.createElement("button");
       resizeLeftButton.textContent = "⇤";
-      //canvas.style.cursor="TODO"
-      // TODO update the help / instructions
       buttonsCell.appendChild(resizeLeftButton);
       resizeLeftButton.addEventListener("click", () => {
-        //canvas.style.cursor="TODO"
-        // TODO update the help / instructions
         const thisClip: Clip = this;
         function addListener() {
+          statusDiv.textContent = helpExtend;
           const listener: ClickDragAndOnceListener = {
             onClick: function (x: number, _y: number): void {
               const proposedStartIndex = xToInputIndexContinuous(x);
               if (thisClip.endIndex > proposedStartIndex) {
                 thisClip.startIndex = proposedStartIndex;
               }
-              // Restore help TODO
               dragRectangle = undefined;
               canvas.style.cursor = "";
+              statusDiv.textContent = helpDefault;
             },
             onDrag: function (
               x0: number,
@@ -731,16 +734,17 @@ class Clip {
               this.onFreeMove(x1, y1);
             },
             cancel: function (): void {
-              // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
+              statusDiv.textContent = helpDefault;
             },
             onDragMove(x0, _y0, x1, _y1, status) {
-              // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
               if (status == "click") {
                 canvas.style.cursor = "";
                 dragRectangle = undefined;
+                statusDiv.textContent = helpExtend;
               } else {
+                statusDiv.textContent = helpDragPlay;
                 if (x0 < x1) {
                   canvas.style.cursor = "e-resize";
                 } else {
@@ -756,9 +760,9 @@ class Clip {
               }
             },
             onAbort: function (): void {
-              // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
+              statusDiv.textContent = helpDefault;
             },
             onFreeMove(x, y) {
               const proposedStartIndex = xToInputIndexContinuous(x);
@@ -785,19 +789,18 @@ class Clip {
       resizeRightButton.textContent = "⇥";
       buttonsCell.appendChild(resizeRightButton);
       resizeRightButton.addEventListener("click", () => {
-        //canvas.style.cursor="TODO"
-        // TODO update the help / instructions
         const thisClip: Clip = this;
         function addListener() {
+          statusDiv.textContent = helpExtend;
           const listener: ClickDragAndOnceListener = {
             onClick: function (x: number, _y: number): void {
               const proposedEndIndex = xToInputIndexContinuous(x);
               if (proposedEndIndex > thisClip.startIndex) {
                 thisClip.endIndex = xToInputIndexContinuous(x);
               }
-              // Restore help TODO
               dragRectangle = undefined;
               canvas.style.cursor = "";
+              statusDiv.textContent = helpDefault;
             },
             onDrag: function (
               x0: number,
@@ -811,16 +814,17 @@ class Clip {
               this.onFreeMove(x1, y1);
             },
             cancel: function (): void {
-              // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
+              statusDiv.textContent = helpDefault;
             },
             onDragMove(x0, _y0, x1, _y1, status) {
-              // Dragging the cursor while trying to select an endpoint means to play the dragged selection.
               if (status == "click") {
                 canvas.style.cursor = "";
                 dragRectangle = undefined;
+                statusDiv.textContent = helpExtend;
               } else {
+                statusDiv.textContent = helpDragPlay;
                 if (x0 < x1) {
                   canvas.style.cursor = "e-resize";
                 } else {
@@ -836,9 +840,9 @@ class Clip {
               }
             },
             onAbort: function (): void {
-              // Restore help TODO
               canvas.style.cursor = "";
               dragRectangle = undefined;
+              statusDiv.textContent = helpDefault;
             },
             onFreeMove(x, y) {
               const fixedStartIndex = thisClip.startIndex;
