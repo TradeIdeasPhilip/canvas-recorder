@@ -53,6 +53,24 @@ export type ShowOptions = {
   readonly timeInMs: number;
   /**
    * Draw on this.
+   *
+   * **Canvas state conventions** (apply to all `show()` implementations):
+   *
+   * The following properties are *disposable* — callers make no assumptions
+   * about the incoming value and callee makes no guarantees about the
+   * outgoing value:
+   * `fillStyle`, `strokeStyle`, `lineCap`, `lineJoin`, `lineWidth`.
+   * (See also `CommonSettings` in `src/fancy-text.ts`.)
+   *
+   * `transform` follows save/restore semantics, like SVG `<g>` nesting.
+   * Each `show()` call receives the parent's transform and is expected to
+   * restore it before returning (use `save()`/`restore()`).  The root
+   * transform maps the 16×9 logical coordinate space to the actual canvas
+   * pixel dimensions: `scale(canvas.width / 16, canvas.height / 9)`.
+   *
+   * `globalAlpha` should follow the same save/restore convention as
+   * `transform`.  See `fadeOut()` in `src/transitions.ts` for the intended
+   * usage.
    */
   readonly context: CanvasRenderingContext2D;
   /**

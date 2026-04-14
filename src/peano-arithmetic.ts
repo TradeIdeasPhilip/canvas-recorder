@@ -3150,7 +3150,7 @@ function plus(): PathElement {
     });
   });
   */
-  /* 
+  /*
   formatter.add(
     "0: zero ∅ +++\n" +
       "n+1: OnePlus(n) n U { n } +++\n" +
@@ -3179,6 +3179,7 @@ function plus(): PathElement {
       const timeInMs = options.timeInMs;
       context.lineCap = "round";
       context.lineJoin = "round";
+      context.fillStyle;
       //actions.forEach((action) => action(options));
       handwriting1(options);
       handwriting2(options);

@@ -34,6 +34,7 @@ import { showcase } from "../src/showcase.ts";
 import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
 import { strokeColorsTest } from "../src/stroke-colors-test.ts";
+import { shadowTest } from "../src/shadow-test.ts";
 
 /**
  * Maps URL `?toShow=` keys to available video options.
@@ -83,6 +84,13 @@ const showableOptions = new Map<
       item: strokeColorsTest,
       description:
         "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0",
+    },
+  ],
+  [
+    "shadow-test",
+    {
+      item: shadowTest,
+      description: "Halftone drop-shadow effect demo.",
     },
   ],
 ]);
