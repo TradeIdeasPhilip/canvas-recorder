@@ -5,14 +5,28 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📽️ Canvas Recorder Development Environment</title>
-    <script type="module" crossorigin src="./assets/ -Qf3mHsAX.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/style-BEPJmRYI.js">
+    <script type="module" crossorigin src="./assets/ -Bhonk9tC.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/style-A1_eYiVL.js">
     <link rel="modulepreload" crossorigin href="./assets/client-misc-Bw4b0CXO.js">
-    <link rel="stylesheet" crossorigin href="./assets/style-CZv7xc1G.css">
+    <link rel="stylesheet" crossorigin href="./assets/style-abhXp4E1.css">
   </head>
   <body>
     <h1>Canvas Recorder Development Environment</h1>
-    <canvas id="main" width="3840" height="2160"></canvas>
+    <div id="zoomControls">
+      <label
+        >Zoom:
+        <select id="zoomSelect">
+          <option value="fit" selected>Fit</option>
+          <option value="0.25">25%</option>
+          <option value="0.50">50%</option>
+          <option value="1.00">100%</option>
+          <option value="2.00">200%</option>
+        </select>
+      </label>
+    </div>
+    <div id="canvasViewport">
+      <canvas id="main" width="3840" height="2160"></canvas>
+    </div>
     <fieldset id="liveControls">
       <fieldset id="play-controls">
         <div class="range-container">
@@ -90,10 +104,23 @@
           <td></td>
         </tr>
       </table>
-      <div style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap">
+      <div
+        style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap"
+      >
         <label><input type="checkbox" id="muteAudio" /> Mute</label>
-        <label>Vol <input type="range" id="volumeAudio" min="0" max="1" step="0.05" value="1" style="width: 5em" /></label>
-        <label>Speed
+        <label
+          >Vol
+          <input
+            type="range"
+            id="volumeAudio"
+            min="0"
+            max="1"
+            step="0.05"
+            value="1"
+            style="width: 5em"
+        /></label>
+        <label
+          >Speed
           <select id="speedAudio">
             <option value="0.5">0.5×</option>
             <option value="0.75">0.75×</option>
@@ -110,10 +137,6 @@
         <button id="currentTimeToSaveImage">← Current Time</button>
       </div>
     </fieldset>
-    <div>
-      Current position: <span id="currentPosition"></span>, Last down:
-      <span id="lastDown"></span>, Last up: <span id="lastUp"></span>
-    </div>
     <div
       style="
         border: 0.3em inset rgb(178, 178, 178);

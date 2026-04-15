@@ -242,3 +242,36 @@ export function applyTransform(
 ) {
   context.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
 }
+
+/**
+ * Create a matrix to translate from one  coordinate space to another.
+ *
+ * Use case:
+ * * All of my objects created by one part of the code are in one `<g>` element,
+ * * All of my objects created by another part of the code are in a different `<g>` element,
+ * * The two `<g>` elements use totally different coordinate systems, probably due to implementation details and the code's history.
+ * * You want to make an object of one type, and you want to place at at the same location as an object of the other type.
+ *
+ * Or, you want to move an element from one `<g>` element to a different one.
+ * To give it a new home.
+ * But that's an implementation detail.
+ * You want the object to look the same before and after the move.
+ * @param coordinatesComeFromHere An element where your coordinates make sense.
+ * @param coordinatesWillBeUsedHere An element where you want to use your coordinates.
+ * @returns A matrix that will transform from coordinates the first coordinate space to the second.
+ */
+export function rehome(
+  coordinatesComeFromHere: SVGGraphicsElement,
+  coordinatesWillBeUsedHere: SVGGraphicsElement,
+): DOMMatrix {
+  // Get the CTMs for both elements
+  const sourceCTM = coordinatesComeFromHere.getCTM();
+  const targetCTM = coordinatesWillBeUsedHere.getCTM();
+
+  if (!sourceCTM || !targetCTM) {
+    throw new Error("Unable to compute CTM for one or both elements");
+  }
+
+  // Compute the transformation matrix: targetCTM^-1 * sourceCTM
+  return targetCTM.inverse().multiply(sourceCTM);
+}
