@@ -244,7 +244,7 @@ export function applyTransform(
 }
 
 /**
- * Create a matrix to translate from one  coordinate space to another.
+ * Create a matrix to translate from one coordinate space to another.
  *
  * Use case:
  * * All of my objects created by one part of the code are in one `<g>` element,

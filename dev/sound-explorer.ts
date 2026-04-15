@@ -1,4 +1,4 @@
-import "./style.css";
+import "./sound-explorer.css";
 
 import { AnimationLoop, getById } from "phil-lib/client-misc";
 import {

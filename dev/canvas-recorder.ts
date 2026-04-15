@@ -1,4 +1,4 @@
-import "./style.css";
+import "./canvas-recorder.css";
 
 import "../src/morph-test.ts";
 import {

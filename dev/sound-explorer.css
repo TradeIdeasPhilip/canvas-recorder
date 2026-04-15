@@ -1,0 +1,41 @@
+@import url(./style.css);
+
+audio {
+  width: unset;
+}
+
+#soundClips {
+  border-collapse: collapse;
+  font-family: Verdana;
+  font-weight: normal;
+}
+
+#soundClips tr td {
+  padding: 0 0.5em;
+}
+
+#soundClips td:nth-child(1) {
+  text-align: right;
+  font-family: Verdana;
+  font-weight: normal;
+}
+
+#soundClips td:nth-child(2) {
+  text-align: right;
+  font-family: Verdana;
+  font-weight: normal;
+}
+
+#soundClips td:nth-child(3) {
+  text-align: right;
+  font-family: Verdana;
+  font-weight: normal;
+}
+
+#audioViewer {
+  cursor: col-resize;
+}
+
+.emptyTableMessage:not(:nth-child(2)) {
+  display: none;
+}
