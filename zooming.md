@@ -95,3 +95,11 @@ If the image is being shrunk to fit on the screen this is irrelevant, the defaul
 If the image is being displayed at 100%, it's completely irrelevant.
 If we're zooming in, I want it pixellated.
 The only reason I'd bother to zoom in is because "I wanna see them pixels."
+
+## Implementation
+
+Lots of options.
+Maybe make css do most of the work.
+A parent div will take care of the layout.
+The parent will crop the canvas if we zoom in too much to show it all.
+We use a css transform to crop and pan the canvas.

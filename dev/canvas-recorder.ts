@@ -24,8 +24,6 @@ import {
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
 import { downloadBlob } from "../src/utility.ts";
-import { Point } from "../src/glib/path-shape.ts";
-import { transform } from "../src/glib/transforms.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 
 import { morphTest } from "../src/morph-test.ts";
@@ -152,19 +150,51 @@ const context = assertNonNullable(canvas.getContext("2d"));
  * that the drawing code doesn't have to care about.
  * @returns A matrix converting from the 16x9 ideal coordinates to the actual canvas coordinates.
  */
+const CANVAS_W = 3840;
+const CANVAS_H = 2160;
+
 function mainTransform() {
-  return new DOMMatrixReadOnly().scale(canvas.width / 16, canvas.height / 9);
+  return new DOMMatrixReadOnly().scale(CANVAS_W / 16, CANVAS_H / 9);
 }
 
-let canvasSize: { readonly width: number; readonly height: number } | undefined;
+// ---------------------------------------------------------------------------
+// Zoom & pan
+// ---------------------------------------------------------------------------
 
-// One-time setup (e.g. on init/mount)
-const resizeObserver = new ResizeObserver((entries) => {
-  canvasSize = undefined;
+const viewport = getById("canvasViewport", HTMLDivElement);
+const zoomSelect = getById("zoomSelect", HTMLSelectElement);
+
+let currentScale = 1;
+let panX = 0;
+let panY = 0;
+
+function applyZoom(scale: number, px = panX, py = panY) {
+  currentScale = scale;
+  panX = px;
+  panY = py;
+  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  viewport.style.width = `${Math.round(CANVAS_W * scale)}px`;
+  viewport.style.height = `${Math.round(CANVAS_H * scale)}px`;
+}
+
+function zoomToFit() {
+  const scale = (window.innerWidth * 0.95) / CANVAS_W;
+  applyZoom(scale, 0, 0);
+}
+
+zoomSelect.addEventListener("change", () => {
+  if (zoomSelect.value === "fit") {
+    zoomToFit();
+  } else {
+    applyZoom(parseFloat(zoomSelect.value) / devicePixelRatio, 0, 0);
+  }
 });
 
-// Observe the canvas (or its wrapper div if you prefer)
-resizeObserver.observe(canvas, { box: "device-pixel-content-box" });
+window.addEventListener("resize", () => {
+  if (zoomSelect.value === "fit") {
+    zoomToFit();
+  }
+});
 
 /**
  *
@@ -179,26 +209,14 @@ resizeObserver.observe(canvas, { box: "device-pixel-content-box" });
  * * 4k and hd hav their normal meaning.
  */
 function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
-  if (size == "live") {
-    if (!canvasSize) {
-      // getClientRects forces a layout step.
-      // The cost was about 0.2ms / frame
-      // At 60 fps that's about 1.2% of our entire time.
-      const clientRect = canvas.getClientRects()[0];
-      canvasSize = {
-        height: Math.round(clientRect.height * devicePixelRatio),
-        width: Math.round(clientRect.width * devicePixelRatio),
-      };
-    }
-    canvas.width = canvasSize.width;
-    canvas.height = canvasSize.height;
-  } else if (size == "4k") {
-    canvas.width = 3840;
-    canvas.height = 2160;
-  } else {
+  if (size === "4k") {
+    canvas.width = CANVAS_W;
+    canvas.height = CANVAS_H;
+  } else if (size === "hd") {
     canvas.width = 1920;
     canvas.height = 1080;
   }
+  // "live" uses the fixed 4K canvas — no resize needed.
   context.reset();
   context.setTransform(mainTransform());
   toShow.show({ timeInMs, context, globalTime: timeInMs });
@@ -888,6 +906,9 @@ function saveState() {
     querySelector('input[name="onSectionEnd"]:checked', HTMLInputElement).value,
   );
   sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
+  sessionStorage.setItem("zoomSelect", zoomSelect.value);
+  sessionStorage.setItem("panX", panX.toString());
+  sessionStorage.setItem("panY", panY.toString());
 }
 
 if (import.meta.hot) {
@@ -967,6 +988,19 @@ addEventListener("pagehide", (event) => {
     if (saveImageSeconds !== undefined) {
       saveImageSecondsInput.valueAsNumber = saveImageSeconds;
     }
+    const savedZoom = sessionStorage.getItem("zoomSelect");
+    const savedPanX = parseFloatX(sessionStorage.getItem("panX") ?? "");
+    const savedPanY = parseFloatX(sessionStorage.getItem("panY") ?? "");
+    if (savedZoom !== null) {
+      zoomSelect.value = savedZoom;
+    }
+    if (savedZoom === null || savedZoom === "fit") {
+      zoomToFit();
+    } else if (savedPanX !== undefined && savedPanY !== undefined) {
+      applyZoom(parseFloat(savedZoom) / devicePixelRatio, savedPanX, savedPanY);
+    } else {
+      zoomToFit();
+    }
   } finally {
     sessionStorage.clear();
   }
@@ -974,70 +1008,33 @@ addEventListener("pagehide", (event) => {
 
 // MARK: User interactions with the canvas.
 
-/**
- * When you click on the canvas, convert the coordinates into the same coordinates
- * that we use for drawing.
- * @param pointerEvent The source of the location.
- * @returns The location converted into our ideal units.
- */
-function getLocation(pointerEvent: PointerEvent): Point {
-  return transform(
-    pointerEvent.offsetX * devicePixelRatio,
-    pointerEvent.offsetY * devicePixelRatio,
-    mainTransform().inverse(),
-  );
-}
+// MARK: Canvas pointer interactions (pan)
 
-/**
- *
- * @param point Probably the output of {@link getLocation}
- * @returns The same info in a format that's easy to ready and could be
- * copied and pasted directly into code.
- */
-function pointToString(point: Point) {
-  return `{x: ${point.x.toFixed(3)}, y: ${point.y.toFixed(3)}}`;
-}
+let isDragging = false;
+let dragStartClientX = 0;
+let dragStartClientY = 0;
+let dragStartPanX = 0;
+let dragStartPanY = 0;
 
-/**
- *
- * @param pointerEvent Grab the point from here.
- * @returns The point converted into the right coordinate system.
- * It is in a format that is user readable and could be copied and pasted
- * directly into code.
- */
-function locationString(pointerEvent: PointerEvent) {
-  return pointToString(getLocation(pointerEvent));
-}
-
-/**
- * Show the position right under the mouse.
- * Updates as the mouse moves over the canvas.
- */
-const currentPositionSpan = getById("currentPosition", HTMLSpanElement);
-
-/**
- * Show the position right under the mouse.
- * Only updates when you click the mouse.
- * This is a good way to see something on the screen and copy it to the code.
- */
-const lastDownSpan = getById("lastDown", HTMLSpanElement);
-
-/**
- * Show the position right under the mouse.
- * Only updates when you release the mouse.
- * This, combined with {@link lastDownSpan} is a good way to draw a line or rectangle.
- */
-const lastUpSpan = getById("lastUp", HTMLSpanElement);
-
-canvas.addEventListener("pointermove", (pointerEvent) => {
-  currentPositionSpan.innerText = locationString(pointerEvent);
-});
 canvas.addEventListener("pointerdown", (pointerEvent) => {
-  lastDownSpan.innerText = locationString(pointerEvent);
   canvas.setPointerCapture(pointerEvent.pointerId);
+  isDragging = true;
+  dragStartClientX = pointerEvent.clientX;
+  dragStartClientY = pointerEvent.clientY;
+  dragStartPanX = panX;
+  dragStartPanY = panY;
 });
-canvas.addEventListener("pointerup", (pointerEvent) => {
-  lastUpSpan.innerText = locationString(pointerEvent);
+canvas.addEventListener("pointermove", (pointerEvent) => {
+  if (isDragging) {
+    applyZoom(
+      currentScale,
+      dragStartPanX + (pointerEvent.clientX - dragStartClientX),
+      dragStartPanY + (pointerEvent.clientY - dragStartClientY),
+    );
+  }
+});
+canvas.addEventListener("pointerup", () => {
+  isDragging = false;
 });
 
 getById("recordJustSound", HTMLButtonElement).addEventListener(
