@@ -24,22 +24,39 @@ type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 // Tweak this constant to taste.
 const MAX_RADIUS_FACTOR = 0.9;
 
-// Cached mipmap chain: each entry is a canvas at half the previous dimensions,
-// down to near the halftone target size.  Rebuilt whenever the source canvas
-// size changes (i.e. essentially never at runtime).
+// Cached mipmap chain.  Rebuilt whenever the source canvas size changes.
 const mipmapLevels: {
   canvas: HTMLCanvasElement;
   ctx: CanvasRenderingContext2D;
 }[] = [];
 let mipmapSourceSize = { width: 0, height: 0 };
 
-// Final small canvas: one pixel per halftone cell, read back to CPU.
-let smallCanvas: HTMLCanvasElement | undefined;
-let smallCtx: CanvasRenderingContext2D | undefined;
-
+/**
+ * Hybrid downsampler: GPU mipmap to the last aligned level, then exact JS
+ * pixel summation.
+ *
+ * "Aligned" means the canvas width is an exact integer multiple of `cols`
+ * (and height of `rows`), so every halftone cell maps to a perfect rectangle
+ * of pixels with no fractional-coverage edge artifacts.
+ *
+ * For a 3840×2160 source with the default period (cols=64, rows=36) the
+ * aligned level is 960×540 — 15×15 px per cell.  Two GPU halvings reach it;
+ * the JS loop reads 225 values per cell (vs 3600 for the full-res slow path).
+ */
 function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
   const cols = Math.ceil(16 / period);
   const rows = Math.ceil(9 / period);
+
+  // Find the smallest aligned level reachable by repeated halvings.
+  let alignedW = fromImage.width;
+  let alignedH = fromImage.height;
+  while (alignedW > cols && alignedH > rows) {
+    const nextW = Math.ceil(alignedW / 2);
+    const nextH = Math.ceil(alignedH / 2);
+    if (nextW % cols !== 0 || nextH % rows !== 0) break;
+    alignedW = nextW;
+    alignedH = nextH;
+  }
 
   // Rebuild the mipmap chain when the source canvas size changes.
   if (
@@ -51,33 +68,21 @@ function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
 
     let w = fromImage.width;
     let h = fromImage.height;
-    // Halve until we're within 2× of the target in both dimensions.
-    while (w > cols * 2 || h > rows * 2) {
-      w = Math.max(cols, Math.ceil(w / 2));
-      h = Math.max(rows, Math.ceil(h / 2));
+    while (w > alignedW || h > alignedH) {
+      w = Math.max(alignedW, Math.ceil(w / 2));
+      h = Math.max(alignedH, Math.ceil(h / 2));
       const canvas = document.createElement("canvas");
       canvas.width = w;
       canvas.height = h;
-      const ctx = canvas.getContext("2d")!;
+      const isLast = w === alignedW && h === alignedH;
+      const ctx = canvas.getContext("2d", { willReadFrequently: isLast })!;
       ctx.imageSmoothingEnabled = true;
       ctx.imageSmoothingQuality = "high";
       mipmapLevels.push({ canvas, ctx });
     }
   }
 
-  // Ensure the small (final) canvas exists at the right size.
-  if (
-    !smallCanvas ||
-    smallCanvas.width !== cols ||
-    smallCanvas.height !== rows
-  ) {
-    smallCanvas = document.createElement("canvas");
-    smallCanvas.width = cols;
-    smallCanvas.height = rows;
-    smallCtx = smallCanvas.getContext("2d", { willReadFrequently: true })!;
-  }
-
-  // Walk the chain: each step halves dimensions, keeping bilinear correct.
+  // Walk the mipmap chain to alignedW×alignedH.
   let src: HTMLCanvasElement = fromImage;
   for (const { canvas, ctx } of mipmapLevels) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -85,19 +90,29 @@ function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
     src = canvas;
   }
 
-  // Final step to exact halftone grid size.
-  const ctx = smallCtx!;
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = "high";
-  ctx.clearRect(0, 0, cols, rows);
-  ctx.drawImage(src, 0, 0, cols, rows);
-
-  const { data } = ctx.getImageData(0, 0, cols, rows);
+  // Exact JS summation from the aligned canvas.
+  // cellPxW × cellPxH are whole numbers, so every cell has identical coverage.
+  const cellPxW = alignedW / cols;
+  const cellPxH = alignedH / rows;
+  const cellArea = cellPxW * cellPxH;
+  const readCtx =
+    mipmapLevels.length > 0
+      ? mipmapLevels[mipmapLevels.length - 1].ctx
+      : fromImage.getContext("2d", { willReadFrequently: true })!;
+  const { data } = readCtx.getImageData(0, 0, alignedW, alignedH);
 
   const result = new Path2D();
   for (let iy = 0; iy < rows; iy++) {
     for (let ix = 0; ix < cols; ix++) {
-      const alpha = data[(iy * cols + ix) * 4 + 3] / 255;
+      const px0 = ix * cellPxW;
+      const py0 = iy * cellPxH;
+      let alphaSum = 0;
+      for (let py = py0; py < py0 + cellPxH; py++) {
+        for (let px = px0; px < px0 + cellPxW; px++) {
+          alphaSum += data[(py * alignedW + px) * 4 + 3];
+        }
+      }
+      const alpha = alphaSum / (cellArea * 255);
       if (alpha > 0) {
         const x = (ix + 0.5) * period;
         const y = (iy + 0.5) * period;
@@ -112,10 +127,61 @@ function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
 }
 
 /**
+ * Exact per-cell pixel averaging — slow but correct reference implementation.
+ * Reads every device pixel in each halftone cell from `fromImage` and averages
+ * their alpha values.  Not suitable for production (too slow at 60 fps on 4K),
+ * but useful for debugging the fast mipmap path.
+ */
+function createHalftoneSlow(
+  fromImage: HTMLCanvasElement,
+  period = 0.25,
+): Path2D {
+  const cols = Math.ceil(16 / period);
+  const rows = Math.ceil(9 / period);
+  const W = fromImage.width;
+  const H = fromImage.height;
+  const scaleX = W / 16;
+  const scaleY = H / 9;
+
+  const ctx = fromImage.getContext("2d", { willReadFrequently: true })!;
+  const { data } = ctx.getImageData(0, 0, W, H);
+
+  const result = new Path2D();
+  for (let iy = 0; iy < rows; iy++) {
+    for (let ix = 0; ix < cols; ix++) {
+      const px0 = Math.round(ix * period * scaleX);
+      const py0 = Math.round(iy * period * scaleY);
+      const px1 = Math.min(W, Math.round((ix + 1) * period * scaleX));
+      const py1 = Math.min(H, Math.round((iy + 1) * period * scaleY));
+
+      let alphaSum = 0;
+      for (let py = py0; py < py1; py++) {
+        for (let px = px0; px < px1; px++) {
+          alphaSum += data[(py * W + px) * 4 + 3];
+        }
+      }
+      const cellPixels = (px1 - px0) * (py1 - py0);
+      const alpha = cellPixels > 0 ? alphaSum / (cellPixels * 255) : 0;
+
+      if (alpha > 0) {
+        const x = (ix + 0.5) * period;
+        const y = (iy + 0.5) * period;
+        const radius = Math.sqrt(alpha) * (period / 2) * MAX_RADIUS_FACTOR;
+        result.moveTo(x + radius, y);
+        result.arc(x, y, radius, 0, Math.PI * 2);
+      }
+    }
+  }
+  return result;
+}
+
+type HalftoneFunction = (fromImage: HTMLCanvasElement, period?: number) => Path2D;
+
+/**
  * Wraps a {@link Showable} with a halftone drop-shadow effect.
  *
  * On each frame:
- *  1. Renders `base` onto a full-size off-screen canvas.
+ *  1. Renders `base` onto a fixed 4K off-screen canvas.
  *  2. Samples its alpha channel at halftone resolution.
  *  3. Fills the resulting dot pattern on the main canvas, offset by (dx, dy),
  *     to produce the shadow.
@@ -126,6 +192,8 @@ function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
  * @param options.background   Optional background fill drawn before the shadow.
  * @param options.dx           Shadow x offset in 16×9 units.  Default `0.2`.
  * @param options.dy           Shadow y offset in 16×9 units.  Default `0.2`.
+ * @param options.halftone     Downsampling function.  Default: fast mipmap path.
+ *                             Pass `createHalftoneSlow` to use exact JS averaging.
  */
 export function makeShadowDemo(options: {
   readonly base: Showable;
@@ -133,8 +201,9 @@ export function makeShadowDemo(options: {
   readonly background?: CanvasFillStyle;
   readonly dx?: number;
   readonly dy?: number;
+  readonly halftone?: HalftoneFunction;
 }): Showable {
-  const { base, dotColor = "#ccc", background, dx = 0.2, dy = 0.2 } = options;
+  const { base, dotColor = "#ccc", background, dx = 0.2, dy = 0.2, halftone = createHalftone } = options;
 
   // Fixed-size 4K off-screen canvas.  Using a constant size means the halftone
   // sampling is always at the same resolution regardless of the display canvas
@@ -163,7 +232,7 @@ export function makeShadowDemo(options: {
       base.show({ ...showOptions, context: tc });
 
       // Sample the alpha channel and build the halftone Path2D.
-      const halftone = createHalftone(tempCanvas);
+      const halftonePath = halftone(tempCanvas);
 
       // --- Composite onto the main context ---
 
@@ -176,7 +245,7 @@ export function makeShadowDemo(options: {
       context.save();
       context.translate(dx, dy);
       context.fillStyle = dotColor;
-      context.fill(halftone);
+      context.fill(halftonePath);
       context.restore();
 
       // Original image on top.
@@ -475,6 +544,19 @@ const slide5Shadow = makeShadowDemo({
 });
 
 // ---------------------------------------------------------------------------
+// Slide 6 — same vertical lines as slide 5, but using the slow exact-averaging
+// reference implementation.  Side-by-side comparison with slide 5.
+// ---------------------------------------------------------------------------
+
+const slide6Shadow = makeShadowDemo({
+  base: slide5Base,
+  background: "white",
+  dx: 0,
+  dy: SHADOW_DY,
+  halftone: createHalftoneSlow,
+});
+
+// ---------------------------------------------------------------------------
 // Combined deck — all chapters in sequence under one URL.
 // ---------------------------------------------------------------------------
 
@@ -484,5 +566,6 @@ allShadowTests.add(slide2Shadow);
 allShadowTests.add(slide3Shadow);
 allShadowTests.add(slide4Shadow);
 allShadowTests.add(slide5Shadow);
+allShadowTests.add(slide6Shadow);
 
 export const shadowTest = allShadowTests.build();

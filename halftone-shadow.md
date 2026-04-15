@@ -163,7 +163,7 @@ Overall things look very good.
 Exactly like the picture in my head.
 Better than I expected.
 
-When running at full speed and not actively looking for problems, the illusion is pretty good.
+When running playing full speed and not actively looking for problems, the illusion is pretty good.
 And animated dots look good even after encoding and uploading to youtube.
 We are going in the right direction.
 
