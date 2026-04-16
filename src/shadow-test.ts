@@ -1,8 +1,8 @@
-import { ease, interpolateColor } from "./interpolate";
+import { interpolateColor, interpolateColors, Keyframe } from "./interpolate";
 import { myRainbow } from "./glib/my-rainbow";
 import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
-import { zipper } from "./zipper";
+import { Point } from "./glib/path-shape";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -175,7 +175,10 @@ function createHalftoneSlow(
   return result;
 }
 
-type HalftoneFunction = (fromImage: HTMLCanvasElement, period?: number) => Path2D;
+type HalftoneFunction = (
+  fromImage: HTMLCanvasElement,
+  period?: number,
+) => Path2D;
 
 /**
  * Wraps a {@link Showable} with a halftone drop-shadow effect.
@@ -203,7 +206,14 @@ export function makeShadowDemo(options: {
   readonly dy?: number;
   readonly halftone?: HalftoneFunction;
 }): Showable {
-  const { base, dotColor = "#ccc", background, dx = 0.2, dy = 0.2, halftone = createHalftone } = options;
+  const {
+    base,
+    dotColor = "#ccc",
+    background,
+    dx = 0.2,
+    dy = 0.2,
+    halftone = createHalftone,
+  } = options;
 
   // Fixed-size 4K off-screen canvas.  Using a constant size means the halftone
   // sampling is always at the same resolution regardless of the display canvas
@@ -213,7 +223,7 @@ export function makeShadowDemo(options: {
   const tempCanvas = document.createElement("canvas");
   tempCanvas.width = TEMP_W;
   tempCanvas.height = TEMP_H;
-  const tempCtx = tempCanvas.getContext("2d")!;
+  const tempCtx = tempCanvas.getContext("2d", { willReadFrequently: true })!;
   // Apply the standard 16×9 root transform once — it never changes.
   tempCtx.scale(TEMP_W / 16, TEMP_H / 9);
 
@@ -365,12 +375,22 @@ const SHADOW_DY = 4;
 // Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
 
+const slide2ColorSchedule: Keyframe<string>[] = [
+  { time: 0, value: myRainbow.red },
+  { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
+];
+
 const slide2Base: Showable = {
   description: "Slide 2: Growing Rectangle",
   duration: DEFAULT_SLIDE_DURATION_MS,
+  schedules: [
+    { description: "Color", type: "color", schedule: slide2ColorSchedule },
+  ],
   show({ context, timeInMs }) {
     const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
-    context.fillStyle = "black";
+    const color = interpolateColors(timeInMs, slide2ColorSchedule);
+    context.fillStyle = color;
+    // TODO this would be a perfect place to test the rectangle schedule editor.
     context.fillRect(1, 1, lerp(0, 14, progress), 2);
   },
 };
@@ -531,8 +551,10 @@ const slide5Base: Showable = {
       });
     }
     const progress = timeInMs / this.duration;
-    const left = 1 + progress;
-    drawVerticalLines(context, left, 1);
+    // TODO read startingPosition from a user editable schedule!
+    const startingPosition: Point = { x: 1, y: 1 };
+    const left = startingPosition.x + progress;
+    drawVerticalLines(context, left, startingPosition.y);
   },
 };
 

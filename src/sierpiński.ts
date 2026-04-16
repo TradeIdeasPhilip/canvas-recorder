@@ -736,7 +736,6 @@ function distribute<T extends { startMsIntoScene: number; lengthMs: number }>(
     clip.startMsIntoScene = start;
     start += clip.lengthMs + msPerSpace;
   });
-  console.log(clips);
   return clips;
 }
 
@@ -1114,7 +1113,6 @@ function scaleProgressWithinSegment(progress: number) {
         );
       })
       .toArray();
-    console.log({ triangleSize, paths, locations, pathShapes });
     const scene: Showable = {
       description: "Permutations",
       duration: 4_000,
@@ -2014,7 +2012,6 @@ function scaleProgressWithinSegment(progress: number) {
    * We can fit 3 across by 2 down with little space left over.
    */
   const triangleSize = Triangle.resizeToMax(9 / 2, 5);
-  console.log(triangleSize);
   /**
    * Across, then down, just like English text.
    */
@@ -2216,15 +2213,6 @@ function scaleProgressWithinSegment(progress: number) {
           case 5: {
             transformStartTime = (263 - 221 - 3) * 1000;
             transformDuration = 3000;
-            const originalTransformStartTime = growEndTime + 26_000;
-            const difference = originalTransformStartTime - transformStartTime;
-            const proposedQOffset = 20_000 - difference;
-            console.log({
-              transformStartTime,
-              originalTransformStartTime,
-              difference,
-              proposedQOffset,
-            });
             break;
           }
           default: {

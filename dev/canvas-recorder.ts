@@ -23,6 +23,7 @@ import {
   QUALITY_HIGH,
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
+import { easeIn, easeOut, Keyframe } from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 
@@ -662,6 +663,7 @@ type SelectableTree = {
   children: SelectableTree[];
   absolutePosition: number;
   siblingPosition: number;
+  selectable: Selectable;
 };
 
 /**
@@ -727,6 +729,7 @@ function dump(
       children: [],
       absolutePosition: debug.length,
       siblingPosition: parent ? parent.children.length : NaN,
+      selectable: current,
     };
     if (parent) {
       parent.children.push(info);
@@ -838,6 +841,9 @@ const previousButton = getById("previousButton", HTMLButtonElement);
  */
 const nextButton = getById("nextButton", HTMLButtonElement);
 
+const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
+const showEditorCheckbox = getById("showEditor", HTMLInputElement);
+
 /**
  * Change the GUI to match the current section.
  * Read the current section out of the <select> (drop down) element.
@@ -872,6 +878,7 @@ function updateFromSelect() {
   // playPositionRange automatically limits you to the range of the currently selected chapter.
   // Make the number match in this case.
   loadPlayPositionSeconds(playPositionRange.valueAsNumber);
+  updateScheduleEditor(info.selectable);
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
@@ -957,6 +964,192 @@ addEventListener("pagehide", (event) => {
   );
 }
 
+// MARK: Schedule Editor
+
+type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
+
+showEditorCheckbox.addEventListener("change", () => {
+  scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
+});
+
+/** Convert any CSS color string to #rrggbb for <input type="color">. */
+const _colorCanvas = document.createElement("canvas");
+_colorCanvas.width = _colorCanvas.height = 1;
+const _colorCtx = _colorCanvas.getContext("2d", { willReadFrequently: true })!;
+function cssColorToHex(color: string): string {
+  _colorCtx.clearRect(0, 0, 1, 1);
+  _colorCtx.fillStyle = color;
+  _colorCtx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = _colorCtx.getImageData(0, 0, 1, 1).data;
+  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+}
+
+function buildNumericInput(
+  value: number,
+  onChange: (n: number) => void,
+): HTMLInputElement {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.value = String(value);
+  input.step = "0.1";
+  input.style.width = "5em";
+  input.addEventListener("input", () => {
+    if (!isNaN(input.valueAsNumber)) onChange(input.valueAsNumber);
+  });
+  return input;
+}
+
+function buildEaseSelect(keyframe: {
+  easeAfter?: (t: number) => number;
+}): HTMLSelectElement {
+  const select = document.createElement("select");
+  for (const label of ["linear", "easeIn", "easeOut", "hold"]) {
+    const opt = document.createElement("option");
+    opt.value = opt.textContent = label;
+    select.append(opt);
+  }
+  const fn = keyframe.easeAfter;
+  select.value = !fn
+    ? "linear"
+    : fn === easeIn
+      ? "easeIn"
+      : fn === easeOut
+        ? "easeOut"
+        : "hold";
+  select.addEventListener("change", () => {
+    switch (select.value) {
+      case "linear":
+        keyframe.easeAfter = undefined;
+        break;
+      case "easeIn":
+        keyframe.easeAfter = easeIn;
+        break;
+      case "easeOut":
+        keyframe.easeAfter = easeOut;
+        break;
+      case "hold":
+        keyframe.easeAfter = (t) => (t < 1 ? 0 : 1);
+        break;
+    }
+    showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+  });
+  return select;
+}
+
+function buildScheduleSection(info: ScheduleInfo): HTMLElement {
+  const section = document.createElement("fieldset");
+  const legend = document.createElement("legend");
+  legend.textContent = info.description;
+  section.append(legend);
+
+  const table = document.createElement("table");
+  const thead = table.createTHead();
+  const headerRow = thead.insertRow();
+  const valueHeaders =
+    info.type === "point"
+      ? ["x", "y"]
+      : info.type === "rectangle"
+        ? ["x", "y", "width", "height"]
+        : ["Value"];
+  for (const h of ["Time (ms)", ...valueHeaders, "Ease →"]) {
+    const th = document.createElement("th");
+    th.textContent = h;
+    headerRow.append(th);
+  }
+
+  const tbody = table.createTBody();
+  for (let i = 0; i < info.schedule.length; i++) {
+    const row = tbody.insertRow();
+    row.insertCell().textContent = String(info.schedule[i].time);
+
+    if (info.type === "color") {
+      const kf = info.schedule[i] as Keyframe<string>;
+      const cell = row.insertCell();
+      const input = document.createElement("input");
+      input.type = "color";
+      try {
+        input.value = cssColorToHex(kf.value);
+      } catch {
+        /**/
+      }
+      input.addEventListener("input", () => {
+        kf.value = input.value;
+        showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+      });
+      cell.append(input);
+    } else if (info.type === "number") {
+      const kf = info.schedule[i] as Keyframe<number>;
+      row.insertCell().append(
+        buildNumericInput(kf.value, (n) => {
+          kf.value = n;
+          showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+        }),
+      );
+    } else if (info.type === "string") {
+      const kf = info.schedule[i] as Keyframe<string>;
+      const cell = row.insertCell();
+      const input = document.createElement("input");
+      input.type = "text";
+      input.value = kf.value;
+      input.addEventListener("input", () => {
+        kf.value = input.value;
+        showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+      });
+      cell.append(input);
+    } else if (info.type === "point") {
+      const kf = info.schedule[i] as Keyframe<{ x: number; y: number }>;
+      for (const coord of ["x", "y"] as const) {
+        row.insertCell().append(
+          buildNumericInput(kf.value[coord], (n) => {
+            kf.value = { ...kf.value, [coord]: n };
+            showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+          }),
+        );
+      }
+    } else if (info.type === "rectangle") {
+      const kf = info.schedule[i] as Keyframe<{
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      }>;
+      for (const field of ["x", "y", "width", "height"] as const) {
+        row.insertCell().append(
+          buildNumericInput(kf.value[field], (n) => {
+            kf.value = { ...kf.value, [field]: n };
+            showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+          }),
+        );
+      }
+    }
+
+    const easeCell = row.insertCell();
+    if (i < info.schedule.length - 1) {
+      easeCell.append(buildEaseSelect(info.schedule[i]));
+    }
+  }
+
+  table.append(tbody);
+  section.append(table);
+  return section;
+}
+
+function updateScheduleEditor(selectable: Selectable) {
+  scheduleEditorFieldset.replaceChildren();
+  const schedules = selectable.schedules;
+  if (!schedules?.length) {
+    showEditorCheckbox.disabled = true;
+    showEditorCheckbox.checked = false;
+    scheduleEditorFieldset.hidden = true;
+    return;
+  }
+  showEditorCheckbox.disabled = false;
+  scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
+  for (const info of schedules) {
+    scheduleEditorFieldset.append(buildScheduleSection(info));
+  }
+}
+
 // MARK: Load previous state.
 {
   // When first loading this page, try to restore the settings from the last session.
@@ -1026,6 +1219,10 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
 });
 canvas.addEventListener("pointermove", (pointerEvent) => {
   if (isDragging) {
+    if (pointerEvent.buttons === 0) {
+      isDragging = false;
+      return;
+    }
     applyZoom(
       currentScale,
       dragStartPanX + (pointerEvent.clientX - dragStartClientX),
@@ -1034,6 +1231,9 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   }
 });
 canvas.addEventListener("pointerup", () => {
+  isDragging = false;
+});
+canvas.addEventListener("pointercancel", () => {
   isDragging = false;
 });
 

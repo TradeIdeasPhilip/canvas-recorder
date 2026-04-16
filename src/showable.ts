@@ -1,4 +1,6 @@
-import { positiveModulo } from "phil-lib/misc";
+import { positiveModulo, ReadOnlyRect } from "phil-lib/misc";
+import { Keyframe } from "./interpolate";
+import { Point } from "./glib/path-shape";
 
 /**
  * This represents an animation.
@@ -39,7 +41,31 @@ export type Selectable = {
     readonly startMsIntoClip?: number;
     readonly lengthMs?: number;
   }[];
+
+  readonly schedules?: readonly ScheduleInfo[];
 };
+
+type ScheduleInfo = {
+  /**
+   * Visible on the GUI
+   */
+  readonly description: string;
+} & (
+  | {
+      readonly type: "string";
+      // Maybe schedule should actually be a BinaryInserter!!!
+      // That might be helpful here and it might help in other places.
+      // BinaryInserter isn't necessary here, but it might be useful.
+      readonly schedule: Keyframe<string>[];
+    }
+  | {
+      readonly type: "color";
+      readonly schedule: Keyframe<string>[];
+    }
+  | { readonly type: "number"; readonly schedule: Keyframe<number>[] }
+  | { readonly type: "rectangle"; readonly schedule: Keyframe<ReadOnlyRect>[] }
+  | { readonly type: "point"; readonly schedule: Keyframe<Point>[] }
+);
 
 /**
  * All of the information available to {@link Showable.show}.

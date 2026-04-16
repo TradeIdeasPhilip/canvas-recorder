@@ -488,7 +488,6 @@ function breakFirst(original: PathShape) {
       "srcRect fits completely into destRect",
     );
 
-    console.log(starPath.getBBox());
     const showable: Showable = {
       description: scene.description,
       duration: 20_000,

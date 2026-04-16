@@ -1,5 +1,5 @@
-import { FULL_CIRCLE, lerp } from "phil-lib/misc";
-import { LCommand, PathShape, QCommand } from "./glib/path-shape";
+import { FULL_CIRCLE, lerp, RealSvgRect } from "phil-lib/misc";
+import { LCommand, PathShape, Point, QCommand } from "./glib/path-shape";
 
 /**
  * If the old code used element.animate(), this file will help build the new code.
@@ -181,6 +181,72 @@ export function interpolateNumbers(
   }
 }
 
+type Rect = RealSvgRect;
+
+/**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param array Inputs should come in order.
+ * @returns The value associated with the given time.
+ */
+export function interpolateRects(
+  time: number,
+  keyframes: Keyframes<Rect>,
+): Rect {
+  const relevant = timedKeyframes(time, keyframes);
+  if (relevant.single) {
+    return relevant.value;
+  } else {
+    const { from, to, progress } = relevant;
+    return {
+      x: lerp(from.x, to.x, progress),
+      y: lerp(from.y, to.y, progress),
+      width: lerp(from.width, to.width, progress),
+      height: lerp(from.height, to.height, progress),
+    };
+  }
+}
+
+/**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param array Inputs should come in order.
+ * @returns The value associated with the given time.
+ */
+export function interpolatePoints(
+  time: number,
+  keyframes: Keyframes<Point>,
+): Point {
+  const relevant = timedKeyframes(time, keyframes);
+  if (relevant.single) {
+    return relevant.value;
+  } else {
+    const { from, to, progress } = relevant;
+    return {
+      x: lerp(from.x, to.x, progress),
+      y: lerp(from.y, to.y, progress),
+    };
+  }
+}
+
+/**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param array Inputs should come in order.
+ * @returns The value associated with the given time.
+ */
+export function interpolateColors(
+  time: number,
+  keyframes: Keyframes<string>,
+): string {
+  const relevant = timedKeyframes(time, keyframes);
+  if (relevant.single) {
+    return relevant.value;
+  } else {
+    return interpolateColor(relevant.progress, relevant.from, relevant.to);
+  }
+}
+
 /**
  * Pick a color from the list of colors, interpolating as required.
  * @param progress A value between 0 and 1.
@@ -190,7 +256,10 @@ export function interpolateNumbers(
  * The remainder are keyframes spread evenly in time.
  * @returns A color from the `colors` input, or an interpolation between two adjacent colors.
  */
-export function interpolateColors(progress: number, colors: readonly string[]) {
+export function interpolateColorsEqualWidths(
+  progress: number,
+  colors: readonly string[],
+) {
   const relevant = equalWeights(progress, colors);
   if (relevant.single) {
     return relevant.value;

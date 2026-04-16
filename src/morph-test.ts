@@ -37,7 +37,7 @@ import {
   ease,
   easeAndBack,
   interpolateColor,
-  interpolateColors,
+  interpolateColorsEqualWidths,
   interpolateNumbers,
   Keyframes,
 } from "./interpolate";
@@ -503,7 +503,7 @@ if (true) {
       );
       allChanges.forEach((toChange, index, array) => {
         const progress = array.length < 2 ? 0.5 : index / (array.length - 1);
-        const newColor = interpolateColors(progress, myRainbow);
+        const newColor = interpolateColorsEqualWidths(progress, myRainbow);
         array[index].color = newColor;
       });
     }

@@ -17,7 +17,7 @@ import {
 import { createPeanoPath, getSegmentLength } from "./peano-shared";
 import {
   easeOut,
-  interpolateColors,
+  interpolateColorsEqualWidths,
   makePathShapeInterpolator,
 } from "../interpolate";
 import { blackBackground } from "../utility";
@@ -203,7 +203,7 @@ function createExpander(
     show({ timeInMs, context }) {
       const progress = easeOut(timeInMs / baseDuration);
       const strokeWidth = lerp(from.strokeWidth, to.strokeWidth, progress);
-      const color = interpolateColors(progress, colors);
+      const color = interpolateColorsEqualWidths(progress, colors);
       const pathShape = makePathShape(progress);
       const originalTransform = context.getTransform();
       context.translate(0.5, 1.5);
