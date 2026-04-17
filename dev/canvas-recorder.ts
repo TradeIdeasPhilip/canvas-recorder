@@ -25,8 +25,12 @@ import {
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
 import {
+  discreteKeyframes,
   easeIn,
   easeOut,
+  interpolateColors,
+  interpolateNumbers,
+  interpolatePoints,
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
@@ -1053,8 +1057,60 @@ function buildEaseSelect(keyframe: {
 
 function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   const section = document.createElement("fieldset");
+
+  function rebuild() {
+    // If the editing/viewing rect kf was removed from the schedule, clear it.
+    if (info.type === "rectangle") {
+      const kfSet = new Set(info.schedule as RectKf[]);
+      if (editingRectKf && !kfSet.has(editingRectKf)) editingRectKf = null;
+      for (const kf of viewingRectKfs) {
+        if (!kfSet.has(kf)) viewingRectKfs.delete(kf);
+      }
+    }
+    section.replaceWith(buildScheduleSection(info));
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+  }
+
+  function currentTimeMs() {
+    return playPositionSeconds.valueAsNumber * 1000;
+  }
+
+  /** Time relative to the start of the selected scene — what keyframe.time values use. */
+  function localTimeMs() {
+    return currentTimeMs() - sectionStartTime;
+  }
+
+  function addKeyframeAtCurrentTime() {
+    const t = localTimeMs();
+    let value: unknown;
+    if (info.type === "color") value = interpolateColors(t, info.schedule);
+    else if (info.type === "number") value = interpolateNumbers(t, info.schedule);
+    else if (info.type === "rectangle") value = interpolateRects(t, info.schedule);
+    else if (info.type === "point") value = interpolatePoints(t, info.schedule);
+    else value = discreteKeyframes(t, info.schedule);
+    const insertAt = info.schedule.findIndex((kf) => kf.time > t);
+    const newKf = { time: t, value } as (typeof info.schedule)[number];
+    if (insertAt === -1) (info.schedule as (typeof info.schedule)[number][]).push(newKf);
+    else (info.schedule as (typeof info.schedule)[number][]).splice(insertAt, 0, newKf);
+    rebuild();
+  }
+
   const legend = document.createElement("legend");
-  legend.textContent = info.description;
+  legend.textContent = info.description + " ";
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.textContent = "+ Add";
+  addBtn.title = "Add keyframe at current time";
+  addBtn.addEventListener("click", addKeyframeAtCurrentTime);
+  const sortBtn = document.createElement("button");
+  sortBtn.type = "button";
+  sortBtn.textContent = "Sort";
+  sortBtn.title = "Re-sort rows by time";
+  sortBtn.addEventListener("click", () => {
+    (info.schedule as (typeof info.schedule)[number][]).sort((a, b) => a.time - b.time);
+    rebuild();
+  });
+  legend.append(addBtn, " ", sortBtn);
   section.append(legend);
 
   const table = document.createElement("table");
@@ -1066,75 +1122,98 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       : info.type === "rectangle"
         ? ["x", "y", "width", "height", "Canvas"]
         : ["Value"];
-  for (const h of ["Time (ms)", ...valueHeaders, "Ease ↓"]) {
+  for (const h of ["Time (ms)", ...valueHeaders, "Ease ↓", ""]) {
     const th = document.createElement("th");
     th.textContent = h;
     headerRow.append(th);
   }
 
+  const easeCells: HTMLTableCellElement[] = [];
+
+  function updateEaseVisibility() {
+    const maxTime = Math.max(...info.schedule.map((kf) => kf.time));
+    easeCells.forEach((cell, i) => {
+      cell.style.visibility = info.schedule[i].time >= maxTime ? "hidden" : "";
+    });
+  }
+
   const tbody = table.createTBody();
   for (let i = 0; i < info.schedule.length; i++) {
+    const kf = info.schedule[i];
     const row = tbody.insertRow();
-    row.insertCell().textContent = String(info.schedule[i].time);
+
+    // Time cell: editable input + "← now" button
+    const timeInput = buildNumericInput(kf.time, (n) => {
+      kf.time = n;
+      updateEaseVisibility();
+      showFrame(currentTimeMs(), true);
+    });
+    timeInput.step = "any";
+    timeInput.style.width = "6em";
+    const nowBtn = document.createElement("button");
+    nowBtn.type = "button";
+    nowBtn.textContent = "←";
+    nowBtn.title = "Set to current time";
+    nowBtn.addEventListener("click", () => {
+      kf.time = localTimeMs();
+      timeInput.valueAsNumber = kf.time;
+      updateEaseVisibility();
+      showFrame(currentTimeMs(), true);
+    });
+    row.insertCell().append(timeInput, "\u00a0", nowBtn);
 
     if (info.type === "color") {
-      const kf = info.schedule[i] as Keyframe<string>;
+      const colorKf = kf as Keyframe<string>;
       const cell = row.insertCell();
       const input = document.createElement("input");
       input.type = "color";
-      try {
-        input.value = cssColorToHex(kf.value);
-      } catch {
-        /**/
-      }
+      try { input.value = cssColorToHex(colorKf.value); } catch { /**/ }
       input.addEventListener("input", () => {
-        kf.value = input.value;
-        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        colorKf.value = input.value;
+        showFrame(currentTimeMs(), true);
       });
       cell.append(input);
     } else if (info.type === "number") {
-      const kf = info.schedule[i] as Keyframe<number>;
+      const numKf = kf as Keyframe<number>;
       row.insertCell().append(
-        buildNumericInput(kf.value, (n) => {
-          kf.value = n;
-          showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        buildNumericInput(numKf.value, (n) => {
+          numKf.value = n;
+          showFrame(currentTimeMs(), true);
         }),
       );
     } else if (info.type === "string") {
-      const kf = info.schedule[i] as Keyframe<string>;
+      const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
       const input = document.createElement("input");
       input.type = "text";
-      input.value = kf.value;
+      input.value = strKf.value;
       input.addEventListener("input", () => {
-        kf.value = input.value;
-        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        strKf.value = input.value;
+        showFrame(currentTimeMs(), true);
       });
       cell.append(input);
     } else if (info.type === "point") {
-      const kf = info.schedule[i] as Keyframe<{ x: number; y: number }>;
+      const ptKf = kf as Keyframe<{ x: number; y: number }>;
       for (const coord of ["x", "y"] as const) {
         row.insertCell().append(
-          buildNumericInput(kf.value[coord], (n) => {
-            kf.value = { ...kf.value, [coord]: n };
-            showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+          buildNumericInput(ptKf.value[coord], (n) => {
+            ptKf.value = { ...ptKf.value, [coord]: n };
+            showFrame(currentTimeMs(), true);
           }),
         );
       }
     } else if (info.type === "rectangle") {
-      const kf = info.schedule[i] as RectKf;
-      const fieldInputs: Partial<
-        Record<"x" | "y" | "width" | "height", HTMLInputElement>
-      > = {};
+      const rectKf = kf as RectKf;
+      const fieldInputs: Partial<Record<"x" | "y" | "width" | "height", HTMLInputElement>> = {};
       for (const field of ["x", "y", "width", "height"] as const) {
-        const input = buildNumericInput(kf.value[field], (n) => {
-          kf.value = { ...kf.value, [field]: n };
-          showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        const input = buildNumericInput(rectKf.value[field], (n) => {
+          rectKf.value = { ...rectKf.value, [field]: n };
+          showFrame(currentTimeMs(), true);
         });
         fieldInputs[field] = input;
         row.insertCell().append(input);
       }
-      markerSyncCallbacks.set(kf, (rect) => {
+      markerSyncCallbacks.set(rectKf, (rect) => {
         for (const field of ["x", "y", "width", "height"] as const) {
           fieldInputs[field]!.valueAsNumber = rect[field];
         }
@@ -1145,43 +1224,53 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       viewBtn.type = "button";
       viewBtn.textContent = "👁";
       viewBtn.title = "Show on canvas";
+      if (viewingRectKfs.has(rectKf)) viewBtn.classList.add("active");
       viewBtn.addEventListener("click", () => {
-        if (viewingRectKfs.has(kf)) {
-          viewingRectKfs.delete(kf);
+        if (viewingRectKfs.has(rectKf)) {
+          viewingRectKfs.delete(rectKf);
           viewBtn.classList.remove("active");
         } else {
-          viewingRectKfs.add(kf);
+          viewingRectKfs.add(rectKf);
           viewBtn.classList.add("active");
         }
-        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        showFrame(currentTimeMs(), true);
       });
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
       editBtn.textContent = "✎";
       editBtn.title = "Edit on canvas";
-      if (editingRectKf === kf) editBtn.classList.add("active");
-      editBtn.addEventListener("click", () => {
-        const wasEditing = editingRectKf === kf;
-        // Clear the active class from whichever button was previously active.
-        // We do this by re-querying the table for all edit buttons.
-        section
-          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
-          .forEach((b) => b.classList.remove("active"));
-        editingRectKf = wasEditing ? null : kf;
-        if (editingRectKf) editBtn.classList.add("active");
-        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
-      });
       editBtn.classList.add("edit-btn");
+      if (editingRectKf === rectKf) editBtn.classList.add("active");
+      editBtn.addEventListener("click", () => {
+        const wasEditing = editingRectKf === rectKf;
+        section.querySelectorAll<HTMLButtonElement>("button.edit-btn")
+          .forEach((b) => b.classList.remove("active"));
+        editingRectKf = wasEditing ? null : rectKf;
+        if (editingRectKf) editBtn.classList.add("active");
+        showFrame(currentTimeMs(), true);
+      });
 
-      canvasCell.append(viewBtn, " ", editBtn);
+      canvasCell.append(viewBtn, "\u00a0", editBtn);
     }
 
     const easeCell = row.insertCell();
-    if (i < info.schedule.length - 1) {
-      easeCell.append(buildEaseSelect(info.schedule[i]));
-    }
+    easeCell.append(buildEaseSelect(kf));
+    easeCells.push(easeCell);
+
+    // Delete button — disabled when this is the only keyframe
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "🗑";
+    deleteBtn.title = "Delete this keyframe";
+    deleteBtn.disabled = info.schedule.length <= 1;
+    deleteBtn.addEventListener("click", () => {
+      (info.schedule as (typeof info.schedule)[number][]).splice(i, 1);
+      rebuild();
+    });
+    row.insertCell().append(deleteBtn);
   }
+  updateEaseVisibility();
 
   table.append(tbody);
   section.append(table);
@@ -1214,6 +1303,15 @@ function clientToLogical(clientX: number, clientY: number) {
   return {
     x: ((clientX - rect.left) / rect.width) * 16,
     y: ((clientY - rect.top) / rect.height) * 9,
+  };
+}
+
+function normalizeRect(r: ReadOnlyRect): ReadOnlyRect {
+  return {
+    x: r.width < 0 ? r.x + r.width : r.x,
+    y: r.height < 0 ? r.y + r.height : r.y,
+    width: Math.abs(r.width),
+    height: Math.abs(r.height),
   };
 }
 
@@ -1334,8 +1432,8 @@ function applyMarkerDrag(logX: number, logY: number) {
       };
       break;
   }
-  kf.value = newRect;
-  markerSyncCallbacks.get(kf)?.(newRect);
+  kf.value = normalizeRect(newRect);
+  markerSyncCallbacks.get(kf)?.(kf.value);
   showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 

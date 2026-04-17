@@ -21,24 +21,24 @@ Let's not worry too much about future things like how to save and load these val
   - Color picker (`<input type="color">`) — fires on every drag, not just commit.
   - Number inputs for numbers, text input for strings.
   - x/y inputs for points; x/y/width/height for rectangles.
-  - Ease dropdown (linear / easeIn / easeOut / hold) per keyframe gap; omitted on the last row.
+  - Ease dropdown (linear / easeIn / easeOut / hold) per keyframe gap; omitted for the keyframe with the highest time (regardless of row order).
   - Edits mutate keyframes in place; canvas redraws immediately.
 - `slide2ColorSchedule` and `slide2RectSchedule` wired to `slide2Base.schedules`; rectangle drawn via `interpolateRects`.
 - Three-state canvas model for rect keyframes:
   - **Normal** (default): row visible in table only, nothing on canvas.
   - **View** (👁 toggle per row): semi-transparent blue fill + outline drawn on canvas behind handles.
   - **Edit** (✎ toggle per row, at most one active at a time): red outline + 5 drag handles (tl, tr, bl, br, center).
-  - Dragging a handle mutates the keyframe value in place; number inputs stay in sync via `markerSyncCallbacks`.
+  - Dragging a handle normalizes the rect (no negative width/height) and keeps number inputs in sync.
   - All canvas state (editing, viewing, dragging) cleared when the section selection changes.
+- Keyframe time cell is an editable `<input>` with a `←` button that stamps the current scene-relative playback time.
+- `+ Add` button in section header inserts a keyframe at the current scene time with the interpolated value; inserted in sorted order.
+- `Sort` button in section header re-sorts rows by time after manual edits.
+- 🗑 delete button per row; disabled when only one keyframe remains.
+- `showFrame` second parameter simplified from `"live" | "4k" | "hd"` to `boolean` (canvas size is now always fixed at 4K).
 
 ### Next
-- Normalize rectangles: dragging a corner past the opposite edge should flip the anchor, not produce negative width/height.
 - Shift-drag to lock aspect ratio on rectangle corners.
-- Edit keyframe times: the time cell is currently display-only; it should be an `<input>` with a "← now" button.
-- Add / delete keyframes: 🗑 button per row (disabled when only one remains); an "add at current time" button in the section header.
-- Sort button in section header to reorder rows after time edits.
 - Timeline strip: show keyframe times as draggable markers on a horizontal bar.
-- Wire more schedules: `slide5Base.startingPosition` is a natural next candidate.
 - Wire more schedules: `slide5Base.startingPosition` is a natural next candidate (already stubbed with a TODO comment).
 
 ## Schedule

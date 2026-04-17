@@ -699,6 +699,7 @@ class Clip {
       let activeExtendListener: ClickDragAndOnceListener | undefined;
       const recycleButton = document.createElement("button");
       recycleButton.textContent = "🗑️"; //♻
+      recycleButton.title = "Delete";
       buttonsCell.appendChild(recycleButton);
       recycleButton.addEventListener("click", () => {
         if (activeExtendListener)
@@ -707,6 +708,7 @@ class Clip {
       });
       const resizeLeftButton = document.createElement("button");
       resizeLeftButton.textContent = "⇤";
+      resizeLeftButton.title = "Change start time";
       buttonsCell.appendChild(resizeLeftButton);
       resizeLeftButton.addEventListener("click", () => {
         const thisClip: Clip = this;
@@ -787,6 +789,7 @@ class Clip {
       });
       const resizeRightButton = document.createElement("button");
       resizeRightButton.textContent = "⇥";
+      resizeRightButton.title = "Change end time";
       buttonsCell.appendChild(resizeRightButton);
       resizeRightButton.addEventListener("click", () => {
         const thisClip: Clip = this;
@@ -868,18 +871,21 @@ class Clip {
 
       const zoomButton = document.createElement("button");
       zoomButton.textContent = "🔎";
+      zoomButton.title = "Zoom";
       buttonsCell.appendChild(zoomButton);
       zoomButton.addEventListener("click", () => {
         setSourceRange(this.startIndex, this.endIndex);
       });
       const playButton = document.createElement("button");
       playButton.textContent = "▶️";
+      playButton.title = "Play";
       buttonsCell.appendChild(playButton);
       playButton.addEventListener("click", () => {
         this.play();
       });
       const copyButton = document.createElement("button");
       copyButton.textContent = "📋";
+      copyButton.title = "Copy to clipboard";
       buttonsCell.appendChild(copyButton);
       copyButton.addEventListener("click", () => {
         const code = `{
