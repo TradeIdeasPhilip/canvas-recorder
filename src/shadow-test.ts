@@ -1,4 +1,10 @@
-import { interpolateColor, interpolateColors, Keyframe } from "./interpolate";
+import {
+  interpolateColor,
+  interpolateColors,
+  interpolateRects,
+  Keyframe,
+} from "./interpolate";
+import { ReadOnlyRect } from "phil-lib/misc";
 import { myRainbow } from "./glib/my-rainbow";
 import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
@@ -380,18 +386,26 @@ const slide2ColorSchedule: Keyframe<string>[] = [
   { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
 ];
 
+const slide2RectSchedule: Keyframe<ReadOnlyRect>[] = [
+  { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
+  {
+    time: DEFAULT_SLIDE_DURATION_MS,
+    value: { x: 1, y: 1, width: 14, height: 2 },
+  },
+];
+
 const slide2Base: Showable = {
   description: "Slide 2: Growing Rectangle",
   duration: DEFAULT_SLIDE_DURATION_MS,
   schedules: [
     { description: "Color", type: "color", schedule: slide2ColorSchedule },
+    { description: "Rect", type: "rectangle", schedule: slide2RectSchedule },
   ],
   show({ context, timeInMs }) {
-    const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
     const color = interpolateColors(timeInMs, slide2ColorSchedule);
+    const rect = interpolateRects(timeInMs, slide2RectSchedule);
     context.fillStyle = color;
-    // TODO this would be a perfect place to test the rectangle schedule editor.
-    context.fillRect(1, 1, lerp(0, 14, progress), 2);
+    context.fillRect(rect.x, rect.y, rect.width, rect.height);
   },
 };
 

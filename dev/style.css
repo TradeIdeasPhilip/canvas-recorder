@@ -1,12 +1,14 @@
 @import url("https://fonts.googleapis.com/css2?family=Source+Code+Pro:ital,wght@0,200..900;1,200..900&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Ranchers&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Life+Savers:wght@400;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bevan:ital@0;1&display=swap");
 
 body {
   background: #eff;
-  font-family: "Life Savers", serif;
-  font-weight: bold;
-  font-size: 1.4em;
+  font-family: "Roboto", sans-serif;
+  font-weight: 300;
+  font-optical-sizing: auto;
 }
 
 h1,
@@ -15,8 +17,8 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: "Ranchers", fantasy;
-  font-weight: 400;
+  font-family: "Bevan", Georgia, serif;
+  font-weight: bold;
 }
 
 code {

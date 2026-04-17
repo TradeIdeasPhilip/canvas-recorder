@@ -6,6 +6,7 @@ import {
   FIGURE_SPACE,
   parseFloatX,
   parseIntX,
+  ReadOnlyRect,
 } from "phil-lib/misc.ts";
 import {
   AnimationLoop,
@@ -23,7 +24,12 @@ import {
   QUALITY_HIGH,
 } from "mediabunny";
 import { Selectable, Showable } from "../src/showable.ts";
-import { easeIn, easeOut, Keyframe } from "../src/interpolate.ts";
+import {
+  easeIn,
+  easeOut,
+  interpolateRects,
+  Keyframe,
+} from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 
@@ -198,29 +204,17 @@ window.addEventListener("resize", () => {
 });
 
 /**
- *
- * @param timeInMs Draw the animation at this time.  The drawing code doesn't
- * know or care about the frame rate.  When saving I typically use 60 fps.  When
- * displaying live the framerate can vary depending how busy your computer is
- * and if it's plugged in or on battery.  The frames might all cover slightly
- * different amounts of time.
- * @param size How many pixels
- * * "live" means the right number of pixels to perfectly fill the canvas.
- * This can change if you resize the window.
- * * 4k and hd hav their normal meaning.
+ * @param timeInMs Draw the animation at this time.
+ * @param live True for interactive display (schedule markers drawn on top).
+ * False when rendering for save/export (markers omitted).
  */
-function showFrame(timeInMs: number, size: "live" | "4k" | "hd") {
-  if (size === "4k") {
-    canvas.width = CANVAS_W;
-    canvas.height = CANVAS_H;
-  } else if (size === "hd") {
-    canvas.width = 1920;
-    canvas.height = 1080;
-  }
-  // "live" uses the fixed 4K canvas — no resize needed.
+function showFrame(timeInMs: number, live: boolean) {
   context.reset();
   context.setTransform(mainTransform());
   toShow.show({ timeInMs, context, globalTime: timeInMs });
+  if (live) {
+    drawScheduleMarkers(context);
+  }
 }
 (window as any).showFrame = showFrame;
 
@@ -421,7 +415,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
     // Paused.
     stopAudio();
     playPositionSeconds.disabled = false;
-    showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
     return;
   }
 
@@ -440,7 +434,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
     startAudio(startMs);
     // If audio isn't built yet, hold the current frame until it is.
     if (!audioSourceNode) {
-      showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+      showFrame(playPositionSeconds.valueAsNumber * 1000, true);
       return;
     }
   }
@@ -453,7 +447,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
       loadPlayPositionSeconds(sectionStartTime);
       startAudio(sectionStartTime);
       loadPlayPositionRange();
-      showFrame(sectionStartTime, "live");
+      showFrame(sectionStartTime, true);
     } else {
       // Pause at end.
       stopAudio();
@@ -461,14 +455,14 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
       loadPlayPositionRange();
       playCheckBox.checked = false;
       playPositionSeconds.disabled = false;
-      showFrame(sectionEndTime, "live");
+      showFrame(sectionEndTime, true);
     }
     return;
   }
 
   loadPlayPositionSeconds(timeInMs);
   loadPlayPositionRange();
-  showFrame(timeInMs, "live");
+  showFrame(timeInMs, true);
 });
 
 playPositionRange.addEventListener("input", () => {
@@ -608,7 +602,7 @@ async function startRecording() {
     if (timeInMs > toShow.duration) {
       break;
     }
-    showFrame(timeInMs, "4k");
+    showFrame(timeInMs, false);
     loadPlayPositionSeconds(timeInMs);
     loadPlayPositionRange();
     // Push frame (timestamp/duration in seconds)
@@ -844,6 +838,27 @@ const nextButton = getById("nextButton", HTMLButtonElement);
 const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 const showEditorCheckbox = getById("showEditor", HTMLInputElement);
 
+// MARK: Rect marker drag state
+type RectKf = Keyframe<ReadOnlyRect>;
+type RectHandle = "tl" | "tr" | "bl" | "br" | "center";
+
+/** The single rect keyframe currently in "edit" mode (drag handles shown on canvas). At most one at a time. */
+let editingRectKf: RectKf | null = null;
+
+/** Rect keyframes in "view" mode (shown as transparent overlays, but not draggable). */
+const viewingRectKfs = new Set<RectKf>();
+
+/** Maps each rect keyframe to a callback that syncs the editor number inputs when a drag changes the value. */
+const markerSyncCallbacks = new Map<RectKf, (rect: ReadOnlyRect) => void>();
+
+let draggingMarker: {
+  kf: RectKf;
+  handle: RectHandle;
+  startLogicalX: number;
+  startLogicalY: number;
+  startRect: ReadOnlyRect;
+} | null = null;
+
 /**
  * Change the GUI to match the current section.
  * Read the current section out of the <select> (drop down) element.
@@ -948,7 +963,7 @@ addEventListener("pagehide", (event) => {
     async () => {
       showFrame(
         assertNonNullable(parseFloatX(saveImageSecondsInput.value)) * 1000,
-        "4k",
+        false,
       );
       const filename = `frame-${saveImageSecondsInput.value}.png`;
       const blob = await getBlobFromCanvas(canvas);
@@ -1031,7 +1046,7 @@ function buildEaseSelect(keyframe: {
         keyframe.easeAfter = (t) => (t < 1 ? 0 : 1);
         break;
     }
-    showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   });
   return select;
 }
@@ -1049,9 +1064,9 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     info.type === "point"
       ? ["x", "y"]
       : info.type === "rectangle"
-        ? ["x", "y", "width", "height"]
+        ? ["x", "y", "width", "height", "Canvas"]
         : ["Value"];
-  for (const h of ["Time (ms)", ...valueHeaders, "Ease →"]) {
+  for (const h of ["Time (ms)", ...valueHeaders, "Ease ↓"]) {
     const th = document.createElement("th");
     th.textContent = h;
     headerRow.append(th);
@@ -1074,7 +1089,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       }
       input.addEventListener("input", () => {
         kf.value = input.value;
-        showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
       });
       cell.append(input);
     } else if (info.type === "number") {
@@ -1082,7 +1097,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       row.insertCell().append(
         buildNumericInput(kf.value, (n) => {
           kf.value = n;
-          showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+          showFrame(playPositionSeconds.valueAsNumber * 1000, true);
         }),
       );
     } else if (info.type === "string") {
@@ -1093,7 +1108,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       input.value = kf.value;
       input.addEventListener("input", () => {
         kf.value = input.value;
-        showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
       });
       cell.append(input);
     } else if (info.type === "point") {
@@ -1102,25 +1117,64 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
         row.insertCell().append(
           buildNumericInput(kf.value[coord], (n) => {
             kf.value = { ...kf.value, [coord]: n };
-            showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
+            showFrame(playPositionSeconds.valueAsNumber * 1000, true);
           }),
         );
       }
     } else if (info.type === "rectangle") {
-      const kf = info.schedule[i] as Keyframe<{
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      }>;
+      const kf = info.schedule[i] as RectKf;
+      const fieldInputs: Partial<
+        Record<"x" | "y" | "width" | "height", HTMLInputElement>
+      > = {};
       for (const field of ["x", "y", "width", "height"] as const) {
-        row.insertCell().append(
-          buildNumericInput(kf.value[field], (n) => {
-            kf.value = { ...kf.value, [field]: n };
-            showFrame(playPositionSeconds.valueAsNumber * 1000, "live");
-          }),
-        );
+        const input = buildNumericInput(kf.value[field], (n) => {
+          kf.value = { ...kf.value, [field]: n };
+          showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+        });
+        fieldInputs[field] = input;
+        row.insertCell().append(input);
       }
+      markerSyncCallbacks.set(kf, (rect) => {
+        for (const field of ["x", "y", "width", "height"] as const) {
+          fieldInputs[field]!.valueAsNumber = rect[field];
+        }
+      });
+
+      const canvasCell = row.insertCell();
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.textContent = "👁";
+      viewBtn.title = "Show on canvas";
+      viewBtn.addEventListener("click", () => {
+        if (viewingRectKfs.has(kf)) {
+          viewingRectKfs.delete(kf);
+          viewBtn.classList.remove("active");
+        } else {
+          viewingRectKfs.add(kf);
+          viewBtn.classList.add("active");
+        }
+        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+      });
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "✎";
+      editBtn.title = "Edit on canvas";
+      if (editingRectKf === kf) editBtn.classList.add("active");
+      editBtn.addEventListener("click", () => {
+        const wasEditing = editingRectKf === kf;
+        // Clear the active class from whichever button was previously active.
+        // We do this by re-querying the table for all edit buttons.
+        section
+          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
+          .forEach((b) => b.classList.remove("active"));
+        editingRectKf = wasEditing ? null : kf;
+        if (editingRectKf) editBtn.classList.add("active");
+        showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+      });
+      editBtn.classList.add("edit-btn");
+
+      canvasCell.append(viewBtn, " ", editBtn);
     }
 
     const easeCell = row.insertCell();
@@ -1136,6 +1190,9 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
 
 function updateScheduleEditor(selectable: Selectable) {
   scheduleEditorFieldset.replaceChildren();
+  editingRectKf = null;
+  viewingRectKfs.clear();
+  markerSyncCallbacks.clear();
   const schedules = selectable.schedules;
   if (!schedules?.length) {
     showEditorCheckbox.disabled = true;
@@ -1148,6 +1205,138 @@ function updateScheduleEditor(selectable: Selectable) {
   for (const info of schedules) {
     scheduleEditorFieldset.append(buildScheduleSection(info));
   }
+}
+
+// MARK: Rect marker helpers
+
+function clientToLogical(clientX: number, clientY: number) {
+  const rect = canvas.getBoundingClientRect();
+  return {
+    x: ((clientX - rect.left) / rect.width) * 16,
+    y: ((clientY - rect.top) / rect.height) * 9,
+  };
+}
+
+function rectHandlePositions(
+  r: ReadOnlyRect,
+): Record<RectHandle, { x: number; y: number }> {
+  return {
+    tl: { x: r.x, y: r.y },
+    tr: { x: r.x + r.width, y: r.y },
+    bl: { x: r.x, y: r.y + r.height },
+    br: { x: r.x + r.width, y: r.y + r.height },
+    center: { x: r.x + r.width / 2, y: r.y + r.height / 2 },
+  };
+}
+
+function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
+  if (!editingRectKf && viewingRectKfs.size === 0) return;
+  ctx.save();
+
+  // View-mode rects: semi-transparent fill + stroke, drawn first (behind handles)
+  ctx.strokeStyle = "#3498db";
+  ctx.lineWidth = 0.05;
+  for (const kf of viewingRectKfs) {
+    if (kf === editingRectKf) continue; // edit mode takes visual priority
+    const { x, y, width, height } = kf.value;
+    ctx.fillStyle = "rgba(52, 152, 219, 0.2)";
+    ctx.fillRect(x, y, width, height);
+    ctx.strokeRect(x, y, width, height);
+  }
+
+  // Edit-mode: rect outline + drag handles on top
+  if (editingRectKf) {
+    const { x, y, width, height } = editingRectKf.value;
+    ctx.strokeStyle = "#e74c3c";
+    ctx.lineWidth = 0.05;
+    ctx.strokeRect(x, y, width, height);
+
+    const RADIUS = 0.18;
+    const positions = rectHandlePositions(editingRectKf.value);
+    for (const handle of ["tl", "tr", "bl", "br", "center"] as RectHandle[]) {
+      const pos = positions[handle];
+      const active = draggingMarker?.handle === handle;
+      const r = active ? RADIUS * 1.4 : RADIUS;
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = active ? "white" : "#e74c3c";
+      ctx.fill();
+      ctx.strokeStyle = "#e74c3c";
+      ctx.lineWidth = 0.04;
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
+function hitTestMarker(logX: number, logY: number) {
+  if (!editingRectKf) return null;
+  const HIT_RADIUS = 0.3;
+  const positions = rectHandlePositions(editingRectKf.value);
+  for (const handle of ["tl", "tr", "bl", "br", "center"] as RectHandle[]) {
+    const pos = positions[handle];
+    const dx = logX - pos.x;
+    const dy = logY - pos.y;
+    if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) {
+      return { kf: editingRectKf, handle };
+    }
+  }
+  return null;
+}
+
+function applyMarkerDrag(logX: number, logY: number) {
+  if (!draggingMarker) return;
+  const { kf, handle, startLogicalX, startLogicalY, startRect } =
+    draggingMarker;
+  const dx = logX - startLogicalX;
+  const dy = logY - startLogicalY;
+  let newRect: ReadOnlyRect;
+  switch (handle) {
+    case "tl":
+      newRect = {
+        x: startRect.x + dx,
+        y: startRect.y + dy,
+        width: startRect.width - dx,
+        height: startRect.height - dy,
+      };
+      break;
+    case "tr":
+      newRect = {
+        x: startRect.x,
+        y: startRect.y + dy,
+        width: startRect.width + dx,
+        height: startRect.height - dy,
+      };
+      break;
+    case "bl":
+      newRect = {
+        x: startRect.x + dx,
+        y: startRect.y,
+        width: startRect.width - dx,
+        height: startRect.height + dy,
+      };
+      break;
+    case "br":
+      newRect = {
+        x: startRect.x,
+        y: startRect.y,
+        width: startRect.width + dx,
+        height: startRect.height + dy,
+      };
+      break;
+    case "center":
+      newRect = {
+        x: startRect.x + dx,
+        y: startRect.y + dy,
+        width: startRect.width,
+        height: startRect.height,
+      };
+      break;
+  }
+  kf.value = newRect;
+  markerSyncCallbacks.get(kf)?.(newRect);
+  showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
 // MARK: Load previous state.
@@ -1210,6 +1399,19 @@ let dragStartPanX = 0;
 let dragStartPanY = 0;
 
 canvas.addEventListener("pointerdown", (pointerEvent) => {
+  const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
+  const hit = hitTestMarker(logical.x, logical.y);
+  if (hit) {
+    canvas.setPointerCapture(pointerEvent.pointerId);
+    draggingMarker = {
+      kf: hit.kf,
+      handle: hit.handle,
+      startLogicalX: logical.x,
+      startLogicalY: logical.y,
+      startRect: { ...hit.kf.value },
+    };
+    return;
+  }
   canvas.setPointerCapture(pointerEvent.pointerId);
   isDragging = true;
   dragStartClientX = pointerEvent.clientX;
@@ -1218,11 +1420,17 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
   dragStartPanY = panY;
 });
 canvas.addEventListener("pointermove", (pointerEvent) => {
+  if (pointerEvent.buttons === 0) {
+    isDragging = false;
+    draggingMarker = null;
+    return;
+  }
+  if (draggingMarker) {
+    const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
+    applyMarkerDrag(logical.x, logical.y);
+    return;
+  }
   if (isDragging) {
-    if (pointerEvent.buttons === 0) {
-      isDragging = false;
-      return;
-    }
     applyZoom(
       currentScale,
       dragStartPanX + (pointerEvent.clientX - dragStartClientX),
@@ -1232,9 +1440,11 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
 });
 canvas.addEventListener("pointerup", () => {
   isDragging = false;
+  draggingMarker = null;
 });
 canvas.addEventListener("pointercancel", () => {
   isDragging = false;
+  draggingMarker = null;
 });
 
 getById("recordJustSound", HTMLButtonElement).addEventListener(

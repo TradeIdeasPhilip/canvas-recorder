@@ -22,14 +22,10 @@
 
 #relevantRows td:nth-child(3) {
   text-align: right;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 #relevantRows td:nth-child(4) {
   text-align: right;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 .range-container {

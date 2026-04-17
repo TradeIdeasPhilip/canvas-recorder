@@ -11,7 +11,7 @@ Let's not worry too much about future things like how to save and load these val
 ## Current Status
 
 ### Done
-- `ScheduleInfo` type in `showable.ts`: discriminated union on `type` ("string" | "color" | "number" | "rectangle" | "point"), each with a `readonly Keyframe<T>[]` schedule and a `description`.
+- `ScheduleInfo` type in `showable.ts`: discriminated union on `type` ("string" | "color" | "number" | "rectangle" | "point"), each with a mutable `Keyframe<T>[]` schedule (editor can push/splice) and a `description`.
 - `schedules?: readonly ScheduleInfo[]` added to `Selectable`.
 - `interpolateColors(time, keyframes)` — time-based, replacing the old signature.
 - Old `interpolateColors` renamed `interpolateColorsEqualWidths` to avoid confusion.
@@ -21,17 +21,24 @@ Let's not worry too much about future things like how to save and load these val
   - Color picker (`<input type="color">`) — fires on every drag, not just commit.
   - Number inputs for numbers, text input for strings.
   - x/y inputs for points; x/y/width/height for rectangles.
-  - Ease dropdown (linear / easeIn / easeOut / hold) per keyframe gap.
+  - Ease dropdown (linear / easeIn / easeOut / hold) per keyframe gap; omitted on the last row.
   - Edits mutate keyframes in place; canvas redraws immediately.
-- `slide2ColorSchedule` wired to `slide2Base.schedules` as first live test.
+- `slide2ColorSchedule` and `slide2RectSchedule` wired to `slide2Base.schedules`; rectangle drawn via `interpolateRects`.
+- Three-state canvas model for rect keyframes:
+  - **Normal** (default): row visible in table only, nothing on canvas.
+  - **View** (👁 toggle per row): semi-transparent blue fill + outline drawn on canvas behind handles.
+  - **Edit** (✎ toggle per row, at most one active at a time): red outline + 5 drag handles (tl, tr, bl, br, center).
+  - Dragging a handle mutates the keyframe value in place; number inputs stay in sync via `markerSyncCallbacks`.
+  - All canvas state (editing, viewing, dragging) cleared when the section selection changes.
 
 ### Next
-- Ease column visual offset: the dropdown sits in the same row as the "from" keyframe, but it controls the gap *to* the next keyframe. The prototype doc asks for a half-row visual offset to make this clear. CSS `transform: translateY(50%)` on the ease cell, or an interleaved row layout, would do it.
-- Dragging points and rectangles directly on the canvas (locked to number inputs).
-  - Normalize rectangles so the user can drag any corner.
-  - Shift-drag to lock aspect ratio on rectangles.
-- Timeline strip: show keyframe positions as draggable markers, so times can be adjusted without editing numbers.
-- Add / delete keyframes from the editor UI.
+- Normalize rectangles: dragging a corner past the opposite edge should flip the anchor, not produce negative width/height.
+- Shift-drag to lock aspect ratio on rectangle corners.
+- Edit keyframe times: the time cell is currently display-only; it should be an `<input>` with a "← now" button.
+- Add / delete keyframes: 🗑 button per row (disabled when only one remains); an "add at current time" button in the section header.
+- Sort button in section header to reorder rows after time edits.
+- Timeline strip: show keyframe times as draggable markers on a horizontal bar.
+- Wire more schedules: `slide5Base.startingPosition` is a natural next candidate.
 - Wire more schedules: `slide5Base.startingPosition` is a natural next candidate (already stubbed with a TODO comment).
 
 ## Schedule
@@ -96,15 +103,6 @@ The user just drags, the main program just gets a normalized rectangle, this new
 
 We've discussed lots of options in the past.
 For now lets focus on a small fixed set: linear, easeIn, easeOut, and end.
-
-Note that easing refers to the time **between** two frames.
-In code I often explicitly write "easeAfter" to clarify that the easing in this keyframe refers to the values in this keyframe and in the *next* keyframe.
-Same meaning as "ease" has in most APIs, I'm just being more explicit.
-
-Please do something similar in the editor.
-If we have a \<table> listing one keyframe per row,
-offset the ease column by one half row so it's clear that the easing is between two keyframes.
-(or similar)
 
 ## Discrete elements
 
@@ -206,3 +204,44 @@ This would allow for different types of GUI tools; I'm usually afraid of adding 
 I'm imagining four browser windows, two showing the visual for my movie at different times, and two different schedule editors, allowing me to edit the data in different ways and instantly see the results in different ways.
 
 No rush, but whenever the current html file seems constraining we can create another.
+
+## Appendix Ⅰ
+
+New thoughts that I haven't had time to integrate with the rest of the document.
+Also, I want to focus on this now.
+
+We can currently edit values in keyframes.
+We need a way to edit the time in a keyframe.
+And we need a way to add and delete keyframes.
+
+Note:  ±Infinity is explicitly allowed for Keyframe.time.
+It isn't *required* because the first and last keyframe are automatically extended to ±Infinity.
+But ±Infinity work with the rest of the code, and they are useful for the normal reasons, and I think I have used them in the code already.
+
+NaN is explicitly forbidden for Keyframe.time.
+It causes ugly problems to sort and search algorithms.
+The GUI should never put a NaN into there, even on error.
+It would be safe to assume that no one else has put a NaN in there.
+
+There **should** always be at least one keyframe per schedule.
+Key keyframe will have a "🗑️" (delete) button, and it must be disabled if it is the only frame in the schedule.
+That said, the editor must **not** fail if the list is empty.
+In particular, there should be button in the header for each section, so the user can fix the situation.
+(An empty schedule will cause the display to fail badly, probably throw an exception.
+So we don't have to be clever or graceful.
+We just need to fix the problem.)
+
+Keeping things in order:
+The array should **always** be in a valid state.
+If you need to change a time, the safest thing to do would be to delete the keyframe, change the time, then readd the keyframe.
+It would be jarring to rearrange the rows as a person was typing in an \<input> in a row.
+Let's start simple for now:
+The header also has a sort button which will rearrange the rows on the screen to match the array.
+
+The row for each keyframe will include the time, which can be edited through an \<input>.  (Currently we are displaying it, but we need to edit it)
+There's also a button to copy the currently displayed time into this field (like I've done elsewhere on the page).
+
+Keyframes representing rectangles and points will exist in one of three states.
+* Normal / default -- show nothing on the canvas.  Only visible in the table.
+* Edit -- **At most one** keyframe can be in edit mode at a time. Show the editor on the canvas.  The current rectangle editor display is good for now.  But it was confusing when two keyframes were both visible at the same time.
+* View -- Make this visible on the canvas, but not editable.  Note:  The balls for the rectangles were sometimes overlapping and not all visible and that was confusing.  For view mode, please use the outline of a rectangle or fill rectangle with a partially transparent color.  (And make sure the edit markers are on top of these rectangles!)  Optimize the experience for the case where only a few things are visible at one, fewer than myRainbow.length.

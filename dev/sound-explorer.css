@@ -6,8 +6,6 @@ audio {
 
 #soundClips {
   border-collapse: collapse;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 #soundClips tr td {
@@ -16,20 +14,14 @@ audio {
 
 #soundClips td:nth-child(1) {
   text-align: right;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 #soundClips td:nth-child(2) {
   text-align: right;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 #soundClips td:nth-child(3) {
   text-align: right;
-  font-family: Verdana;
-  font-weight: normal;
 }
 
 #audioViewer {
