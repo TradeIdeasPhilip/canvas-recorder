@@ -1,6 +1,7 @@
 import {
   interpolateColor,
   interpolateColors,
+  interpolatePoints,
   interpolateRects,
   Keyframe,
 } from "./interpolate";
@@ -9,6 +10,7 @@ import { myRainbow } from "./glib/my-rainbow";
 import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
+import { applyTransform, panAndZoom } from "./glib/transforms";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -306,6 +308,18 @@ const ROW_Y = [1.5, 4.5, 7.5] as const;
 const SHAPE_RADIUS = 1.1;
 const LINE_WIDTH = 0.07;
 
+// Bounding box that exactly contains all 9 shapes (used as panAndZoom srcRect).
+const SLIDE1_CONTENT_RECT: ReadOnlyRect = {
+  x: COL_X[0] - SHAPE_RADIUS,
+  y: ROW_Y[0] - SHAPE_RADIUS,
+  width: COL_X[2] - COL_X[0] + 2 * SHAPE_RADIUS,
+  height: ROW_Y[2] - ROW_Y[0] + 2 * SHAPE_RADIUS,
+};
+
+const slide1LayoutSchedule: Keyframe<ReadOnlyRect>[] = [
+  { time: 0, value: { x: 0, y: 0, width: 16, height: 9 } },
+];
+
 // Row fill factories: solid, 25 % opacity, no fill.
 const FILL_FOR_ROW = [
   (color: string): string => color,
@@ -327,8 +341,24 @@ const FILL_FOR_ROW = [
 const slide1: Showable = {
   description: "Slide 1: Shape Gallery",
   duration: DEFAULT_SLIDE_DURATION_MS,
+  schedules: [
+    {
+      description: "Layout",
+      type: "rectangle",
+      schedule: slide1LayoutSchedule,
+    },
+  ],
   show({ context, timeInMs }) {
     const progress = timeInMs / this.duration;
+    const destRect = interpolateRects(timeInMs, slide1LayoutSchedule);
+    const transform = panAndZoom(
+      SLIDE1_CONTENT_RECT,
+      destRect,
+      "srcRect fits completely into destRect",
+    );
+
+    context.save();
+    applyTransform(context, transform);
     context.lineWidth = lerp(LINE_WIDTH, LINE_WIDTH * 4, progress);
     context.lineJoin = "round";
 
@@ -356,6 +386,7 @@ const slide1: Showable = {
         context.stroke();
       }
     }
+    context.restore();
   },
 };
 
@@ -538,9 +569,20 @@ const slide4Shadow = makeShadowDemo({
 // slide 5, vertical lines
 // ---------------------------------------------------------------------------
 
+const slide5PositionSchedule: Keyframe<Point>[] = [
+  { time: 0, value: { x: 1, y: 1 } },
+];
+
 const slide5Base: Showable = {
   description: "vertical lines",
   duration: DEFAULT_SLIDE_DURATION_MS,
+  schedules: [
+    {
+      description: "Starting Position",
+      type: "point",
+      schedule: slide5PositionSchedule,
+    },
+  ],
   show({ context, timeInMs }) {
     function drawVerticalLines(
       context: CanvasRenderingContext2D,
@@ -565,8 +607,7 @@ const slide5Base: Showable = {
       });
     }
     const progress = timeInMs / this.duration;
-    // TODO read startingPosition from a user editable schedule!
-    const startingPosition: Point = { x: 1, y: 1 };
+    const startingPosition = interpolatePoints(timeInMs, slide5PositionSchedule);
     const left = startingPosition.x + progress;
     drawVerticalLines(context, left, startingPosition.y);
   },

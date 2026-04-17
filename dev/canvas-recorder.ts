@@ -1055,6 +1055,35 @@ function buildEaseSelect(keyframe: {
   return select;
 }
 
+function scheduleToTypeScript(info: ScheduleInfo): string {
+  function easeSuffix(fn: ((t: number) => number) | undefined): string {
+    if (!fn) return "";
+    if (fn === easeIn) return ", easeAfter: easeIn";
+    if (fn === easeOut) return ", easeAfter: easeOut";
+    return ", easeAfter: (t) => (t < 1 ? 0 : 1)"; // hold
+  }
+
+  function formatValue(value: unknown): string {
+    if (info.type === "color" || info.type === "string") {
+      return JSON.stringify(value as string);
+    } else if (info.type === "number") {
+      return String(value as number);
+    } else if (info.type === "point") {
+      const v = value as { x: number; y: number };
+      return `{ x: ${v.x}, y: ${v.y} }`;
+    } else {
+      const v = value as ReadOnlyRect;
+      return `{ x: ${v.x}, y: ${v.y}, width: ${v.width}, height: ${v.height} }`;
+    }
+  }
+
+  const rows = info.schedule.map(
+    (kf) =>
+      `  { time: ${kf.time}, value: ${formatValue(kf.value)}${easeSuffix(kf.easeAfter)} },`,
+  );
+  return `[\n${rows.join("\n")}\n]`;
+}
+
 function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   const section = document.createElement("fieldset");
 
@@ -1110,7 +1139,14 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     (info.schedule as (typeof info.schedule)[number][]).sort((a, b) => a.time - b.time);
     rebuild();
   });
-  legend.append(addBtn, " ", sortBtn);
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "📋";
+  copyBtn.title = "Copy schedule as TypeScript";
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(scheduleToTypeScript(info));
+  });
+  legend.append(addBtn, " ", sortBtn, " ", copyBtn);
   section.append(legend);
 
   const table = document.createElement("table");

@@ -39,7 +39,8 @@ Let's not worry too much about future things like how to save and load these val
 ### Next
 - Shift-drag to lock aspect ratio on rectangle corners.
 - Timeline strip: show keyframe times as draggable markers on a horizontal bar.
-- Wire more schedules: `slide5Base.startingPosition` is a natural next candidate (already stubbed with a TODO comment).
+- Allow dragging rectangle handles beyond the viewBox boundary.
+- Add view and edit options for points.  Rectangle editor works well, aside from the previous bullet point, this should be similar.
 
 ## Schedule
 
