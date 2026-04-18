@@ -916,6 +916,95 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+{
+  const scene = new MakeShowableInParallel("Outline Slide Template");
+
+  const LEFT_MARGIN = 0.5;
+  const RIGHT_MARGIN = 0.4;
+  const BULLET_GAP = 0.18; // extra vertical gap between consecutive bullets
+
+  /**
+   * Formatting for each outline level.
+   * Level 0 is the top-level bullet, level 2 is the most indented.
+   * `indent` is added to LEFT_MARGIN.
+   * `bullet` is prepended to the text; use characters known to exist in the line font.
+   */
+  const outlineFormatByLevel: readonly {
+    readonly font: Font;
+    readonly indent: number;
+    readonly bullet: string;
+  }[] = [
+    { font: makeLineFont(0.44), indent: 0.0, bullet: "◯ " },
+    { font: makeLineFont(0.33), indent: 0.9, bullet: "- " },
+    { font: makeLineFont(0.25), indent: 1.8, bullet: "* " },
+  ];
+
+  const bulletContent: readonly { level: number; text: string }[] = [
+    { level: 0, text: "Canvas Recorder Features" },
+    { level: 1, text: "Strokable vector fonts: line, Futura L, cursive" },
+    { level: 1, text: "Keyframe-based animation schedules" },
+    { level: 2, text: "Per-segment easing: ease, easeIn, easeOut, easeAndBack" },
+    { level: 2, text: "Custom keyframes with per-segment easing" },
+    { level: 0, text: "Development Tools" },
+    { level: 1, text: "Live preview with play/pause and chapter navigation" },
+    { level: 1, text: "Schedule editor with drag handles" },
+    { level: 2, text: "Editable per-object keyframe data" },
+  ];
+
+  // Title — align(16, "center") places the text centered on the 16-wide canvas.
+  // No translation needed: font.top = -1.25*mHeight so the first baseline lands at
+  // +1.25*mHeight, putting letter tops at +0.25*mHeight (just inside the canvas edge).
+  const titleLaidOut = (() => {
+    const layout = new ParagraphLayout(titleFont);
+    layout.addText(scene.description);
+    return layout.align(16, "center");
+  })();
+  const titlePath = titleLaidOut.singlePathShape().canvasPath;
+
+  // Pre-compute bullet paths — static slide, no per-frame recalculation needed.
+  // y tracks the top edge of each bullet block; y += laidOut.height advances past it.
+  let y = titleLaidOut.height + 0.2;
+  const bulletPaths: { path: Path2D; level: number }[] = [];
+  for (const { level, text } of bulletContent) {
+    const fmt = outlineFormatByLevel[level];
+    const x = LEFT_MARGIN + fmt.indent;
+    const availableWidth = 16 - x - RIGHT_MARGIN;
+    const layout = new ParagraphLayout(fmt.font);
+    layout.addText(fmt.bullet + text);
+    const laidOut = layout.align(availableWidth, "left");
+    bulletPaths.push({
+      path: laidOut.singlePathShape().translate(x, y).canvasPath,
+      level,
+    });
+    y += laidOut.height + BULLET_GAP;
+  }
+
+  const levelColors = ["white", "#cccccc", "#aaaaaa"] as const;
+
+  const showable: Showable = {
+    description: "Outline slide",
+    duration: 30_000,
+    show({ context }) {
+      context.lineCap = "round";
+      context.lineJoin = "round";
+
+      context.lineWidth = titleFont.strokeWidth;
+      context.strokeStyle = myRainbow.violet;
+      context.stroke(titlePath);
+
+      for (const { path, level } of bulletPaths) {
+        const fmt = outlineFormatByLevel[level];
+        context.lineWidth = fmt.font.strokeWidth;
+        context.strokeStyle = levelColors[level];
+        context.stroke(path);
+      }
+    },
+  };
+
+  scene.add(showable);
+  sceneList.add(scene.build());
+}
+
 const mainBuilder = new MakeShowableInParallel("Showcase");
 mainBuilder.add(blackBackground);
 mainBuilder.add(sceneList.build());
