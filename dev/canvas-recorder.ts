@@ -147,6 +147,18 @@ function resolveToShow(): Showable {
   );
 }
 
+// resolveToShow() throws to halt module execution when showing the menu, so that
+// subsequent code referencing now-removed DOM nodes never runs.  Register a
+// one-shot onerror handler here (before the call) to suppress that expected
+// throw from appearing as a red error in the console.
+window.onerror = (msg) => {
+  if (typeof msg === "string" && msg.includes("no valid 'toShow'")) {
+    window.onerror = null;
+    return true; // suppress console output
+  }
+  return false;
+};
+
 /**
  * The top level item that we are viewing and/or saving.
  */
