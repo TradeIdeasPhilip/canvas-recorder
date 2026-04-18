@@ -37,13 +37,14 @@ Let's not worry too much about future things like how to save and load these val
 - 🗑 delete button per row; disabled when only one keyframe remains.
 - `showFrame` second parameter simplified from `"live" | "4k" | "hd"` to `boolean` (canvas size is now always fixed at 4K).
 - Add view and edit options for points. Rectangle editor works well, aside from the previous bullet point, this is similar.
+- Shift-drag to lock aspect ratio on rectangle corners.
+- `ease()` is missing. It should be an option next to `easeIn()` and `easeOut()`.
 
 ### Next
 
 Short term:
 
-- Shift-drag to lock aspect ratio on rectangle corners.
-- `ease()` is missing. It should be an option next to `easeIn()` and `easeOut()`.
+*none*
 
 Deferred:
 

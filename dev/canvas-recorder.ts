@@ -26,6 +26,7 @@ import {
 import { Selectable, Showable } from "../src/showable.ts";
 import {
   discreteKeyframes,
+  ease,
   easeIn,
   easeOut,
   interpolateColors,
@@ -1063,6 +1064,7 @@ async function writeHistory(
 
 function easeName(fn: ((t: number) => number) | undefined): string | undefined {
   if (!fn) return undefined;
+  if (fn === ease) return "ease";
   if (fn === easeIn) return "easeIn";
   if (fn === easeOut) return "easeOut";
   return "hold";
@@ -1071,6 +1073,7 @@ function easeName(fn: ((t: number) => number) | undefined): string | undefined {
 function easeFromName(
   name: string | undefined,
 ): ((t: number) => number) | undefined {
+  if (name === "ease") return ease;
   if (name === "easeIn") return easeIn;
   if (name === "easeOut") return easeOut;
   if (name === "hold") return (t) => (t < 1 ? 0 : 1);
@@ -1221,7 +1224,7 @@ function buildEaseSelect(keyframe: {
   easeAfter?: (t: number) => number;
 }): HTMLSelectElement {
   const select = document.createElement("select");
-  for (const label of ["linear", "easeIn", "easeOut", "hold"]) {
+  for (const label of ["linear", "ease", "easeIn", "easeOut", "hold"]) {
     const opt = document.createElement("option");
     opt.value = opt.textContent = label;
     select.append(opt);
@@ -1229,15 +1232,20 @@ function buildEaseSelect(keyframe: {
   const fn = keyframe.easeAfter;
   select.value = !fn
     ? "linear"
-    : fn === easeIn
-      ? "easeIn"
-      : fn === easeOut
-        ? "easeOut"
-        : "hold";
+    : fn === ease
+      ? "ease"
+      : fn === easeIn
+        ? "easeIn"
+        : fn === easeOut
+          ? "easeOut"
+          : "hold";
   select.addEventListener("change", () => {
     switch (select.value) {
       case "linear":
         keyframe.easeAfter = undefined;
+        break;
+      case "ease":
+        keyframe.easeAfter = ease;
         break;
       case "easeIn":
         keyframe.easeAfter = easeIn;
@@ -1748,54 +1756,61 @@ function applyPointDrag(logX: number, logY: number) {
   showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
-function applyMarkerDrag(logX: number, logY: number) {
+function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
   if (!draggingMarker) return;
   const { kf, handle, startLogicalX, startLogicalY, startRect } =
     draggingMarker;
   const dx = logX - startLogicalX;
   const dy = logY - startLogicalY;
   let newRect: ReadOnlyRect;
-  switch (handle) {
-    case "tl":
-      newRect = {
-        x: startRect.x + dx,
-        y: startRect.y + dy,
-        width: startRect.width - dx,
-        height: startRect.height - dy,
-      };
-      break;
-    case "tr":
-      newRect = {
-        x: startRect.x,
-        y: startRect.y + dy,
-        width: startRect.width + dx,
-        height: startRect.height - dy,
-      };
-      break;
-    case "bl":
-      newRect = {
-        x: startRect.x + dx,
-        y: startRect.y,
-        width: startRect.width - dx,
-        height: startRect.height + dy,
-      };
-      break;
-    case "br":
-      newRect = {
-        x: startRect.x,
-        y: startRect.y,
-        width: startRect.width + dx,
-        height: startRect.height + dy,
-      };
-      break;
-    case "center":
-      newRect = {
-        x: startRect.x + dx,
-        y: startRect.y + dy,
-        width: startRect.width,
-        height: startRect.height,
-      };
-      break;
+
+  if (shiftKey && handle !== "center" && startRect.height !== 0) {
+    // Aspect-ratio lock: keep the opposite (anchor) corner fixed and constrain
+    // the drag vector so width/height = startRect.width/startRect.height.
+    const ar = startRect.width / startRect.height;
+    // tl/br: vx and vy have the same sign relative to anchor.
+    // tr/bl: they have opposite signs (one goes up while the other goes right).
+    const sameSign = handle === "tl" || handle === "br";
+    let anchorX: number, anchorY: number;
+    switch (handle) {
+      case "tl": anchorX = startRect.x + startRect.width; anchorY = startRect.y + startRect.height; break;
+      case "tr": anchorX = startRect.x; anchorY = startRect.y + startRect.height; break;
+      case "bl": anchorX = startRect.x + startRect.width; anchorY = startRect.y; break;
+      default:   anchorX = startRect.x; anchorY = startRect.y; break; // br
+    }
+    let vx = logX - anchorX;
+    let vy = logY - anchorY;
+    const sf = sameSign ? 1 : -1;
+    // Drive by whichever dimension changed proportionally more.
+    if (Math.abs(vx / ar) >= Math.abs(vy)) {
+      vy = (vx / ar) * sf;
+    } else {
+      vx = (vy * ar) * sf;
+    }
+    newRect = {
+      x: anchorX + Math.min(0, vx),
+      y: anchorY + Math.min(0, vy),
+      width: Math.abs(vx),
+      height: Math.abs(vy),
+    };
+  } else {
+    switch (handle) {
+      case "tl":
+        newRect = { x: startRect.x + dx, y: startRect.y + dy, width: startRect.width - dx, height: startRect.height - dy };
+        break;
+      case "tr":
+        newRect = { x: startRect.x, y: startRect.y + dy, width: startRect.width + dx, height: startRect.height - dy };
+        break;
+      case "bl":
+        newRect = { x: startRect.x + dx, y: startRect.y, width: startRect.width - dx, height: startRect.height + dy };
+        break;
+      case "br":
+        newRect = { x: startRect.x, y: startRect.y, width: startRect.width + dx, height: startRect.height + dy };
+        break;
+      case "center":
+        newRect = { x: startRect.x + dx, y: startRect.y + dy, width: startRect.width, height: startRect.height };
+        break;
+    }
   }
   kf.value = normalizeRect(newRect);
   markerSyncCallbacks.get(kf)?.(kf.value);
@@ -1897,7 +1912,7 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   }
   if (draggingMarker) {
     const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
-    applyMarkerDrag(logical.x, logical.y);
+    applyMarkerDrag(logical.x, logical.y, pointerEvent.shiftKey);
     return;
   }
   if (draggingPoint) {
