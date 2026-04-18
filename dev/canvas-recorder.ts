@@ -44,7 +44,8 @@ import { showcase } from "../src/showcase.ts";
 import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
 import { strokeColorsTest } from "../src/stroke-colors-test.ts";
-import { shadowTest } from "../src/shadow-test.ts";
+import { createNineShapesComponent, shadowTest } from "../src/shadow-test.ts";
+import { createRectangleComponent } from "../src/slide-components.ts";
 
 /**
  * Maps URL `?toShow=` keys to available video options.
@@ -180,10 +181,29 @@ let currentScale = 1;
 let panX = 0;
 let panY = 0;
 
+/**
+ * Clamps a pan value so the canvas always covers the visible window area —
+ * no empty space in either dimension.
+ *
+ * For each axis independently:
+ *  - canvas larger than window  → pan ∈ [windowSize - scaledCanvas, 0]
+ *  - canvas same size or smaller → pan = 0  (pinned; nothing to reveal)
+ */
+function clampPan(scale: number, px: number, py: number): [number, number] {
+  const scaledW = CANVAS_W * scale;
+  const scaledH = CANVAS_H * scale;
+  // lower bound is negative (or 0); upper bound is always 0
+  const minX = Math.min(0, window.innerWidth - scaledW);
+  const minY = Math.min(0, window.innerHeight - scaledH);
+  return [
+    Math.max(minX, Math.min(0, px)),
+    Math.max(minY, Math.min(0, py)),
+  ];
+}
+
 function applyZoom(scale: number, px = panX, py = panY) {
   currentScale = scale;
-  panX = px;
-  panY = py;
+  [panX, panY] = clampPan(scale, px, py);
   canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
   viewport.style.width = `${Math.round(CANVAS_W * scale)}px`;
   viewport.style.height = `${Math.round(CANVAS_H * scale)}px`;
@@ -840,8 +860,15 @@ const previousButton = getById("previousButton", HTMLButtonElement);
  */
 const nextButton = getById("nextButton", HTMLButtonElement);
 
+const slideChildrenEditorFieldset = getById("slideChildrenEditor", HTMLFieldSetElement);
 const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 const showEditorCheckbox = getById("showEditor", HTMLInputElement);
+
+/**
+ * The slide child currently being edited in the schedule editor.
+ * null means the parent section itself is the schedule target.
+ */
+let selectedSlideChild: Showable | null = null;
 const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);
 const saveScheduleNowBtn = getById("saveScheduleNowBtn", HTMLButtonElement);
 const scheduleHistorySelect = getById(
@@ -923,6 +950,8 @@ function updateFromSelect() {
   // playPositionRange automatically limits you to the range of the currently selected chapter.
   // Make the number match in this case.
   loadPlayPositionSeconds(playPositionRange.valueAsNumber);
+  selectedSlideChild = null;
+  updateSlideChildrenEditor(info.selectable);
   updateScheduleEditor(info.selectable);
 }
 select.addEventListener("input", updateFromSelect);
@@ -1162,20 +1191,26 @@ function currentSelectable(): Selectable | null {
   return selectable?.schedules?.length ? selectable : null;
 }
 
+/** The item whose schedules the schedule editor is currently showing. */
+function currentScheduleTarget(): Selectable | null {
+  if (selectedSlideChild?.schedules?.length) return selectedSlideChild;
+  return currentSelectable();
+}
+
 saveScheduleNowBtn.addEventListener("click", () => {
-  const selectable = currentSelectable();
-  if (selectable) saveScheduleState(selectable);
+  const target = currentScheduleTarget();
+  if (target) saveScheduleState(target);
 });
 
 loadScheduleBtn.addEventListener("click", () => {
-  const selectable = currentSelectable();
-  if (!selectable) return;
+  const target = currentScheduleTarget();
+  if (!target) return;
   const index = parseInt(scheduleHistorySelect.value, 10);
-  readHistory(selectableKey(selectable)).then((record) => {
+  readHistory(selectableKey(target)).then((record) => {
     const entry = record?.entries[index];
     if (!entry) return;
-    applySnapshot(selectable.schedules!, entry.schedules);
-    updateScheduleEditor(selectable);
+    applySnapshot(target.schedules!, entry.schedules);
+    updateScheduleEditor(target);
     showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   });
 });
@@ -1582,6 +1617,90 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   table.append(tbody);
   section.append(table);
   return section;
+}
+
+// MARK: Slide Children Editor
+
+/** Registry of component factories available in the "Add" dropdown. */
+const componentRegistry = new Map<string, () => Showable>([
+  ["Rectangle", () => createRectangleComponent()],
+  ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
+]);
+
+function updateSlideChildrenEditor(selectable: Selectable) {
+  const children = selectable.slideChildren;
+  slideChildrenEditorFieldset.hidden = children === undefined;
+  if (children === undefined) return;
+
+  slideChildrenEditorFieldset.replaceChildren();
+
+  // List of current children
+  const list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
+  for (const child of children) {
+    const row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:0.4em";
+
+    const editBtn = document.createElement("button");
+    editBtn.type = "button";
+    editBtn.textContent = "✎ " + child.description;
+    editBtn.style.cssText = "flex:1;text-align:left";
+    if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
+    editBtn.addEventListener("click", () => {
+      selectedSlideChild = child;
+      showEditorCheckbox.checked = true;
+      updateSlideChildrenEditor(selectable);
+      updateScheduleEditor(child);
+    });
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.textContent = "🗑";
+    deleteBtn.addEventListener("click", () => {
+      const idx = children.indexOf(child);
+      if (idx !== -1) children.splice(idx, 1);
+      if (selectedSlideChild === child) {
+        selectedSlideChild = null;
+        updateScheduleEditor(selectable);
+      }
+      updateSlideChildrenEditor(selectable);
+      showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+    });
+
+    row.append(editBtn, deleteBtn);
+    list.append(row);
+  }
+  slideChildrenEditorFieldset.append(list);
+
+  // Add row
+  const addRow = document.createElement("div");
+  addRow.style.cssText = "display:flex;align-items:center;gap:0.4em";
+
+  const addSelect = document.createElement("select");
+  for (const [key] of componentRegistry) {
+    const opt = document.createElement("option");
+    opt.value = key;
+    opt.textContent = key;
+    addSelect.append(opt);
+  }
+
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.textContent = "+ Add";
+  addBtn.addEventListener("click", () => {
+    const factory = componentRegistry.get(addSelect.value);
+    if (!factory) return;
+    const newChild = factory();
+    children.push(newChild);
+    selectedSlideChild = newChild;
+    showEditorCheckbox.checked = true;
+    updateSlideChildrenEditor(selectable);
+    updateScheduleEditor(newChild);
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+  });
+
+  addRow.append(addSelect, addBtn);
+  slideChildrenEditorFieldset.append(addRow);
 }
 
 function updateScheduleEditor(selectable: Selectable) {

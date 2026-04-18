@@ -1,6 +1,5 @@
 import {
   interpolateColor,
-  interpolateColors,
   interpolatePoints,
   interpolateRects,
   Keyframe,
@@ -11,6 +10,7 @@ import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
+import { createRectangleComponent } from "./slide-components";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -316,10 +316,6 @@ const SLIDE1_CONTENT_RECT: ReadOnlyRect = {
   height: ROW_Y[2] - ROW_Y[0] + 2 * SHAPE_RADIUS,
 };
 
-const slide1LayoutSchedule: Keyframe<ReadOnlyRect>[] = [
-  { time: 0, value: { x: 0, y: 0, width: 16, height: 9 } },
-];
-
 // Row fill factories: solid, 25 % opacity, no fill.
 const FILL_FOR_ROW = [
   (color: string): string => color,
@@ -328,65 +324,64 @@ const FILL_FOR_ROW = [
 ] as const;
 
 /**
- * Nine shapes arranged in a 3×3 grid.
+ * Project-specific slide component: nine shapes in a 3×3 grid.
  *
  * Columns (shape type):  triangle | square | circle
  * Rows    (fill):        solid    | 25 %   | none
  *
- * Colors go column-major through {@link myRainbow}:
- *   triangles → red / orange / yellow
- *   squares   → green / cyan / myBlue
- *   circles   → cssBlue / violet / magenta
+ * Colors go column-major through {@link myRainbow}.
+ * Exported so the dev GUI can offer it in the component registry.
  */
+export function createNineShapesComponent(): Showable {
+  const layoutSchedule: Keyframe<ReadOnlyRect>[] = [
+    { time: 0, value: { x: 0, y: 0, width: 16, height: 9 } },
+  ];
+  return {
+    description: "Nine Shapes",
+    duration: 0,
+    schedules: [{ description: "Layout", type: "rectangle", schedule: layoutSchedule }],
+    show({ context, timeInMs }) {
+      const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
+      const destRect = interpolateRects(timeInMs, layoutSchedule);
+      const matrix = panAndZoom(
+        SLIDE1_CONTENT_RECT,
+        destRect,
+        "srcRect fits completely into destRect",
+      );
+      context.save();
+      applyTransform(context, matrix);
+      context.lineWidth = lerp(LINE_WIDTH, LINE_WIDTH * 4, progress);
+      context.lineJoin = "round";
+      for (let col = 0; col < 3; col++) {
+        const cx = COL_X[col];
+        for (let row = 0; row < 3; row++) {
+          const cy = ROW_Y[row];
+          const color = myRainbow[col * 3 + row];
+          context.strokeStyle = color;
+          context.fillStyle = FILL_FOR_ROW[row](color);
+          if (col === 0) {
+            polygon(context, cx, cy, SHAPE_RADIUS, 3, -Math.PI / 2);
+          } else if (col === 1) {
+            polygon(context, cx, cy, SHAPE_RADIUS, 4, Math.PI / 4);
+          } else {
+            context.beginPath();
+            context.arc(cx, cy, SHAPE_RADIUS, 0, Math.PI * 2);
+          }
+          context.fill();
+          context.stroke();
+        }
+      }
+      context.restore();
+    },
+  };
+}
+
 const slide1: Showable = {
   description: "Slide 1: Shape Gallery",
   duration: DEFAULT_SLIDE_DURATION_MS,
-  schedules: [
-    {
-      description: "Layout",
-      type: "rectangle",
-      schedule: slide1LayoutSchedule,
-    },
-  ],
-  show({ context, timeInMs }) {
-    const progress = timeInMs / this.duration;
-    const destRect = interpolateRects(timeInMs, slide1LayoutSchedule);
-    const transform = panAndZoom(
-      SLIDE1_CONTENT_RECT,
-      destRect,
-      "srcRect fits completely into destRect",
-    );
-
-    context.save();
-    applyTransform(context, transform);
-    context.lineWidth = lerp(LINE_WIDTH, LINE_WIDTH * 4, progress);
-    context.lineJoin = "round";
-
-    for (let col = 0; col < 3; col++) {
-      const cx = COL_X[col];
-      for (let row = 0; row < 3; row++) {
-        const cy = ROW_Y[row];
-        const color = myRainbow[col * 3 + row];
-        context.strokeStyle = color;
-        context.fillStyle = FILL_FOR_ROW[row](color);
-
-        if (col === 0) {
-          // Equilateral triangle pointing up.
-          polygon(context, cx, cy, SHAPE_RADIUS, 3, -Math.PI / 2);
-        } else if (col === 1) {
-          // Square with a flat bottom edge.
-          polygon(context, cx, cy, SHAPE_RADIUS, 4, Math.PI / 4);
-        } else {
-          // Circle.
-          context.beginPath();
-          context.arc(cx, cy, SHAPE_RADIUS, 0, Math.PI * 2);
-        }
-
-        context.fill();
-        context.stroke();
-      }
-    }
-    context.restore();
+  slideChildren: [createNineShapesComponent()],
+  show(options) {
+    for (const child of this.slideChildren!) child.show(options);
   },
 };
 
@@ -412,31 +407,23 @@ const SHADOW_DY = 4;
 // Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
 
-const slide2ColorSchedule: Keyframe<string>[] = [
-  { time: 0, value: myRainbow.red },
-  { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
-];
-
-const slide2RectSchedule: Keyframe<ReadOnlyRect>[] = [
-  { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
-  {
-    time: DEFAULT_SLIDE_DURATION_MS,
-    value: { x: 1, y: 1, width: 14, height: 2 },
-  },
-];
-
 const slide2Base: Showable = {
   description: "Slide 2: Growing Rectangle",
   duration: DEFAULT_SLIDE_DURATION_MS,
-  schedules: [
-    { description: "Color", type: "color", schedule: slide2ColorSchedule },
-    { description: "Rect", type: "rectangle", schedule: slide2RectSchedule },
+  slideChildren: [
+    createRectangleComponent(
+      [
+        { time: 0, value: myRainbow.red },
+        { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
+      ],
+      [
+        { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
+        { time: DEFAULT_SLIDE_DURATION_MS, value: { x: 1, y: 1, width: 14, height: 2 } },
+      ],
+    ),
   ],
-  show({ context, timeInMs }) {
-    const color = interpolateColors(timeInMs, slide2ColorSchedule);
-    const rect = interpolateRects(timeInMs, slide2RectSchedule);
-    context.fillStyle = color;
-    context.fillRect(rect.x, rect.y, rect.width, rect.height);
+  show(options) {
+    for (const child of this.slideChildren!) child.show(options);
   },
 };
 
