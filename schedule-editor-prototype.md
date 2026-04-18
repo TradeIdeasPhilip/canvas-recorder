@@ -11,6 +11,7 @@ Let's not worry too much about future things like how to save and load these val
 ## Current Status
 
 ### Done
+
 - `ScheduleInfo` type in `showable.ts`: discriminated union on `type` ("string" | "color" | "number" | "rectangle" | "point"), each with a mutable `Keyframe<T>[]` schedule (editor can push/splice) and a `description`.
 - `schedules?: readonly ScheduleInfo[]` added to `Selectable`.
 - `interpolateColors(time, keyframes)` — time-based, replacing the old signature.
@@ -35,18 +36,31 @@ Let's not worry too much about future things like how to save and load these val
 - `Sort` button in section header re-sorts rows by time after manual edits.
 - 🗑 delete button per row; disabled when only one keyframe remains.
 - `showFrame` second parameter simplified from `"live" | "4k" | "hd"` to `boolean` (canvas size is now always fixed at 4K).
+- Add view and edit options for points. Rectangle editor works well, aside from the previous bullet point, this is similar.
 
 ### Next
+
+Short term:
+
 - Shift-drag to lock aspect ratio on rectangle corners.
+- `ease()` is missing. It should be an option next to `easeIn()` and `easeOut()`.
+
+Deferred:
+
 - Timeline strip: show keyframe times as draggable markers on a horizontal bar.
-- Allow dragging rectangle handles beyond the viewBox boundary.
-- Add view and edit options for points.  Rectangle editor works well, aside from the previous bullet point, this should be similar.
+  - The current solution works well.
+  - Return to this when I have my next voiceover to add.
+  - Or some complicated effect that needs to push the schedule editor harder.
+- Allow dragging rectangle or point handles beyond the viewBox boundary.
+  - The current solutions covers my current needs.
+  - This seems nice on general principal, but might not be urgent.
+  - The GUI for panning of the viewBox will need some minor cleanup, maybe at the same time.
 
 ## Schedule
 
 A schedule is a list of Keyframe<T> objects.
 This is a different type from the built in Keyframe type.
-However, my API was *inspired by* the standard Element.animate() API and it's Keyframe type.
+However, my API was _inspired by_ the standard Element.animate() API and it's Keyframe type.
 
 interpolate.ts has all the code for manipulating schedules.
 And see binary-search.ts if you need to insert items in a random order.
@@ -60,7 +74,7 @@ Maybe we need a `Schedule` type that is a non-read-only array of keyframes?
 There is no notification associated with a schedule change.
 On every frame the rendering code goes back to the schedule.
 None of the rendering is cached.
-(I often cache pure functions but I never try to cache screen output because that *never* works well.)
+(I often cache pure functions but I never try to cache screen output because that _never_ works well.)
 
 ## Data types
 
@@ -95,7 +109,7 @@ Don't put any constraints on the user.
 The user can see his results immediately and can decide if he likes the results or not.
 This lay can mostly ignore aspect ratio.
 
-This new code will *normalize* the rectangle.
+This new code will _normalize_ the rectangle.
 The user doesn't have to start at the top left corner.
 As you drag a corner might change from the left most to the right most.
 The user just drags, the main program just gets a normalized rectangle, this new code removes any friction.
@@ -124,15 +138,16 @@ It seems like CapCut has a common and reasonable framework for these types of de
 We can steal the high level structure from here.
 
 CapCut has 3 relevant pieces of GUI:
-* There is some sort of editor appropriate for each property.
-  * It knows what is object is selected, this would conform to a Showable.
-  * There are often a list of properties related to this object all listed one on top of the next (`Showable.schedules`).
-  * There are buttons to go to the next or previous keyframe for this property, and to delete the current keyframe.
-  * Those same buttons double as status indicators when they are disabled.
-* The timeline shows where the keyframes are.
-  * You can drag them on the time line to change their times.
-* The screen shows the results of your changes immediately.
-  * When appropriate you can drag things on the screen to rotate them.
+
+- There is some sort of editor appropriate for each property.
+  - It knows what is object is selected, this would conform to a Showable.
+  - There are often a list of properties related to this object all listed one on top of the next (`Showable.schedules`).
+  - There are buttons to go to the next or previous keyframe for this property, and to delete the current keyframe.
+  - Those same buttons double as status indicators when they are disabled.
+- The timeline shows where the keyframes are.
+  - You can drag them on the time line to change their times.
+- The screen shows the results of your changes immediately.
+  - When appropriate you can drag things on the screen to rotate them.
 
 It's not perfect but it seems like a good place to get started.
 
@@ -158,11 +173,11 @@ But where would you store that single value?
 You'd need a new place.
 
 I always require at least one keyframe in my list to read a value.
-I *hold* the first value in the list all the way back to -Infinity.
-And I *hold* the last value in the last all the way forward to +Infinity.
+I _hold_ the first value in the list all the way back to -Infinity.
+And I _hold_ the last value in the last all the way forward to +Infinity.
 So setting a single value means that all values
 
-Note:  In my *code* I often create empty schedules to start with.
+Note: In my _code_ I often create empty schedules to start with.
 I let a different part of the code fill that in.
 (A beautiful interface, perfect separation of concerns.)
 And it's easier for that second piece of code to start from an empty array.
@@ -172,10 +187,15 @@ The user will be working in a different model.
 He will be viewing the result while he is editing the schedule.
 So we have to always have at least one entry.
 
-Is this a problem?
+~~Is this a problem?
 I'm probably overthinking this.
 We could set the time of that one keyframe to be plus or minus Infinity to denote special states.
-I'm definitely overthinking this.
+I'm definitely overthinking this.~~
+Never mind.
+I was thinking of a quirk of the CupCut GUI.
+The current GUI is fine.
+Sometimes there is a single keyframe and it has a time field but the user can just ignore it.
+CapCut had a different mode for just a single value with no schedule vs a schedule with a single value.
 
 ## What does Keyframe<T>.time mean?
 
@@ -199,7 +219,7 @@ That would make a lot of things easier.
 E.g. why should I worry about the layout when the user can just use browser windows and tabs and virtual desktops to organize the data.
 
 This would allow much larger displays.
-This would allow lots of different types of displays, maybe that one *.html file that I only use in very special cases and most people don't need to see it, rather than one big GUI with every possible option in it.
+This would allow lots of different types of displays, maybe that one \*.html file that I only use in very special cases and most people don't need to see it, rather than one big GUI with every possible option in it.
 This would allow for different types of GUI tools; I'm usually afraid of adding any frameworks, but tools could be isolated.
 
 I'm imagining four browser windows, two showing the visual for my movie at different times, and two different schedule editors, allowing me to edit the data in different ways and instantly see the results in different ways.
@@ -215,8 +235,8 @@ We can currently edit values in keyframes.
 We need a way to edit the time in a keyframe.
 And we need a way to add and delete keyframes.
 
-Note:  ±Infinity is explicitly allowed for Keyframe.time.
-It isn't *required* because the first and last keyframe are automatically extended to ±Infinity.
+Note: ±Infinity is explicitly allowed for Keyframe.time.
+It isn't _required_ because the first and last keyframe are automatically extended to ±Infinity.
 But ±Infinity work with the rest of the code, and they are useful for the normal reasons, and I think I have used them in the code already.
 
 NaN is explicitly forbidden for Keyframe.time.
@@ -239,10 +259,40 @@ It would be jarring to rearrange the rows as a person was typing in an \<input> 
 Let's start simple for now:
 The header also has a sort button which will rearrange the rows on the screen to match the array.
 
-The row for each keyframe will include the time, which can be edited through an \<input>.  (Currently we are displaying it, but we need to edit it)
+The row for each keyframe will include the time, which can be edited through an \<input>. (Currently we are displaying it, but we need to edit it)
 There's also a button to copy the currently displayed time into this field (like I've done elsewhere on the page).
 
 Keyframes representing rectangles and points will exist in one of three states.
-* Normal / default -- show nothing on the canvas.  Only visible in the table.
-* Edit -- **At most one** keyframe can be in edit mode at a time. Show the editor on the canvas.  The current rectangle editor display is good for now.  But it was confusing when two keyframes were both visible at the same time.
-* View -- Make this visible on the canvas, but not editable.  Note:  The balls for the rectangles were sometimes overlapping and not all visible and that was confusing.  For view mode, please use the outline of a rectangle or fill rectangle with a partially transparent color.  (And make sure the edit markers are on top of these rectangles!)  Optimize the experience for the case where only a few things are visible at one, fewer than myRainbow.length.
+
+- Normal / default -- show nothing on the canvas. Only visible in the table.
+- Edit -- **At most one** keyframe can be in edit mode at a time. Show the editor on the canvas. The current rectangle editor display is good for now. But it was confusing when two keyframes were both visible at the same time.
+- View -- Make this visible on the canvas, but not editable. Note: The balls for the rectangles were sometimes overlapping and not all visible and that was confusing. For view mode, please use the outline of a rectangle or fill rectangle with a partially transparent color. (And make sure the edit markers are on top of these rectangles!) Optimize the experience for the case where only a few things are visible at one, fewer than myRainbow.length.
+
+## Appendix Ⅱ
+
+I love the new schedule editor but there is no way to save.
+
+Problem:
+Now that we can copy and paste back to the source code, how do we know which one to use?
+The latest from source because that's why we restarted?
+Exactly what we had last time because the restart was from something unrelated?
+Some merged version?
+
+Solution:
+We _always_ save the state to a database.
+(I forget the term, the web api that looks like a database, but for objects)
+We don't save if there were no changes (avoid spam) but otherwise keep a log of _everything_ we tried.
+
+I'm focused on when the page restarts, but it would be acceptable to save at other times, too.
+The way I use sessionStorage works well.
+It handles the exact cases I'm worried about now.
+Please use whatever event handlers the sessionStorage uses to decide when to save.
+
+We need a fairly simple GUI for loading from this database.
+
+- The default / starting state comes from the code and ignores the database.
+- It is easy to reload the last saved state. This is a common case.
+- Before loading you can see the date and time of the save.
+- You also have the option of seeing a list saves, showing a list of timestamps in the gui.
+- (Maybe you always see the list, and the program initially selects the most recent.)
+- If you try to load from the database, it first checks the dirty flag, and if you have unsaved changes it automatically saves them.

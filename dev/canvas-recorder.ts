@@ -841,6 +841,13 @@ const nextButton = getById("nextButton", HTMLButtonElement);
 
 const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 const showEditorCheckbox = getById("showEditor", HTMLInputElement);
+const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);
+const saveScheduleNowBtn = getById("saveScheduleNowBtn", HTMLButtonElement);
+const scheduleHistorySelect = getById(
+  "scheduleHistorySelect",
+  HTMLSelectElement,
+);
+const loadScheduleBtn = getById("loadScheduleBtn", HTMLButtonElement);
 
 // MARK: Rect marker drag state
 type RectKf = Keyframe<ReadOnlyRect>;
@@ -862,6 +869,24 @@ let draggingMarker: {
   startLogicalY: number;
   startRect: ReadOnlyRect;
 } | null = null;
+
+// MARK: Point marker drag state
+type PointKf = Keyframe<{ x: number; y: number }>;
+
+/** The single point keyframe currently in "edit" mode. At most one at a time. */
+let editingPointKf: PointKf | null = null;
+
+/** Point keyframes in "view" mode (shown as small circles on canvas). */
+const viewingPointKfs = new Set<PointKf>();
+
+/** Maps each point keyframe to a callback that syncs the editor inputs when a drag changes the value. */
+const pointSyncCallbacks = new Map<
+  PointKf,
+  (pt: { x: number; y: number }) => void
+>();
+
+/** The point keyframe currently being dragged. */
+let draggingPoint: PointKf | null = null;
 
 /**
  * Change the GUI to match the current section.
@@ -987,6 +1012,180 @@ addEventListener("pagehide", (event) => {
 
 type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
 
+// MARK: Schedule persistence (IndexedDB)
+
+const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
+
+type SerializedKf = { time: number; value: unknown; easeAfter?: string };
+type SerializedSchedule = {
+  description: string;
+  type: string;
+  keyframes: SerializedKf[];
+};
+type HistoryEntry = { timestamp: number; schedules: SerializedSchedule[] };
+type HistoryRecord = { selectableKey: string; entries: HistoryEntry[] };
+
+const MAX_HISTORY_ENTRIES = 20;
+
+function openScheduleDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open("canvas-recorder-schedules", 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore("history", { keyPath: "selectableKey" });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function readHistory(key: string): Promise<HistoryRecord | undefined> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("history", "readonly");
+    const req = tx.objectStore("history").get(key);
+    req.onsuccess = () => resolve(req.result as HistoryRecord | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writeHistory(
+  key: string,
+  entries: HistoryEntry[],
+): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("history", "readwrite");
+    tx.objectStore("history").put({ selectableKey: key, entries });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+function easeName(fn: ((t: number) => number) | undefined): string | undefined {
+  if (!fn) return undefined;
+  if (fn === easeIn) return "easeIn";
+  if (fn === easeOut) return "easeOut";
+  return "hold";
+}
+
+function easeFromName(
+  name: string | undefined,
+): ((t: number) => number) | undefined {
+  if (name === "easeIn") return easeIn;
+  if (name === "easeOut") return easeOut;
+  if (name === "hold") return (t) => (t < 1 ? 0 : 1);
+  return undefined;
+}
+
+function serializeSchedules(
+  schedules: readonly ScheduleInfo[],
+): SerializedSchedule[] {
+  return schedules.map((info) => ({
+    description: info.description,
+    type: info.type,
+    keyframes: info.schedule.map((kf) => {
+      const entry: SerializedKf = { time: kf.time, value: kf.value };
+      const name = easeName(kf.easeAfter);
+      if (name) entry.easeAfter = name;
+      return entry;
+    }),
+  }));
+}
+
+function applySnapshot(
+  schedules: readonly ScheduleInfo[],
+  snapshot: SerializedSchedule[],
+) {
+  for (const serialized of snapshot) {
+    const live = schedules.find(
+      (s) =>
+        s.description === serialized.description && s.type === serialized.type,
+    );
+    if (!live) continue;
+    const liveArr = live.schedule as unknown[];
+    liveArr.length = 0;
+    for (const skf of serialized.keyframes) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const kf: any = { time: skf.time, value: skf.value };
+      const fn = easeFromName(skf.easeAfter);
+      if (fn) kf.easeAfter = fn;
+      liveArr.push(kf);
+    }
+  }
+}
+
+function selectableKey(selectable: Selectable): string {
+  return `${toShowKey}|${selectable.description}`;
+}
+
+/** Reads history from IndexedDB and repopulates the history <select>. */
+async function refreshHistoryUI(selectable: Selectable) {
+  const record = await readHistory(selectableKey(selectable));
+  const entries = record?.entries ?? [];
+  scheduleHistorySelect.replaceChildren();
+  if (entries.length === 0) {
+    scheduleHistorySelect.hidden = true;
+    loadScheduleBtn.hidden = true;
+  } else {
+    scheduleHistorySelect.hidden = false;
+    loadScheduleBtn.hidden = false;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const opt = document.createElement("option");
+      opt.value = String(i);
+      opt.textContent = new Date(entries[i].timestamp).toLocaleString();
+      scheduleHistorySelect.append(opt);
+    }
+  }
+}
+
+/** Saves current schedule state to IndexedDB. */
+async function saveScheduleState(selectable: Selectable) {
+  if (!selectable.schedules?.length) return;
+  const key = selectableKey(selectable);
+  const record = await readHistory(key);
+  const entries = record?.entries ?? [];
+  entries.push({
+    timestamp: Date.now(),
+    schedules: serializeSchedules(selectable.schedules),
+  });
+  while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+  await writeHistory(key, entries);
+  await refreshHistoryUI(selectable);
+}
+
+/** Returns the Selectable for the currently selected section (if it has schedules). */
+function currentSelectable(): Selectable | null {
+  const selectable = debug[select.selectedIndex]?.selectable;
+  return selectable?.schedules?.length ? selectable : null;
+}
+
+saveScheduleNowBtn.addEventListener("click", () => {
+  const selectable = currentSelectable();
+  if (selectable) saveScheduleState(selectable);
+});
+
+loadScheduleBtn.addEventListener("click", () => {
+  const selectable = currentSelectable();
+  if (!selectable) return;
+  const index = parseInt(scheduleHistorySelect.value, 10);
+  readHistory(selectableKey(selectable)).then((record) => {
+    const entry = record?.entries[index];
+    if (!entry) return;
+    applySnapshot(selectable.schedules!, entry.schedules);
+    updateScheduleEditor(selectable);
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+  });
+});
+
+function saveOnUnload() {
+  const selectable = currentSelectable();
+  if (selectable) saveScheduleState(selectable);
+}
+window.addEventListener("beforeunload", saveOnUnload);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveOnUnload();
+});
+
 showEditorCheckbox.addEventListener("change", () => {
   scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
 });
@@ -1096,6 +1295,13 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
         if (!kfSet.has(kf)) viewingRectKfs.delete(kf);
       }
     }
+    if (info.type === "point") {
+      const kfSet = new Set(info.schedule as PointKf[]);
+      if (editingPointKf && !kfSet.has(editingPointKf)) editingPointKf = null;
+      for (const kf of viewingPointKfs) {
+        if (!kfSet.has(kf)) viewingPointKfs.delete(kf);
+      }
+    }
     section.replaceWith(buildScheduleSection(info));
     showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   }
@@ -1113,14 +1319,22 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     const t = localTimeMs();
     let value: unknown;
     if (info.type === "color") value = interpolateColors(t, info.schedule);
-    else if (info.type === "number") value = interpolateNumbers(t, info.schedule);
-    else if (info.type === "rectangle") value = interpolateRects(t, info.schedule);
+    else if (info.type === "number")
+      value = interpolateNumbers(t, info.schedule);
+    else if (info.type === "rectangle")
+      value = interpolateRects(t, info.schedule);
     else if (info.type === "point") value = interpolatePoints(t, info.schedule);
     else value = discreteKeyframes(t, info.schedule);
     const insertAt = info.schedule.findIndex((kf) => kf.time > t);
     const newKf = { time: t, value } as (typeof info.schedule)[number];
-    if (insertAt === -1) (info.schedule as (typeof info.schedule)[number][]).push(newKf);
-    else (info.schedule as (typeof info.schedule)[number][]).splice(insertAt, 0, newKf);
+    if (insertAt === -1)
+      (info.schedule as (typeof info.schedule)[number][]).push(newKf);
+    else
+      (info.schedule as (typeof info.schedule)[number][]).splice(
+        insertAt,
+        0,
+        newKf,
+      );
     rebuild();
   }
 
@@ -1136,7 +1350,9 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   sortBtn.textContent = "Sort";
   sortBtn.title = "Re-sort rows by time";
   sortBtn.addEventListener("click", () => {
-    (info.schedule as (typeof info.schedule)[number][]).sort((a, b) => a.time - b.time);
+    (info.schedule as (typeof info.schedule)[number][]).sort(
+      (a, b) => a.time - b.time,
+    );
     rebuild();
   });
   const copyBtn = document.createElement("button");
@@ -1154,7 +1370,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   const headerRow = thead.insertRow();
   const valueHeaders =
     info.type === "point"
-      ? ["x", "y"]
+      ? ["x", "y", "Canvas"]
       : info.type === "rectangle"
         ? ["x", "y", "width", "height", "Canvas"]
         : ["Value"];
@@ -1203,7 +1419,11 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       const cell = row.insertCell();
       const input = document.createElement("input");
       input.type = "color";
-      try { input.value = cssColorToHex(colorKf.value); } catch { /**/ }
+      try {
+        input.value = cssColorToHex(colorKf.value);
+      } catch {
+        /**/
+      }
       input.addEventListener("input", () => {
         colorKf.value = input.value;
         showFrame(currentTimeMs(), true);
@@ -1229,18 +1449,60 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       });
       cell.append(input);
     } else if (info.type === "point") {
-      const ptKf = kf as Keyframe<{ x: number; y: number }>;
+      const ptKf = kf as PointKf;
+      const fieldInputs: { x?: HTMLInputElement; y?: HTMLInputElement } = {};
       for (const coord of ["x", "y"] as const) {
-        row.insertCell().append(
-          buildNumericInput(ptKf.value[coord], (n) => {
-            ptKf.value = { ...ptKf.value, [coord]: n };
-            showFrame(currentTimeMs(), true);
-          }),
-        );
+        const input = buildNumericInput(ptKf.value[coord], (n) => {
+          ptKf.value = { ...ptKf.value, [coord]: n };
+          showFrame(currentTimeMs(), true);
+        });
+        fieldInputs[coord] = input;
+        row.insertCell().append(input);
       }
+      pointSyncCallbacks.set(ptKf, (pt) => {
+        fieldInputs.x!.valueAsNumber = pt.x;
+        fieldInputs.y!.valueAsNumber = pt.y;
+      });
+
+      const canvasCell = row.insertCell();
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.textContent = "👁";
+      viewBtn.title = "Show on canvas";
+      if (viewingPointKfs.has(ptKf)) viewBtn.classList.add("active");
+      viewBtn.addEventListener("click", () => {
+        if (viewingPointKfs.has(ptKf)) {
+          viewingPointKfs.delete(ptKf);
+          viewBtn.classList.remove("active");
+        } else {
+          viewingPointKfs.add(ptKf);
+          viewBtn.classList.add("active");
+        }
+        showFrame(currentTimeMs(), true);
+      });
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "✎";
+      editBtn.title = "Edit on canvas";
+      editBtn.classList.add("edit-btn");
+      if (editingPointKf === ptKf) editBtn.classList.add("active");
+      editBtn.addEventListener("click", () => {
+        const wasEditing = editingPointKf === ptKf;
+        section
+          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
+          .forEach((b) => b.classList.remove("active"));
+        editingPointKf = wasEditing ? null : ptKf;
+        if (editingPointKf) editBtn.classList.add("active");
+        showFrame(currentTimeMs(), true);
+      });
+
+      canvasCell.append(viewBtn, "\u00a0", editBtn);
     } else if (info.type === "rectangle") {
       const rectKf = kf as RectKf;
-      const fieldInputs: Partial<Record<"x" | "y" | "width" | "height", HTMLInputElement>> = {};
+      const fieldInputs: Partial<
+        Record<"x" | "y" | "width" | "height", HTMLInputElement>
+      > = {};
       for (const field of ["x", "y", "width", "height"] as const) {
         const input = buildNumericInput(rectKf.value[field], (n) => {
           rectKf.value = { ...rectKf.value, [field]: n };
@@ -1280,7 +1542,8 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       if (editingRectKf === rectKf) editBtn.classList.add("active");
       editBtn.addEventListener("click", () => {
         const wasEditing = editingRectKf === rectKf;
-        section.querySelectorAll<HTMLButtonElement>("button.edit-btn")
+        section
+          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
           .forEach((b) => b.classList.remove("active"));
         editingRectKf = wasEditing ? null : rectKf;
         if (editingRectKf) editBtn.classList.add("active");
@@ -1318,15 +1581,22 @@ function updateScheduleEditor(selectable: Selectable) {
   editingRectKf = null;
   viewingRectKfs.clear();
   markerSyncCallbacks.clear();
+  editingPointKf = null;
+  viewingPointKfs.clear();
+  pointSyncCallbacks.clear();
+  draggingPoint = null;
   const schedules = selectable.schedules;
   if (!schedules?.length) {
     showEditorCheckbox.disabled = true;
     showEditorCheckbox.checked = false;
     scheduleEditorFieldset.hidden = true;
+    scheduleHistoryControls.hidden = true;
     return;
   }
   showEditorCheckbox.disabled = false;
   scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
+  scheduleHistoryControls.hidden = false;
+  refreshHistoryUI(selectable);
   for (const info of schedules) {
     scheduleEditorFieldset.append(buildScheduleSection(info));
   }
@@ -1364,7 +1634,13 @@ function rectHandlePositions(
 }
 
 function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
-  if (!editingRectKf && viewingRectKfs.size === 0) return;
+  if (
+    !editingRectKf &&
+    viewingRectKfs.size === 0 &&
+    !editingPointKf &&
+    viewingPointKfs.size === 0
+  )
+    return;
   ctx.save();
 
   // View-mode rects: semi-transparent fill + stroke, drawn first (behind handles)
@@ -1376,6 +1652,19 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     ctx.fillStyle = "rgba(52, 152, 219, 0.2)";
     ctx.fillRect(x, y, width, height);
     ctx.strokeRect(x, y, width, height);
+  }
+
+  // View-mode points: small blue circle
+  for (const kf of viewingPointKfs) {
+    if (kf === editingPointKf) continue;
+    const { x, y } = kf.value;
+    ctx.beginPath();
+    ctx.arc(x, y, 0.15, 0, 2 * Math.PI);
+    ctx.fillStyle = "rgba(52, 152, 219, 0.5)";
+    ctx.fill();
+    ctx.strokeStyle = "#3498db";
+    ctx.lineWidth = 0.04;
+    ctx.stroke();
   }
 
   // Edit-mode: rect outline + drag handles on top
@@ -1401,6 +1690,30 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     }
   }
 
+  // Edit-mode point: red circle with crosshair
+  if (editingPointKf) {
+    const { x, y } = editingPointKf.value;
+    const active = draggingPoint === editingPointKf;
+    const RADIUS = active ? 0.25 : 0.2;
+    ctx.beginPath();
+    ctx.arc(x, y, RADIUS, 0, 2 * Math.PI);
+    ctx.fillStyle = active ? "white" : "#e74c3c";
+    ctx.fill();
+    ctx.strokeStyle = "#e74c3c";
+    ctx.lineWidth = 0.04;
+    ctx.stroke();
+    // crosshair
+    const ARM = RADIUS * 0.8;
+    ctx.beginPath();
+    ctx.moveTo(x - ARM, y);
+    ctx.lineTo(x + ARM, y);
+    ctx.moveTo(x, y - ARM);
+    ctx.lineTo(x, y + ARM);
+    ctx.strokeStyle = active ? "#e74c3c" : "white";
+    ctx.lineWidth = 0.035;
+    ctx.stroke();
+  }
+
   ctx.restore();
 }
 
@@ -1417,6 +1730,22 @@ function hitTestMarker(logX: number, logY: number) {
     }
   }
   return null;
+}
+
+function hitTestPointMarker(logX: number, logY: number): PointKf | null {
+  if (!editingPointKf) return null;
+  const HIT_RADIUS = 0.3;
+  const { x, y } = editingPointKf.value;
+  const dx = logX - x;
+  const dy = logY - y;
+  return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS ? editingPointKf : null;
+}
+
+function applyPointDrag(logX: number, logY: number) {
+  if (!draggingPoint) return;
+  draggingPoint.value = { x: logX, y: logY };
+  pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
+  showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
 function applyMarkerDrag(logX: number, logY: number) {
@@ -1546,6 +1875,12 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
     };
     return;
   }
+  const hitPt = hitTestPointMarker(logical.x, logical.y);
+  if (hitPt) {
+    canvas.setPointerCapture(pointerEvent.pointerId);
+    draggingPoint = hitPt;
+    return;
+  }
   canvas.setPointerCapture(pointerEvent.pointerId);
   isDragging = true;
   dragStartClientX = pointerEvent.clientX;
@@ -1557,11 +1892,17 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   if (pointerEvent.buttons === 0) {
     isDragging = false;
     draggingMarker = null;
+    draggingPoint = null;
     return;
   }
   if (draggingMarker) {
     const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
     applyMarkerDrag(logical.x, logical.y);
+    return;
+  }
+  if (draggingPoint) {
+    const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
+    applyPointDrag(logical.x, logical.y);
     return;
   }
   if (isDragging) {
@@ -1575,10 +1916,12 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
 canvas.addEventListener("pointerup", () => {
   isDragging = false;
   draggingMarker = null;
+  draggingPoint = null;
 });
 canvas.addEventListener("pointercancel", () => {
   isDragging = false;
   draggingMarker = null;
+  draggingPoint = null;
 });
 
 getById("recordJustSound", HTMLButtonElement).addEventListener(
