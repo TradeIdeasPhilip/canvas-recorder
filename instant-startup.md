@@ -300,7 +300,7 @@ I.e. I can select a tool from a palette and I can drag a rectangle on the screen
 There is some simple, well defined interface for adding code to that list.
 
 The exact details of the interface will look a lot like a standard video editor timeline.
-Where CapCut lets me add text, video clips, sound clips, animated gifs and a finite number of other things, I want to turn that into an interface or API.
+Where CapCut lets me add text, video clips, sound clips, animated gif's and a finite number of other things, I want to turn that into an interface or API.
 I want to add my own code.
 Otherwise, this is just another timeline object.
 It will include:

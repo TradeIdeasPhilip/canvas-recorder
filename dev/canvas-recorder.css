@@ -12,7 +12,6 @@
   width: 3840px;
   height: 2160px;
   transform-origin: 0 0;
-  image-rendering: pixelated;
   cursor: grab;
 }
 
