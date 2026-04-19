@@ -45,7 +45,10 @@ import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
 import { strokeColorsTest } from "../src/stroke-colors-test.ts";
 import { createNineShapesComponent, shadowTest } from "../src/shadow-test.ts";
-import { createRectangleComponent } from "../src/slide-components.ts";
+import {
+  createFunctionGraphComponent,
+  createRectangleComponent,
+} from "../src/slide-components.ts";
 
 /**
  * Maps URL `?toShow=` keys to available video options.
@@ -1636,6 +1639,8 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
 /** Registry of component factories available in the "Add" dropdown. */
 const componentRegistry = new Map<string, () => Showable>([
   ["Rectangle", () => createRectangleComponent()],
+  ["Function Graph (sin)", () => createFunctionGraphComponent()],
+  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
   ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
 ]);
 

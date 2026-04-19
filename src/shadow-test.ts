@@ -334,7 +334,7 @@ const FILL_FOR_ROW = [
  */
 export function createNineShapesComponent(): Showable {
   const layoutSchedule: Keyframe<ReadOnlyRect>[] = [
-    { time: 0, value: { x: 0, y: 0, width: 16, height: 9 } },
+    { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
   ];
   return {
     description: "Nine Shapes",
