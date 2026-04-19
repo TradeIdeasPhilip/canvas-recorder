@@ -1924,6 +1924,112 @@ export function makeLineFontMap(
     ).pathShape;
     add("◯", shape, advance);
   }
+  // MARK: ○ (white circle) — slightly smaller than ◯, centered in cap height
+  {
+    const advance = aWidth;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2;
+    const shape = PathBuilder.M(radius, center_y - radius).circle(
+      radius,
+      center_y,
+      "cw",
+    ).pathShape;
+    add("○", shape, advance);
+  }
+  // MARK: ◎ (bullseye) — concentric double circle, same footprint as ○
+  {
+    const advance = aWidth;
+    const outerRadius = advance / 2;
+    const innerRadius = outerRadius * 0.45;
+    const center_y = capitalTop / 2;
+    const shape = PathBuilder.M(outerRadius, center_y - outerRadius)
+      .circle(outerRadius, center_y, "cw")
+      .M(outerRadius, center_y - innerRadius)
+      .circle(outerRadius, center_y, "cw").pathShape;
+    add("◎", shape, advance);
+  }
+  // MARK: ⚬ (medium small white circle) — half of cap height, centered in cap height
+  {
+    const advance = digitWidth;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2;
+    const shape = PathBuilder.M(radius, center_y - radius).circle(
+      radius,
+      center_y,
+      "cw",
+    ).pathShape;
+    add("⚬", shape, advance);
+  }
+  // MARK: ◦ (white bullet) — same radius as ⚬, but centered in x-height region
+  {
+    const radius = digitWidth / 2;
+    const advance = digitWidth;
+    const center_y = capitalMiddle / 2;
+    const shape = PathBuilder.M(radius, center_y - radius).circle(
+      radius,
+      center_y,
+      "cw",
+    ).pathShape;
+    add("◦", shape, advance);
+  }
+  // MARK: ∘ (ring operator) — small, centered in x-height region
+  {
+    const radius = digitWidth / 4;
+    const advance = digitWidth / 2;
+    const center_y = capitalMiddle / 2;
+    const shape = PathBuilder.M(radius, center_y - radius).circle(
+      radius,
+      center_y,
+      "cw",
+    ).pathShape;
+    add("∘", shape, advance);
+  }
+  // Fill a circle solid by stroking concentric rings spaced strokeWidth apart.
+  // Rings at sw/2, 3·sw/2, 5·sw/2, … fill from the centre out to outerRadius.
+  function blackCircle(cx: number, cy: number, outerRadius: number): PathShape {
+    const sw = strokeWidth;
+    const b = PathBuilder.M(cx, cy - sw / 2).circle(cx, cy, "cw");
+    for (let r = sw * 1.5; r <= outerRadius; r += sw) {
+      b.M(cx, cy - r);
+      b.circle(cx, cy, "cw");
+    }
+    return b.pathShape;
+  }
+  // MARK: ⬤ (black large circle) — filled ◯
+  {
+    const advance = -capitalTop;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2;
+    add("⬤", blackCircle(radius, center_y, radius), advance);
+  }
+  // MARK: ● (black circle) — filled ○
+  {
+    const advance = aWidth;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2;
+    add("●", blackCircle(radius, center_y, radius), advance);
+  }
+  // MARK: ⚫ (medium black circle) — filled ⚬
+  {
+    const advance = digitWidth;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2;
+    add("⚫", blackCircle(radius, center_y, radius), advance);
+  }
+  // MARK: • (bullet) — filled ◦, centred
+  {
+    const radius = digitWidth / 2;
+    const advance = digitWidth;
+    const center_y = capitalMiddle ;
+    add("•", blackCircle(radius, center_y, radius), advance);
+  }
+  // MARK: ∙ (bullet operator) — filled ∘, centred
+  {
+    const radius = digitWidth / 4;
+    const advance = digitWidth / 2;
+    const center_y = capitalMiddle ;
+    add("∙", blackCircle(radius, center_y, radius), advance);
+  }
   // MARK: ◠ (upper half circle)
   {
     const advance = -capitalTop;

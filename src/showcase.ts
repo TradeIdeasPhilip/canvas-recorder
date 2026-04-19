@@ -1042,7 +1042,7 @@ What the hand, dare sieze the fire?`);
     readonly indent: number;
     readonly bullet: string;
   }[] = [
-    { font: makeLineFont(0.44), indent: 0.0, bullet: "◯ " },
+    { font: makeLineFont(0.44), indent: 0.0, bullet: "• " },
     { font: makeLineFont(0.33), indent: 0.9, bullet: "- " },
     { font: makeLineFont(0.25), indent: 1.8, bullet: "* " },
   ];
