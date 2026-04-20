@@ -2298,6 +2298,21 @@ export function makeLineFontMap(
     ]);
     add("π", shape, advance);
   }
+  /*
+  // MARK: φ Greek small letter phi — circle with vertical line through centre
+  {
+    const advance = aWidth;
+    const center_x = advance / 2;
+    const radius = advance / 2;
+    const center_y = capitalTop / 2; // midpoint of cap height = capitalMiddle
+    const tipHeight = fontMetrics.mHeight / 8;
+    const shape = PathBuilder.M(center_x, center_y - radius)
+      .circle(center_x, center_y, "cw")
+      .M(center_x, capitalTop - tipHeight)
+      .V(baseline + tipHeight).pathShape;
+    add("φ", shape, advance);
+  }
+  */
   // MARK: ∑ Summation
   {
     const advance = digitWidth;
@@ -2319,6 +2334,55 @@ export function makeLineFontMap(
       new LCommand(left, bottom, advance, bottom),
     ]);
     add("∑", shape, advance);
+  }
+  // MARK: φ Phi
+  {
+    const flatWidth = strokeWidth * 2;
+    const advance = digitWidth + flatWidth;
+    const flatStart = digitWidth / 2;
+    const flatEnd = flatStart + flatWidth;
+    /**
+     * "Center" is always horizontal.  "Left, center, right"
+     */
+    const center = advance / 2;
+    const shape = new PathShape([
+      new LCommand(flatStart, capitalMiddle, flatEnd, capitalMiddle),
+      QCommand.controlPoints(
+        flatEnd,
+        capitalMiddle,
+        advance,
+        capitalMiddle,
+        advance,
+        capitalBottomMiddle,
+      ),
+      QCommand.controlPoints(
+        advance,
+        capitalBottomMiddle,
+        advance,
+        baseline,
+        flatEnd,
+        baseline,
+      ),
+      new LCommand(flatEnd, baseline, flatStart, baseline),
+      QCommand.controlPoints(
+        flatStart,
+        baseline,
+        left,
+        baseline,
+        left,
+        capitalBottomMiddle,
+      ),
+      QCommand.controlPoints(
+        left,
+        capitalBottomMiddle,
+        left,
+        capitalMiddle,
+        flatStart,
+        capitalMiddle,
+      ),
+      new LCommand(center, capitalMiddle - descender, center, descender),
+    ]);
+    add("φ", shape, advance);
   }
   // Sort the map by key.
   return new Map(
