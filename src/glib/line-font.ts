@@ -1,10 +1,12 @@
 import {
   assertNonNullable,
+  FULL_CIRCLE,
   initializedArray,
   makeBoundedLinear,
   NON_BREAKING_SPACE,
   pickAny,
   polarToRectangular,
+  radiansPerDegree,
 } from "phil-lib/misc";
 import { Font, FontMetrics } from "./letters-base";
 import { PathShape, PathBuilder, LCommand, QCommand } from "./path-shape";
@@ -720,6 +722,20 @@ export function makeLineFontMap(
         .Q_VH(center, bottom)
         .H((rightCenter + right) / 2).pathShape;
       add("@", shape, advance);
+    }
+    {
+      // MARK: θ Theta
+      // Copied from "0"
+      const shape = PathBuilder.M(center, capitalTop)
+        .Q(right, capitalTop, right, capitalTopMiddle)
+        .L(right, capitalBottomMiddle)
+        .Q(right, baseline, center, baseline)
+        .Q(left, baseline, left, capitalBottomMiddle)
+        .L(left, capitalTopMiddle)
+        .Q(left, capitalTop, center, capitalTop)
+        .M(right, capitalMiddle)
+        .L(left, capitalMiddle).pathShape;
+      add("θ", shape, advance);
     }
     {
       // MARK: 0
@@ -2383,6 +2399,34 @@ export function makeLineFontMap(
       new LCommand(center, capitalMiddle - descender, center, descender),
     ]);
     add("φ", shape, advance);
+  }
+  // MARK: ∞ Infinity
+  {
+    // Left to right we have 3/4 of a circle, and x, and another 3/4 of a circle.
+    const bottom = capitalMiddle / 4;
+    const top = capitalMiddle;
+    /**
+     * "Middle" is always vertical.
+     * "Top, middle, bottom"
+     */
+    const middle = (top + bottom) / 2;
+    const radius = (bottom - top) / 2;
+    /**
+     * "Center" is always horizontal.  "Left, center, right"
+     */
+    const xLeft = radius + radius * Math.SQRT1_2;
+    const xRight = xLeft + radius * Math.SQRT2;
+    const center = (xLeft + xRight) / 2;
+    const advance = center * 2;
+    const xTop = middle - radius * Math.SQRT1_2;
+    const xBottom = middle + radius * Math.SQRT1_2;
+    const shape = PathBuilder.M(xLeft, xTop)
+      .L(xRight, xBottom)
+      .arc(advance - radius, middle, xRight, xTop, "ccw")
+      .L(xLeft, xBottom)
+      .arc(radius, middle, xLeft, xTop, "cw").pathShape;
+    console.log(shape.dump(), shape.rawPath);
+    add("∞", shape, advance);
   }
   // Sort the map by key.
   return new Map(
