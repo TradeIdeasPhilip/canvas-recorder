@@ -373,7 +373,7 @@ export function makeLineFontMap(
       }
         */
   }
-  // MARK: < and >
+  // MARK: < > ≤ ≥
   {
     const sideLength = digitWidth;
     const advance = (sideLength / 2) * Math.sqrt(3);
@@ -395,6 +395,24 @@ export function makeLineFontMap(
       new PathShape([
         QCommand.line4(left, top, right, middle),
         QCommand.line4(right, middle, left, bottom),
+      ]),
+      advance,
+    );
+    add(
+      "≤",
+      new PathShape([
+        QCommand.line4(right, top, left, middle),
+        QCommand.line4(left, middle, right, bottom),
+        new LCommand(left, baseline, advance, baseline),
+      ]),
+      advance,
+    );
+    add(
+      "≥",
+      new PathShape([
+        QCommand.line4(left, top, right, middle),
+        QCommand.line4(right, middle, left, bottom),
+        new LCommand(left, baseline, advance, baseline),
       ]),
       advance,
     );
@@ -515,7 +533,13 @@ export function makeLineFontMap(
         .Q_angles(x4, middle, dNorthEast).pathShape;
       //shape.dump();
       add("~", shape, advance);
-      //≈ Almost equal to.
+      // MARK: ≈ Almost equal to.
+      const offset = strokeWidth * 1.25;
+      const doubleShape = PathShape.join([
+        { shape, Δx: 0, Δy: -offset },
+        { shape, Δx: 0, Δy: offset },
+      ]);
+      add("≈", doubleShape, advance);
     }
     {
       // MARK: +
@@ -2273,6 +2297,28 @@ export function makeLineFontMap(
       ),
     ]);
     add("π", shape, advance);
+  }
+  // MARK: ∑ Summation
+  {
+    const advance = digitWidth;
+    /**
+     * "Center" is always horizontal.  "Left, center, right"
+     */
+    const center = (advance * 3) / 5;
+    const top = capitalTop;
+    const bottom = descender;
+    /**
+     * "Middle" is always vertical.
+     * "Top, middle, bottom"
+     */
+    const middle = (top + bottom) / 2;
+    const shape = new PathShape([
+      new LCommand(advance, top, left, top),
+      new LCommand(left, top, center, middle),
+      new LCommand(center, middle, left, bottom),
+      new LCommand(left, bottom, advance, bottom),
+    ]);
+    add("∑", shape, advance);
   }
   // Sort the map by key.
   return new Map(

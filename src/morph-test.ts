@@ -289,7 +289,6 @@ if (false) {
   );
   const period = 5000;
   const easingKeyframes: Keyframes<number> = [
-    { time: 0, value: 0 },
     { time: period * 0.125, value: 0, easeAfter: ease },
     { time: period * 0.5, value: 1 },
     { time: period * 0.625, value: 1, easeAfter: ease },

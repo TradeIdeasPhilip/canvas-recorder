@@ -63,6 +63,18 @@ const margin = 0.25;
  */
 const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
+/**
+ * Default pre-roll: how long to hold a slide before the main action begins.
+ * Gives the viewer a moment to orient before anything moves.
+ */
+const DEFAULT_PRE_ROLL_MS = 1_500;
+
+/**
+ * Default post-roll: how long to hold a slide after the main action ends.
+ * Gives the viewer a moment to absorb the final state before the cut.
+ */
+const DEFAULT_POST_ROLL_MS = 2_000;
+
 const sceneList = new MakeShowableInSeries("Scene List");
 {
   const scene = new MakeShowableInParallel("Simple Text & Layout");
@@ -268,7 +280,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const scene = new MakeShowableInParallel("Font Samples");
 
   const FONT_SIZE = 0.35;
-  const PAN_START_MS = 1_500;
+  const PAN_START_MS = DEFAULT_PRE_ROLL_MS;
   const PAN_END_MS = 30_000;
   const SCENE_DURATION = PAN_END_MS + 5_000;
   const BOLD_FACTOR = 2;
@@ -1149,7 +1161,7 @@ What the hand, dare sieze the fire?`);
         }
       });
     }
-    const TOTAL_DURATION = 5 * HOLD_MS + 4 * TRANS_MS + 2_000; // ≈21 s
+    const TOTAL_DURATION = 5 * HOLD_MS + 4 * TRANS_MS + DEFAULT_POST_ROLL_MS; // ≈21 s
 
     // ── Handwriting schedule (loops for the full slide duration) ──────────
     const PAUSE_MS = 500;   // brief pause before and after each write
@@ -1885,7 +1897,7 @@ What the hand, dare sieze the fire?`);
 
   const showable: Showable = {
     description: "Outline slide",
-    duration: handwritingSchedule.at(-1)!.time + 2_000,
+    duration: handwritingSchedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "round";
