@@ -544,8 +544,10 @@ export function makeLineFontMap(
        * So if you have two of these in a row, they should touch.
        */
       const advance = width - fontMetrics.defaultKerning;
-      const shape= new PathShape([new LCommand(left, capitalMiddle, left+width, capitalMiddle)])
-      add ("—", shape, advance);
+      const shape = new PathShape([
+        new LCommand(left, capitalMiddle, left + width, capitalMiddle),
+      ]);
+      add("—", shape, advance);
     }
     {
       // MARK: ±
@@ -2034,14 +2036,14 @@ export function makeLineFontMap(
   {
     const radius = digitWidth / 2;
     const advance = digitWidth;
-    const center_y = capitalMiddle ;
+    const center_y = capitalMiddle;
     add("•", blackCircle(radius, center_y, radius), advance);
   }
   // MARK: ∙ (bullet operator) — filled ∘, centred
   {
     const radius = digitWidth / 4;
     const advance = digitWidth / 2;
-    const center_y = capitalMiddle ;
+    const center_y = capitalMiddle;
     add("∙", blackCircle(radius, center_y, radius), advance);
   }
   // MARK: ◠ (upper half circle)
@@ -2246,6 +2248,31 @@ export function makeLineFontMap(
       );
     });
     add("⭒", new PathShape(curves), translation.advance); // WHITE SMALL STAR
+  }
+  // MARK: π Greek small letter pi
+  {
+    /**
+     * Same as capital N.
+     */
+    const advance = digitWidth * 1.2;
+    const offset = advance / 4;
+    const shape = new PathShape([
+      // Top
+      new LCommand(left, capitalMiddle, advance, capitalMiddle),
+      // Left
+      new LCommand(offset, capitalMiddle, offset, baseline),
+      // Right
+      new LCommand(advance - offset, capitalMiddle, advance - offset, -offset),
+      QCommand.controlPoints(
+        advance - offset,
+        -offset,
+        advance - offset,
+        baseline,
+        advance,
+        baseline,
+      ),
+    ]);
+    add("π", shape, advance);
   }
   // Sort the map by key.
   return new Map(

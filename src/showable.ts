@@ -17,6 +17,19 @@ export type Selectable = {
    * This can be +Infinity.
    * That could be a problem when saving to a file.
    * That can be overridden by MakeShowableInParallel.
+   *
+   * **duration = 0 in a series vs. in parallel:**
+   * - In a `MakeShowableInParallel` group, duration=0 is fine — the group's
+   *   total duration is the max of all children, so a 0-duration child just
+   *   runs for whatever time the other children require.  Use this for
+   *   backgrounds, title overlays, and any other layer that should last as
+   *   long as the container.
+   * - In a `MakeShowableInSeries` group (or directly in the scene list),
+   *   duration=0 means the item contributes nothing to the timeline.  The GUI
+   *   hides it to reduce clutter (the assumption is that duration=0 marks a
+   *   disabled item).  Give such an item a nonzero duration — or use
+   *   `reserve()` on the enclosing `MakeShowableInParallel` — so the series
+   *   allocates time for it.
    */
   readonly duration: number;
   /**
