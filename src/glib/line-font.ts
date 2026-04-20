@@ -534,6 +534,20 @@ export function makeLineFontMap(
       add("-", shape, advance);
     }
     {
+      // Mark: — em dash
+      /**
+       * 1em
+       */
+      const width = -capitalTop;
+      /**
+       * The dash should extend past its normal area taking the space between letters.
+       * So if you have two of these in a row, they should touch.
+       */
+      const advance = width - fontMetrics.defaultKerning;
+      const shape= new PathShape([new LCommand(left, capitalMiddle, left+width, capitalMiddle)])
+      add ("—", shape, advance);
+    }
+    {
       // MARK: ±
       const advance = digitWidth * 0.75;
       const space = 2 * strokeWidth;
