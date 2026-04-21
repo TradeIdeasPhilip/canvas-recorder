@@ -9,6 +9,9 @@ import { PathShape } from "./path-shape";
  * The function's first input: progress.
  * 0 Draws nothing.
  * 1 Draws the whole thing.
+ * @deprecated Consider using PathShapeSplitter instead.
+ * Handwriting used to be harder when you had to use setLineDash().
+ * Now it is trivial with PathShapeSplitter.
  */
 export function createHandwriting(
   ...pathShapes: PathShape[]

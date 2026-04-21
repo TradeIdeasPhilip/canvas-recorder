@@ -108,6 +108,7 @@ export type ShowOptions = {
    * outgoing value:
    * `fillStyle`, `strokeStyle`, `lineCap`, `lineJoin`, `lineWidth`.
    * (See also `CommonSettings` in `src/fancy-text.ts`.)
+   * The same goes for the current path, which isn't exactly a property but it is disposable.
    *
    * `transform` follows save/restore semantics, like SVG `<g>` nesting.
    * Each `show()` call receives the parent's transform and is expected to

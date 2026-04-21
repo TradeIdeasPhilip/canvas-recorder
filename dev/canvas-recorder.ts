@@ -48,6 +48,7 @@ import { createNineShapesComponent, shadowTest } from "../src/shadow-test.ts";
 import {
   createFunctionGraphComponent,
   createRectangleComponent,
+  createSingleImageComponent,
 } from "../src/slide-components.ts";
 
 /**
@@ -939,6 +940,7 @@ const componentRegistry = new Map<string, () => Showable>([
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
   ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
+  ["Static Image", () => createSingleImageComponent()],
 ]);
 
 /**

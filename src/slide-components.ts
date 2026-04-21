@@ -7,6 +7,7 @@ import {
   Keyframe,
 } from "./interpolate";
 import { Showable } from "./showable";
+import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 
 /**
@@ -54,6 +55,65 @@ export function createRectangleComponent(
  * The y range is auto-computed from sampling `f` over the default x range
  * and stored as the initial keyframe values, ready to be overridden.
  */
+/**
+ * Standard registry component: draws a single image loaded from a URL.
+ *
+ * While the image is loading (or if the URL is empty), the destination
+ * rectangle is left blank.  If the URL is non-empty but the load fails,
+ * {@link SlowImage.showError} draws a red ✕ so the problem is obvious.
+ *
+ * The URL schedule is discrete — changing it mid-animation triggers a fresh
+ * load.  The dest-rect schedule is interpolated so you can animate placement.
+ */
+export function createSingleImageComponent(initialUrl = ""): Showable {
+  const urlSchedule: Keyframe<string>[] = [{ time: 0, value: initialUrl }];
+  const destRectSchedule: Keyframe<ReadOnlyRect>[] = [
+    { time: 0, value: { x: 1, y: 1, width: 14, height: 7 } },
+  ];
+
+  let trackedUrl = "";
+  let image: SingleImage | null = null;
+
+  return {
+    description: "Static Image",
+    duration: 0,
+    schedules: [
+      { description: "URL", type: "string", schedule: urlSchedule },
+      { description: "Dest Rect", type: "rectangle", schedule: destRectSchedule },
+    ],
+    show({ context, timeInMs }) {
+      const url = discreteKeyframes(timeInMs, urlSchedule);
+      const dest = interpolateRects(timeInMs, destRectSchedule);
+
+      if (url !== trackedUrl) {
+        trackedUrl = url;
+        image = url ? new SingleImage(url) : null;
+      }
+
+      if (!image) return; // empty URL — leave the area blank
+      if (!image.somethingIsAvailable) {
+        SlowImage.showError(context, dest.x, dest.y, dest.width, dest.height);
+        return;
+      }
+
+      // Fit the image inside dest, preserving aspect ratio (centered).
+      const imgAspect = image.naturalWidth / image.naturalHeight;
+      const destAspect = dest.width / dest.height;
+      let drawW: number, drawH: number;
+      if (imgAspect > destAspect) {
+        drawW = dest.width;
+        drawH = dest.width / imgAspect;
+      } else {
+        drawH = dest.height;
+        drawW = dest.height * imgAspect;
+      }
+      const drawX = dest.x + (dest.width - drawW) / 2;
+      const drawY = dest.y + (dest.height - drawH) / 2;
+      context.drawImage(image.data as CanvasImageSource, drawX, drawY, drawW, drawH);
+    },
+  };
+}
+
 export function createFunctionGraphComponent(
   f: (x: number) => number = Math.sin,
 ): Showable {
