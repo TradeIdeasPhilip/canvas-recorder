@@ -3,6 +3,7 @@ import {
   interpolatePoints,
   interpolateRects,
   Keyframe,
+  timedKeyframes,
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { myRainbow } from "./glib/my-rainbow";
@@ -11,6 +12,9 @@ import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
 import { createRectangleComponent } from "./slide-components";
+import { LineFontMetrics, makeLineFont } from "./glib/line-font";
+import { ParagraphLayout } from "./glib/paragraph-layout";
+import { computeGridTransform, drawGrid } from "./glib/grid";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -125,55 +129,6 @@ function createHalftone(fromImage: HTMLCanvasElement, period = 0.25): Path2D {
         const x = (ix + 0.5) * period;
         const y = (iy + 0.5) * period;
         // Area ∝ alpha  →  radius ∝ sqrt(alpha).
-        const radius = Math.sqrt(alpha) * (period / 2) * MAX_RADIUS_FACTOR;
-        result.moveTo(x + radius, y);
-        result.arc(x, y, radius, 0, Math.PI * 2);
-      }
-    }
-  }
-  return result;
-}
-
-/**
- * Exact per-cell pixel averaging — slow but correct reference implementation.
- * Reads every device pixel in each halftone cell from `fromImage` and averages
- * their alpha values.  Not suitable for production (too slow at 60 fps on 4K),
- * but useful for debugging the fast mipmap path.
- */
-function createHalftoneSlow(
-  fromImage: HTMLCanvasElement,
-  period = 0.25,
-): Path2D {
-  const cols = Math.ceil(16 / period);
-  const rows = Math.ceil(9 / period);
-  const W = fromImage.width;
-  const H = fromImage.height;
-  const scaleX = W / 16;
-  const scaleY = H / 9;
-
-  const ctx = fromImage.getContext("2d", { willReadFrequently: true })!;
-  const { data } = ctx.getImageData(0, 0, W, H);
-
-  const result = new Path2D();
-  for (let iy = 0; iy < rows; iy++) {
-    for (let ix = 0; ix < cols; ix++) {
-      const px0 = Math.round(ix * period * scaleX);
-      const py0 = Math.round(iy * period * scaleY);
-      const px1 = Math.min(W, Math.round((ix + 1) * period * scaleX));
-      const py1 = Math.min(H, Math.round((iy + 1) * period * scaleY));
-
-      let alphaSum = 0;
-      for (let py = py0; py < py1; py++) {
-        for (let px = px0; px < px1; px++) {
-          alphaSum += data[(py * W + px) * 4 + 3];
-        }
-      }
-      const cellPixels = (px1 - px0) * (py1 - py0);
-      const alpha = cellPixels > 0 ? alphaSum / (cellPixels * 255) : 0;
-
-      if (alpha > 0) {
-        const x = (ix + 0.5) * period;
-        const y = (iy + 0.5) * period;
         const radius = Math.sqrt(alpha) * (period / 2) * MAX_RADIUS_FACTOR;
         result.moveTo(x + radius, y);
         result.arc(x, y, radius, 0, Math.PI * 2);
@@ -376,63 +331,64 @@ export function createNineShapesComponent(): Showable {
   };
 }
 
-const slide1: Showable = {
-  description: "Slide 1: Shape Gallery",
-  duration: DEFAULT_SLIDE_DURATION_MS,
-  slideChildren: [createNineShapesComponent()],
-  show(options) {
-    for (const child of this.slideChildren!) child.show(options);
-  },
+// ---------------------------------------------------------------------------
+// Shadow configuration — copy and customize when using makeShadowDemo
+// in your own project.
+// ---------------------------------------------------------------------------
+
+const SHADOW_OPTIONS: Omit<Parameters<typeof makeShadowDemo>[0], "base"> = {
+  background: "white",
+  dotColor: "#ccc",
+  dx: 0.2,
+  dy: 0.2,
 };
 
 // ---------------------------------------------------------------------------
-// Deck and top-level export
+// Slide list
 // ---------------------------------------------------------------------------
 
-const deckBuilder = new MakeShowableInSeries("Shadow Test");
-deckBuilder.add(slide1);
-const deck = deckBuilder.build();
-
-const slide1Shadow = makeShadowDemo({
-  base: deck,
-  background: "white",
-});
+const slideList = new MakeShowableInSeries("Shadow Test");
 
 // ---------------------------------------------------------------------------
-// Shadow dy for slides 2–4: push shadow to lower half, unobstructed.
+// Slide 1 — shape gallery
 // ---------------------------------------------------------------------------
-const SHADOW_DY = 4;
+{
+  const slide: Showable = {
+    description: "Slide 1: Shape Gallery",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    slideChildren: [createNineShapesComponent()],
+    show(options) {
+      for (const child of this.slideChildren!) child.show(options);
+    },
+  };
+  slideList.add(slide);
+}
 
 // ---------------------------------------------------------------------------
 // Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
-
-const slide2Base: Showable = {
-  description: "Slide 2: Growing Rectangle",
-  duration: DEFAULT_SLIDE_DURATION_MS,
-  slideChildren: [
-    createRectangleComponent(
-      [
-        { time: 0, value: myRainbow.red },
-        { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
-      ],
-      [
-        { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
-        { time: DEFAULT_SLIDE_DURATION_MS, value: { x: 1, y: 1, width: 14, height: 2 } },
-      ],
-    ),
-  ],
-  show(options) {
-    for (const child of this.slideChildren!) child.show(options);
-  },
-};
-
-const slide2Shadow = makeShadowDemo({
-  base: slide2Base,
-  background: "white",
-  dx: 0,
-  dy: SHADOW_DY,
-});
+{
+  const slide: Showable = {
+    description: "Slide 2: Growing Rectangle",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    slideChildren: [
+      createRectangleComponent(
+        [
+          { time: 0, value: myRainbow.red },
+          { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
+        ],
+        [
+          { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
+          { time: DEFAULT_SLIDE_DURATION_MS, value: { x: 1, y: 1, width: 14, height: 2 } },
+        ],
+      ),
+    ],
+    show(options) {
+      for (const child of this.slideChildren!) child.show(options);
+    },
+  };
+  slideList.add(slide);
+}
 
 // ---------------------------------------------------------------------------
 // Slide 3 — shape with diagonal + curve right edge sweeping across
@@ -445,25 +401,20 @@ const slide2Shadow = makeShadowDemo({
 //   Bottom edge: horizontal back (width w).
 // As w grows, the crooked right edge moves across the screen.
 // ---------------------------------------------------------------------------
-
-const slide3Base: Showable = {
-  description: "Slide 3: Diagonal + Curve Edge",
-  duration: DEFAULT_SLIDE_DURATION_MS,
-  show({ context, timeInMs }) {
-    const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
-    const w = lerp(0, 13, progress);
-    const path = new Path2D(`M 1,1 h ${w} l 1,1.5 q 0,1.5 -1,1.5 h ${-w} z`);
-    context.fillStyle = "black";
-    context.fill(path);
-  },
-};
-
-const slide3Shadow = makeShadowDemo({
-  base: slide3Base,
-  background: "white",
-  dx: 0,
-  dy: SHADOW_DY,
-});
+{
+  const slide: Showable = {
+    description: "Slide 3: Diagonal + Curve Edge",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    show({ context, timeInMs }) {
+      const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
+      const w = lerp(0, 13, progress);
+      const path = new Path2D(`M 1,1 h ${w} l 1,1.5 q 0,1.5 -1,1.5 h ${-w} z`);
+      context.fillStyle = "black";
+      context.fill(path);
+    },
+  };
+  slideList.add(slide);
+}
 
 // ---------------------------------------------------------------------------
 // Slide 4 — animated pattern fill, verifying radius ∝ √(coverage)
@@ -479,157 +430,255 @@ const slide3Shadow = makeShadowDemo({
 //
 // Expected result: shadow dot radius grows as √(n/256).
 // ---------------------------------------------------------------------------
+{
+  const PATTERN_SIDE = 16; // 16 × 16 = 256 pixels
+  const PATTERN_PIXELS = PATTERN_SIDE * PATTERN_SIDE;
+  const patternCanvas = document.createElement("canvas");
+  patternCanvas.width = PATTERN_SIDE;
+  patternCanvas.height = PATTERN_SIDE;
+  const patternCtx = patternCanvas.getContext("2d")!;
 
-const PATTERN_SIDE = 16; // 16 × 16 = 256 pixels
-const PATTERN_PIXELS = PATTERN_SIDE * PATTERN_SIDE;
-
-const _patternCanvas = document.createElement("canvas");
-_patternCanvas.width = PATTERN_SIDE;
-_patternCanvas.height = PATTERN_SIDE;
-const _patternCtx = _patternCanvas.getContext("2d")!;
-
-const slide4Base: Showable = {
-  description: "Slide 4: Pattern Fill Linearity Test",
-  duration: DEFAULT_SLIDE_DURATION_MS,
-  show({ context, timeInMs }) {
-    const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
-    const n = Math.min(
-      PATTERN_PIXELS,
-      Math.floor(progress * (PATTERN_PIXELS + 1)),
-    );
-
-    // Rebuild the pattern: first n pixels black/opaque, rest transparent.
-    _patternCtx.clearRect(0, 0, PATTERN_SIDE, PATTERN_SIDE);
-    _patternCtx.fillStyle = "black";
-    for (let i = 0; i < n; i++) {
-      _patternCtx.fillRect(
-        i % PATTERN_SIDE,
-        Math.floor(i / PATTERN_SIDE),
-        1,
-        1,
+  const slide: Showable = {
+    description: "Slide 4: Pattern Fill Linearity Test",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    show({ context, timeInMs }) {
+      const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
+      const n = Math.min(
+        PATTERN_PIXELS,
+        Math.floor(progress * (PATTERN_PIXELS + 1)),
       );
-    }
 
-    const pattern = context.createPattern(_patternCanvas, "repeat")!;
-    // Counteract the context's scale transform so the pattern tiles at
-    // device-pixel resolution, not logical-unit resolution.
-    const { width, height } = context.canvas;
-    pattern.setTransform(new DOMMatrix([16 / width, 0, 0, 9 / height, 0, 0]));
-    context.fillStyle = pattern;
-
-    // Top row of slide 1: solid shapes (row 0), no stroke.
-    for (let col = 0; col < 3; col++) {
-      const cx = COL_X[col];
-      const cy = ROW_Y[0]; // y = 1.5 — top row
-      if (col === 0) {
-        polygon(context, cx, cy, SHAPE_RADIUS, 3, -Math.PI / 2);
-      } else if (col === 1) {
-        polygon(context, cx, cy, SHAPE_RADIUS, 4, Math.PI / 4);
-      } else {
-        context.beginPath();
-        context.arc(cx, cy, SHAPE_RADIUS, 0, Math.PI * 2);
+      // Rebuild the pattern: first n pixels black/opaque, rest transparent.
+      patternCtx.clearRect(0, 0, PATTERN_SIDE, PATTERN_SIDE);
+      patternCtx.fillStyle = "black";
+      for (let i = 0; i < n; i++) {
+        patternCtx.fillRect(i % PATTERN_SIDE, Math.floor(i / PATTERN_SIDE), 1, 1);
       }
-      context.fill();
-    }
 
-    // Debug text — Verdana for consistent digit widths (no wiggle in animation).
-    const coverage = n / PATTERN_PIXELS;
-    context.font = "0.45px Verdana";
-    context.fillStyle = "black";
-    context.textBaseline = "top";
-    context.fillText(
-      `${n} / ${PATTERN_PIXELS} pixels — ${(coverage * 100).toFixed(3)}% coverage — radius ∝ ${Math.sqrt(coverage).toFixed(3)}`,
-      0.25,
-      7.75,
-    );
-  },
-};
+      const pattern = context.createPattern(patternCanvas, "repeat")!;
+      // Counteract the context's scale transform so the pattern tiles at
+      // device-pixel resolution, not logical-unit resolution.
+      const { width, height } = context.canvas;
+      pattern.setTransform(new DOMMatrix([16 / width, 0, 0, 9 / height, 0, 0]));
+      context.fillStyle = pattern;
 
-const slide4Shadow = makeShadowDemo({
-  base: slide4Base,
-  background: "white",
-  dx: 0,
-  dy: SHADOW_DY,
-});
+      // Top row of slide 1: solid shapes (row 0), no stroke.
+      for (let col = 0; col < 3; col++) {
+        const cx = COL_X[col];
+        const cy = ROW_Y[0]; // y = 1.5 — top row
+        if (col === 0) {
+          polygon(context, cx, cy, SHAPE_RADIUS, 3, -Math.PI / 2);
+        } else if (col === 1) {
+          polygon(context, cx, cy, SHAPE_RADIUS, 4, Math.PI / 4);
+        } else {
+          context.beginPath();
+          context.arc(cx, cy, SHAPE_RADIUS, 0, Math.PI * 2);
+        }
+        context.fill();
+      }
 
-// ---------------------------------------------------------------------------
-// slide 5, vertical lines
-// ---------------------------------------------------------------------------
-
-const slide5PositionSchedule: Keyframe<Point>[] = [
-  { time: 0, value: { x: 1, y: 1 } },
-];
-
-const slide5Base: Showable = {
-  description: "vertical lines",
-  duration: DEFAULT_SLIDE_DURATION_MS,
-  schedules: [
-    {
-      description: "Starting Position",
-      type: "point",
-      schedule: slide5PositionSchedule,
+      // Debug text — Verdana for consistent digit widths (no wiggle in animation).
+      const coverage = n / PATTERN_PIXELS;
+      context.font = "0.45px Verdana";
+      context.fillStyle = "black";
+      context.textBaseline = "top";
+      context.fillText(
+        `${n} / ${PATTERN_PIXELS} pixels — ${(coverage * 100).toFixed(3)}% coverage — radius ∝ ${Math.sqrt(coverage).toFixed(3)}`,
+        0.25,
+        7.75,
+      );
     },
-  ],
-  show({ context, timeInMs }) {
-    function drawVerticalLines(
-      context: CanvasRenderingContext2D,
-      left: number,
-      top: number,
-    ) {
-      context.lineWidth = LINE_WIDTH;
-      const bottom = top + 3;
-      let x = left;
-      myRainbow.forEach((color, index) => {
-        context.strokeStyle = color;
-        context.beginPath();
-        context.moveTo(x, top);
-        context.lineTo(x, bottom);
-        context.stroke();
-        /**
-         * The lines look different depending how they align with the halftone dots.
-         * I don't know exactly what I'm looking for, but this should cause lots of different alignments.
-         */
-        const diff = 0.9 ** index;
-        x += diff;
+  };
+  slideList.add(slide);
+}
+
+// ---------------------------------------------------------------------------
+// Slide 5 — vertical lines
+// ---------------------------------------------------------------------------
+{
+  const positionSchedule: Keyframe<Point>[] = [
+    { time: 0, value: { x: 1, y: 1 } },
+  ];
+
+  const slide: Showable = {
+    description: "Slide 5: Vertical Lines",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    schedules: [
+      {
+        description: "Starting Position",
+        type: "point",
+        schedule: positionSchedule,
+      },
+    ],
+    show({ context, timeInMs }) {
+      function drawVerticalLines(
+        context: CanvasRenderingContext2D,
+        left: number,
+        top: number,
+      ) {
+        context.lineWidth = LINE_WIDTH;
+        const bottom = top + 3;
+        let x = left;
+        myRainbow.forEach((color, index) => {
+          context.strokeStyle = color;
+          context.beginPath();
+          context.moveTo(x, top);
+          context.lineTo(x, bottom);
+          context.stroke();
+          /**
+           * The lines look different depending how they align with the halftone dots.
+           * I don't know exactly what I'm looking for, but this should cause lots of different alignments.
+           */
+          const diff = 0.9 ** index;
+          x += diff;
+        });
+      }
+      const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
+      const startingPosition = interpolatePoints(timeInMs, positionSchedule);
+      const left = startingPosition.x + progress;
+      drawVerticalLines(context, left, startingPosition.y);
+    },
+  };
+  slideList.add(slide);
+}
+
+// ---------------------------------------------------------------------------
+// Font Inspector — lineFont metrics and glyph viewer
+// ---------------------------------------------------------------------------
+{
+  const FONT_SIZE = 1.0;
+  const metrics = new LineFontMetrics(FONT_SIZE);
+  const font = makeLineFont(metrics);
+
+  const textSchedule: Keyframe<string>[] = [{ time: 0, value: "Ag" }];
+  const zoomRectSchedule: Keyframe<ReadOnlyRect>[] = [
+    { time: 0, value: { x: 0.3, y: 0.5, width: 10.5, height: 8 } },
+  ];
+  const simplePosSchedule: Keyframe<Point>[] = [
+    { time: 0, value: { x: 12.5, y: 5 } },
+  ];
+
+  // Metric lines in font y-space (baseline = 0, above = negative, below = positive).
+  // drawGrid uses y-up (math) convention, so we pass −fontY when mapping.
+  // The grid labels then show: capitalTop ≈ +1 (one fontSize above baseline),
+  // descender ≈ −0.25 (below baseline), which reads naturally as "distance from baseline".
+  const METRIC_LINES = [
+    { label: "top",           y: metrics.top,           color: "#e88" },
+    { label: "capitalTop",    y: metrics.capitalTop,    color: "#ffa040" },
+    { label: "capitalMiddle", y: metrics.capitalMiddle, color: "#dd0" },
+    { label: "baseline",      y: metrics.baseline,      color: "#4c4" },
+    { label: "descender",     y: metrics.descender,     color: "#88f" },
+    { label: "bottom",        y: metrics.bottom,        color: "#c8f" },
+  ] as const;
+
+  const slide: Showable = {
+    description: "Font Inspector",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    schedules: [
+      { description: "Text",                type: "string",    schedule: textSchedule },
+      { description: "Zoom Area",           type: "rectangle", schedule: zoomRectSchedule },
+      { description: "Simple Text Position",type: "point",     schedule: simplePosSchedule },
+    ],
+    show({ context, timeInMs }) {
+      // Read current schedule values.
+      const textKf = timedKeyframes(timeInMs, textSchedule);
+      const text = textKf.single ? textKf.value : textKf.from;
+      const zoomRect = interpolateRects(timeInMs, zoomRectSchedule);
+      const simplePos = interpolatePoints(timeInMs, simplePosSchedule);
+
+      // Build text layout (shared by both views).
+      const layout = new ParagraphLayout(font);
+      layout.addText(text);
+      const laidOut = layout.align();
+      const textPath = laidOut.singlePathShape();
+
+      // ── Zoomed + instrumented view ──────────────────────────────────────
+
+      // viewRect in math (y-up) space, where math_y = −font_y.
+      const PAD_X = FONT_SIZE * 0.5;
+      const PAD_Y = FONT_SIZE * 0.25;
+      const mathViewRect: ReadOnlyRect = {
+        x: -PAD_X,
+        y: -(metrics.bottom + PAD_Y),
+        width: Math.max(laidOut.width, FONT_SIZE) + 2 * PAD_X,
+        height: (metrics.bottom - metrics.top) + 2 * PAD_Y,
+      };
+
+      drawGrid(context, {
+        destRect: zoomRect,
+        viewRect: mathViewRect,
+        color: "rgba(150, 150, 150, 0.35)",
+        targetTickCount: 6,
       });
-    }
-    const progress = timeInMs / this.duration;
-    const startingPosition = interpolatePoints(timeInMs, slide5PositionSchedule);
-    const left = startingPosition.x + progress;
-    drawVerticalLines(context, left, startingPosition.y);
-  },
-};
 
-const slide5Shadow = makeShadowDemo({
-  base: slide5Base,
-  background: "white",
-  dx: 0,
-  dy: SHADOW_DY,
+      const xf = computeGridTransform(zoomRect, mathViewRect);
+      if (!xf) return;
+      const { toCanvasY, effectiveRect } = xf;
+      const scale = effectiveRect.width / mathViewRect.width;
+
+      // Clip text and metric lines to the grid area.
+      context.save();
+      context.beginPath();
+      context.rect(effectiveRect.x, effectiveRect.y, effectiveRect.width, effectiveRect.height);
+      context.clip();
+
+      // Metric reference lines (drawn in canvas space via toCanvasY(−fontY)).
+      for (const { y: fontY, color } of METRIC_LINES) {
+        const cy = toCanvasY(-fontY);
+        context.strokeStyle = color;
+        context.lineWidth = 0.025;
+        context.setLineDash([0.12, 0.08]);
+        context.beginPath();
+        context.moveTo(effectiveRect.x, cy);
+        context.lineTo(effectiveRect.x + effectiveRect.width, cy);
+        context.stroke();
+      }
+      context.setLineDash([]);
+
+      // Draw text in ParagraphLayout coordinate space.
+      // ParagraphLayout places the top of text at path y=0, baseline at path y=−metrics.top.
+      // We need: canvas_y = toCanvasY(−(path_y + metrics.top))
+      //   = effectiveRect.y + effectiveRect.height + (metrics.top + mathViewRect.y) × scale + path_y × scale
+      context.translate(
+        effectiveRect.x - mathViewRect.x * scale,
+        effectiveRect.y + effectiveRect.height + (metrics.top + mathViewRect.y) * scale,
+      );
+      context.scale(scale, scale);
+      context.strokeStyle = "#000";
+      context.lineWidth = metrics.strokeWidth;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.stroke(textPath.canvasPath);
+
+      context.restore(); // removes clip and transform
+
+      // Legend labels to the right of the grid.
+      context.font = "0.22px sans-serif";
+      context.textAlign = "left";
+      context.textBaseline = "middle";
+      const legendX = effectiveRect.x + effectiveRect.width + 0.1;
+      for (const { label, y: fontY, color } of METRIC_LINES) {
+        context.fillStyle = color;
+        context.fillText(label, legendX, toCanvasY(-fontY));
+      }
+
+      // ── Simple unadorned copy ───────────────────────────────────────────
+      // simplePos.y is the baseline; shift up by metrics.top to compensate
+      // for ParagraphLayout placing top-of-text at path y=0.
+      context.save();
+      context.translate(simplePos.x, simplePos.y + metrics.top);
+      context.strokeStyle = "#000";
+      context.lineWidth = metrics.strokeWidth;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.stroke(textPath.canvasPath);
+      context.restore();
+    },
+  };
+  slideList.add(slide);
+}
+
+export const shadowTest = makeShadowDemo({
+  base: slideList.build(),
+  ...SHADOW_OPTIONS,
 });
-
-// ---------------------------------------------------------------------------
-// Slide 6 — same vertical lines as slide 5, but using the slow exact-averaging
-// reference implementation.  Side-by-side comparison with slide 5.
-// ---------------------------------------------------------------------------
-
-const slide6Shadow = makeShadowDemo({
-  base: slide5Base,
-  background: "white",
-  dx: 0,
-  dy: SHADOW_DY,
-  halftone: createHalftoneSlow,
-});
-
-// ---------------------------------------------------------------------------
-// Combined deck — all chapters in sequence under one URL.
-// ---------------------------------------------------------------------------
-
-const allShadowTests = new MakeShowableInSeries("Shadow Tests");
-allShadowTests.add(slide1Shadow);
-allShadowTests.add(slide2Shadow);
-allShadowTests.add(slide3Shadow);
-allShadowTests.add(slide4Shadow);
-allShadowTests.add(slide5Shadow);
-allShadowTests.add(slide6Shadow);
-
-export const shadowTest = allShadowTests.build();

@@ -533,7 +533,6 @@ export function makeLineFontMap(
         .Q_angles(x2, middle, (dSouth + dSouthEast) / 2)
         .Q_angles(x3, bottom, dEast)
         .Q_angles(x4, middle, dNorthEast).pathShape;
-      //shape.dump();
       add("~", shape, advance);
       // MARK: ≈ Almost equal to.
       const offset = strokeWidth * 1.25;
@@ -2425,8 +2424,38 @@ export function makeLineFontMap(
       .arc(advance - radius, middle, xRight, xTop, "ccw")
       .L(xLeft, xBottom)
       .arc(radius, middle, xLeft, xTop, "cw").pathShape;
-    console.log(shape.dump(), shape.rawPath);
     add("∞", shape, advance);
+  }
+  // MARK: ∫ Integral
+  {
+    const advance = digitWidth;
+    const bottom = descender / 2;
+    const top = capitalTop - bottom;
+    const curveRadius = (advance * 2) / 5;
+    const diagonal = new LCommand(
+      left + curveRadius,
+      bottom - curveRadius,
+      advance - curveRadius,
+      top + curveRadius,
+    );
+    const before = QCommand.angles(
+      left,
+      bottom,
+      0,
+      left + curveRadius,
+      bottom - curveRadius,
+      diagonal.incomingAngle,
+    );
+    const after = QCommand.angles(
+      advance - curveRadius,
+      top + curveRadius,
+      diagonal.outgoingAngle,
+      advance,
+      top,
+      0,
+    );
+    const shape = new PathShape([before, diagonal, after]);
+    add("∫", shape, advance);
   }
   // Sort the map by key.
   return new Map(

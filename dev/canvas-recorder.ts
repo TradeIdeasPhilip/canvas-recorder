@@ -931,6 +931,16 @@ const pointSyncCallbacks = new Map<
 /** The point keyframe currently being dragged. */
 let draggingPoint: PointKf | null = null;
 
+// MARK: Slide Children Editor
+
+/** Registry of component factories available in the "Add" dropdown. */
+const componentRegistry = new Map<string, () => Showable>([
+  ["Rectangle", () => createRectangleComponent()],
+  ["Function Graph (sin)", () => createFunctionGraphComponent()],
+  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
+  ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
+]);
+
 /**
  * Change the GUI to match the current section.
  * Read the current section out of the <select> (drop down) element.
@@ -1633,16 +1643,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   section.append(table);
   return section;
 }
-
-// MARK: Slide Children Editor
-
-/** Registry of component factories available in the "Add" dropdown. */
-const componentRegistry = new Map<string, () => Showable>([
-  ["Rectangle", () => createRectangleComponent()],
-  ["Function Graph (sin)", () => createFunctionGraphComponent()],
-  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
-  ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
-]);
 
 function updateSlideChildrenEditor(selectable: Selectable) {
   const children = selectable.slideChildren;
