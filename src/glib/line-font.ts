@@ -2457,6 +2457,24 @@ export function makeLineFontMap(
     const shape = new PathShape([before, diagonal, after]);
     add("∫", shape, advance);
   }
+  {
+    const advance = digitWidth * 0.75;
+    const left = 0;
+    const center = digitWidth / 2;
+    const right = advance;
+    const top = capitalMiddle;
+    const middle = capitalBottomMiddle;
+    const bottom = baseline;
+    const shape = new PathShape([
+      new LCommand(right, top, center, top),
+      QCommand.controlPoints(center, top, left, top, left, middle),
+      QCommand.controlPoints(left, middle, left, bottom, center, bottom),
+      new LCommand(center, bottom, right, bottom),
+      new LCommand(left, middle, right, middle),
+    ]);
+    add("∈", shape, advance);
+  }
+  // MARK: EPILOG
   // Sort the map by key.
   return new Map(
     [...result.entries()].sort(([a], [b]) => {
