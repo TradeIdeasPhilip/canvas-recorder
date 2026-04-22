@@ -356,9 +356,9 @@ const slideList = new MakeShowableInSeries("Shadow Test");
   const slide: Showable = {
     description: "Slide 1: Shape Gallery",
     duration: DEFAULT_SLIDE_DURATION_MS,
-    slideChildren: [createNineShapesComponent()],
+    components: [createNineShapesComponent()],
     show(options) {
-      for (const child of this.slideChildren!) child.show(options);
+      for (const child of this.components!) child.show(options);
     },
   };
   slideList.add(slide);
@@ -371,7 +371,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
   const slide: Showable = {
     description: "Slide 2: Growing Rectangle",
     duration: DEFAULT_SLIDE_DURATION_MS,
-    slideChildren: [
+    components: [
       createRectangleComponent(
         [
           { time: 0, value: myRainbow.red },
@@ -384,7 +384,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
       ),
     ],
     show(options) {
-      for (const child of this.slideChildren!) child.show(options);
+      for (const child of this.components!) child.show(options);
     },
   };
   slideList.add(slide);

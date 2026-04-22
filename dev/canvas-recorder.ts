@@ -10,7 +10,6 @@ import {
 } from "phil-lib/misc.ts";
 import {
   AnimationLoop,
-  getBlobFromCanvas,
   getById,
   querySelector,
   querySelectorAll,
@@ -211,10 +210,7 @@ function clampPan(scale: number, px: number, py: number): [number, number] {
   // lower bound is negative (or 0); upper bound is always 0
   const minX = Math.min(0, window.innerWidth - scaledW);
   const minY = Math.min(0, window.innerHeight - scaledH);
-  return [
-    Math.max(minX, Math.min(0, px)),
-    Math.max(minY, Math.min(0, py)),
-  ];
+  return [Math.max(minX, Math.min(0, px)), Math.max(minY, Math.min(0, py))];
 }
 
 function applyZoom(scale: number, px = panX, py = panY) {
@@ -249,6 +245,24 @@ window.addEventListener("resize", () => {
  * @param live True for interactive display (schedule markers drawn on top).
  * False when rendering for save/export (markers omitted).
  */
+/**
+ * Render one frame onto the main canvas.
+ *
+ * **Call sites are intentionally limited.**
+ * `AnimationLoop` (a `requestAnimationFrame` wrapper) calls this on every tick,
+ * so the canvas is always up to date.  Any state change — dragging, editing a
+ * keyframe value, loading a snapshot — will be reflected on the very next tick
+ * without an explicit call here.
+ *
+ * The only legitimate extra call site is:
+ * - The offline recording loop, which drives time itself and must render each
+ *   frame before capturing it.
+ *
+ * Do **not** add new calls here from event handlers.  Doing so causes the
+ * expensive per-frame work (e.g. halftone shadows) to run once per input event
+ * rather than once per animation frame, which can freeze the UI under fast
+ * input (pointermove, etc.).
+ */
 function showFrame(timeInMs: number, live: boolean) {
   context.reset();
   context.setTransform(mainTransform());
@@ -257,6 +271,7 @@ function showFrame(timeInMs: number, live: boolean) {
     drawScheduleMarkers(context);
   }
 }
+// Exposed so the browser console can call showFrame() directly for debugging.
 (window as any).showFrame = showFrame;
 
 /**
@@ -876,7 +891,10 @@ const previousButton = getById("previousButton", HTMLButtonElement);
  */
 const nextButton = getById("nextButton", HTMLButtonElement);
 
-const slideChildrenEditorFieldset = getById("slideChildrenEditor", HTMLFieldSetElement);
+const componentsEditorFieldset = getById(
+  "componentsEditor",
+  HTMLFieldSetElement,
+);
 const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 const showEditorCheckbox = getById("showEditor", HTMLInputElement);
 
@@ -932,7 +950,10 @@ const pointSyncCallbacks = new Map<
 /** The point keyframe currently being dragged. */
 let draggingPoint: PointKf | null = null;
 
-// MARK: Slide Children Editor
+// MARK: Component Editor
+
+/** Maps dynamically-added component instances back to their registry key for serialization. */
+const componentRegistryKey = new WeakMap<Showable, string>();
 
 /** Registry of component factories available in the "Add" dropdown. */
 const componentRegistry = new Map<string, () => Showable>([
@@ -978,7 +999,7 @@ function updateFromSelect() {
   // Make the number match in this case.
   loadPlayPositionSeconds(playPositionRange.valueAsNumber);
   selectedSlideChild = null;
-  updateSlideChildrenEditor(info.selectable);
+  updateComponentEditor(info.selectable);
   updateScheduleEditor(info.selectable);
 }
 select.addEventListener("input", updateFromSelect);
@@ -999,8 +1020,6 @@ nextButton.addEventListener("click", () => {
   updateFromSelect();
 });
 
-const saveImageSecondsInput = getById("saveImageSeconds", HTMLInputElement);
-
 /**
  * When someone hits refresh in their browser,
  * or hits save in vs code so vite causes a refresh,
@@ -1013,7 +1032,6 @@ function saveState() {
     "state",
     querySelector('input[name="onSectionEnd"]:checked', HTMLInputElement).value,
   );
-  sessionStorage.setItem("saveImageSeconds", saveImageSecondsInput.value);
   sessionStorage.setItem("zoomSelect", zoomSelect.value);
   sessionStorage.setItem("panX", panX.toString());
   sessionStorage.setItem("panY", panY.toString());
@@ -1031,40 +1049,6 @@ addEventListener("pagehide", (event) => {
   saveState();
 });
 
-// MARK: Save Image
-{
-  const saveButton = getById("saveImage", HTMLButtonElement);
-  saveImageSecondsInput.addEventListener("input", () => {
-    if (parseFloatX(saveImageSecondsInput.value) === undefined) {
-      saveButton.disabled = true;
-      saveImageSecondsInput.style.backgroundColor = "pink";
-    } else {
-      saveButton.disabled = false;
-      saveImageSecondsInput.style.backgroundColor = "";
-    }
-  });
-
-  getById("saveImage", HTMLButtonElement).addEventListener(
-    "click",
-    async () => {
-      showFrame(
-        assertNonNullable(parseFloatX(saveImageSecondsInput.value)) * 1000,
-        false,
-      );
-      const filename = `frame-${saveImageSecondsInput.value}.png`;
-      const blob = await getBlobFromCanvas(canvas);
-      downloadBlob(filename, blob);
-    },
-  );
-
-  getById("currentTimeToSaveImage", HTMLButtonElement).addEventListener(
-    "click",
-    () => {
-      saveImageSecondsInput.value = playPositionSeconds.value;
-    },
-  );
-}
-
 // MARK: Schedule Editor
 
 type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
@@ -1079,7 +1063,12 @@ type SerializedSchedule = {
   type: string;
   keyframes: SerializedKf[];
 };
-type HistoryEntry = { timestamp: number; schedules: SerializedSchedule[] };
+type SerializedChild = { registryKey: string; schedules: SerializedSchedule[] };
+type HistoryEntry = {
+  timestamp: number;
+  schedules: SerializedSchedule[];
+  components?: SerializedChild[];
+};
 type HistoryRecord = { selectableKey: string; entries: HistoryEntry[] };
 
 const MAX_HISTORY_ENTRIES = 20;
@@ -1199,51 +1188,76 @@ async function refreshHistoryUI(selectable: Selectable) {
 
 /** Saves current schedule state to IndexedDB. */
 async function saveScheduleState(selectable: Selectable) {
-  if (!selectable.schedules?.length) return;
+  const hasSchedules = !!selectable.schedules?.length;
+  const hasChildren = Array.isArray(selectable.components);
+  if (!hasSchedules && !hasChildren) return;
   const key = selectableKey(selectable);
   const record = await readHistory(key);
   const entries = record?.entries ?? [];
-  entries.push({
+  const entry: HistoryEntry = {
     timestamp: Date.now(),
-    schedules: serializeSchedules(selectable.schedules),
-  });
+    schedules: hasSchedules ? serializeSchedules(selectable.schedules!) : [],
+  };
+  if (hasChildren) {
+    entry.components = selectable.components!.flatMap((child) => {
+      const registryKey = componentRegistryKey.get(child);
+      if (!registryKey || !child.schedules?.length) return [];
+      return [{ registryKey, schedules: serializeSchedules(child.schedules) }];
+    });
+  }
+  entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
   await refreshHistoryUI(selectable);
 }
 
-/** Returns the Selectable for the currently selected section (if it has schedules). */
-function currentSelectable(): Selectable | null {
+/**
+ * Returns the slide-level selectable that should be saved/loaded as a unit.
+ * For components slides this is always the slide itself (not the selected child),
+ * so a single save captures the full component list and all keyframes.
+ */
+function currentSaveTarget(): Selectable | null {
   const selectable = debug[select.selectedIndex]?.selectable;
-  return selectable?.schedules?.length ? selectable : null;
-}
-
-/** The item whose schedules the schedule editor is currently showing. */
-function currentScheduleTarget(): Selectable | null {
-  if (selectedSlideChild?.schedules?.length) return selectedSlideChild;
-  return currentSelectable();
+  if (!selectable) return null;
+  if (selectable.components !== undefined) return selectable;
+  return selectable.schedules?.length ? selectable : null;
 }
 
 saveScheduleNowBtn.addEventListener("click", () => {
-  const target = currentScheduleTarget();
+  const target = currentSaveTarget();
   if (target) saveScheduleState(target);
 });
 
 loadScheduleBtn.addEventListener("click", () => {
-  const target = currentScheduleTarget();
+  const target = currentSaveTarget();
   if (!target) return;
   const index = parseInt(scheduleHistorySelect.value, 10);
   readHistory(selectableKey(target)).then((record) => {
     const entry = record?.entries[index];
     if (!entry) return;
-    applySnapshot(target.schedules!, entry.schedules);
+    if (target.schedules?.length && entry.schedules.length) {
+      applySnapshot(target.schedules, entry.schedules);
+    }
+    if (target.components !== undefined && entry.components) {
+      target.components.length = 0;
+      for (const sc of entry.components) {
+        const factory = componentRegistry.get(sc.registryKey);
+        if (!factory) continue;
+        const child = factory();
+        componentRegistryKey.set(child, sc.registryKey);
+        if (child.schedules?.length)
+          applySnapshot(child.schedules, sc.schedules);
+        target.components.push(child);
+      }
+    }
+    selectedSlideChild = null;
+    updateComponentEditor(target);
     updateScheduleEditor(target);
-    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   });
 });
 
 function saveOnUnload() {
-  const selectable = currentSelectable();
+  const selectable = currentSaveTarget();
   if (selectable) saveScheduleState(selectable);
 }
 window.addEventListener("beforeunload", saveOnUnload);
@@ -1319,7 +1333,6 @@ function buildEaseSelect(keyframe: {
         keyframe.easeAfter = (t) => (t < 1 ? 0 : 1);
         break;
     }
-    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   });
   return select;
 }
@@ -1373,7 +1386,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       }
     }
     section.replaceWith(buildScheduleSection(info));
-    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   }
 
   function currentTimeMs() {
@@ -1468,7 +1480,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     const timeInput = buildNumericInput(kf.time, (n) => {
       kf.time = n;
       updateEaseVisibility();
-      showFrame(currentTimeMs(), true);
     });
     timeInput.step = "any";
     timeInput.style.width = "6em";
@@ -1480,7 +1491,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       kf.time = localTimeMs();
       timeInput.valueAsNumber = kf.time;
       updateEaseVisibility();
-      showFrame(currentTimeMs(), true);
     });
     row.insertCell().append(timeInput, "\u00a0", nowBtn);
 
@@ -1496,7 +1506,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       }
       input.addEventListener("input", () => {
         colorKf.value = input.value;
-        showFrame(currentTimeMs(), true);
       });
       cell.append(input);
     } else if (info.type === "number") {
@@ -1504,7 +1513,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       row.insertCell().append(
         buildNumericInput(numKf.value, (n) => {
           numKf.value = n;
-          showFrame(currentTimeMs(), true);
         }),
       );
     } else if (info.type === "string") {
@@ -1515,7 +1523,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       input.value = strKf.value;
       input.addEventListener("input", () => {
         strKf.value = input.value;
-        showFrame(currentTimeMs(), true);
       });
       cell.append(input);
     } else if (info.type === "point") {
@@ -1524,7 +1531,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       for (const coord of ["x", "y"] as const) {
         const input = buildNumericInput(ptKf.value[coord], (n) => {
           ptKf.value = { ...ptKf.value, [coord]: n };
-          showFrame(currentTimeMs(), true);
         });
         fieldInputs[coord] = input;
         row.insertCell().append(input);
@@ -1548,7 +1554,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
           viewingPointKfs.add(ptKf);
           viewBtn.classList.add("active");
         }
-        showFrame(currentTimeMs(), true);
       });
 
       const editBtn = document.createElement("button");
@@ -1564,7 +1569,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
           .forEach((b) => b.classList.remove("active"));
         editingPointKf = wasEditing ? null : ptKf;
         if (editingPointKf) editBtn.classList.add("active");
-        showFrame(currentTimeMs(), true);
       });
 
       canvasCell.append(viewBtn, "\u00a0", editBtn);
@@ -1576,7 +1580,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
       for (const field of ["x", "y", "width", "height"] as const) {
         const input = buildNumericInput(rectKf.value[field], (n) => {
           rectKf.value = { ...rectKf.value, [field]: n };
-          showFrame(currentTimeMs(), true);
         });
         fieldInputs[field] = input;
         row.insertCell().append(input);
@@ -1601,7 +1604,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
           viewingRectKfs.add(rectKf);
           viewBtn.classList.add("active");
         }
-        showFrame(currentTimeMs(), true);
       });
 
       const editBtn = document.createElement("button");
@@ -1617,7 +1619,6 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
           .forEach((b) => b.classList.remove("active"));
         editingRectKf = wasEditing ? null : rectKf;
         if (editingRectKf) editBtn.classList.add("active");
-        showFrame(currentTimeMs(), true);
       });
 
       canvasCell.append(viewBtn, "\u00a0", editBtn);
@@ -1646,16 +1647,17 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   return section;
 }
 
-function updateSlideChildrenEditor(selectable: Selectable) {
-  const children = selectable.slideChildren;
-  slideChildrenEditorFieldset.hidden = children === undefined;
+function updateComponentEditor(selectable: Selectable) {
+  const children = selectable.components;
+  componentsEditorFieldset.hidden = children === undefined;
   if (children === undefined) return;
 
-  slideChildrenEditorFieldset.replaceChildren();
+  componentsEditorFieldset.replaceChildren();
 
   // List of current children
   const list = document.createElement("div");
-  list.style.cssText = "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
+  list.style.cssText =
+    "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
   for (const child of children) {
     const row = document.createElement("div");
     row.style.cssText = "display:flex;align-items:center;gap:0.4em";
@@ -1668,7 +1670,7 @@ function updateSlideChildrenEditor(selectable: Selectable) {
     editBtn.addEventListener("click", () => {
       selectedSlideChild = child;
       showEditorCheckbox.checked = true;
-      updateSlideChildrenEditor(selectable);
+      updateComponentEditor(selectable);
       updateScheduleEditor(child);
     });
 
@@ -1682,14 +1684,13 @@ function updateSlideChildrenEditor(selectable: Selectable) {
         selectedSlideChild = null;
         updateScheduleEditor(selectable);
       }
-      updateSlideChildrenEditor(selectable);
-      showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+      updateComponentEditor(selectable);
     });
 
     row.append(editBtn, deleteBtn);
     list.append(row);
   }
-  slideChildrenEditorFieldset.append(list);
+  componentsEditorFieldset.append(list);
 
   // Add row
   const addRow = document.createElement("div");
@@ -1710,16 +1711,16 @@ function updateSlideChildrenEditor(selectable: Selectable) {
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
     const newChild = factory();
+    componentRegistryKey.set(newChild, addSelect.value);
     children.push(newChild);
     selectedSlideChild = newChild;
     showEditorCheckbox.checked = true;
-    updateSlideChildrenEditor(selectable);
+    updateComponentEditor(selectable);
     updateScheduleEditor(newChild);
-    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
   });
 
   addRow.append(addSelect, addBtn);
-  slideChildrenEditorFieldset.append(addRow);
+  componentsEditorFieldset.append(addRow);
 }
 
 function updateScheduleEditor(selectable: Selectable) {
@@ -1731,18 +1732,24 @@ function updateScheduleEditor(selectable: Selectable) {
   viewingPointKfs.clear();
   pointSyncCallbacks.clear();
   draggingPoint = null;
+  // History is always saved/loaded at the slide level, even when the schedule
+  // editor is open on an individual child component.
+  const saveTarget = currentSaveTarget();
+  if (saveTarget) {
+    scheduleHistoryControls.hidden = false;
+    refreshHistoryUI(saveTarget);
+  } else {
+    scheduleHistoryControls.hidden = true;
+  }
   const schedules = selectable.schedules;
   if (!schedules?.length) {
     showEditorCheckbox.disabled = true;
     showEditorCheckbox.checked = false;
     scheduleEditorFieldset.hidden = true;
-    scheduleHistoryControls.hidden = true;
     return;
   }
   showEditorCheckbox.disabled = false;
   scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
-  scheduleHistoryControls.hidden = false;
-  refreshHistoryUI(selectable);
   for (const info of schedules) {
     scheduleEditorFieldset.append(buildScheduleSection(info));
   }
@@ -1891,7 +1898,6 @@ function applyPointDrag(logX: number, logY: number) {
   if (!draggingPoint) return;
   draggingPoint.value = { x: logX, y: logY };
   pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
-  showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
 function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
@@ -1911,10 +1917,22 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
     const sameSign = handle === "tl" || handle === "br";
     let anchorX: number, anchorY: number;
     switch (handle) {
-      case "tl": anchorX = startRect.x + startRect.width; anchorY = startRect.y + startRect.height; break;
-      case "tr": anchorX = startRect.x; anchorY = startRect.y + startRect.height; break;
-      case "bl": anchorX = startRect.x + startRect.width; anchorY = startRect.y; break;
-      default:   anchorX = startRect.x; anchorY = startRect.y; break; // br
+      case "tl":
+        anchorX = startRect.x + startRect.width;
+        anchorY = startRect.y + startRect.height;
+        break;
+      case "tr":
+        anchorX = startRect.x;
+        anchorY = startRect.y + startRect.height;
+        break;
+      case "bl":
+        anchorX = startRect.x + startRect.width;
+        anchorY = startRect.y;
+        break;
+      default:
+        anchorX = startRect.x;
+        anchorY = startRect.y;
+        break; // br
     }
     let vx = logX - anchorX;
     let vy = logY - anchorY;
@@ -1923,7 +1941,7 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
     if (Math.abs(vx / ar) >= Math.abs(vy)) {
       vy = (vx / ar) * sf;
     } else {
-      vx = (vy * ar) * sf;
+      vx = vy * ar * sf;
     }
     newRect = {
       x: anchorX + Math.min(0, vx),
@@ -1934,25 +1952,49 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
   } else {
     switch (handle) {
       case "tl":
-        newRect = { x: startRect.x + dx, y: startRect.y + dy, width: startRect.width - dx, height: startRect.height - dy };
+        newRect = {
+          x: startRect.x + dx,
+          y: startRect.y + dy,
+          width: startRect.width - dx,
+          height: startRect.height - dy,
+        };
         break;
       case "tr":
-        newRect = { x: startRect.x, y: startRect.y + dy, width: startRect.width + dx, height: startRect.height - dy };
+        newRect = {
+          x: startRect.x,
+          y: startRect.y + dy,
+          width: startRect.width + dx,
+          height: startRect.height - dy,
+        };
         break;
       case "bl":
-        newRect = { x: startRect.x + dx, y: startRect.y, width: startRect.width - dx, height: startRect.height + dy };
+        newRect = {
+          x: startRect.x + dx,
+          y: startRect.y,
+          width: startRect.width - dx,
+          height: startRect.height + dy,
+        };
         break;
       case "br":
-        newRect = { x: startRect.x, y: startRect.y, width: startRect.width + dx, height: startRect.height + dy };
+        newRect = {
+          x: startRect.x,
+          y: startRect.y,
+          width: startRect.width + dx,
+          height: startRect.height + dy,
+        };
         break;
       case "center":
-        newRect = { x: startRect.x + dx, y: startRect.y + dy, width: startRect.width, height: startRect.height };
+        newRect = {
+          x: startRect.x + dx,
+          y: startRect.y + dy,
+          width: startRect.width,
+          height: startRect.height,
+        };
         break;
     }
   }
   kf.value = normalizeRect(newRect);
   markerSyncCallbacks.get(kf)?.(kf.value);
-  showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
 // MARK: Load previous state.
@@ -1979,12 +2021,6 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
         `input[name="onSectionEnd"][value="${state}"]`,
         HTMLInputElement,
       ).checked = true;
-    }
-    const saveImageSeconds = parseFloatX(
-      sessionStorage.getItem("saveImageSeconds"),
-    );
-    if (saveImageSeconds !== undefined) {
-      saveImageSecondsInput.valueAsNumber = saveImageSeconds;
     }
     const savedZoom = sessionStorage.getItem("zoomSelect");
     const savedPanX = parseFloatX(sessionStorage.getItem("panX") ?? "");

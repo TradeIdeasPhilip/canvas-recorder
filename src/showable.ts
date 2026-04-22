@@ -58,12 +58,12 @@ export type Selectable = {
   readonly schedules?: readonly ScheduleInfo[];
 
   /**
-   * Runtime-mutable list of child Showable objects managed by the slide editor.
-   * Each child's show() is called with the parent's ShowOptions every frame.
-   * When undefined the slide editor is not available for this item.
+   * Runtime-mutable list of components managed by the component editor.
+   * Each component's show() is called with the parent's ShowOptions every frame.
+   * When undefined the component editor is not available for this item.
    * Set to [] to opt in with an initially empty list.
    */
-  readonly slideChildren?: Showable[];
+  readonly components?: Showable[];
 };
 
 type ScheduleInfo = {

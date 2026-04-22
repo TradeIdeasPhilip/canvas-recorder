@@ -29,11 +29,11 @@
       <span id="scheduleHistoryControls" hidden>
         &nbsp;
         <button id="saveScheduleNowBtn" type="button">💾 Save</button>
-        <select id="scheduleHistorySelect" style="max-width: 18em;"></select>
+        <select id="scheduleHistorySelect" style="max-width: 18em"></select>
         <button id="loadScheduleBtn" type="button">Load</button>
       </span>
-      <fieldset id="slideChildrenEditor" hidden style="margin-bottom: 0.5em">
-        <legend>Slide Children</legend>
+      <fieldset id="componentsEditor" hidden style="margin-bottom: 0.5em">
+        <legend>Components</legend>
         <!-- dynamically populated by canvas-recorder.ts -->
       </fieldset>
       <fieldset id="scheduleEditor" style="margin-bottom: 0.5em">
@@ -143,11 +143,6 @@
             <option value="2">2×</option>
           </select>
         </label>
-      </div>
-      <div>
-        <button id="saveImage">Save Image</button> at
-        <input value="0.000" id="saveImageSeconds" type="number" /> seconds.
-        <button id="currentTimeToSaveImage">← Current Time</button>
       </div>
     </fieldset>
     <div
