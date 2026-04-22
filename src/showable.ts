@@ -66,7 +66,7 @@ export type Selectable = {
   readonly components?: Showable[];
 };
 
-type ScheduleInfo = {
+export type ScheduleInfo = {
   /**
    * Visible on the GUI
    */

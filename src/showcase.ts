@@ -21,6 +21,7 @@ import { Point } from "./glib/path-shape";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
+  ScheduleInfo,
   Showable,
   ShowOptions,
 } from "./showable";
@@ -35,8 +36,9 @@ import { fromBezier, LCommand, PathShape } from "./glib/path-shape";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { blackBackground } from "./utility";
+import { blackBackground, only } from "./utility";
 import { zipper } from "./zipper";
+import { createSingleImageComponent } from "./slide-components";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -1164,12 +1166,16 @@ What the hand, dare sieze the fire?`);
     const TOTAL_DURATION = 5 * HOLD_MS + 4 * TRANS_MS + DEFAULT_POST_ROLL_MS; // ≈21 s
 
     // ── Handwriting schedule (loops for the full slide duration) ──────────
-    const PAUSE_MS = 500;   // brief pause before and after each write
-    const ANIM_MS = 4_000;  // time to write "LOVE ♡" once
+    const PAUSE_MS = 500; // brief pause before and after each write
+    const ANIM_MS = 4_000; // time to write "LOVE ♡" once
     const LOOP_MS = PAUSE_MS + ANIM_MS + PAUSE_MS;
     const handwritingSchedule: Keyframe<number>[] = [];
     for (let t = 0; t < TOTAL_DURATION; t += LOOP_MS) {
-      handwritingSchedule.push({ time: t + PAUSE_MS, value: 0, easeAfter: ease });
+      handwritingSchedule.push({
+        time: t + PAUSE_MS,
+        value: 0,
+        easeAfter: ease,
+      });
       handwritingSchedule.push({ time: t + PAUSE_MS + ANIM_MS, value: 1 });
       const cycleEnd = t + LOOP_MS;
       if (cycleEnd < TOTAL_DURATION) {
@@ -1474,20 +1480,20 @@ What the hand, dare sieze the fire?`);
     const sw = mathFont.strokeWidth;
     const numTop0 = 1.95;
     const bar0y = numTop0 + lh + barGap;
-    const row1y = bar0y   + barGap;
-    const bar1y = row1y   + lh + barGap;
-    const row2y = bar1y   + barGap;
-    const bar2y = row2y   + lh + barGap;
-    const row3y = bar2y   + barGap;
-    const bar3y = row3y   + lh + barGap;
-    const row4y = bar3y   + barGap;
-    const bar4y = row4y   + lh + barGap;
+    const row1y = bar0y + barGap;
+    const bar1y = row1y + lh + barGap;
+    const row2y = bar1y + barGap;
+    const bar2y = row2y + lh + barGap;
+    const row3y = bar2y + barGap;
+    const bar3y = row3y + lh + barGap;
+    const row4y = bar3y + barGap;
+    const bar4y = row4y + lh + barGap;
     const RIGHT = 15.3;
-    const x0  = 0.5;   // "φ = 1 +"
-    const bx0 = 2.6;   // bar 0 left  (after "φ = 1 +")
-    const bx1 = 3.4;   // bar 1 left  (after "1 +")
-    const bx2 = 4.2;   // bar 2 left  (after "1 +")
-    const bx3 = 5.0;   // bar 3 left  (after "1 +")
+    const x0 = 0.5; // "φ = 1 +"
+    const bx0 = 2.6; // bar 0 left  (after "φ = 1 +")
+    const bx1 = 3.4; // bar 1 left  (after "1 +")
+    const bx2 = 4.2; // bar 2 left  (after "1 +")
+    const bx3 = 5.0; // bar 3 left  (after "1 +")
     const STEP = bx1 - bx0; // uniform indent per level
     const phiLabelPath = ParagraphLayout.singlePathShape({
       text: "φ = 1 +",
@@ -1515,9 +1521,9 @@ What the hand, dare sieze the fire?`);
         alignment: "left",
         width: STEP,
       }).translate(barLeft, barY - lh / 2).canvasPath;
-    const label1Path  = onePlusPath(bx0, bar1y);
-    const label2Path  = onePlusPath(bx1, bar2y);
-    const label3Path  = onePlusPath(bx2, bar3y);
+    const label1Path = onePlusPath(bx0, bar1y);
+    const label2Path = onePlusPath(bx1, bar2y);
+    const label3Path = onePlusPath(bx2, bar3y);
     const labelEndPath = ParagraphLayout.singlePathShape({
       text: "1 + ...",
       font: mathFont,
@@ -1592,31 +1598,31 @@ What the hand, dare sieze the fire?`);
     // centered at bar-0 height.
 
     const mathFont = makeLineFont(0.4);
-    const lh = 1.75 * 0.4;     // line height = 0.7
-    const barGap = 0.12;        // space above and below each bar
-    const sw = mathFont.strokeWidth;  // 0.04
+    const lh = 1.75 * 0.4; // line height = 0.7
+    const barGap = 0.12; // space above and below each bar
+    const sw = mathFont.strokeWidth; // 0.04
 
     // ── Y positions (computed top-down) ────────────────────────────────────
     const numTop0 = 1.95;
-    const bar0y   = numTop0 + lh + barGap;        // 2.77
-    const row1y   = bar0y   + barGap;              // 2.89  ("7 + …")
-    const bar1y   = row1y   + lh + barGap;         // 3.71
-    const row2y   = bar1y   + barGap;              // 3.83  ("15 + …")
-    const bar2y   = row2y   + lh + barGap;         // 4.65
-    const row3y   = bar2y   + barGap;              // 4.77  ("1 + …")
-    const bar3y   = row3y   + lh + barGap;         // 5.59
-    const row4y   = bar3y   + barGap;              // 5.71
-    const bar4y   = row4y   + lh + barGap;         // 6.53  (hypothetical next bar)
+    const bar0y = numTop0 + lh + barGap; // 2.77
+    const row1y = bar0y + barGap; // 2.89  ("7 + …")
+    const bar1y = row1y + lh + barGap; // 3.71
+    const row2y = bar1y + barGap; // 3.83  ("15 + …")
+    const bar2y = row2y + lh + barGap; // 4.65
+    const row3y = bar2y + barGap; // 4.77  ("1 + …")
+    const bar3y = row3y + lh + barGap; // 5.59
+    const row4y = bar3y + barGap; // 5.71
+    const bar4y = row4y + lh + barGap; // 6.53  (hypothetical next bar)
 
     // ── X positions ────────────────────────────────────────────────────────
     // Each bar starts just after its integer label; the next label starts
     // at the same x so it appears directly below the bar's left edge.
     const RIGHT = 15.3;
-    const x0 = 0.5;     // "π = 3 +"
-    const bx0 = 2.6;    // bar 0 left  (after "π = 3 +")
-    const bx1 = 3.5;    // bar 1 left  (after "7 +")
-    const bx2 = 4.7;    // bar 2 left  (after "15 +")
-    const bx3 = 5.6;    // bar 3 left  (after "1 +")
+    const x0 = 0.5; // "π = 3 +"
+    const bx0 = 2.6; // bar 0 left  (after "π = 3 +")
+    const bx1 = 3.5; // bar 1 left  (after "7 +")
+    const bx2 = 4.7; // bar 2 left  (after "15 +")
+    const bx3 = 5.6; // bar 3 left  (after "1 +")
 
     // ── Pre-computed paths ──────────────────────────────────────────────────
     // "π = 3 +" — centered vertically at bar 0
@@ -1637,10 +1643,10 @@ What the hand, dare sieze the fire?`);
         width: RIGHT - barLeft,
       }).translate(barLeft, topY);
 
-    const num0Path  = num1Shape(bx0, numTop0).canvasPath;
+    const num0Path = num1Shape(bx0, numTop0).canvasPath;
     const num1aPath = num1Shape(bx1, row1y).canvasPath;
-    const num2Path  = num1Shape(bx2, row2y).canvasPath;
-    const num3Shape = num1Shape(bx3, row3y);   // PathShape — part of morph target
+    const num2Path = num1Shape(bx2, row2y).canvasPath;
+    const num3Shape = num1Shape(bx3, row3y); // PathShape — part of morph target
 
     // Integer labels — each is centered vertically AT its own bar (same
     // relationship as "π = 3 +" is centered at bar0y).  The "1" numerators
@@ -2078,11 +2084,124 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// Example of Vite's static asset handling.
+// https://vite.dev/guide/assets
+import imageUrl from "./Philip Smolen.jpeg";
+
+{
+  /**
+   * Draw four images.
+   */
+  const description = '<img src="...">';
+  const pathShape = ParagraphLayout.singlePathShape({
+    text: description,
+    font: titleFont,
+    alignment: "center",
+    width: 16,
+  });
+  const boundingBox = pathShape.getBBox();
+  const path = pathShape.canvasPath;
+  const schedules: ScheduleInfo[] = [];
+  const components = new Map<string, Showable>();
+  components.set("Peano", createSingleImageComponent("./Giuseppe_Peano.jpg"));
+  components.set("Philip", createSingleImageComponent(imageUrl));
+  components.set(
+    "Pi Creature",
+    createSingleImageComponent(
+      "https://store.dftba.com/cdn/shop/files/3b1b-piplushieplump-site-2.jpg",
+    ),
+  );
+  components.set(
+    "Fourier",
+    createSingleImageComponent("./Fourier2_-_restoration1.jpg"),
+  );
+  components.forEach((component, name) => {
+    const original = only(
+      component.schedules!.filter(
+        (originalSchedule) => originalSchedule.type == "rectangle",
+      ),
+    );
+    const visible: ScheduleInfo = { ...original, description: name };
+    schedules.push(visible);
+  });
+  const middleRectangle: ReadOnlyRect = {
+    x: 4.672377558479532,
+    y: 1.473364400584795,
+    width: 6.690880847953214,
+    height: 6.861111111111109,
+  };
+  const smallRectangles: readonly ReadOnlyRect[] = [
+    { x: 1, y: 1, width: 2.2007492690058483, height: 2.389117324561403 },
+    {
+      x: 0.7563048245614037,
+      y: 5.650356359649122,
+      width: 2.5989583333333326,
+      height: 2.4562774122807016,
+    },
+    {
+      x: 12.436403508771932,
+      y: 0.9299616228070178,
+      width: 2.3993055555555527,
+      height: 3.285727339181287,
+    },
+    {
+      x: 12.18704312865497,
+      y: 5.207145467836257,
+      width: 2.927448830409356,
+      height: 3.1443713450292394,
+    },
+  ];
+  let startTime = DEFAULT_PRE_ROLL_MS;
+  zipper([schedules, smallRectangles]).forEach(
+    ([scheduleInfo, smallRectangle]) => {
+      if (scheduleInfo.type != "rectangle") {
+        throw new Error("wtf");
+      }
+      const schedule = scheduleInfo.schedule;
+      schedule.length = 0;
+      schedule.push({
+        time: startTime,
+        value: smallRectangle,
+        easeAfter: ease,
+      });
+      schedule.push({ time: startTime + 1000, value: middleRectangle });
+      schedule.push({
+        time: startTime + 6000,
+        value: middleRectangle,
+        easeAfter: ease,
+      });
+      schedule.push({ time: startTime + 7000, value: smallRectangle });
+      startTime += 6000;
+    },
+  );
+  const scene: Showable = {
+    description,
+    schedules,
+    duration: schedules.at(-1)!.schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+    show(options) {
+      components.forEach((component) => component.show(options));
+      const context = options.context;
+      const gradient = context.createLinearGradient(
+        boundingBox.x.min,
+        boundingBox.y.max,
+        boundingBox.x.max,
+        boundingBox.y.max,
+      );
+      myRainbow.forEach((color, index, array) => {
+        gradient.addColorStop(index / (array.length - 1), color);
+      });
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = titleFont.strokeWidth;
+      context.strokeStyle = gradient;
+      context.stroke(path);
+    },
+  };
+  sceneList.add(scene);
+}
+
 const mainBuilder = new MakeShowableInParallel("Showcase");
 mainBuilder.add(blackBackground);
 mainBuilder.add(sceneList.build());
 
 export const showcase = mainBuilder.build();
-
-//[{"top":-0.625,"bottom":0.25,"width":1.2625,"letters":[{"x":0,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.375,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.75,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.875,"description":{"advance":0.2625,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":1.2625,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}}],"spaceAfter":0.3}]
-//[{"top":-0.625,"bottom":0.25,"width":1.2625,"letters":[{"x":0,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.375,"description":{"advance":0.25,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.75,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":0.875,"description":{"advance":0.2625,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}},{"x":1.2625,"description":{"advance":0,"fontMetrics":{"fontSize":0.5,"strokeWidth":0.05}}}],"spaceAfter":0.3}]

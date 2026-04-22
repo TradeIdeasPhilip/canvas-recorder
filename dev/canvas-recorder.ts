@@ -1337,12 +1337,15 @@ function buildEaseSelect(keyframe: {
   return select;
 }
 
-function scheduleToTypeScript(info: ScheduleInfo): string {
+function scheduleToTypeScript(
+  info: ScheduleInfo,
+  showableDescription: string,
+): string {
   function easeSuffix(fn: ((t: number) => number) | undefined): string {
-    if (!fn) return "";
-    if (fn === easeIn) return ", easeAfter: easeIn";
-    if (fn === easeOut) return ", easeAfter: easeOut";
-    return ", easeAfter: (t) => (t < 1 ? 0 : 1)"; // hold
+    const name = easeName(fn);
+    if (!name) return "";
+    if (name === "hold") return ", easeAfter: (t) => (t < 1 ? 0 : 1)";
+    return `, easeAfter: ${name}`;
   }
 
   function formatValue(value: unknown): string {
@@ -1363,10 +1366,17 @@ function scheduleToTypeScript(info: ScheduleInfo): string {
     (kf) =>
       `  { time: ${kf.time}, value: ${formatValue(kf.value)}${easeSuffix(kf.easeAfter)} },`,
   );
-  return `[\n${rows.join("\n")}\n]`;
+  const header = [
+    `// Showable.description: ${JSON.stringify(showableDescription)}`,
+    `// Schedule name: ${JSON.stringify(info.description)}`,
+  ].join("\n");
+  return `${header}\n[\n${rows.join("\n")}\n]`;
 }
 
-function buildScheduleSection(info: ScheduleInfo): HTMLElement {
+function buildScheduleSection(
+  info: ScheduleInfo,
+  showableDescription: string,
+): HTMLElement {
   const section = document.createElement("fieldset");
 
   function rebuild() {
@@ -1385,7 +1395,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
         if (!kfSet.has(kf)) viewingPointKfs.delete(kf);
       }
     }
-    section.replaceWith(buildScheduleSection(info));
+    section.replaceWith(buildScheduleSection(info, showableDescription));
   }
 
   function currentTimeMs() {
@@ -1442,7 +1452,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
   copyBtn.textContent = "📋";
   copyBtn.title = "Copy schedule as TypeScript";
   copyBtn.addEventListener("click", () => {
-    navigator.clipboard.writeText(scheduleToTypeScript(info));
+    navigator.clipboard.writeText(scheduleToTypeScript(info, showableDescription));
   });
   legend.append(addBtn, " ", sortBtn, " ", copyBtn);
   section.append(legend);
@@ -1462,12 +1472,18 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     headerRow.append(th);
   }
 
-  const easeCells: HTMLTableCellElement[] = [];
+  // Maps each keyframe object to its ease cell, so visibility updates
+  // remain correct even when the internal array is sorted independently
+  // of the UI row order.
+  const easeCellForKf = new Map<
+    (typeof info.schedule)[number],
+    HTMLTableCellElement
+  >();
 
   function updateEaseVisibility() {
     const maxTime = Math.max(...info.schedule.map((kf) => kf.time));
-    easeCells.forEach((cell, i) => {
-      cell.style.visibility = info.schedule[i].time >= maxTime ? "hidden" : "";
+    easeCellForKf.forEach((cell, kf) => {
+      cell.style.visibility = kf.time >= maxTime ? "hidden" : "";
     });
   }
 
@@ -1479,6 +1495,11 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     // Time cell: editable input + "← now" button
     const timeInput = buildNumericInput(kf.time, (n) => {
       kf.time = n;
+      // Keep the internal array sorted so interpolation always works correctly.
+      // The UI rows stay in their current positions until Sort is clicked.
+      (info.schedule as (typeof info.schedule)[number][]).sort(
+        (a, b) => a.time - b.time,
+      );
       updateEaseVisibility();
     });
     timeInput.step = "any";
@@ -1490,6 +1511,9 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
     nowBtn.addEventListener("click", () => {
       kf.time = localTimeMs();
       timeInput.valueAsNumber = kf.time;
+      (info.schedule as (typeof info.schedule)[number][]).sort(
+        (a, b) => a.time - b.time,
+      );
       updateEaseVisibility();
     });
     row.insertCell().append(timeInput, "\u00a0", nowBtn);
@@ -1626,7 +1650,7 @@ function buildScheduleSection(info: ScheduleInfo): HTMLElement {
 
     const easeCell = row.insertCell();
     easeCell.append(buildEaseSelect(kf));
-    easeCells.push(easeCell);
+    easeCellForKf.set(kf, easeCell);
 
     // Delete button — disabled when this is the only keyframe
     const deleteBtn = document.createElement("button");
@@ -1751,7 +1775,7 @@ function updateScheduleEditor(selectable: Selectable) {
   showEditorCheckbox.disabled = false;
   scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
   for (const info of schedules) {
-    scheduleEditorFieldset.append(buildScheduleSection(info));
+    scheduleEditorFieldset.append(buildScheduleSection(info, selectable.description));
   }
 }
 
