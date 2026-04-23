@@ -1194,17 +1194,32 @@ async function saveScheduleState(selectable: Selectable) {
   const key = selectableKey(selectable);
   const record = await readHistory(key);
   const entries = record?.entries ?? [];
-  const entry: HistoryEntry = {
-    timestamp: Date.now(),
-    schedules: hasSchedules ? serializeSchedules(selectable.schedules!) : [],
-  };
-  if (hasChildren) {
-    entry.components = selectable.components!.flatMap((child) => {
-      const registryKey = componentRegistryKey.get(child);
-      if (!registryKey || !child.schedules?.length) return [];
-      return [{ registryKey, schedules: serializeSchedules(child.schedules) }];
+  const newSchedules = hasSchedules
+    ? serializeSchedules(selectable.schedules!)
+    : [];
+  const newComponents = hasChildren
+    ? selectable.components!.flatMap((child) => {
+        const registryKey = componentRegistryKey.get(child);
+        if (!registryKey || !child.schedules?.length) return [];
+        return [{ registryKey, schedules: serializeSchedules(child.schedules) }];
+      })
+    : undefined;
+  // Skip saving if nothing changed since the last entry (e.g. Vite hot-reload
+  // with no user edits triggers beforeunload and would pollute history).
+  const last = entries[entries.length - 1];
+  if (last) {
+    const prevJson = JSON.stringify({
+      schedules: last.schedules,
+      components: last.components,
     });
+    const newJson = JSON.stringify({
+      schedules: newSchedules,
+      components: newComponents,
+    });
+    if (prevJson === newJson) return;
   }
+  const entry: HistoryEntry = { timestamp: Date.now(), schedules: newSchedules };
+  if (newComponents !== undefined) entry.components = newComponents;
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
