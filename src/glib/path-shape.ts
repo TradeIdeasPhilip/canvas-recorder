@@ -57,6 +57,12 @@ export type CommandSplitter = {
    * @param distance
    */
   distanceToParametric(distance: number): number;
+  /**
+   * Return the tangent angle (in radians) at the given distance along the command.
+   * 0 points right, π/2 points down (canvas y increases downward).
+   * @param distance 0 for the start, length for the end.
+   */
+  angleAt(distance: number): number;
 };
 
 // MARK: Command
@@ -144,6 +150,7 @@ export class LCommand implements Command {
     const length = this.getLength();
     const xAt = makeBoundedLinear(0, x0, length, x);
     const yAt = makeBoundedLinear(0, y0, length, y);
+    const lineAngle = Math.atan2(y - y0, x - x0);
     return {
       length,
       split(fromDistance: number, toDistance: number): LCommand {
@@ -161,6 +168,9 @@ export class LCommand implements Command {
         };
       },
       distanceToParametric: makeBoundedLinear(0, 0, length, 1),
+      angleAt(_distance: number): number {
+        return lineAngle;
+      },
     };
   }
   getLength(): number {
@@ -319,6 +329,10 @@ class BezierCommandSplitter implements CommandSplitter {
   }
   at(distance: number): Point {
     return this.bezier.get(this.distanceToParametric(distance));
+  }
+  angleAt(distance: number): number {
+    const d = this.bezier.derivative(this.distanceToParametric(distance));
+    return Math.atan2(d.y, d.x);
   }
 }
 

@@ -198,6 +198,29 @@ export class PathShapeSplitter {
     return info.splitter.at(relativeToCommand);
   }
   /**
+   * Return the position and tangent angle at the given distance along this curve.
+   * Combines `at()` and `angleAt()` in a single command lookup.
+   *
+   * The angle is in radians: 0 points right, π/2 points down
+   * (canvas y increases downward).  Under the y-flipped coordinate transform
+   * used by `computeGridTransform`, this corresponds to the mathematical
+   * direction of travel along the curve.
+   *
+   * @param distance
+   * * 0 for the start.
+   * * this.length for the end.
+   * * Values are automatically clamped to this range.
+   */
+  positionAndAngleAt(distance: number): Point & { angle: number } {
+    distance = Math.min(this.length, Math.max(0, distance)) + this.#offset;
+    const index = this.#findCommandAt(distance);
+    const info = this.#allCommandInfo[index];
+    const relativeToCommand = distance - info.start;
+    const pos = info.splitter.at(relativeToCommand);
+    const angle = info.splitter.angleAt(relativeToCommand);
+    return { x: pos.x, y: pos.y, angle };
+  }
+  /**
    * Create a subpath starting at from and ending at to.
    *
    * Inputs are clamped if they are out of range.

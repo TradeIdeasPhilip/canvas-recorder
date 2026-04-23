@@ -2313,6 +2313,36 @@ export function makeLineFontMap(
     ]);
     add("π", shape, advance);
   }
+  // MARK: τ Greek small letter tau
+  {
+    /**
+     * Start from π
+     * Remove the left leg.
+     * Make the top 3/4 the size.
+     * Center the straight part of the right leg in the new top.
+     */
+    const advance = digitWidth * 1.2 * 0.75;
+    const curveSize = advance / 4;
+    /**
+     * Distance between the left side of the top and the left side of the down part.
+     */
+    const downStrokeLeft = advance / 2;
+    const shape = new PathShape([
+      // Top
+      new LCommand(left, capitalMiddle, advance, capitalMiddle),
+      // Down
+      new LCommand(downStrokeLeft, capitalMiddle, downStrokeLeft, -curveSize),
+      QCommand.controlPoints(
+        downStrokeLeft,
+        -curveSize,
+        downStrokeLeft,
+        baseline,
+        downStrokeLeft + curveSize,
+        baseline,
+      ),
+    ]);
+    add("τ", shape, advance);
+  }
   /*
   // MARK: φ Greek small letter phi — circle with vertical line through centre
   {

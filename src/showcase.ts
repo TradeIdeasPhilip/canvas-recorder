@@ -278,11 +278,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const canvasCurvePath = canvasCurveShape.canvasPath;
   const splitter = PathShapeSplitter.create(canvasCurveShape);
 
-  // π and τ label positions: t=0.5 → halfway around the curve (≙ parameter π),
-  // t=0 / t=1 → start/end of the closed curve (≙ parameter τ = 2π).
-  const piPos = splitter.at(splitter.length * 0.5);
-  const tauPos = splitter.at(0);
-
   const CURVE_LINE_WIDTH = 0.05;
 
   // Reusable: title + grid for all four scenes.
@@ -363,28 +358,29 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
-  // ── Scene: dotted line (dancing ants) ────────────────────────────────────
+  // ── Scene: squares (dancing ants, square caps) ───────────────────────────
   {
-    const scene = new MakeShowableInParallel(
-      "Lissajous Curves — dotted line",
-    );
+    const scene = new MakeShowableInParallel("Lissajous Curves — squares");
     const titlePath = makeTitle(scene.description);
-    // ~12 dashes evenly spaced around the curve.
-    const wavelength = splitter.length / 12;
-    const dashDraw = wavelength * 0.4;
-    const dashGap = wavelength * 0.6;
+    // lineCap:"butt" + dashDraw=lineWidth → each dash is a perfect square.
+    // Snap the wavelength so an integer number of squares fits exactly around
+    // the curve, eliminating flashing at the start/end join.
+    const squareWidth = CURVE_LINE_WIDTH;
+    const targetSpacing = squareWidth * 4; // aim for 4× lineWidth wavelength
+    const squareCount = Math.round(splitter.length / targetSpacing);
+    const wavelength = splitter.length / squareCount; // exact integer fit
+    const dashGap = wavelength - squareWidth;
     scene.add({
-      description: "dotted",
+      description: "squares",
       duration: DEFAULT_SLIDE_DURATION_MS,
       show({ context, globalTime }) {
         drawBackground(context, titlePath, threeB1B.YELLOW_E);
-        // Use globalTime so the dots keep moving through freeze/repeat.
+        // globalTime keeps the animation running through freeze/repeat.
         const dashOffset = -((globalTime / 600) % wavelength);
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.lineWidth = CURVE_LINE_WIDTH;
+        context.lineCap = "butt";
+        context.lineWidth = squareWidth;
         context.strokeStyle = threeB1B.YELLOW;
-        context.setLineDash([dashDraw, dashGap]);
+        context.setLineDash([squareWidth, dashGap]);
         context.lineDashOffset = dashOffset;
         context.stroke(canvasCurvePath);
         context.setLineDash([]);
@@ -393,15 +389,16 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
-  // ── Scene: π and τ — arrow tracing the path ──────────────────────────────
-  // Inspired by the CSS offset-path animation in parametric-path.html.
-  // Here PathShapeSplitter replaces CSS motion-path, giving pixel-level control.
+  // ── Scene: arrow tracing the path ────────────────────────────────────────
+  // Canvas analog of CSS offset-path.  PathShapeSplitter replaces motion-path,
+  // positionAndAngleAt() gives exact position + tangent in one lookup.
+  // Related: https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
   {
     const DURATION = 7_000;
-    const scene = new MakeShowableInParallel("Lissajous Curves — π and τ");
+    const scene = new MakeShowableInParallel("Lissajous Curves — arrow");
     const titlePath = makeTitle(scene.description);
     scene.add({
-      description: "arrow + labels",
+      description: "arrow",
       duration: DURATION,
       show({ context, timeInMs }) {
         drawBackground(context, titlePath, threeB1B.RED);
@@ -418,7 +415,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.restore();
 
         // Growing trace from t=0 to current parameter.
-        // Linear progress: parameter t moves at a constant rate (mathematically honest).
         const progress = timeInMs / DURATION;
         const tracedShape = PathShapeSplitter.trimProgress(
           canvasCurveShape,
@@ -429,15 +425,13 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.setLineDash([]);
         context.stroke(tracedShape.canvasPath);
 
-        // ── Arrowhead at current position ──────────────────────────────────
-        const d = progress * splitter.length;
-        const pos = splitter.at(d);
-        const ε = splitter.length * 0.001;
-        const posAhead = splitter.at(d + ε);
-        const angle = Math.atan2(posAhead.y - pos.y, posAhead.x - pos.x);
+        // Arrowhead at current position, rotated to follow the tangent.
+        const { x, y, angle } = splitter.positionAndAngleAt(
+          progress * splitter.length,
+        );
         const arrowSize = 0.28;
         context.save();
-        context.translate(pos.x, pos.y);
+        context.translate(x, y);
         context.rotate(angle);
         context.beginPath();
         context.moveTo(arrowSize, 0);
@@ -447,19 +441,86 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.fillStyle = threeB1B.RED;
         context.fill();
         context.restore();
-
-        // ── Fixed labels at π and τ ────────────────────────────────────────
-        // t = 0.5 corresponds to parameter π; t = 1 corresponds to τ = 2π.
-        context.font = `bold 0.38px sans-serif`;
-        context.fillStyle = threeB1B.WHITE;
-        context.textAlign = "right";
-        context.textBaseline = "middle";
-        context.fillText("π", piPos.x - 0.15, piPos.y);
-        context.textAlign = "left";
-        context.textBaseline = "bottom";
-        context.fillText("τ", tauPos.x + 0.15, tauPos.y - 0.1);
       },
     });
+    sceneList.add(scene.build());
+  }
+
+  // ── Scene: τ, π, and → following the path (CSS offset-path style) ────────
+  // Three markers travel the curve at independent speeds.
+  // τ and π use offset-rotate: 0deg (always upright).
+  // → rotates to follow the tangent (default offset-rotate).
+  // Font, colors, and speeds copied from parametric-path.css.
+  // https://github.com/TradeIdeasPhilip/random-svg-tests/blob/73fe4fe4fbe9e5dfa5dc937e3ea27940f42465d2/src/parametric-path.css#L76-L94
+  {
+    const scene = new MakeShowableInParallel("offset-path CSS property");
+    const titlePath = makeTitle(scene.description);
+
+    // CSS: font-size: calc(var(--recommended-width) * 25px)
+    // recommended-width = max(bBox.width, bBox.height) / 100 in path-coordinate units.
+    const curveBBox = canvasCurveShape.getBBox();
+    const recommendedWidth = Math.max(curveBBox.x.size, curveBBox.y.size) / 100;
+    const labelFontSize = recommendedWidth * 25; // canvas units
+    const LABEL_FONT = `${labelFontSize}px serif`;
+
+    // CSS animation durations (ms per full loop).
+    const TAU_PERIOD = 12_500;
+    const PI_PERIOD = 25_000;
+    const ARROW_PERIOD = 20_967;
+
+    // Draw background curve in a neutral color (CSS used stroke:black).
+    scene.add({
+      description: "curve",
+      duration: DEFAULT_SLIDE_DURATION_MS,
+      show({ context }) {
+        drawBackground(context, titlePath, threeB1B.GREY);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = CURVE_LINE_WIDTH;
+        context.strokeStyle = threeB1B.GREY;
+        context.setLineDash([]);
+        context.stroke(canvasCurvePath);
+      },
+    });
+
+    // Helper: place text at a path position.
+    // upright=true → offset-rotate:0deg (τ, π); upright=false → rotates with tangent (→).
+    function drawMarker(
+      context: CanvasRenderingContext2D,
+      globalTime: number,
+      period: number,
+      char: string,
+      color: string,
+      upright: boolean,
+    ) {
+      const progress = (globalTime / period) % 1;
+      const { x, y, angle } = splitter.positionAndAngleAt(
+        progress * splitter.length,
+      );
+      context.save();
+      context.font = LABEL_FONT;
+      context.fillStyle = color;
+      context.textAlign = "center";
+      context.textBaseline = "middle";
+      context.translate(x, y);
+      if (!upright) context.rotate(angle);
+      context.fillText(char, 0, 0);
+      context.restore();
+    }
+
+    scene.add({
+      description: "markers",
+      duration: DEFAULT_SLIDE_DURATION_MS,
+      show({ context, globalTime }) {
+        // τ — brown, offset-rotate:0deg, 12500ms/loop
+        drawMarker(context, globalTime, TAU_PERIOD, "τ", "brown", true);
+        // π — teal, offset-rotate:0deg, 25000ms/loop
+        drawMarker(context, globalTime, PI_PERIOD, "π", "rgb(0,113,139)", true);
+        // → — pink, default offset-rotate (follows tangent), 20967ms/loop
+        drawMarker(context, globalTime, ARROW_PERIOD, "→", "#eb90ee", false);
+      },
+    });
+
     sceneList.add(scene.build());
   }
 }
