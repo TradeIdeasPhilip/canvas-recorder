@@ -33,7 +33,6 @@ import { panAndZoom } from "./glib/transforms";
 import { Font } from "./glib/letters-base";
 import { makePolygon } from "./peano-fourier/fourier-shared";
 import {
-  fromBezier,
   LCommand,
   ParametricFunction,
   ParametricToPath,
@@ -1281,34 +1280,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
-/**
- * assume the path is a single connected path,
- * and it is a closed path
- * aimed at the start
- * break the first command into two halves.
- * move the first half to the end of the path
- * it will mostly look the same
- * but now it starts and ends in the middle of smooth piece.
- * It was starting and ending at a vertex.
- * All of the other vertices has mitered joints
- * but the start/end did not.
- * @param original
- * @returns
- */
-function breakFirst(original: PathShape) {
-  const newCommands = [...original.commands];
-  const originalFirstCommand = newCommands.shift();
-  if (!originalFirstCommand) {
-    // Empty path.
-    return original;
-  }
-  const pieces = originalFirstCommand.getBezier().split(0.5);
-  const firstHalf = fromBezier(pieces.left);
-  const secondHalf = fromBezier(pieces.right);
-  newCommands.unshift(secondHalf);
-  newCommands.push(firstHalf);
-  return new PathShape(newCommands);
-}
 
 {
   const scene = new MakeShowableInParallel("Simple Animated Colors");
@@ -1319,7 +1290,7 @@ function breakFirst(original: PathShape) {
       alignment: "center",
       width: 16,
     });
-    const starPath = breakFirst(makePolygon(5, 1)).makeItFit(
+    const starPath = makePolygon(5, 1).makeItFit(
       { x: 0.5, y: 1.5, width: 3, height: 3 },
       "srcRect fits completely into destRect",
     );
@@ -1408,7 +1379,7 @@ function breakFirst(original: PathShape) {
     width: 16,
   });
 
-  const starShape = breakFirst(makePolygon(5, 1)).makeItFit(
+  const starShape = makePolygon(5, 1).makeItFit(
     { x: 0.25, y: 1.3, width: 3.5, height: 2.5 },
     "srcRect fits completely into destRect",
   );
