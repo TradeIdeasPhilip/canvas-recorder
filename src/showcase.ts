@@ -32,7 +32,13 @@ import { strokeColors } from "./stroke-colors";
 import { panAndZoom } from "./glib/transforms";
 import { Font } from "./glib/letters-base";
 import { makePolygon } from "./peano-fourier/fourier-shared";
-import { fromBezier, LCommand, PathShape } from "./glib/path-shape";
+import {
+  fromBezier,
+  LCommand,
+  ParametricFunction,
+  ParametricToPath,
+  PathShape,
+} from "./glib/path-shape";
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
@@ -189,6 +195,275 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
   sceneList.add(scene.build());
 }
+
+// ── Lissajous Curves ─────────────────────────────────────────────────────────
+// Four display styles for the same curve, each in its own Showable.
+// Related project: https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
+// (https://github.com/TradeIdeasPhilip/random-svg-tests)
+{
+  /**
+   * 3blue1brown / Manim color palette.
+   * Source: https://github.com/3b1b/manim/blob/master/manimlib/utils/color_utils.py
+   *
+   * These colors are designed for math animations on a dark background,
+   * as seen in 3blue1brown's YouTube channel and his Summer of Math Exposition (SoME) contest.
+   */
+  const threeB1B = {
+    BLUE_E: "#1C758A",
+    BLUE_D: "#29ABCA",
+    BLUE: "#58C4DD",
+    BLUE_B: "#9CDCEB",
+    TEAL_E: "#49A88F",
+    TEAL: "#5CD0B3",
+    GREEN_E: "#699C52",
+    GREEN: "#83C167",
+    YELLOW_E: "#E8C11C",
+    YELLOW: "#FFFF00",
+    GOLD: "#C78D46",
+    RED_E: "#CF5044",
+    RED: "#FC6255",
+    MAROON: "#C55F73",
+    PURPLE: "#9A72AC",
+    WHITE: "#FFFFFF",
+    GREY: "#888888",
+  };
+
+  /**
+   * Lissajous curve (3:2 frequency ratio) — the default example from
+   * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
+   *
+   * Parametric equations:
+   *   x(t) = sin(3·2πt + π/2) = cos(6πt)
+   *   y(t) = sin(4πt)
+   * for t ∈ [0, 1] (one full period).
+   */
+  const lissajousF: ParametricFunction = (t) => {
+    const angle = t * 2 * Math.PI;
+    return {
+      x: Math.sin(3 * angle + Math.PI / 2),
+      y: Math.sin(2 * angle),
+    };
+  };
+
+  // Build a high-quality path in math coordinates (x, y ∈ [−1, 1]).
+  // ParametricToPath adaptively subdivides until the bezier approximation is tight.
+  const lissajousPathMath = (() => {
+    const p2p = new ParametricToPath(lissajousF);
+    p2p.go();
+    return p2p.pathShape;
+  })();
+
+  // Graph area on the 16×9 canvas.
+  const GRAPH_RECT = { x: 1.5, y: 1.1, width: 13, height: 7.3 };
+  // Math-space view: a square window around the unit square, with a small margin.
+  const VIEW_RECT = { x: -1.25, y: -1.25, width: 2.5, height: 2.5 };
+
+  // Coordinate transform shared between drawGrid() and PathShape.transform().
+  // computeGridTransform() uses a y-flipped system (math y increases upward;
+  // canvas y increases downward), so the DOMMatrix must negate scaleY.
+  const { toCanvasX, toCanvasY } = computeGridTransform(GRAPH_RECT, VIEW_RECT)!;
+  const mathScale = toCanvasX(1) - toCanvasX(0); // canvas units per math unit
+  // DOMMatrix([a, b, c, d, e, f]) → x' = a·x + c·y + e, y' = b·x + d·y + f
+  const canvasMatrix = new DOMMatrix([
+    mathScale,
+    0,
+    0,
+    -mathScale, // negative: flip y so math "up" maps to canvas "up"
+    toCanvasX(0),
+    toCanvasY(0),
+  ]);
+
+  // Lissajous path in canvas coordinates (used for drawing and for splitter).
+  const canvasCurveShape = lissajousPathMath.transform(canvasMatrix);
+  const canvasCurvePath = canvasCurveShape.canvasPath;
+  const splitter = PathShapeSplitter.create(canvasCurveShape);
+
+  // π and τ label positions: t=0.5 → halfway around the curve (≙ parameter π),
+  // t=0 / t=1 → start/end of the closed curve (≙ parameter τ = 2π).
+  const piPos = splitter.at(splitter.length * 0.5);
+  const tauPos = splitter.at(0);
+
+  const CURVE_LINE_WIDTH = 0.05;
+
+  // Reusable: title + grid for all four scenes.
+  function drawBackground(
+    context: CanvasRenderingContext2D,
+    titlePath: Path2D,
+    titleColor: string,
+  ) {
+    drawGrid(context, { destRect: GRAPH_RECT, viewRect: VIEW_RECT });
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = titleFont.strokeWidth;
+    context.strokeStyle = titleColor;
+    context.stroke(titlePath);
+  }
+
+  function makeTitle(text: string) {
+    return ParagraphLayout.singlePathShape({
+      text,
+      font: titleFont,
+      alignment: "center",
+      width: 16,
+    }).canvasPath;
+  }
+
+  // ── Scene: simple stroke ──────────────────────────────────────────────────
+  {
+    const scene = new MakeShowableInParallel(
+      "Lissajous Curves — simple stroke",
+    );
+    const titlePath = makeTitle(scene.description);
+    scene.add({
+      description: "curve",
+      duration: DEFAULT_SLIDE_DURATION_MS,
+      show({ context }) {
+        drawBackground(context, titlePath, threeB1B.BLUE);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = CURVE_LINE_WIDTH;
+        context.strokeStyle = threeB1B.BLUE;
+        context.setLineDash([]);
+        context.stroke(canvasCurvePath);
+      },
+    });
+    sceneList.add(scene.build());
+  }
+
+  // ── Scene: tracing (draw then erase) ─────────────────────────────────────
+  {
+    const DURATION = 8_000;
+    const scene = new MakeShowableInParallel("Lissajous Curves — tracing");
+    const titlePath = makeTitle(scene.description);
+    scene.add({
+      description: "tracing",
+      duration: DURATION,
+      show({ context, timeInMs }) {
+        drawBackground(context, titlePath, threeB1B.GREEN);
+        const p = timeInMs / DURATION;
+        // First half: head sweeps 0 → 1 (drawing the curve).
+        // Second half: tail sweeps 0 → 1 (erasing from the start).
+        const fromP = p < 0.5 ? 0 : ease((p - 0.5) * 2);
+        const toP = p < 0.5 ? ease(p * 2) : 1;
+        if (toP > fromP) {
+          const trimmed = PathShapeSplitter.trimProgress(
+            canvasCurveShape,
+            fromP,
+            toP,
+          );
+          context.lineCap = "round";
+          context.lineJoin = "round";
+          context.lineWidth = CURVE_LINE_WIDTH;
+          context.strokeStyle = threeB1B.GREEN;
+          context.setLineDash([]);
+          context.stroke(trimmed.canvasPath);
+        }
+      },
+    });
+    sceneList.add(scene.build());
+  }
+
+  // ── Scene: dotted line (dancing ants) ────────────────────────────────────
+  {
+    const scene = new MakeShowableInParallel(
+      "Lissajous Curves — dotted line",
+    );
+    const titlePath = makeTitle(scene.description);
+    // ~12 dashes evenly spaced around the curve.
+    const wavelength = splitter.length / 12;
+    const dashDraw = wavelength * 0.4;
+    const dashGap = wavelength * 0.6;
+    scene.add({
+      description: "dotted",
+      duration: DEFAULT_SLIDE_DURATION_MS,
+      show({ context, globalTime }) {
+        drawBackground(context, titlePath, threeB1B.YELLOW_E);
+        // Use globalTime so the dots keep moving through freeze/repeat.
+        const dashOffset = -((globalTime / 600) % wavelength);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = CURVE_LINE_WIDTH;
+        context.strokeStyle = threeB1B.YELLOW;
+        context.setLineDash([dashDraw, dashGap]);
+        context.lineDashOffset = dashOffset;
+        context.stroke(canvasCurvePath);
+        context.setLineDash([]);
+      },
+    });
+    sceneList.add(scene.build());
+  }
+
+  // ── Scene: π and τ — arrow tracing the path ──────────────────────────────
+  // Inspired by the CSS offset-path animation in parametric-path.html.
+  // Here PathShapeSplitter replaces CSS motion-path, giving pixel-level control.
+  {
+    const DURATION = 7_000;
+    const scene = new MakeShowableInParallel("Lissajous Curves — π and τ");
+    const titlePath = makeTitle(scene.description);
+    scene.add({
+      description: "arrow + labels",
+      duration: DURATION,
+      show({ context, timeInMs }) {
+        drawBackground(context, titlePath, threeB1B.RED);
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = CURVE_LINE_WIDTH;
+
+        // Ghost of the full curve at low opacity.
+        context.save();
+        context.globalAlpha = 0.25;
+        context.strokeStyle = threeB1B.RED;
+        context.setLineDash([]);
+        context.stroke(canvasCurvePath);
+        context.restore();
+
+        // Growing trace from t=0 to current parameter.
+        // Linear progress: parameter t moves at a constant rate (mathematically honest).
+        const progress = timeInMs / DURATION;
+        const tracedShape = PathShapeSplitter.trimProgress(
+          canvasCurveShape,
+          0,
+          progress,
+        );
+        context.strokeStyle = threeB1B.RED;
+        context.setLineDash([]);
+        context.stroke(tracedShape.canvasPath);
+
+        // ── Arrowhead at current position ──────────────────────────────────
+        const d = progress * splitter.length;
+        const pos = splitter.at(d);
+        const ε = splitter.length * 0.001;
+        const posAhead = splitter.at(d + ε);
+        const angle = Math.atan2(posAhead.y - pos.y, posAhead.x - pos.x);
+        const arrowSize = 0.28;
+        context.save();
+        context.translate(pos.x, pos.y);
+        context.rotate(angle);
+        context.beginPath();
+        context.moveTo(arrowSize, 0);
+        context.lineTo(-arrowSize * 0.55, arrowSize * 0.38);
+        context.lineTo(-arrowSize * 0.55, -arrowSize * 0.38);
+        context.closePath();
+        context.fillStyle = threeB1B.RED;
+        context.fill();
+        context.restore();
+
+        // ── Fixed labels at π and τ ────────────────────────────────────────
+        // t = 0.5 corresponds to parameter π; t = 1 corresponds to τ = 2π.
+        context.font = `bold 0.38px sans-serif`;
+        context.fillStyle = threeB1B.WHITE;
+        context.textAlign = "right";
+        context.textBaseline = "middle";
+        context.fillText("π", piPos.x - 0.15, piPos.y);
+        context.textAlign = "left";
+        context.textBaseline = "bottom";
+        context.fillText("τ", tauPos.x + 0.15, tauPos.y - 0.1);
+      },
+    });
+    sceneList.add(scene.build());
+  }
+}
+
 {
   const scene = new MakeShowableInParallel("Strokable Font List");
   {
