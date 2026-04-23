@@ -498,23 +498,52 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
 
   // ── Scene: τ, π, and → following the path (CSS offset-path style) ────────
-  // Three markers travel the curve at independent speeds.
-  // τ and π use offset-rotate: 0deg (always upright).
-  // → rotates to follow the tangent (default offset-rotate).
+  // Formula: "Fourier square wave", numberOfCircles = 5 (fixed integer).
+  // Because numberOfCircles is an exact integer, attenuation = 0 and the
+  // partial-last-term factor disappears, leaving a clean sum of 5 sine waves.
   // Font, colors, and speeds copied from parametric-path.css.
   // https://github.com/TradeIdeasPhilip/random-svg-tests/blob/73fe4fe4fbe9e5dfa5dc937e3ea27940f42465d2/src/parametric-path.css#L76-L94
   {
+    // The square wave is much wider than tall, so it needs its own view rect.
+    const FOURIER_VIEW_RECT = { x: -2.8, y: -1.4, width: 5.6, height: 2.8 };
+    const fourierXf = computeGridTransform(GRAPH_RECT, FOURIER_VIEW_RECT)!;
+    const fourierScale = fourierXf.toCanvasX(1) - fourierXf.toCanvasX(0);
+    const fourierMatrix = new DOMMatrix([
+      fourierScale,
+      0,
+      0,
+      -fourierScale,
+      fourierXf.toCanvasX(0),
+      fourierXf.toCanvasY(0),
+    ]);
+
+    // Fourier square wave, numberOfCircles = 5 (integer → no attenuation factor).
+    const fourierF: ParametricFunction = (t) => {
+      const baseAngle = 2 * Math.PI * 2.5 * t + Math.PI / 2; // 2.5 cycles
+      let y = 0;
+      for (let k = 0; k < 5; k++) {
+        const n = 2 * k + 1; // odd harmonics: 1, 3, 5, 7, 9
+        y += (4 / Math.PI / n) * Math.sin(n * baseAngle);
+      }
+      return { x: t * 5 - 2.5, y }; // x spans −2.5 to 2.5
+    };
+    const fourierPathMath = PathShape.glitchFreeParametric(fourierF, 150);
+    const fourierCanvasShape = fourierPathMath.transform(fourierMatrix);
+    const fourierCanvasPath = fourierCanvasShape.canvasPath;
+    const fourierSplitter = PathShapeSplitter.create(fourierCanvasShape);
+
     const scene = new MakeShowableInParallel("offset-path CSS property");
     const titlePath = makeTitle(scene.description);
 
     // CSS: font-size: calc(var(--recommended-width) * 25px)
     // recommended-width = max(bBox.width, bBox.height) / 100 in path-coordinate units.
-    const curveBBox = canvasCurveShape.getBBox();
-    const recommendedWidth = Math.max(curveBBox.x.size, curveBBox.y.size) / 100;
+    const fourierBBox = fourierCanvasShape.getBBox();
+    const recommendedWidth =
+      Math.max(fourierBBox.x.size, fourierBBox.y.size) / 100;
     const labelFontSize = recommendedWidth * 25; // canvas units
     const LABEL_FONT = `${labelFontSize}px serif`;
 
-    // CSS animation durations (ms per full loop).
+    // CSS animation durations (ms per full loop) — unchanged from parametric-path.css.
     const TAU_PERIOD = 12_500;
     const PI_PERIOD = 25_000;
     const ARROW_PERIOD = 20_967;
@@ -524,13 +553,19 @@ const sceneList = new MakeShowableInSeries("Scene List");
       description: "curve",
       duration: DEFAULT_SLIDE_DURATION_MS,
       show({ context }) {
-        drawBackground(context, titlePath, threeB1B.GREY);
+        drawGrid(context, {
+          destRect: GRAPH_RECT,
+          viewRect: FOURIER_VIEW_RECT,
+        });
         context.lineCap = "round";
         context.lineJoin = "round";
+        context.lineWidth = titleFont.strokeWidth;
+        context.strokeStyle = threeB1B.GREY;
+        context.stroke(titlePath);
         context.lineWidth = CURVE_LINE_WIDTH;
         context.strokeStyle = threeB1B.GREY;
         context.setLineDash([]);
-        context.stroke(canvasCurvePath);
+        context.stroke(fourierCanvasPath);
       },
     });
 
@@ -545,8 +580,8 @@ const sceneList = new MakeShowableInSeries("Scene List");
       upright: boolean,
     ) {
       const progress = (globalTime / period) % 1;
-      const { x, y, angle } = splitter.positionAndAngleAt(
-        progress * splitter.length,
+      const { x, y, angle } = fourierSplitter.positionAndAngleAt(
+        progress * fourierSplitter.length,
       );
       context.save();
       context.font = LABEL_FONT;
