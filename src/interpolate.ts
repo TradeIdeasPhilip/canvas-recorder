@@ -1,5 +1,11 @@
-import { FULL_CIRCLE, lerp, RealSvgRect } from "phil-lib/misc";
+import {
+  FULL_CIRCLE,
+  lerp,
+  makeBoundedLinear,
+  RealSvgRect,
+} from "phil-lib/misc";
 import { LCommand, PathShape, Point, QCommand } from "./glib/path-shape";
+import { Showable } from "./showable";
 
 /**
  * If the old code used element.animate(), this file will help build the new code.
@@ -164,6 +170,43 @@ export function discreteKeyframes<T>(
 }
 
 /**
+ * Common design pattern:
+ * ```
+ *  // Once in advance:
+ *  const schedule: Keyframe<number>[] = [
+ *    { time: startTimeMS, value: 0 },
+ *    { time: endTimeMS, value: 1 },
+ *  ];
+ *  // Each frame:
+ *  const progress = interpolateNumbers(timeInMs, schedule);
+ * ```
+ * Start with this simple straw man until you decide on a better schedule.
+ * Note that the output is frozen at 0 when `timeInMs <= startTimeMS`,
+ * and it is frozen at 1 when `timeInMs >= endTimeMS`.
+ *
+ * A lot of scenes in my videos use exactly this design pattern.
+ * I like to show a brief "pre roll" and "post roll" as a default,
+ * where the visuals are present but not moving,
+ * because it can be jarring to skip these pauses.
+ *
+ * Assumption:  This schedule is likely to change to a more interesting schedule at some point in the future.
+ * Maybe not every time, but this is a common pattern, especially when I'm choreographing a video.
+ * This is an excellent example to start with in these cases.
+ * (If you are *certain* you won't want to upgrade to something more complicated, consider {@link makeBoundedLinear}() as a simpler alternative.)
+ *
+ * Note that the output, a value between 0 and 1, is often called [progress](https://github.com/TradeIdeasPhilip/canvas-recorder/blob/master/README.md#glossary)
+ * This function can output any number you need,
+ * but it's often a nice interface for the the animation code to take a number between 0 and 1 as its input.
+ *
+ * If you are using this with a {@link Showable}:
+ * * The {@link Showable.duration} is often specified as `schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS`.
+ * * If the schedule is interesting (*not* just this straw man) you can add it to {@link Showable.schedules}.
+ * *
+ *
+ * A more advanced example can be found at
+ * https://github.com/TradeIdeasPhilip/canvas-recorder/blob/c60c7000231a24a3d6425f85d7bc79688b7479f7/src/showcase.ts#L2693.
+ * In this case the animation is partitioned into n discrete steps.
+ * Each step is implemented by a TypeScript function that takes "progress" as its only input.
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
  * @param array Inputs should come in order.

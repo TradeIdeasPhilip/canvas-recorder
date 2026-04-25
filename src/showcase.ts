@@ -373,7 +373,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
     const SEGMENTS = 125;
     const SWEEP_MS = 6_000;
-    const DURATION = DEFAULT_PRE_ROLL_MS + SWEEP_MS + DEFAULT_POST_ROLL_MS;
+    const input0Schedule: Keyframe<number>[] = [
+      { time: DEFAULT_PRE_ROLL_MS, value: 0 },
+      { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 0.5 },
+    ];
 
     // Fixed VIEW_RECT from the final animation state (input0 = 0.5, ~5½ circles).
     // The converging square has corners ≈ ±0.85; add margin.
@@ -402,7 +405,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
     scene.add({
       description: "curve",
-      duration: DURATION,
+      duration: input0Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
       show({ context, timeInMs }) {
         drawGrid(context, { destRect: GRAPH_RECT, viewRect: SQUARE_VIEW_RECT });
         context.lineCap = "round";
@@ -411,12 +414,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.strokeStyle = threeB1B.BLUE;
         context.stroke(titlePath);
 
-        // input0: 0 during pre-roll, linear 0 → 0.5, holds at 0.5 during post-roll.
-        const input0 =
-          Math.max(
-            0,
-            Math.min(1, (timeInMs - DEFAULT_PRE_ROLL_MS) / SWEEP_MS),
-          ) * 0.5;
+        const input0 = interpolateNumbers(timeInMs, input0Schedule);
         const numberOfCircles = 1 + (CIRCLES.length - 1) * input0;
         const circlesToConsider = Math.ceil(numberOfCircles);
         const attenuation = numberOfCircles - Math.floor(numberOfCircles);
@@ -545,7 +543,15 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     const SEGMENTS = 225;
     const SWEEP_MS = 6_000;
-    const DURATION = DEFAULT_PRE_ROLL_MS + SWEEP_MS + DEFAULT_POST_ROLL_MS;
+    /**
+     * Note the name "input 0" is a reference to the project I took this example from.
+     * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
+     * has sliders so you can explore things interactively *without* writing code.
+     */
+    const input0Schedule: Keyframe<number>[] = [
+      { time: DEFAULT_PRE_ROLL_MS, value: 0 },
+      { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 1 },
+    ];
 
     const spiralXf = computeGridTransform(
       GRAPH_RECT,
@@ -565,13 +571,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const titlePath = makeTitle(scene.description);
     scene.add({
       description: "spiral",
-      duration: DURATION,
+      duration: input0Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
       show({ context, timeInMs }) {
         drawBackground(context, titlePath, threeB1B.YELLOW_E);
-        const input0 = Math.max(
-          0,
-          Math.min(1, (timeInMs - DEFAULT_PRE_ROLL_MS) / SWEEP_MS),
-        );
+        const input0 = interpolateNumbers(timeInMs, input0Schedule);
         const freqRatio = 1 + input0 * 4;
         const spiralF = (t: number) => ({
           x: t * Math.cos(2 * Math.PI * t),
@@ -800,13 +803,20 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
   const SEGMENTS = 153; // quality setting; default looked bad per author testing
 
-  // Pre/post roll + linear sweep timing.
   const SWEEP_MS = 6_000;
-  const DURATION = DEFAULT_PRE_ROLL_MS + SWEEP_MS + DEFAULT_POST_ROLL_MS;
+  /**
+   * Note the name "input 1" is a reference to the project I took this example from.
+   * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
+   * has sliders so you can explore things interactively *without* writing code.
+   */
+  const input1Schedule: Keyframe<number>[] = [
+    { time: DEFAULT_PRE_ROLL_MS, value: 0 },
+    { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 1 },
+  ];
 
   scene.add({
     description: "flower fill",
-    duration: DURATION,
+    duration: input1Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
     show({ context, timeInMs }) {
       drawGrid(context, { destRect: GRAPH_RECT, viewRect: VIEW_RECT });
 
@@ -816,11 +826,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       context.strokeStyle = myRainbow.magenta;
       context.stroke(titlePath);
 
-      // input1 holds at 0 during pre-roll, sweeps linearly to 1, holds at 1 during post-roll.
-      const input1 = Math.max(
-        0,
-        Math.min(1, (timeInMs - DEFAULT_PRE_ROLL_MS) / SWEEP_MS),
-      );
+      const input1 = interpolateNumbers(timeInMs, input1Schedule);
       const numberOfTrips = input1 * 10;
 
       const flowerF: ParametricFunction = (t) => {
@@ -1280,7 +1286,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
   sceneList.add(scene.build());
 }
-
 
 {
   const scene = new MakeShowableInParallel("Simple Animated Colors");
@@ -2831,15 +2836,20 @@ import imageUrl from "./Philip Smolen.jpeg";
 }
 
 // ── Pixel Perfect Freaky Dot Patterns ────────────────────────────────────────
+// NOT READY FOR PRIME TIME
+// Multiple Issues.  Doesn't look right.  Takes way too much CPU.
+//
 // Three Path2D layers of randomly-placed ellipses, built once at load time.
 // Two layers oscillate with tiny sine-wave rotations around a user-editable
 // center point.  Inspired by the SVG "dalmatian filter" experiments but
 // vector-accurate and free of GPU-memory blowup.
+// https://youtu.be/iOYEg6xP9jg?si=eAqzZdsbjsJE6q13
+// https://youtu.be/cGEIfy_wQ2Y?si=BQQpKzpysi--zz73
 {
   // ── Dot geometry (built once) ──
   const rng = Random.create("[42,17,99,7]");
   const DOT_COUNT = 1200; // per layer
-  const MARGIN = 0.5;     // extend beyond canvas edges to hide gaps during rotation
+  const MARGIN = 0.5; // extend beyond canvas edges to hide gaps during rotation
 
   function buildLayer(): Path2D {
     const path = new Path2D();
@@ -2855,18 +2865,23 @@ import imageUrl from "./Philip Smolen.jpeg";
   }
 
   const fixedLayer = buildLayer();
-  const rotLayer1  = buildLayer();
-  const rotLayer2  = buildLayer();
+  const rotLayer1 = buildLayer();
+  const rotLayer2 = buildLayer();
 
   // ── Oscillator parameters (matching the original SVG version) ──
   // extreme1 and extreme2 are in degrees; converted to radians here.
-  function makeOscillator(extreme1Deg: number, extreme2Deg: number, periodMs: number) {
+  function makeOscillator(
+    extreme1Deg: number,
+    extreme2Deg: number,
+    periodMs: number,
+  ) {
     const center = ((extreme1Deg + extreme2Deg) / 2) * (Math.PI / 180);
-    const amplitude = (extreme1Deg - (extreme1Deg + extreme2Deg) / 2) * (Math.PI / 180);
+    const amplitude =
+      (extreme1Deg - (extreme1Deg + extreme2Deg) / 2) * (Math.PI / 180);
     return (globalTime: number) =>
       Math.sin((globalTime / periodMs) * FULL_CIRCLE) * amplitude + center;
   }
-  const osc1 = makeOscillator( 0.5,  1.5, 15_000); // +0.5° ↔ +1.5°
+  const osc1 = makeOscillator(0.5, 1.5, 15_000); // +0.5° ↔ +1.5°
   const osc2 = makeOscillator(-0.5, -1.5, 13_081); // -0.5° ↔ -1.5°
 
   // ── Schedule: rotation center (user-editable) ──
