@@ -1,0 +1,61 @@
+Today's sorcery was inspired by Dr. Tadashi  Tokieda's video on freaky dot patterns. Dr.  
+0:09
+9 seconds
+Tokieda starts by explaining that you can use  any random dot pattern. Then, as an aside,  
+0:15
+15 seconds
+he points out that his random dot pattern is of  low quality. I took that as a challenge. I spent  
+0:23
+23 seconds
+way too much effort perfecting my random  dot pattern. I'll share my code as always.  
+0:29
+29 seconds
+Let me warn you, this will make your GPU warm. I  know there are more efficient ways to do things,  
+0:35
+35 seconds
+but let me share an old programming trick.  Hit start and go to lunch. Beautiful and  
+0:43
+43 seconds
+well-randomized dots were not enough. A few  more changes made it really look good. First,  
+0:50
+50 seconds
+in Dr. Tokieda's video, he had two pages of dots.  I created a third. That's another professional  
+0:58
+58 seconds
+trick: Sometimes more is more. Second, I made the  rotated items wiggle a little. They constantly  
+1:06
+1 minute, 6 seconds
+rotate back and forth to draw some attention  to themselves. Finally, I move the center of  
+1:14
+1 minute, 14 seconds
+rotation very slowly. It's just such a delicate  effect. If you try to move the center quickly,  
+1:20
+1 minute, 20 seconds
+quickly enough to notice, the illusion will just  disappear. I like this effect a lot. It works well  
+1:29
+1 minute, 29 seconds
+and it wasn't that hard to do. I've got some great  stuff planned for tomorrow. I've got all the right  
+1:38
+1 minute, 38 seconds
+resources bookmarked. I think I have solutions  to all my problems. Let's just try to write some  
+1:44
+1 minute, 44 seconds
+code and see if it works out. If it works, it'll  be very useful and very trippy. I think I finally   got the hue rotate effect working. Stay tuned  to check it out. Like, share, and subscribe.
+
+
+
+
+
+
+
+0:00Got a good one today! The freaky dot pattern is back, with some improvements. Discuss that in a moment.
+0:099 secondsAnd some more colors of fireworks. They really look good in the air. Let's discuss the dot pattern, the freaky dots.
+0:1818 secondsLast time I tried this, I said that it was really pushing my GPU way too hard. If you're going to do this, look at the new code.
+0:2727 secondsI've added an optimization. It helps a lot. It's called “will change.” (𝚠𝚒𝚕𝚕-𝚌𝚑𝚊𝚗𝚐𝚎)
+0:3636 secondsYou can see the code in the description. That said, I still had to reboot my computer. And that wasn't enough.
+0:4545 secondsSo, I lowered the resolution from 4K to HD. Yeah, I like these colors, but all the fireworks  colors are good.
+0:5353 secondsI think my next video is going to have to have more things on it. I wonder if I can get all eight fireworks on the screen at once.
+1:031 minute, 3 secondsI really like the way the lines are dancing. I think I'm going to keep that same basic algorithm and just push it a little bit harder.
+1:101 minute, 10 secondsI've got three different shapes making the same sort of dance, moving in the same ways.
+1:161 minute, 16 secondsI'm pretty sure I can change that to be eight instead of three. I haven't tried it yet, but come back tomorrow and check it out.
+1:251 minute, 25 secondsAnd I think I'm going back to the star pattern from yesterday. That worked really well. What do you  think? Like, share, and subscribe.
