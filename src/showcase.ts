@@ -2,6 +2,7 @@ import {
   FULL_CIRCLE,
   initializedArray,
   lerp,
+  makeLinear,
   Random,
   ReadOnlyRect,
 } from "phil-lib/misc";
@@ -543,15 +544,6 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     const SEGMENTS = 225;
     const SWEEP_MS = 6_000;
-    /**
-     * Note the name "input 0" is a reference to the project I took this example from.
-     * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
-     * has sliders so you can explore things interactively *without* writing code.
-     */
-    const input0Schedule: Keyframe<number>[] = [
-      { time: DEFAULT_PRE_ROLL_MS, value: 0 },
-      { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 1 },
-    ];
 
     const spiralXf = computeGridTransform(
       GRAPH_RECT,
@@ -571,11 +563,17 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const titlePath = makeTitle(scene.description);
     scene.add({
       description: "spiral",
-      duration: input0Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+      duration: SWEEP_MS,
       show({ context, timeInMs }) {
         drawBackground(context, titlePath, threeB1B.YELLOW_E);
-        const input0 = interpolateNumbers(timeInMs, input0Schedule);
-        const freqRatio = 1 + input0 * 4;
+        /**
+         * The project I took this example from,
+         * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html,
+         * has sliders so you can explore things interactively *without* writing code.
+         * `progress` replaces the slider.
+         */
+        const progress = timeInMs / this.duration;
+        const freqRatio = 1 + progress * 4;
         const spiralF = (t: number) => ({
           x: t * Math.cos(2 * Math.PI * t),
           y: t * Math.sin(freqRatio * 2 * Math.PI * t),
@@ -659,6 +657,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   // https://github.com/TradeIdeasPhilip/random-svg-tests/blob/73fe4fe4fbe9e5dfa5dc937e3ea27940f42465d2/src/parametric-path.css#L76-L94
   {
     // The square wave is much wider than tall, so it needs its own view rect.
+    // Note:  This is a very good aspect ratio.  It makes efficient use of the screen.
     const FOURIER_VIEW_RECT = { x: -2.8, y: -1.4, width: 5.6, height: 2.8 };
     const fourierXf = computeGridTransform(GRAPH_RECT, FOURIER_VIEW_RECT)!;
     const fourierScale = fourierXf.toCanvasX(1) - fourierXf.toCanvasX(0);
@@ -675,7 +674,12 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const fourierF: ParametricFunction = (t) => {
       const baseAngle = 2 * Math.PI * 2.5 * t + Math.PI / 2; // 2.5 cycles
       let y = 0;
-      for (let k = 0; k < 5; k++) {
+      // I changed the limit from 5 to 4 based on how quickly the arrow was rotating.
+      // There was no clear cutoff or objective measurement, but this looks good.
+      // At 5 it was almost flickering.
+      // At 4 it looks more like it's rotating, like it should be.
+      // 3 was better, but only by a small margin, not a fair trade-off for being less interesting.
+      for (let k = 0; k < 4; k++) {
         const n = 2 * k + 1; // odd harmonics: 1, 3, 5, 7, 9
         y += (4 / Math.PI / n) * Math.sin(n * baseAngle);
       }
@@ -804,19 +808,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const SEGMENTS = 153; // quality setting; default looked bad per author testing
 
   const SWEEP_MS = 6_000;
-  /**
-   * Note the name "input 1" is a reference to the project I took this example from.
-   * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
-   * has sliders so you can explore things interactively *without* writing code.
-   */
-  const input1Schedule: Keyframe<number>[] = [
-    { time: DEFAULT_PRE_ROLL_MS, value: 0 },
-    { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 1 },
-  ];
 
   scene.add({
     description: "flower fill",
-    duration: input1Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+    duration: SWEEP_MS,
     show({ context, timeInMs }) {
       drawGrid(context, { destRect: GRAPH_RECT, viewRect: VIEW_RECT });
 
@@ -826,8 +821,14 @@ const sceneList = new MakeShowableInSeries("Scene List");
       context.strokeStyle = myRainbow.magenta;
       context.stroke(titlePath);
 
-      const input1 = interpolateNumbers(timeInMs, input1Schedule);
-      const numberOfTrips = input1 * 10;
+      /**
+       * The project I took this example from,
+       * https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html,
+       * has sliders so you can explore things interactively *without* writing code.
+       * `progress` replaces the slider.
+       */
+      const progress = easeIn(timeInMs / this.duration);
+      const numberOfTrips = progress * 10;
 
       const flowerF: ParametricFunction = (t) => {
         const phase = Math.PI * t;
@@ -1322,51 +1323,126 @@ const sceneList = new MakeShowableInSeries("Scene List");
       "srcRect fits completely into destRect",
     );
 
+    const endsAndCorners: {
+      pathShape: PathShape;
+      colors: string[];
+      lineCap: CanvasLineCap;
+      lineJoin: CanvasLineJoin;
+    }[] = [];
+    {
+      const height = 2;
+      const halfWidth = height / Math.sqrt(3);
+      const width = 2 * halfWidth;
+      const left = 0.75;
+      const right = 12.25;
+      const top = 5.25;
+      const bottom = 8.25;
+      const pointingDown = new PathShape([
+        new LCommand(0, top, halfWidth, top + height),
+        new LCommand(halfWidth, top + height, width, top),
+      ]);
+      const pointingUp = new PathShape([
+        new LCommand(0, bottom, halfWidth, bottom - height),
+        new LCommand(halfWidth, bottom - height, width, bottom),
+      ]);
+      const getXOffset = makeLinear(0, left, 5, right - width);
+      for (let i = 0; i < 6; i++) {
+        const bottomRow = i % 2 == 0;
+        const pathShape = (bottomRow ? pointingUp : pointingDown).translate(
+          getXOffset(i),
+          0,
+        );
+        const firstColor = bottomRow ? myRainbow.red : myRainbow.cssBlue;
+        const lineCap: CanvasLineCap = bottomRow ? "square" : "round";
+        const joinType = Math.floor(i / 2);
+        let secondColor: string;
+        let lineJoin: CanvasLineJoin;
+        switch (joinType) {
+          case 0: {
+            secondColor = myRainbow.yellow;
+            lineJoin = "round";
+            break;
+          }
+          case 1: {
+            secondColor = myRainbow.cyan;
+            lineJoin = "bevel";
+            break;
+          }
+          case 2: {
+            secondColor = myRainbow.green;
+            lineJoin = "miter";
+            break;
+          }
+          default: {
+            throw new Error("wtf");
+          }
+        }
+        endsAndCorners.push({
+          pathShape,
+          colors: [firstColor, secondColor],
+          lineCap,
+          lineJoin,
+        });
+      }
+    }
+
     const showable: Showable = {
       description: scene.description,
       duration: 20_000,
       show({ context, timeInMs }) {
-        {
-          const progress = timeInMs / this.duration;
-          context.lineCap = "round";
-          context.lineJoin = "round";
-          context.lineWidth = 0.07;
-          strokeColors({
-            context,
-            pathShape: titlePath,
-            repeatCount: 3,
-            relativeOffset: -progress * 3,
-          });
-          context.lineCap = "butt";
-          strokeColors({
-            context,
-            pathShape: sineWaveBase,
-            colors: ["rgb(0, 128, 255)", "rgb(0, 64, 255)", "rgb(0, 0, 255)"],
-            sectionLength: 0.125,
-            relativeOffset: -progress * 10,
-          });
-          context.strokeStyle = "pink";
-          context.setLineDash([0.125]);
-          ((context.lineDashOffset = (-progress * 10) / 3),
-            context.stroke(sineWaveBase.translate(0, 1).canvasPath));
-          context.setLineDash([]);
-          context.lineCap = "round";
-          context.lineJoin = "miter";
-          strokeColors({
-            context,
-            pathShape: starPath,
-            repeatCount: 2,
-            relativeOffset: progress * 2,
-          });
-          context.lineWidth = 0.03;
-          strokeColors({
-            context,
-            pathShape: statueOfLibertyPath,
-            colors: ["#01413e", "#297d6f", "#8fd7c4", "#d7ffff"],
-            sectionLength: 0.05,
-            offset: progress * 3,
-          });
-        }
+        const progress = timeInMs / this.duration;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = 0.07;
+        strokeColors({
+          context,
+          pathShape: titlePath,
+          repeatCount: 3,
+          relativeOffset: -progress * 3,
+        });
+        context.lineCap = "butt";
+        strokeColors({
+          context,
+          pathShape: sineWaveBase,
+          colors: ["rgb(0, 128, 255)", "rgb(0, 64, 255)", "rgb(0, 0, 255)"],
+          sectionLength: 0.125,
+          relativeOffset: -progress * 10,
+        });
+        context.strokeStyle = "pink";
+        context.setLineDash([0.125]);
+        ((context.lineDashOffset = (-progress * 10) / 3),
+          context.stroke(sineWaveBase.translate(0, 1).canvasPath));
+        context.setLineDash([]);
+        context.lineCap = "round";
+        context.lineJoin = "miter";
+        strokeColors({
+          context,
+          pathShape: starPath,
+          repeatCount: 2,
+          relativeOffset: progress * 2,
+        });
+        context.lineWidth = 0.03;
+        strokeColors({
+          context,
+          pathShape: statueOfLibertyPath,
+          colors: ["#01413e", "#297d6f", "#8fd7c4", "#d7ffff"],
+          sectionLength: 0.05,
+          offset: progress * 3,
+        });
+        context.lineWidth = 0.3;
+        endsAndCorners.forEach(
+          ({ pathShape, colors, lineCap, lineJoin }, index, array) => {
+            context.lineCap = lineCap;
+            context.lineJoin = lineJoin;
+            strokeColors({
+              context,
+              pathShape,
+              colors,
+              repeatCount: 5,
+              relativeOffset: progress * -10 + index / array.length / 2,
+            });
+          },
+        );
       },
     };
     scene.add(showable);
@@ -2940,7 +3016,7 @@ import imageUrl from "./Philip Smolen.jpeg";
       fillRotated(rotLayer2, osc2(globalTime), "rgba(255,255,255,0.20)");
     },
   };
-  sceneList.add(freakyDots);
+  //sceneList.add(freakyDots);
 }
 
 const mainBuilder = new MakeShowableInParallel("Showcase");
