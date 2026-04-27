@@ -10,6 +10,7 @@
     "desaturated",
     "downsampler",
     "findbbox",
+    "FLAC",
     "futura",
     "halvings",
     "handwriters",
@@ -52,6 +53,7 @@
     "Tahoma",
     "Tyger",
     "Verdana",
+    "voiceovers",
     "wicg",
     "yada"
   ]

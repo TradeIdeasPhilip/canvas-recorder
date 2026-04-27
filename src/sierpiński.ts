@@ -43,7 +43,7 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
-import { only } from "./utility";
+import { distribute, only } from "./utility";
 import { Bezier } from "bezier-js";
 import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
@@ -637,107 +637,6 @@ const fillColors = (() => {
 })();
 
 const sceneList = new MakeShowableInSeries("Scene List");
-
-/**
- * Spread several clips out evenly.
- *
- * Create the same amount of space between each pair of clips.
- * Make them fit in a given range.
- * @param clips List of items to relocate.
- * These will remain in order.
- * @param options
- * * `startFrom` - Number of milliseconds between the start of the scene and when the first clip starts playing.
- * This can be negative to start playing before the previous scene ends.
- * The default is the incoming `startMsIntoScene` of the first element of `clips`.
- * * `endAt` - Number of milliseconds between the start of the scene and when the last clip finishes.
- * The default is the incoming end time of the last element of `clips`.
- * * `startWeight` - How much space to leave between `startFrom and the start of the first clip.
- * The space between each pair of adjacent clips is given a weight of 1.
- * The default is 0 space before the first clip.
- * * `endWeight` - How much space to leave between the end of the last clip and `endAt`.
- * The space between each pair of adjacent clips is given a weight of 1.
- * The default is 0 space after the last clip.
- * @returns `clips`, after the start times of the elements have been adjusted.
- */
-function distribute<T extends { startMsIntoScene: number; lengthMs: number }>(
-  clips: T[],
-  options: {
-    startFrom?: number;
-    endAt?: number;
-    startWeight?: number;
-    endWeight?: number;
-  },
-): T[] {
-  if (clips.length == 0) {
-    return clips;
-  }
-  const startFrom = options.startFrom ?? clips[0].startMsIntoScene;
-  const endAt =
-    options.endAt ??
-    (() => {
-      const { startMsIntoScene, lengthMs } = clips.at(-1)!;
-      return startMsIntoScene + lengthMs;
-    })();
-  const timeAvailable = endAt - startFrom;
-  const timeUsed = sum(clips.map(({ lengthMs }) => lengthMs));
-  const timeToDistribute = timeAvailable - timeUsed;
-  if (timeToDistribute < 0) {
-    throw new Error("wtf");
-  }
-  /**
-   * Distribute the extra space evenly over this many spaces.
-   *
-   * Between each pair of clips is exactly one space.
-   * Before the first clip and after the last, that's configurable.
-   * By default they get 0 spaces.
-   * They can request a non-integer amount of space.
-   */
-  let numberOfSpaces = clips.length - 1;
-  let { startWeight, endWeight } = options;
-  if (numberOfSpaces == 0) {
-    // The default values for startWeight and endWeight are (conceptually) tiny positive numbers.
-    // Most of the time this is so close to 0 that it just gets rounds off to 0.
-    // But if everything else is 0, then all of the weight is given to the one of these that was undefined.
-    // If they are both undefined, then the weight is split evenly between them.
-    if (startWeight === undefined) {
-      if (endWeight === undefined) {
-        startWeight = 0.5;
-        endWeight = 0.5;
-      } else {
-        if (endWeight == 0) {
-          startWeight = 1;
-        } else {
-          startWeight = 0;
-        }
-      }
-    } else {
-      if (endWeight === undefined) {
-        if (startWeight == 0) {
-          endWeight = 1;
-        } else {
-          endWeight = 0;
-        }
-      }
-    }
-  } else {
-    startWeight ??= 0;
-    endWeight ??= 0;
-  }
-  if (startWeight < 0 || endWeight < 0) {
-    throw new Error("wtf");
-  }
-  numberOfSpaces += startWeight + endWeight;
-  if (numberOfSpaces <= 0) {
-    throw new Error("wtf");
-  }
-  const msPerSpace = timeToDistribute / numberOfSpaces;
-  let start = startFrom + startWeight * msPerSpace;
-  clips.forEach((clip) => {
-    clip.startMsIntoScene = start;
-    start += clip.lengthMs + msPerSpace;
-  });
-  return clips;
-}
 
 // MARK: Title
 {

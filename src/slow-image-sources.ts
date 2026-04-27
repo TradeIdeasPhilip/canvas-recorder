@@ -135,8 +135,12 @@ export class SingleImage extends SlowImage {
     return this.#somethingIsAvailable;
   }
   readonly data: CanvasImageSourceWebCodecs;
-  get naturalWidth() { return this.#element.naturalWidth; }
-  get naturalHeight() { return this.#element.naturalHeight; }
+  get naturalWidth() {
+    return this.#element.naturalWidth;
+  }
+  get naturalHeight() {
+    return this.#element.naturalHeight;
+  }
   /**
    * {@link SingleImage} only uses the promise for loading and decoding.
    * And there is no way to change the url after constructing this object.
@@ -151,6 +155,7 @@ export class SingleImage extends SlowImage {
   constructor(url: string) {
     super();
     this.#element = new Image();
+    this.#element.crossOrigin = "anonymous";
     this.data = this.#element;
     this.#element.src = url;
     this.#promise = this.#element.decode().then(() => {
@@ -172,8 +177,12 @@ export class ImportedVideo extends SlowImage {
     return this.#promise;
   }
   readonly data: CanvasImageSourceWebCodecs;
-  get naturalWidth() { return (this.data as HTMLVideoElement).videoWidth; }
-  get naturalHeight() { return (this.data as HTMLVideoElement).videoHeight; }
+  get naturalWidth() {
+    return (this.data as HTMLVideoElement).videoWidth;
+  }
+  get naturalHeight() {
+    return (this.data as HTMLVideoElement).videoHeight;
+  }
   #somethingIsAvailable = false;
   get somethingIsAvailable() {
     return this.#somethingIsAvailable;

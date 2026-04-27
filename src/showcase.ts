@@ -43,7 +43,7 @@ import {
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { blackBackground, only } from "./utility";
+import { blackBackground, distribute, only } from "./utility";
 import { zipper } from "./zipper";
 import { createSingleImageComponent } from "./slide-components";
 
@@ -113,7 +113,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
   {
     const font = makeLineFont(0.25);
-    const period = 60_000;
+    const period = 50_000;
     const top = 1.5;
     const dynamicText =
       "Dynamic Text:  " +
@@ -145,6 +145,25 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const showable: Showable = {
       description: "Make it fit",
       duration: period,
+      soundClips: distribute(
+        [
+          {
+            // "Simple text and layout A"
+            source: "./Showcase.FLAC",
+            startMsIntoScene: 0,
+            startMsIntoClip: 2713.25,
+            lengthMs: 11641.89,
+          },
+          {
+            // "Simple text and layout B"
+            source: "./Showcase.FLAC",
+            startMsIntoScene: 0,
+            startMsIntoClip: 20693.57,
+            lengthMs: 34317.6,
+          },
+        ],
+        { startFrom: 0, endAt: period, startWeight: 1, endWeight: 1 },
+      ),
       show({ context, timeInMs }) {
         const progress = easeAndBack(timeInMs / this.duration);
         const centerLine = 4 + 8 * progress;
@@ -306,14 +325,13 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
   // ── Scene: Ridiculously Simple Fourier Decomposition ("A Better Square") ──
   // Formula: "A Better Square" from parametric-path.html.
-  // support.input(0) sweeps 0 → 0.5 (first 5.5 of 10 circles; the rest add
-  // only tiny refinements, so we stop halfway for a cleaner animation).
   // https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
   {
     // Fourier coefficients for a square, computed via complex Fourier series.
     // Source: "Square with Easing" example at complex-fourier-series.html.
     // The first entry is a near-zero "seed" circle (amplitude 1/1000 of the real
     // first term) so the animation starts from a dot rather than a jump.
+    // Most of these are pretty small and worth ignoring.
     const CIRCLES = [
       {
         frequency: 1,
@@ -372,11 +390,22 @@ const sceneList = new MakeShowableInSeries("Scene List");
       },
     ] as const;
 
+    const preRollMs = 500;
+    const postRollMs = 500;
+
+    const soundClip = {
+      source: "./Showcase.FLAC",
+      startMsIntoScene: preRollMs,
+      startMsIntoClip: 60355.13,
+      lengthMs: 21577.15,
+    };
+
     const SEGMENTS = 125;
-    const SWEEP_MS = 6_000;
-    const input0Schedule: Keyframe<number>[] = [
-      { time: DEFAULT_PRE_ROLL_MS, value: 0 },
-      { time: DEFAULT_PRE_ROLL_MS + SWEEP_MS, value: 0.5 },
+    const SWEEP_MS = soundClip.lengthMs;
+    const circleCountSchedule: Keyframe<number>[] = [
+      { time: preRollMs, value: 1 },
+      { time: preRollMs + SWEEP_MS / 3, value: 4 },
+      { time: preRollMs + SWEEP_MS, value: 1 },
     ];
 
     // Fixed VIEW_RECT from the final animation state (input0 = 0.5, ~5½ circles).
@@ -406,7 +435,8 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
     scene.add({
       description: "curve",
-      duration: input0Schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+      duration: circleCountSchedule.at(-1)!.time + postRollMs,
+      soundClips: [soundClip],
       show({ context, timeInMs }) {
         drawGrid(context, { destRect: GRAPH_RECT, viewRect: SQUARE_VIEW_RECT });
         context.lineCap = "round";
@@ -415,8 +445,10 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.strokeStyle = threeB1B.BLUE;
         context.stroke(titlePath);
 
-        const input0 = interpolateNumbers(timeInMs, input0Schedule);
-        const numberOfCircles = 1 + (CIRCLES.length - 1) * input0;
+        const numberOfCircles = interpolateNumbers(
+          timeInMs,
+          circleCountSchedule,
+        );
         const circlesToConsider = Math.ceil(numberOfCircles);
         const attenuation = numberOfCircles - Math.floor(numberOfCircles);
 
@@ -451,7 +483,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   // Formula: x = 16·sin³θ,  y = 13·cosθ − 5·cos2θ − 2·cos3θ − cos4θ
   // https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
   {
-    const DURATION = 8_000;
+    const DURATION = 6_000;
 
     // The formula title is long, so use a smaller font (adjust SCALE to taste).
     const HEART_TITLE_FONT_SCALE = 0.6; // fraction of the normal titleFont (0.7)
@@ -502,6 +534,18 @@ const sceneList = new MakeShowableInSeries("Scene List");
     scene.add({
       description: "tracing",
       duration: DURATION,
+      soundClips: distribute(
+        [
+          {
+            // "I love math."
+            source: "./Showcase.FLAC",
+            startMsIntoScene: 0,
+            startMsIntoClip: 84664.52,
+            lengthMs: 4245.4,
+          },
+        ],
+        { startFrom: 0, endAt: DURATION },
+      ),
       show({ context, timeInMs }) {
         // Grid + title (smaller font + strokeWidth to match).
         drawGrid(context, { destRect: GRAPH_RECT, viewRect: HEART_VIEW_RECT });
@@ -543,7 +587,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       height: 2.3,
     };
     const SEGMENTS = 225;
-    const SWEEP_MS = 6_000;
+    const SWEEP_MS = 7_000;
 
     const spiralXf = computeGridTransform(
       GRAPH_RECT,
@@ -564,6 +608,18 @@ const sceneList = new MakeShowableInSeries("Scene List");
     scene.add({
       description: "spiral",
       duration: SWEEP_MS,
+      soundClips: distribute(
+        [
+          {
+            // "Easy to animate a parametric function."
+            source: "./Showcase.FLAC",
+            startMsIntoScene: 0,
+            startMsIntoClip: 89377.88,
+            lengthMs: 5523.96,
+          },
+        ],
+        { startFrom: 0, endAt: SWEEP_MS },
+      ),
       show({ context, timeInMs }) {
         drawBackground(context, titlePath, threeB1B.YELLOW_E);
         /**
@@ -597,12 +653,24 @@ const sceneList = new MakeShowableInSeries("Scene List");
   // positionAndAngleAt() gives exact position + tangent in one lookup.
   // Related: https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
   {
-    const DURATION = 7_000;
+    const DURATION = 9_500;
     const scene = new MakeShowableInParallel("Lissajous Curves — arrow");
     const titlePath = makeTitle(scene.description);
     scene.add({
       description: "arrow",
       duration: DURATION,
+      soundClips: distribute(
+        [
+          {
+            // "another path example\n"
+            source: "./Showcase.FLAC",
+            startMsIntoScene: 0,
+            startMsIntoClip: 107086.63,
+            lengthMs: 8401.02,
+          },
+        ],
+        { startFrom: 0, endAt: DURATION },
+      ),
       show({ context, timeInMs }) {
         drawBackground(context, titlePath, threeB1B.RED);
         context.lineCap = "round";
@@ -674,12 +742,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const fourierF: ParametricFunction = (t) => {
       const baseAngle = 2 * Math.PI * 2.5 * t + Math.PI / 2; // 2.5 cycles
       let y = 0;
-      // I changed the limit from 5 to 4 based on how quickly the arrow was rotating.
-      // There was no clear cutoff or objective measurement, but this looks good.
-      // At 5 it was almost flickering.
-      // At 4 it looks more like it's rotating, like it should be.
-      // 3 was better, but only by a small margin, not a fair trade-off for being less interesting.
-      for (let k = 0; k < 4; k++) {
+      for (let k = 0; k < 5; k++) {
         const n = 2 * k + 1; // odd harmonics: 1, 3, 5, 7, 9
         y += (4 / Math.PI / n) * Math.sin(n * baseAngle);
       }
@@ -704,12 +767,26 @@ const sceneList = new MakeShowableInSeries("Scene List");
     // CSS animation durations (ms per full loop) — unchanged from parametric-path.css.
     const TAU_PERIOD = 12_500;
     const PI_PERIOD = 25_000;
-    const ARROW_PERIOD = 20_967;
+    /**
+     * Half as fast as the example I took this from.
+     * The arrow was rotating too fast originally.
+     * It almost looked like flickering.
+     */
+    const ARROW_PERIOD = 20_967 * 2;
 
     // Draw background curve in a neutral color (CSS used stroke:black).
     scene.add({
       description: "curve",
-      duration: DEFAULT_SLIDE_DURATION_MS,
+      duration: 16875.04 + 500,
+      soundClips: [
+        {
+          // "offset-path"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 119734.35,
+          lengthMs: 16875.04,
+        },
+      ],
       show({ context }) {
         drawGrid(context, {
           destRect: GRAPH_RECT,
@@ -807,11 +884,20 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
   const SEGMENTS = 153; // quality setting; default looked bad per author testing
 
-  const SWEEP_MS = 6_000;
+  const SWEEP_MS = 7819.03 + 500;
 
   scene.add({
     description: "flower fill",
     duration: SWEEP_MS,
+    soundClips: [
+      {
+        // "Fill a path, possibilities are unlimited."
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 0,
+        startMsIntoClip: 141667.94,
+        lengthMs: 7819.03,
+      },
+    ],
     show({ context, timeInMs }) {
       drawGrid(context, { destRect: GRAPH_RECT, viewRect: VIEW_RECT });
 
@@ -922,8 +1008,17 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
   {
     const showable: Showable = {
-      description: "Line Font",
-      duration: 30_000,
+      description: "Fonts part 1",
+      duration: 15_000,
+      soundClips: [
+        {
+          // "font part 1\n"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: (15_000 - 11427.44) / 2,
+          startMsIntoClip: 153390.63,
+          lengthMs: 11427.44,
+        },
+      ],
       show({ context, timeInMs }) {
         const progress = easeAndBack(timeInMs / this.duration);
         context.lineWidth = 0.04 + progress * 0.08;
@@ -947,9 +1042,9 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const scene = new MakeShowableInParallel("Font Samples");
 
   const FONT_SIZE = 0.35;
-  const PAN_START_MS = DEFAULT_PRE_ROLL_MS;
-  const PAN_END_MS = 30_000;
-  const SCENE_DURATION = PAN_END_MS + 5_000;
+  const PAN_START_MS = 500;
+  const PAN_END_MS = 15_500;
+  const SCENE_DURATION = PAN_END_MS + 500;
   const BOLD_FACTOR = 2;
 
   const FUTURA_COLOR = "rgb(128, 0, 255)";
@@ -1076,6 +1171,15 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const showable: Showable = {
     description: scene.description,
     duration: SCENE_DURATION,
+    soundClips: [
+      {
+        // "font part 2"
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 1_500,
+        startMsIntoClip: 167869.88,
+        lengthMs: 7613.79,
+      },
+    ],
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -1142,13 +1246,22 @@ const sceneList = new MakeShowableInSeries("Scene List");
     const showable: Showable = {
       description: "action",
       duration: 20000,
+      soundClips: [
+        {
+          // "Formatting Text"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 1000,
+          startMsIntoClip: 180084.69,
+          lengthMs: 18065.01,
+        },
+      ],
       show({ context, timeInMs }) {
         const layout = new ParagraphLayout(baseFont);
         {
           const possible = "One, two, three.";
           const numberOfChars = Math.round(
             interpolateNumbers(timeInMs, [
-              { time: this.duration / 8, value: 0, easeAfter: easeIn },
+              { time: this.duration / 8, value: 0 },
               { time: this.duration * 0.75, value: possible.length },
             ]),
           );
@@ -1388,7 +1501,16 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
     const showable: Showable = {
       description: scene.description,
-      duration: 20_000,
+      duration: 16_000,
+      soundClips: [
+        {
+          // "Stroke Colors"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 1_000,
+          startMsIntoClip: 201834.92,
+          lengthMs: 13526.17,
+        },
+      ],
       show({ context, timeInMs }) {
         const progress = timeInMs / this.duration;
         context.lineCap = "round";
@@ -1429,7 +1551,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
           sectionLength: 0.05,
           offset: progress * 3,
         });
-        context.lineWidth = 0.3;
+        context.lineWidth = 0.4;
         endsAndCorners.forEach(
           ({ pathShape, colors, lineCap, lineJoin }, index, array) => {
             context.lineCap = lineCap;
@@ -1447,11 +1569,13 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(showable);
   }
-  scene.reserve(20_000);
   sceneList.add(scene.build());
 }
 
 {
+  // Warning:  Something abut this effect doesn't work well under Safari.
+  // Most things seem to work okay with Safari, just not this.
+  // I use Chrome for most of my development and testing.
   const scene = new MakeShowableInParallel("Calligraphy Effect");
 
   const titleShape = ParagraphLayout.singlePathShape({
@@ -1494,13 +1618,13 @@ const sceneList = new MakeShowableInSeries("Scene List");
     return layout.align(11, "center").singlePathShape().translate(4.5, 5.5);
   })();
 
-  const DURATION = 16_000;
+  const DURATION = 12_000;
   // Eccentricity: 1 = circular pen, >1 = elliptical (calligraphic).
   const eccentricitySchedule: Keyframe<number>[] = [
     { time: 0, value: 1, easeAfter: ease },
-    { time: 4_000, value: 3, easeAfter: ease },
-    { time: 8_000, value: 1, easeAfter: ease },
-    { time: 12_000, value: 3, easeAfter: ease },
+    { time: 3_000, value: 3, easeAfter: ease },
+    { time: 6_000, value: 1, easeAfter: ease },
+    { time: 9_000, value: 3, easeAfter: ease },
     { time: DURATION, value: 1 },
   ];
   // Angle in degrees: the orientation of the ellipse's major axis.
@@ -1512,6 +1636,14 @@ const sceneList = new MakeShowableInSeries("Scene List");
   const showable: Showable = {
     description: scene.description,
     duration: DURATION,
+    soundClips: [
+      {
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 1000,
+        startMsIntoClip: 229540.9,
+        lengthMs: 10190.25,
+      },
+    ],
     schedules: [
       {
         description: "Eccentricity",
@@ -1620,7 +1752,16 @@ const sceneList = new MakeShowableInSeries("Scene List");
 
   const showable: Showable = {
     description: scene.description,
-    duration: 10_000,
+    duration: 9265.35 + 1_500,
+    soundClips: [
+      {
+        // "Type here."
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 500,
+        startMsIntoClip: 245743.13,
+        lengthMs: 9265.35,
+      },
+    ],
     show({ context }) {
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -1760,8 +1901,8 @@ What the hand, dare sieze the fire?`);
   const schedules = initializedArray(
     morphers.length,
     (index): Keyframes<number> => {
-      const startTime = index * 1500 + 500;
-      const endTime = startTime + 6000;
+      const startTime = index * 800 + 500;
+      const endTime = startTime + 4000;
       return [
         { time: startTime, value: 0, easeAfter: ease },
         { time: endTime, value: 1 },
@@ -1769,8 +1910,48 @@ What the hand, dare sieze the fire?`);
     },
   );
   const scene: Showable = {
-    duration: schedules.at(-1)!.at(-1)!.time + 5000,
+    duration: schedules.at(-1)!.at(-1)!.time + 2000,
     description: "Morphing Text",
+    soundClips: distribute(
+      [
+        {
+          // "morphing part 1"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 269231.88,
+          lengthMs: 5760.29,
+        },
+        {
+          // "Morphing part 2"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 276070.54,
+          lengthMs: 3282.29,
+        },
+        {
+          // "Morphing part 3"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 280159.63,
+          lengthMs: 1609.15,
+        },
+        {
+          // "Morphing part 4"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 282223.1,
+          lengthMs: 3902.81,
+        },
+        {
+          // "morphing part 5"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 0,
+          startMsIntoClip: 288234.79,
+          lengthMs: 6769.46,
+        },
+      ],
+      { startFrom: 250, endAt: schedules.at(-1)!.at(-1)!.time },
+    ),
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -1874,7 +2055,10 @@ What the hand, dare sieze the fire?`);
         }
       });
     }
-    const TOTAL_DURATION = 5 * HOLD_MS + 4 * TRANS_MS + DEFAULT_POST_ROLL_MS; // ≈21 s
+    /**
+     * Audio length plus 500 ms padding on each side.
+     */
+    const TOTAL_DURATION = 28096.35 + 1000;
 
     // ── Handwriting schedule (loops for the full slide duration) ──────────
     const PAUSE_MS = 500; // brief pause before and after each write
@@ -1980,6 +2164,15 @@ What the hand, dare sieze the fire?`);
     const showable: Showable = {
       description: "Dashes demo",
       duration: TOTAL_DURATION,
+      soundClips: [
+        {
+          // "Dots, dashes and the PathShapeSplitter"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 500,
+          startMsIntoClip: 302224.0,
+          lengthMs: 28096.35,
+        },
+      ],
       schedules: [
         {
           description: "Draw Length Factor",
@@ -2161,6 +2354,7 @@ What the hand, dare sieze the fire?`);
 
 {
   // φ = 1 + 1/(1 + 1/(1 + 1/(1 + ...)))  — all integers are 1.
+  // Static and super simple.
   const scene = new MakeShowableInParallel("φ as a Continued Fraction");
   {
     const path = ParagraphLayout.singlePathShape({
@@ -2171,7 +2365,16 @@ What the hand, dare sieze the fire?`);
     }).canvasPath;
     scene.add({
       description: scene.description,
-      duration: DEFAULT_SLIDE_DURATION_MS,
+      duration: 1000,
+      soundClips: [
+        {
+          // "Continued fractions, 2 slides worth"
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 500,
+          startMsIntoClip: 333882.46,
+          lengthMs: 3655.75,
+        },
+      ],
       show({ context }) {
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -2243,7 +2446,7 @@ What the hand, dare sieze the fire?`);
     }).translate(bx3, bar4y - lh / 2).canvasPath;
     scene.add({
       description: "continued fraction",
-      duration: DEFAULT_SLIDE_DURATION_MS,
+      duration: 1_500,
       show({ context }) {
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -2387,9 +2590,9 @@ What the hand, dare sieze the fire?`);
     // ── Morph: "..." → "1" + bar3 line + "292 + ..." ───────────────────────
     // Initial state ends one level short with "..." as the last item.
     // The animation expands it into the real next staircase level.
-    const MORPH_START_MS = DEFAULT_PRE_ROLL_MS;
-    const MORPH_MS = 3_000;
-    const TOTAL_DURATION = MORPH_START_MS + MORPH_MS + DEFAULT_POST_ROLL_MS;
+    const TOTAL_DURATION = 3.65572 * 1000;
+    const MORPH_START_MS = 900;
+    const MORPH_MS = TOTAL_DURATION - 2 * MORPH_START_MS;
 
     const morphSchedule: Keyframe<number>[] = [
       { time: MORPH_START_MS, value: 0, easeAfter: ease },
@@ -2474,6 +2677,15 @@ What the hand, dare sieze the fire?`);
     const showable: Showable = {
       description: scene.description,
       duration: 0,
+      soundClips: [
+        {
+          // "Easing functions."
+          source: "./Showcase.FLAC",
+          startMsIntoScene: 1000,
+          startMsIntoClip: 359807.25,
+          lengthMs: 33041.25,
+        },
+      ],
       show({ context }) {
         context.lineCap = "round";
         context.lineJoin = "round";
@@ -2706,12 +2918,16 @@ What the hand, dare sieze the fire?`);
       text: "Strokable vector fonts: line, Futura L, cursive",
       timeAfterMs: 500,
     },
-    { level: 1, text: "Keyframe-based animation schedules", timeAfterMs: 6000 },
+    { level: 1, text: "Keyframe-based animation schedules" },
     {
       level: 2,
       text: "Per-segment easing: ease, easeIn, easeOut, easeAndBack",
     },
-    { level: 2, text: "Custom keyframes with per-segment easing" },
+    {
+      level: 2,
+      text: "Custom keyframes with per-segment easing",
+      timeAfterMs: 5000,
+    },
     { level: 0, text: "Development Tools" },
     { level: 1, text: "Live preview with play/pause and chapter navigation" },
     { level: 1, text: "Schedule editor with drag handles" },
@@ -2722,10 +2938,10 @@ What the hand, dare sieze the fire?`);
   const handwritingSchedule: Keyframe<number>[] = [];
   bulletContent.forEach((content, index) => {
     handwritingSchedule.push({ time: startTime, value: index });
-    const drawDuration = 1000;
+    const drawDuration = 750;
     startTime += drawDuration;
     handwritingSchedule.push({ time: startTime, value: index + 1 });
-    const pauseAfter = content.timeAfterMs ?? 3000;
+    const pauseAfter = content.timeAfterMs ?? 1000;
     startTime += pauseAfter;
   });
 
@@ -2764,6 +2980,15 @@ What the hand, dare sieze the fire?`);
   const showable: Showable = {
     description: "Outline slide",
     duration: handwritingSchedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+    soundClips: [
+      {
+        // "Outline / Powerpoint"
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 1_000,
+        startMsIntoClip: 397519.29,
+        lengthMs: 19133.17,
+      },
+    ],
     show({ context, timeInMs }) {
       context.lineCap = "round";
       context.lineJoin = "round";
@@ -2889,6 +3114,15 @@ import imageUrl from "./Philip Smolen.jpeg";
     description,
     schedules,
     duration: schedules.at(-1)!.schedule.at(-1)!.time + DEFAULT_POST_ROLL_MS,
+    soundClips: [
+      {
+        // "Type here."
+        source: "./Showcase.FLAC",
+        startMsIntoScene: 0,
+        startMsIntoClip: 420417.42,
+        lengthMs: 27618.77,
+      },
+    ],
     show(options) {
       components.forEach((component) => component.show(options));
       const context = options.context;
