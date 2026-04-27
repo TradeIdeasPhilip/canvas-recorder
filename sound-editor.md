@@ -69,3 +69,11 @@ I'm changing both to work well together.
 I have not gone as far as I'd like to today.
 When I have a better editor I'd like to fuss over the details more.
 We've made a lot of progress in this regard, but still more to go.
+
+https://github.com/TradeIdeasPhilip/canvas-recorder/commit/df0911578a7174b1bca4121e2643e46004c07ef5
+This commit added the voiceover to the showcase,
+what I've been describing here.
+About 1/2 of the recording was used; the other half was mistakes or quite space between scenes; this is typical.
+I was mostly happy with the result, much better than I could have done a year or two ago, but if it was easier I would have made more changes, tiny improvements.
+The resulting code is a bit of mess.
+I tried a lot of different tactics.

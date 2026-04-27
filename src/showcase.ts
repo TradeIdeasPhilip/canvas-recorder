@@ -85,6 +85,7 @@ const DEFAULT_PRE_ROLL_MS = 1_500;
 const DEFAULT_POST_ROLL_MS = 2_000;
 
 const sceneList = new MakeShowableInSeries("Scene List");
+// MARK: Simple Text & Layout
 {
   const scene = new MakeShowableInParallel("Simple Text & Layout");
   {
@@ -323,6 +324,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     }).canvasPath;
   }
 
+  // MARK: Ridiculously Simple Fourier Decomposition
   // ── Scene: Ridiculously Simple Fourier Decomposition ("A Better Square") ──
   // Formula: "A Better Square" from parametric-path.html.
   // https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
@@ -479,6 +481,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
+  // MARK: Heart Curve ♡
   // ── Scene: tracing (draw then erase) — Heart Curve ♡ ────────────────────
   // Formula: x = 16·sin³θ,  y = 13·cosθ − 5·cos2θ − 2·cos3θ − cos4θ
   // https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
@@ -575,6 +578,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
+  // MARK: #SoME5 Idea: Lissajous Spirals
   // ── Scene: #SoME5 Idea: Lissajous Spirals ───────────────────────────────
   {
     // x(t) = t·cos(2πt),  y(t) = t·sin(freqRatio·2πt)
@@ -648,6 +652,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
+  // MARK: Lissajous Curves — arrow
   // ── Scene: arrow tracing the path ────────────────────────────────────────
   // Canvas analog of CSS offset-path.  PathShapeSplitter replaces motion-path,
   // positionAndAngleAt() gives exact position + tangent in one lookup.
@@ -717,6 +722,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     sceneList.add(scene.build());
   }
 
+  // MARK: offset-path CSS property
   // ── Scene: τ, π, and → following the path (CSS offset-path style) ────────
   // Formula: "Fourier square wave", numberOfCircles = 5 (fixed integer).
   // Because numberOfCircles is an exact integer, attenuation = 0 and the
@@ -846,6 +852,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   }
 }
 
+// MARK: Flowers with N Petals
 // ── Flowers with N Petals ─────────────────────────────────────────────────────
 // "Rounded Pentagram ⛤, Heptagram, etc." from parametric-path.html:
 //   https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html
@@ -940,6 +947,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Strokable Font List
 {
   const scene = new MakeShowableInParallel("Strokable Font List");
   {
@@ -1038,6 +1046,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Font Samples
 {
   const scene = new MakeShowableInParallel("Font Samples");
 
@@ -1214,6 +1223,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Formatting Pieces of Text
 {
   const scene = new MakeShowableInParallel("Formatting Pieces of Text");
   {
@@ -1401,6 +1411,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Simple Animated Colors
 {
   const scene = new MakeShowableInParallel("Simple Animated Colors");
   {
@@ -1572,6 +1583,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Calligraphy Effect
 {
   // Warning:  Something abut this effect doesn't work well under Safari.
   // Most things seem to work okay with Safari, just not this.
@@ -1711,6 +1723,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Function Graphing
 {
   const scene = new MakeShowableInParallel("Function Graphing");
 
@@ -1823,6 +1836,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   sceneList.add(scene.build());
 }
 
+// MARK: Morphing Text
 {
   const title = ParagraphLayout.singlePathShape({
     font: titleFont,
@@ -1993,6 +2007,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene);
 }
 
+// MARK: Dots, Dashes, and the PathSplitter
 {
   const scene = new MakeShowableInParallel(
     "Dots, Dashes, and the PathSplitter",
@@ -2352,6 +2367,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// MARK: φ as a Continued Fraction
 {
   // φ = 1 + 1/(1 + 1/(1 + 1/(1 + ...)))  — all integers are 1.
   // Static and super simple.
@@ -2479,6 +2495,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// MARK: π as a Continued Fraction
 {
   const scene = new MakeShowableInParallel("π as a Continued Fraction");
   {
@@ -2665,6 +2682,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// MARK: Easing Functions
 {
   const scene = new MakeShowableInParallel("Easing Functions");
   {
@@ -2884,6 +2902,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// MARK: Outline Slide Template
 {
   const scene = new MakeShowableInParallel("Outline Slide Template");
 
@@ -3020,6 +3039,7 @@ What the hand, dare sieze the fire?`);
   sceneList.add(scene.build());
 }
 
+// MARK: <img src="...">
 // Example of Vite's static asset handling.
 // https://vite.dev/guide/assets
 import imageUrl from "./Philip Smolen.jpeg";
@@ -3145,6 +3165,7 @@ import imageUrl from "./Philip Smolen.jpeg";
   sceneList.add(scene);
 }
 
+// MARK: Pixel Perfect Freaky Dot Patterns
 // ── Pixel Perfect Freaky Dot Patterns ────────────────────────────────────────
 // NOT READY FOR PRIME TIME
 // Multiple Issues.  Doesn't look right.  Takes way too much CPU.
