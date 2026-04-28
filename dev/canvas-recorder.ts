@@ -360,6 +360,7 @@ function loadPlayPositionRange() {
 }
 
 const audioCtx = new AudioContext();
+console.log(audioCtx)
 const gainNode = audioCtx.createGain();
 gainNode.connect(audioCtx.destination);
 
@@ -372,17 +373,67 @@ let audioCtxStartTime = 0;
 let audioMediaStartMs = 0;
 let audioPlaybackRate = 1;
 
+/**
+ * True when the browser blocked AudioContext autoplay.
+ * In this mode we use performance.now() for timing instead of audioCtx.currentTime.
+ * Audio does not play, but animation runs and stays internally consistent.
+ */
+let rafFallbackMode = false;
+/** True when fallback-mode "playback" is running (mirrors audioSourceNode !== null). */
+let rafFallbackPlaying = false;
+/** performance.now() at the moment fallback playback last started. */
+let rafFallbackStartPerf = 0;
+/** Media position (ms) at the moment fallback playback last started. */
+let rafFallbackStartMs = 0;
+
+const autoplayFallbackMsg = getById("autoplayFallbackMsg", HTMLDivElement);
+const muteCheckbox = getById("muteAudio", HTMLInputElement);
+
 function currentAudioTimeMs(): number {
+  if (rafFallbackMode) {
+    return (
+      rafFallbackStartMs +
+      (performance.now() - rafFallbackStartPerf) * audioPlaybackRate
+    );
+  }
   return (
     audioMediaStartMs +
     (audioCtx.currentTime - audioCtxStartTime) * audioPlaybackRate * 1000
   );
 }
 
+function enterRafFallback(fromMs: number, showMessage: boolean): void {
+  rafFallbackMode = true;
+  rafFallbackStartMs = fromMs;
+  rafFallbackStartPerf = performance.now();
+  rafFallbackPlaying = true;
+  muteCheckbox.checked = true;
+  gainNode.gain.value = 0;
+  autoplayFallbackMsg.hidden = !showMessage;
+}
+
 function startAudio(fromMs: number): void {
   stopAudio();
+  if (rafFallbackMode) {
+    // Already in fallback — just re-anchor the timing.
+    rafFallbackStartMs = fromMs;
+    rafFallbackStartPerf = performance.now();
+    rafFallbackPlaying = true;
+    return;
+  }
   if (!audioReady) return;
-  audioCtx.resume(); // no-op if already running; needed on first play gesture
+  if (audioCtx.state !== "running") {
+    if (!navigator.userActivation.isActive) {
+      // No user gesture available (e.g. restoring play state on page load).
+      // Silently fall back — animation runs, audio muted.
+      enterRafFallback(fromMs, false);
+      return;
+    }
+    // Has a user gesture.  resume() is async — the source node below plays
+    // once the context transitions to running.  Do NOT check state synchronously
+    // after this call; it will still read "suspended" before the promise resolves.
+    audioCtx.resume().catch(() => {});
+  }
   const source = audioCtx.createBufferSource();
   source.buffer = audioBuilder.getAudioBuffer();
   source.playbackRate.value = audioPlaybackRate;
@@ -395,6 +446,7 @@ function startAudio(fromMs: number): void {
 }
 
 function stopAudio(): void {
+  rafFallbackPlaying = false;
   if (audioSourceNode) {
     try {
       audioSourceNode.stop();
@@ -409,7 +461,11 @@ function stopAudio(): void {
  * Re-anchors the timing so currentAudioTimeMs() stays continuous.
  */
 function setPlaybackRate(rate: number): void {
-  if (audioSourceNode) {
+  if (rafFallbackPlaying) {
+    const currentMs = currentAudioTimeMs();
+    rafFallbackStartMs = currentMs;
+    rafFallbackStartPerf = performance.now();
+  } else if (audioSourceNode) {
     const currentMs = currentAudioTimeMs();
     audioCtxStartTime = audioCtx.currentTime;
     audioMediaStartMs = currentMs;
@@ -419,9 +475,19 @@ function setPlaybackRate(rate: number): void {
 }
 
 {
-  const muteCheckbox = getById("muteAudio", HTMLInputElement);
   const volumeSlider = getById("volumeAudio", HTMLInputElement);
   muteCheckbox.addEventListener("input", () => {
+    if (!muteCheckbox.checked && rafFallbackMode) {
+      // Un-muting is a user gesture — try to exit fallback and resume real audio.
+      const currentMs = currentAudioTimeMs();
+      rafFallbackMode = false;
+      rafFallbackPlaying = false;
+      autoplayFallbackMsg.hidden = true;
+      if (playCheckBox.checked) {
+        stopAudio();
+        startAudio(currentMs);
+      }
+    }
     gainNode.gain.value = muteCheckbox.checked ? 0 : volumeSlider.valueAsNumber;
   });
   volumeSlider.addEventListener("input", () => {
@@ -478,7 +544,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
   // Playing.
   playPositionSeconds.disabled = true;
 
-  if (!audioSourceNode) {
+  if (!audioSourceNode && !rafFallbackPlaying) {
     // No source node running: first play, after pause/seek, or after repeat.
     let startMs = playPositionSeconds.valueAsNumber * 1000;
     if (startMs >= sectionEndTime && !continueRadioButton.checked) {
@@ -488,8 +554,8 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
       loadPlayPositionRange();
     }
     startAudio(startMs);
-    // If audio isn't built yet, hold the current frame until it is.
-    if (!audioSourceNode) {
+    // If audio isn't built yet (and not in fallback mode), hold the current frame.
+    if (!audioSourceNode && !rafFallbackPlaying) {
       showFrame(playPositionSeconds.valueAsNumber * 1000, true);
       return;
     }
@@ -1032,6 +1098,7 @@ function saveState() {
     "state",
     querySelector('input[name="onSectionEnd"]:checked', HTMLInputElement).value,
   );
+  sessionStorage.setItem("wasPlaying", playCheckBox.checked ? "1" : "0");
   sessionStorage.setItem("zoomSelect", zoomSelect.value);
   sessionStorage.setItem("panX", panX.toString());
   sessionStorage.setItem("panY", panY.toString());
@@ -2060,6 +2127,9 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
         `input[name="onSectionEnd"][value="${state}"]`,
         HTMLInputElement,
       ).checked = true;
+      if (sessionStorage.getItem("wasPlaying") === "1") {
+        playCheckBox.checked = true;
+      }
     }
     const savedZoom = sessionStorage.getItem("zoomSelect");
     const savedPanX = parseFloatX(sessionStorage.getItem("panX") ?? "");
