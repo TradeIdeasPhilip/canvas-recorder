@@ -359,24 +359,27 @@ function loadPlayPositionRange() {
   playPositionRange.valueAsNumber = playPositionSeconds.valueAsNumber * 1000;
 }
 
-const audioCtx = new AudioContext();
-console.log(audioCtx)
-const gainNode = audioCtx.createGain();
-gainNode.connect(audioCtx.destination);
+const audioContext = new AudioContext();
+console.log(audioContext)
+const gainNode = audioContext.createGain();
+gainNode.connect(audioContext.destination);
 
 /** Set to true once the AudioBuffer has been fully built and is safe to play. */
 let audioReady = false;
 let audioSourceNode: AudioBufferSourceNode | null = null;
-/** audioCtx.currentTime at the moment startAudio() last started a source node. */
-let audioCtxStartTime = 0;
+/** audioContext.currentTime at the moment startAudio() last started a source node. */
+let audioContextStartTime = 0;
 /** Media position (ms) at the moment startAudio() last started a source node. */
 let audioMediaStartMs = 0;
 let audioPlaybackRate = 1;
 
 /**
  * True when the browser blocked AudioContext autoplay.
- * In this mode we use performance.now() for timing instead of audioCtx.currentTime.
+ * In this mode we use performance.now() for timing instead of audioContext.currentTime.
  * Audio does not play, but animation runs and stays internally consistent.
+ *
+ * RAF = Request Animation Frame.
+ * https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame
  */
 let rafFallbackMode = false;
 /** True when fallback-mode "playback" is running (mirrors audioSourceNode !== null). */
@@ -398,7 +401,7 @@ function currentAudioTimeMs(): number {
   }
   return (
     audioMediaStartMs +
-    (audioCtx.currentTime - audioCtxStartTime) * audioPlaybackRate * 1000
+    (audioContext.currentTime - audioContextStartTime) * audioPlaybackRate * 1000
   );
 }
 
@@ -422,7 +425,7 @@ function startAudio(fromMs: number): void {
     return;
   }
   if (!audioReady) return;
-  if (audioCtx.state !== "running") {
+  if (audioContext.state !== "running") {
     if (!navigator.userActivation.isActive) {
       // No user gesture available (e.g. restoring play state on page load).
       // Silently fall back — animation runs, audio muted.
@@ -432,16 +435,16 @@ function startAudio(fromMs: number): void {
     // Has a user gesture.  resume() is async — the source node below plays
     // once the context transitions to running.  Do NOT check state synchronously
     // after this call; it will still read "suspended" before the promise resolves.
-    audioCtx.resume().catch(() => {});
+    audioContext.resume().catch(() => {});
   }
-  const source = audioCtx.createBufferSource();
+  const source = audioContext.createBufferSource();
   source.buffer = audioBuilder.getAudioBuffer();
   source.playbackRate.value = audioPlaybackRate;
   source.connect(gainNode);
-  const contextNow = audioCtx.currentTime;
+  const contextNow = audioContext.currentTime;
   source.start(contextNow, fromMs / 1000);
   audioSourceNode = source;
-  audioCtxStartTime = contextNow;
+  audioContextStartTime = contextNow;
   audioMediaStartMs = fromMs;
 }
 
@@ -467,7 +470,7 @@ function setPlaybackRate(rate: number): void {
     rafFallbackStartPerf = performance.now();
   } else if (audioSourceNode) {
     const currentMs = currentAudioTimeMs();
-    audioCtxStartTime = audioCtx.currentTime;
+    audioContextStartTime = audioContext.currentTime;
     audioMediaStartMs = currentMs;
     audioSourceNode.playbackRate.value = rate;
   }
