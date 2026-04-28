@@ -360,7 +360,7 @@ function loadPlayPositionRange() {
 }
 
 const audioContext = new AudioContext();
-console.log(audioContext)
+console.log(audioContext);
 const gainNode = audioContext.createGain();
 gainNode.connect(audioContext.destination);
 
@@ -401,7 +401,9 @@ function currentAudioTimeMs(): number {
   }
   return (
     audioMediaStartMs +
-    (audioContext.currentTime - audioContextStartTime) * audioPlaybackRate * 1000
+    (audioContext.currentTime - audioContextStartTime) *
+      audioPlaybackRate *
+      1000
   );
 }
 
@@ -1064,9 +1066,16 @@ function updateFromSelect() {
   }
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
-  // playPositionRange automatically limits you to the range of the currently selected chapter.
-  // Make the number match in this case.
-  loadPlayPositionSeconds(playPositionRange.valueAsNumber);
+  // playPositionRange automatically clamps to [min, max].  Make the number match.
+  // Round the position UP to the nearest 0.1 ms so that the subsequent toFixed(4)
+  // conversion cannot push it before sectionStartTime and into the previous chapter.
+  // (The end already has a −0.1 ms guard; this mirrors that logic for the start.)
+  const rawPositionMs = playPositionRange.valueAsNumber;
+  const safePositionMs = Math.max(
+    rawPositionMs,
+    Math.ceil(sectionStartTime * 10) / 10,
+  );
+  loadPlayPositionSeconds(safePositionMs);
   selectedSlideChild = null;
   updateComponentEditor(info.selectable);
   updateScheduleEditor(info.selectable);
@@ -1271,7 +1280,9 @@ async function saveScheduleState(selectable: Selectable) {
     ? selectable.components!.flatMap((child) => {
         const registryKey = componentRegistryKey.get(child);
         if (!registryKey || !child.schedules?.length) return [];
-        return [{ registryKey, schedules: serializeSchedules(child.schedules) }];
+        return [
+          { registryKey, schedules: serializeSchedules(child.schedules) },
+        ];
       })
     : undefined;
   // Skip saving if nothing changed since the last entry (e.g. Vite hot-reload
@@ -1288,7 +1299,10 @@ async function saveScheduleState(selectable: Selectable) {
     });
     if (prevJson === newJson) return;
   }
-  const entry: HistoryEntry = { timestamp: Date.now(), schedules: newSchedules };
+  const entry: HistoryEntry = {
+    timestamp: Date.now(),
+    schedules: newSchedules,
+  };
   if (newComponents !== undefined) entry.components = newComponents;
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
@@ -1537,7 +1551,9 @@ function buildScheduleSection(
   copyBtn.textContent = "📋";
   copyBtn.title = "Copy schedule as TypeScript";
   copyBtn.addEventListener("click", () => {
-    navigator.clipboard.writeText(scheduleToTypeScript(info, showableDescription));
+    navigator.clipboard.writeText(
+      scheduleToTypeScript(info, showableDescription),
+    );
   });
   legend.append(addBtn, " ", sortBtn, " ", copyBtn);
   section.append(legend);
@@ -1860,7 +1876,9 @@ function updateScheduleEditor(selectable: Selectable) {
   showEditorCheckbox.disabled = false;
   scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
   for (const info of schedules) {
-    scheduleEditorFieldset.append(buildScheduleSection(info, selectable.description));
+    scheduleEditorFieldset.append(
+      buildScheduleSection(info, selectable.description),
+    );
   }
 }
 
