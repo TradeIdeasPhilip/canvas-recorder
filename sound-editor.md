@@ -77,3 +77,36 @@ About 1/2 of the recording was used; the other half was mistakes or quite space 
 I was mostly happy with the result, much better than I could have done a year or two ago, but if it was easier I would have made more changes, tiny improvements.
 The resulting code is a bit of mess.
 I tried a lot of different tactics.
+
+---
+
+## Notes: Microphone Input Level (added 2026-04-28)
+
+**Plan: disable AGC, add a manual level monitor.**
+
+`getUserMedia` defaults to `autoGainControl: true`, which lets the browser/OS
+automatically adjust the mic level. This caused a problem: another program changed
+the system default, and our recordings came out inconsistent. Disabling AGC gives
+us raw, predictable samples instead.
+
+```ts
+getUserMedia({ audio: { autoGainControl: false } });
+```
+
+With AGC off, the OS input volume setting is authoritative. That makes our
+own level monitor load-bearing — it's how the user knows to fix the system volume.
+
+**Implementation plan:**
+
+- Connect the `MediaStream` from `getUserMedia` to an `AnalyserNode` (the Web Audio API spelling, with the British 's')
+- Call `getFloatTimeDomainData()` each animation frame, compute RMS
+- Draw a simple red/yellow/green bar (or equivalent) in the recording UI
+
+**On quality:** recording too quietly does lose quality — quantization noise stays
+fixed while the signal shrinks, so boosting after the fact raises the noise floor
+too. On modern 24-bit Mac hardware the effect is minor for "a little quiet" but
+audible for very quiet recordings (peak ≲ 0.05). Better to catch it at record time.
+
+**Web pages cannot set the OS input volume** — that requires native OS APIs
+(CoreAudio on Mac). We can only monitor and tell the user to fix it themselves.
+The red/yellow/green indicator is how we communicate that.
