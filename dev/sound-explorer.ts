@@ -167,9 +167,15 @@ function resolveSoundUrl(): string {
   const h1 = document.createElement("h1");
   h1.textContent = "Open a sound file";
 
+  const allSuggestions = new Set(soundFileSuggestions);
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key !== null) allSuggestions.add(key);
+  }
+
   const datalist = document.createElement("datalist");
   datalist.id = "soundSuggestions";
-  for (const suggestion of soundFileSuggestions) {
+  for (const suggestion of allSuggestions) {
     const option = document.createElement("option");
     option.value = suggestion;
     datalist.append(option);
