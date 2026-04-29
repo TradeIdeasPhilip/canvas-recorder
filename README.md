@@ -10,49 +10,62 @@ This includes a lot of programming support for creating web graphics.
 
 ## Super Quick Start
 
-Look at showcase.ts for some examples to copy.
+Look at [./src/showcase.ts](./src/showcase.ts) for some examples to copy.
 Visible here: https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html?toShow=showcase.
 Or run `npm run dev` to start Vite then see it locally http://localhost:5173/canvas-recorder.html?toShow=showcase
 
 Copy this and modify it to your needs.
 There are more examples, but these were selected and refined as a good starting place.
 
-## (to be reorganized, lots of older stuff)
+### Creating a New Video
 
-I'm getting frustrated with Puppeteer and screen shots.
+- Put your content in [./src/](./src/)
+- Create at least on `Showable` object representing your entire movie.
+- Add this `Showable` to `showableOptions` in [./dev/canvas-recorder.ts](./dev/canvas-recorder.ts).
+- Run Vite, `npm run dev` to host the software.
+- Click the url from Vite, and follow the menu to find your new video.
+- Change the code as desired and as soon as you save the changes will automatically reload.
+- When you are happy with the live preview, hit "Record and Save Video".
 
-### Old Version
+## Highlights
 
-https://github.com/TradeIdeasPhilip/html-to-video
+### Coding
 
-I was using a screen shot.
-This allowed me to use any and all HTML features.
-In practice I almost always stuck with a single SVG element.
+Web tools!
+You can use the same effects on live, interactive web pages as in your recorded videos.
+Code reuse!
+Typescript and HTML Canvas.
 
-SVG is nice in some places, especially when it comes to quick prototypes and Chrome's dev panel.
-But persistent objects don't really help in this context; I'm drawing every frame from scratch.
-And screen shots are slow to compress.
-And the screen shots require me to use Puppeteer which makes things more complicated.
-And SVG had odd quirks and often isn't reliable and often works better in test than in production.
+### Main program
 
-### New Version
+- GUI for previewing videos.
+- Hot load code changes and restart exactly where you left off.
+- One click encoding and saving, with live preview.
 
-Now I'm trying to do the same thing, but only using the canvas.
-I can still display things on a web page.
-This provides very quick development with Vite.
-But now the node process can run this code directly.
-It can copy the data from the canvas very efficiently.
+### Path library
 
-This should help my dev environment, too.
-Now that I'm displaying a canvas, rather than drawing to the full screen, it will be easier for me to add a lot of debug options.
-Like inputs to control the output.
-Or multiple outputs so I can compare things side by side.
+- An easy way to draw and animate math functions.
+- Read and write path strings used in SVG.
+- Wrappers around Bezier.js for the hard core math.
+- Support for any affine transform, especially the common ones.
+- Automatically convert a parametric function into a path.
+- Various options for morphing or interpolating between paths.
+- Tools to create text as a path. Use the same tools to manipulate text, images, and graphs. Morph smoothly between them.
 
-### Getting Started
+### Performance
 
-[dev/index.ts](dev/index.ts) and [index.html](./index.html) contain the main program. This includes the tools that let you preview and record a video.
+I'm getting good result on an old M1 MacBook Air!
 
-[src/\*.ts](src/) contains the source code for several different videos. Set the `toShow` constant in [dev/index.ts](dev/index.ts) to point to the one you want, or to one of your own.
+- Most of my stuff runs at 60fps, 4k, real time.
+- When frames are slower, the realtime display is very robust.
+- I can generate and encode that same quality at about 80% of realtime.
+
+### In Progress
+
+- Sound editor. Still missing a lot of convenience features. But it works and it's a nice start.
+- Visual editors. Already helpful, but I'm still deciding what I want to do with them.
+
+### Most current
 
 This project also contains the most recent version of a lot of library routines. For example [src/glib/](src/glib/) contains a lot of graphics tools that are useful in multiple scenarios. This includes drawing with the canvas or SVG.
 
@@ -101,3 +114,51 @@ This is used to display an animation at a specific stage.
 This is a common input parameter when an animation routine does not know its starting time and duration, as is the case with most reusable code.
 If your input is in milliseconds, a very simple approach is to say `const progress = currentTime/duration`.
 However, most newer code uses [keyframes and interpolation](https://github.com/TradeIdeasPhilip/canvas-recorder/blob/master/src/interpolate.ts) as a more flexible way to determine the progress.
+
+## Project history
+
+I've had a few attempts at this.
+My previous tech stack was becoming slow and unreliable.
+Here's a good sample:
+https://github.com/TradeIdeasPhilip/html-to-video
+
+I was taking screen shots of a web page.
+This allowed me to use any and all HTML features.
+In practice I almost always stuck with a single SVG element.
+
+SVG is nice in some places, especially when it comes to quick prototypes and Chrome's dev panel.
+But persistent objects don't really help in this context; I'm drawing every frame from scratch.
+And screen shots are slow to compress.
+And the screen shots require me to use Puppeteer which makes things more complicated.
+And SVG had odd quirks and often isn't reliable and often works better in test than in production.
+
+### New Version
+
+Now I'm using the HTML canvas for all of my drawings.
+I can still display things on a web page.
+This provides very quick development with Vite.
+But now the node process can run this code directly.
+It can copy the data from the canvas very efficiently.
+
+This should help my dev environment, too.
+Now that I'm displaying a canvas, rather than drawing to the full screen, it will be easier for me to add a lot of debug options.
+Like inputs to control the output.
+Or multiple outputs so I can compare things side by side.
+
+### Node
+
+Originally I was going to have a headless mode.
+Node.js could run the bulk of the software without a browser.
+
+It turned out to be a pain to have a project with Node and the web both as targets.
+
+The GUI integration really works well, now.
+Puppeteer was a hack, this is a real program with a real GUI.
+It's nice seeing live previews in development and live monitoring while encoding.
+
+And I've got better performance now than ever before.
+The browser is highly optimized to work with the GPU.
+And I'm using TypeScript libraries to encode the output file, which are also GPU optimized.
+Previously I was had to compress the images to copy them between processes.
+(Only to be decompressed and recompressed by FFMPEG.)
+Now the image doesn't even leave the GPU's memory to start the **hardware** encoding.
