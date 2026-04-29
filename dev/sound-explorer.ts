@@ -706,6 +706,13 @@ class Clip {
           clickAndDrag.cancelIfActive(activeExtendListener);
         this.remove();
       });
+      const moveToTopButton = document.createElement("button");
+      moveToTopButton.textContent = "⇧";
+      moveToTopButton.title = "Move to top";
+      buttonsCell.appendChild(moveToTopButton);
+      moveToTopButton.addEventListener("click", () => {
+        this.owner.moveToTop(this);
+      });
       const resizeLeftButton = document.createElement("button");
       resizeLeftButton.textContent = "⇤";
       resizeLeftButton.title = "Change start time";
@@ -926,6 +933,13 @@ class Clip {
       this.#row.remove();
     }
   }
+  moveToTop(fromClipManager: FromClipManager): void {
+    ClipManager.validate(fromClipManager);
+    const firstDataRow = this.owner.samplesTable.rows[1];
+    if (firstDataRow !== this.#row) {
+      firstDataRow.before(this.#row);
+    }
+  }
   play() {
     const startSeconds = this.startIndex / audioContext.sampleRate;
     const endSeconds = this.endIndex / audioContext.sampleRate;
@@ -1024,6 +1038,16 @@ class ClipManager {
     clip.remove(ClipManager.symbol);
     this.#clips.splice(index, 1);
     Color.recycle(clip.color);
+  }
+  moveToTop(clip: Clip) {
+    const index = this.#clips.findIndex((c) => c === clip);
+    if (index < 0) {
+      throw new Error("not found");
+    }
+    this.#clips.splice(index, 1);
+    this.#clips.push(clip);
+    clip.moveToTop(ClipManager.symbol);
+    this.notify();
   }
   dumpToJSON(space?: string | number): string {
     return JSON.stringify(
