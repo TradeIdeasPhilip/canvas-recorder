@@ -1,0 +1,1 @@
+These were some buggy attempts at performance improvements.

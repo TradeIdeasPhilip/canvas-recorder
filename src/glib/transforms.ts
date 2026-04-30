@@ -11,8 +11,11 @@ export function transform(
   x: number,
   y: number,
   matrix: DOMMatrixReadOnly,
-): DOMPoint {
-  return new DOMPoint(x, y).matrixTransform(matrix);
+): { x: number; y: number } {
+  return {
+    x: matrix.a * x + matrix.c * y + matrix.e,
+    y: matrix.b * x + matrix.d * y + matrix.f,
+  };
 }
 
 interface Rect {

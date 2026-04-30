@@ -110,3 +110,11 @@ audible for very quiet recordings (peak ≲ 0.05). Better to catch it at record 
 **Web pages cannot set the OS input volume** — that requires native OS APIs
 (CoreAudio on Mac). We can only monitor and tell the user to fix it themselves.
 The red/yellow/green indicator is how we communicate that.
+
+## TODO
+
+* https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/persist
+* https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system
+
+We should save recorded sound files in the Origin_private_file_system.
+We should use persist() to protect the data.

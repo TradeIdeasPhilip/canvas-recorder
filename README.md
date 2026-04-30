@@ -54,7 +54,7 @@ Typescript and HTML Canvas.
 
 ### Performance
 
-I'm getting good result on an old M1 MacBook Air!
+I'm getting good result on an *old* M1 MacBook Air!
 
 - Most of my stuff runs at 60fps, 4k, real time.
 - When frames are slower, the realtime display is very robust.
@@ -65,11 +65,31 @@ I'm getting good result on an old M1 MacBook Air!
 - Sound editor. Still missing a lot of convenience features. But it works and it's a nice start.
 - Visual editors. Already helpful, but I'm still deciding what I want to do with them.
 
-### Most current
+### Most Current
 
 This project also contains the most recent version of a lot of library routines. For example [src/glib/](src/glib/) contains a lot of graphics tools that are useful in multiple scenarios. This includes drawing with the canvas or SVG.
 
 Eventually I'd like to split things up into separate NPM packages and separate git repositories. But for the moment, the easiest thing to do is to clone this project and add your own code.
+
+### Pixel Perfect
+
+It's hard to explain.
+It's what you think you always have, but when you take a closer look you would be amazed.
+
+Time and space are assumed to be continuous in the bulk of this project.
+I never convert to frames or pixels until the last possible moment.
+Surprisingly, it often *helps* performance, so I have no idea why people still get this wrong in 2026.
+
+If you like to get really close to the screen and squint, like I do, here's some advice:
+* Avoid blurs and noise.
+  * They can look *so* good on the screen in development, but they don't survive encoding.
+  * Some problems are immediately obvious, but do a long test and you'll see even more.
+* Gradients are pushing the limits
+  * use with caution.
+  * Again, my old MacBook air's display can make perfect gradients, but they don't always translate.
+* The encoding and YouTubing process loves solid objects with crisp edges.
+  * Filling and stroking paths are easy ways to create encoder-friendly content.
+  * And check out my halftone dots example.
 
 ## Glossary
 
@@ -114,6 +134,10 @@ This is used to display an animation at a specific stage.
 This is a common input parameter when an animation routine does not know its starting time and duration, as is the case with most reusable code.
 If your input is in milliseconds, a very simple approach is to say `const progress = currentTime/duration`.
 However, most newer code uses [keyframes and interpolation](https://github.com/TradeIdeasPhilip/canvas-recorder/blob/master/src/interpolate.ts) as a more flexible way to determine the progress.
+
+"HEVC" or "H.265" refer the encoding that we use.
+This program is currently limited to this encoding because it works well.
+In particular, my computer has dedicated hardware for this mode.
 
 ## Project history
 
