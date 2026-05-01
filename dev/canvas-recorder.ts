@@ -34,32 +34,34 @@ import {
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
-import { downloadBlob } from "../src/utility.ts";
+import { ArrayMap, downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
-
-import { morphTest } from "../src/morph-test.ts";
-import { top } from "../src/peano-fourier/top.ts";
-import { showcase } from "../src/showcase.ts";
-import { peanoArithmetic } from "../src/peano-arithmetic.ts";
-import { sierpińskiTop } from "../src/sierpiński.ts";
-import { strokeColorsTest } from "../src/stroke-colors-test.ts";
-import { shadowTest } from "../src/shadow-test.ts"; // HERE
 import { componentRegistry } from "../src/slide-components.ts";
 
 /**
  * Maps URL `?toShow=` keys to available video options.
  * Fill in the `description` field for each entry — it appears in the selection page.
  */
-const showableOptions = new Map<
+const showableOptions = new ArrayMap<
   string,
-  { item: Showable; description: string }
->([
-  //["test", {item:undefined!, description:'</a><b>"只有经过中文测试，才算真正经过了测试！'}],
-  ["showcase", { item: showcase, description: "Ideas to copy and paste." }],
+  { create(): Promise<Showable>; description: string }
+>();
+showableOptions.add([
+  [
+    "showcase",
+    {
+      async create() {
+        return (await import("../src/showcase.ts")).showcase;
+      },
+      description: "Ideas to copy and paste.",
+    },
+  ],
   [
     "sierpiński",
     {
-      item: sierpińskiTop,
+      async create() {
+        return (await import("../src/sierpiński.ts")).sierpińskiTop;
+      },
       description:
         "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI",
     },
@@ -67,7 +69,9 @@ const showableOptions = new Map<
   [
     "peano-fourier",
     {
-      item: top,
+      async create() {
+        return (await import("../src/peano-fourier/peano-fourier.ts")).peanoFourier;
+      },
       description:
         "Fun with math, the last scene of: https://www.youtube.com/watch?v=Imc1w0xNb4E",
     },
@@ -75,7 +79,9 @@ const showableOptions = new Map<
   [
     "peano-arithmetic",
     {
-      item: peanoArithmetic,
+      async create() {
+        return (await import("../src/peano-arithmetic.ts")).peanoArithmetic;
+      },
       description:
         "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8",
     },
@@ -83,7 +89,9 @@ const showableOptions = new Map<
   [
     "morph-test",
     {
-      item: morphTest,
+      async create() {
+        return (await import("../src/morph-test.ts")).morphTest;
+      },
       description:
         "Morphing the Peano Curve, the first part of https://www.youtube.com/watch?v=Imc1w0xNb4E",
     },
@@ -91,7 +99,9 @@ const showableOptions = new Map<
   [
     "stroke-colors-test",
     {
-      item: strokeColorsTest,
+      async create() {
+        return (await import("../src/stroke-colors-test.ts")).strokeColorsTest;
+      },
       description:
         "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0",
     },
@@ -99,7 +109,9 @@ const showableOptions = new Map<
   [
     "shadow-test",
     {
-      item: shadowTest,
+      async create() {
+        return (await import("../src/shadow-test.ts")).shadowTest;
+      },
       description: "Halftone drop-shadow effect demo.",
     },
   ],
@@ -115,15 +127,12 @@ const showableOptions = new Map<
  * a minimal link list and this function throws, halting the rest of the module.
  */
 async function resolveToShow(): Promise<Showable> {
-  const normalizedOptions = new Map(
-    [...showableOptions.entries()].map(([k, v]) => [k.normalize("NFC"), v]),
-  );
 
-  const raw = new URLSearchParams(location.search).get("toShow");
-  if (raw !== null) {
-    const found = normalizedOptions.get(raw.normalize("NFC"));
-    if (found) {
-      return found.item; // HERE
+  const request = new URLSearchParams(location.search).get("toShow");
+  if (request !== null) {
+    const record = showableOptions.get(request);
+    if (record) {
+      return record.create();
     }
   }
 

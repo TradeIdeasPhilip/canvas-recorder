@@ -1,4 +1,4 @@
-import { sum } from "phil-lib/misc";
+import { sum, zip } from "phil-lib/misc";
 import { Showable } from "./showable";
 
 /**
@@ -223,4 +223,112 @@ export function distribute<
     start += clip.lengthMs + msPerSpace;
   });
   return clips;
+}
+
+/**
+ * Very similar tp the standard Map in functionality.
+ * The big difference is that this uses a simple array, not a hash table.
+ *
+ * For large enough Maps a hash table will be faster.
+ * For small sets, this will be fine, possibly even faster.
+ *
+ * One big advantage of this version is that you can define your own equals operation.
+ * The default is ===.
+ *
+ * Not all methods have been implemented yet.
+ * But there's no reason the remaining items can't be added as needed.
+ */
+export class ArrayMap<Key, Value> {
+  #equals: (a: Key, b: Key) => boolean;
+  #keys = new Array<Key>();
+  #values = new Array<Value>();
+  constructor(equals?: (a: Key, b: Key) => boolean) {
+    this.#equals = equals ?? ((a: Key, b: Key) => a === b);
+  }
+  /**
+   * Add multiple items at once.
+   *
+   * `map.add([[k1,v1],[k2,v2],[k3,v3]]) is equivalent to `map.set(k1,v1).set(k2,v2).set(k3,v3)`.
+   * Add()'s input is set up to match the standard Map constructor's input.
+   *
+   * The bulk of this class uses the same interface as Map, but the constructor is a little different.
+   * @param items To insert.
+   * @returns `this`, for chaining.
+   */
+  add(items: [Key, Value][]): this {
+    items.forEach(([key, value]) => {
+      this.set(key, value);
+    });
+    return this;
+  }
+  /**
+   *
+   * @param key Look for a key that #equals this key.
+   * @returns -1 if not found, other an index into #keys and #values.
+   */
+  #getIndex(key: Key) {
+    return this.#keys.findIndex((itemKey) => this.#equals(key, itemKey));
+  }
+  has(key: Key): boolean {
+    return this.#getIndex(key) > -1;
+  }
+  get(key: Key): Value | undefined {
+    return this.#values[this.#getIndex(key)];
+  }
+  /**
+   * If the key is new, the key value pair is added to the end of the list.
+   *
+   * If the key matches an existing key, the order of the list will remain the same.
+   * (Only affects iterators, not {@link get}() or {@link has}().)
+   * The new value will replace the old value.
+   * It is unspecified whether we keep the new or old key.
+   * @param key
+   * @param value
+   * @returns `this`, for chaining.
+   */
+  set(key: Key, value: Value): this {
+    const previousIndex = this.#getIndex(key);
+    if (previousIndex < 0) {
+      this.#keys.push(key);
+      this.#values.push(value);
+    } else {
+      this.#values[previousIndex] = value;
+    }
+    return this;
+  }
+  clear(): void {
+    this.#keys.length = 0;
+    this.#values.length = 0;
+  }
+  /**
+   * Remove the given key.
+   * @param key Search for this.
+   * @returns `true` if an entry in this object has been removed successfully. `false` if the key is not found in this object
+   */
+  delete(key: Key): boolean {
+    const previousIndex = this.#getIndex(key);
+    if (previousIndex < 0) {
+      return false;
+    } else {
+      this.#keys.splice(previousIndex, 1);
+      this.#values.splice(previousIndex, 1);
+      return true;
+    }
+  }
+  keys(): IteratorObject<Key> {
+    return this.#keys[Symbol.iterator]();
+  }
+  values(): IteratorObject<Value> {
+    return this.#values[Symbol.iterator]();
+  }
+  entries(): IteratorObject<[Key, Value]> {
+    return zip(this.#keys, this.#values);
+  }
+  [Symbol.iterator]() {
+    return this.entries();
+  }
+  get size() {
+    return this.#keys.length;
+  }
+  // TODO add getOrInsert(), getOrInsertComputed() and forEach()
 }

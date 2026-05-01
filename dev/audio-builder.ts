@@ -131,7 +131,13 @@ export class AudioBuilder {
       );
       // Copy existing mono data to both channels
       for (let ch = 0; ch < 2; ch++) {
-        console.log("Not expected!");
+        // I see this in /public/Showcase.FLAC.
+        // That file also has an odd sample rate.
+        // It was created by CapCut.
+        // Both channels are identical, so we could have thrown one out.
+        console.log(
+          `Not expected! ${url} contain ${sourceBuffer.numberOfChannels} channels`,
+        );
         newBuffer.getChannelData(ch).set(this.buffer.getChannelData(0));
       }
       this.buffer = newBuffer;
