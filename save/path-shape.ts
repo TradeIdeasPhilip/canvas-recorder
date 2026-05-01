@@ -2221,6 +2221,17 @@ export class PathShape {
     });
     let index = 0;
     const isGood = (command: Command): boolean => {
+      // A failed QCommand.angles() call produces a line segment with success:false.
+      // Its length ratio is 1 (looks fine), but the tangent angles were rejected, so
+      // it will appear as a sharp corner.  Flag it as bad so the numerical-derivative
+      // fix-up path replaces it.
+      if (
+        command instanceof QCommand &&
+        command.creationInfo.source === "angles" &&
+        !command.creationInfo.success
+      ) {
+        return false;
+      }
       const actualLength = command.getLength();
       const shortestLength = Math.hypot(
         command.x0 - command.x,
