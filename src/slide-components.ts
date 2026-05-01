@@ -79,7 +79,11 @@ export function createSingleImageComponent(initialUrl = ""): Showable {
     duration: 0,
     schedules: [
       { description: "URL", type: "string", schedule: urlSchedule },
-      { description: "Dest Rect", type: "rectangle", schedule: destRectSchedule },
+      {
+        description: "Dest Rect",
+        type: "rectangle",
+        schedule: destRectSchedule,
+      },
     ],
     show({ context, timeInMs }) {
       const url = discreteKeyframes(timeInMs, urlSchedule);
@@ -109,7 +113,13 @@ export function createSingleImageComponent(initialUrl = ""): Showable {
       }
       const drawX = dest.x + (dest.width - drawW) / 2;
       const drawY = dest.y + (dest.height - drawH) / 2;
-      context.drawImage(image.data as CanvasImageSource, drawX, drawY, drawW, drawH);
+      context.drawImage(
+        image.data as CanvasImageSource,
+        drawX,
+        drawY,
+        drawW,
+        drawH,
+      );
     },
   };
 }
@@ -125,8 +135,7 @@ export function createFunctionGraphComponent(
   const yValues: number[] = [];
   for (let i = 0; i <= SAMPLE_COUNT; i++) {
     const x =
-      X_DEFAULT_MIN +
-      ((X_DEFAULT_MAX - X_DEFAULT_MIN) * i) / SAMPLE_COUNT;
+      X_DEFAULT_MIN + ((X_DEFAULT_MAX - X_DEFAULT_MIN) * i) / SAMPLE_COUNT;
     yValues.push(f(x));
   }
   const yDataMin = Math.min(...yValues);
@@ -136,12 +145,8 @@ export function createFunctionGraphComponent(
   const destRectSchedule: Keyframe<ReadOnlyRect>[] = [
     { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
   ];
-  const xMinSchedule: Keyframe<number>[] = [
-    { time: 0, value: X_DEFAULT_MIN },
-  ];
-  const xMaxSchedule: Keyframe<number>[] = [
-    { time: 0, value: X_DEFAULT_MAX },
-  ];
+  const xMinSchedule: Keyframe<number>[] = [{ time: 0, value: X_DEFAULT_MIN }];
+  const xMaxSchedule: Keyframe<number>[] = [{ time: 0, value: X_DEFAULT_MAX }];
   const yMinSchedule: Keyframe<number>[] = [
     { time: 0, value: yDataMin - yPad },
   ];
@@ -151,9 +156,7 @@ export function createFunctionGraphComponent(
   const gridColorSchedule: Keyframe<string>[] = [
     { time: 0, value: "rgba(255,255,255,0.35)" },
   ];
-  const gridLineWidthSchedule: Keyframe<number>[] = [
-    { time: 0, value: 0.02 },
-  ];
+  const gridLineWidthSchedule: Keyframe<number>[] = [{ time: 0, value: 0.02 }];
   const fontSchedule: Keyframe<string>[] = [
     { time: 0, value: "0.28px sans-serif" },
   ];
@@ -174,7 +177,11 @@ export function createFunctionGraphComponent(
       { description: "X Max", type: "number", schedule: xMaxSchedule },
       { description: "Y Min", type: "number", schedule: yMinSchedule },
       { description: "Y Max", type: "number", schedule: yMaxSchedule },
-      { description: "Grid Color", type: "string", schedule: gridColorSchedule },
+      {
+        description: "Grid Color",
+        type: "string",
+        schedule: gridColorSchedule,
+      },
       {
         description: "Grid Line Width",
         type: "number",
@@ -261,3 +268,11 @@ export function createFunctionGraphComponent(
     },
   };
 }
+
+/** Registry of component factories available in the "Add" dropdown. */
+export const componentRegistry = new Map<string, () => Showable>([
+  ["Rectangle", () => createRectangleComponent()],
+  ["Function Graph (sin)", () => createFunctionGraphComponent()],
+  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
+  ["Static Image", () => createSingleImageComponent()],
+]);

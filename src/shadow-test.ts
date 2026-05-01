@@ -11,7 +11,10 @@ import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
-import { createRectangleComponent } from "./slide-components";
+import {
+  componentRegistry,
+  createRectangleComponent,
+} from "./slide-components";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { computeGridTransform, drawGrid } from "./glib/grid";
@@ -294,7 +297,9 @@ export function createNineShapesComponent(): Showable {
   return {
     description: "Nine Shapes",
     duration: 0,
-    schedules: [{ description: "Layout", type: "rectangle", schedule: layoutSchedule }],
+    schedules: [
+      { description: "Layout", type: "rectangle", schedule: layoutSchedule },
+    ],
     show({ context, timeInMs }) {
       const progress = timeInMs / DEFAULT_SLIDE_DURATION_MS;
       const destRect = interpolateRects(timeInMs, layoutSchedule);
@@ -330,6 +335,9 @@ export function createNineShapesComponent(): Showable {
     },
   };
 }
+componentRegistry.set("Nine Shapes (Shadow Test)", () =>
+  createNineShapesComponent(),
+);
 
 // ---------------------------------------------------------------------------
 // Shadow configuration — copy and customize when using makeShadowDemo
@@ -379,7 +387,10 @@ const slideList = new MakeShowableInSeries("Shadow Test");
         ],
         [
           { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
-          { time: DEFAULT_SLIDE_DURATION_MS, value: { x: 1, y: 1, width: 14, height: 2 } },
+          {
+            time: DEFAULT_SLIDE_DURATION_MS,
+            value: { x: 1, y: 1, width: 14, height: 2 },
+          },
         ],
       ),
     ],
@@ -452,7 +463,12 @@ const slideList = new MakeShowableInSeries("Shadow Test");
       patternCtx.clearRect(0, 0, PATTERN_SIDE, PATTERN_SIDE);
       patternCtx.fillStyle = "black";
       for (let i = 0; i < n; i++) {
-        patternCtx.fillRect(i % PATTERN_SIDE, Math.floor(i / PATTERN_SIDE), 1, 1);
+        patternCtx.fillRect(
+          i % PATTERN_SIDE,
+          Math.floor(i / PATTERN_SIDE),
+          1,
+          1,
+        );
       }
 
       const pattern = context.createPattern(patternCanvas, "repeat")!;
@@ -563,21 +579,29 @@ const slideList = new MakeShowableInSeries("Shadow Test");
   // The grid labels then show: capitalTop ≈ +1 (one fontSize above baseline),
   // descender ≈ −0.25 (below baseline), which reads naturally as "distance from baseline".
   const METRIC_LINES = [
-    { label: "top",           y: metrics.top,           color: "#e88" },
-    { label: "capitalTop",    y: metrics.capitalTop,    color: "#ffa040" },
+    { label: "top", y: metrics.top, color: "#e88" },
+    { label: "capitalTop", y: metrics.capitalTop, color: "#ffa040" },
     { label: "capitalMiddle", y: metrics.capitalMiddle, color: "#dd0" },
-    { label: "baseline",      y: metrics.baseline,      color: "#4c4" },
-    { label: "descender",     y: metrics.descender,     color: "#88f" },
-    { label: "bottom",        y: metrics.bottom,        color: "#c8f" },
+    { label: "baseline", y: metrics.baseline, color: "#4c4" },
+    { label: "descender", y: metrics.descender, color: "#88f" },
+    { label: "bottom", y: metrics.bottom, color: "#c8f" },
   ] as const;
 
   const slide: Showable = {
     description: "Font Inspector",
     duration: DEFAULT_SLIDE_DURATION_MS,
     schedules: [
-      { description: "Text",                type: "string",    schedule: textSchedule },
-      { description: "Zoom Area",           type: "rectangle", schedule: zoomRectSchedule },
-      { description: "Simple Text Position",type: "point",     schedule: simplePosSchedule },
+      { description: "Text", type: "string", schedule: textSchedule },
+      {
+        description: "Zoom Area",
+        type: "rectangle",
+        schedule: zoomRectSchedule,
+      },
+      {
+        description: "Simple Text Position",
+        type: "point",
+        schedule: simplePosSchedule,
+      },
     ],
     show({ context, timeInMs }) {
       // Read current schedule values.
@@ -601,7 +625,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
         x: -PAD_X,
         y: -(metrics.bottom + PAD_Y),
         width: Math.max(laidOut.width, FONT_SIZE) + 2 * PAD_X,
-        height: (metrics.bottom - metrics.top) + 2 * PAD_Y,
+        height: metrics.bottom - metrics.top + 2 * PAD_Y,
       };
 
       drawGrid(context, {
@@ -619,7 +643,12 @@ const slideList = new MakeShowableInSeries("Shadow Test");
       // Clip text and metric lines to the grid area.
       context.save();
       context.beginPath();
-      context.rect(effectiveRect.x, effectiveRect.y, effectiveRect.width, effectiveRect.height);
+      context.rect(
+        effectiveRect.x,
+        effectiveRect.y,
+        effectiveRect.width,
+        effectiveRect.height,
+      );
       context.clip();
 
       // Metric reference lines (drawn in canvas space via toCanvasY(−fontY)).
@@ -641,7 +670,9 @@ const slideList = new MakeShowableInSeries("Shadow Test");
       //   = effectiveRect.y + effectiveRect.height + (metrics.top + mathViewRect.y) × scale + path_y × scale
       context.translate(
         effectiveRect.x - mathViewRect.x * scale,
-        effectiveRect.y + effectiveRect.height + (metrics.top + mathViewRect.y) * scale,
+        effectiveRect.y +
+          effectiveRect.height +
+          (metrics.top + mathViewRect.y) * scale,
       );
       context.scale(scale, scale);
       context.strokeStyle = "#000";

@@ -43,12 +43,8 @@ import { showcase } from "../src/showcase.ts";
 import { peanoArithmetic } from "../src/peano-arithmetic.ts";
 import { sierpińskiTop } from "../src/sierpiński.ts";
 import { strokeColorsTest } from "../src/stroke-colors-test.ts";
-import { createNineShapesComponent, shadowTest } from "../src/shadow-test.ts";
-import {
-  createFunctionGraphComponent,
-  createRectangleComponent,
-  createSingleImageComponent,
-} from "../src/slide-components.ts";
+import { shadowTest } from "../src/shadow-test.ts"; // HERE
+import { componentRegistry } from "../src/slide-components.ts";
 
 /**
  * Maps URL `?toShow=` keys to available video options.
@@ -118,7 +114,7 @@ const showableOptions = new Map<
  * If the parameter is missing or unrecognized, the page body is replaced with
  * a minimal link list and this function throws, halting the rest of the module.
  */
-function resolveToShow(): Showable {
+async function resolveToShow(): Promise<Showable> {
   const normalizedOptions = new Map(
     [...showableOptions.entries()].map(([k, v]) => [k.normalize("NFC"), v]),
   );
@@ -127,7 +123,7 @@ function resolveToShow(): Showable {
   if (raw !== null) {
     const found = normalizedOptions.get(raw.normalize("NFC"));
     if (found) {
-      return found.item;
+      return found.item; // HERE
     }
   }
 
@@ -165,7 +161,7 @@ window.onerror = (msg) => {
 /**
  * The top level item that we are viewing and/or saving.
  */
-const toShow = resolveToShow();
+const toShow = await resolveToShow();
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
@@ -1025,15 +1021,6 @@ let draggingPoint: PointKf | null = null;
 
 /** Maps dynamically-added component instances back to their registry key for serialization. */
 const componentRegistryKey = new WeakMap<Showable, string>();
-
-/** Registry of component factories available in the "Add" dropdown. */
-const componentRegistry = new Map<string, () => Showable>([
-  ["Rectangle", () => createRectangleComponent()],
-  ["Function Graph (sin)", () => createFunctionGraphComponent()],
-  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
-  ["Nine Shapes (Shadow Test)", () => createNineShapesComponent()],
-  ["Static Image", () => createSingleImageComponent()],
-]);
 
 /**
  * Change the GUI to match the current section.
