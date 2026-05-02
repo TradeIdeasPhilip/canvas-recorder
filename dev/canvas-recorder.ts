@@ -115,6 +115,15 @@ showableOptions.add([
       description: "Halftone drop-shadow effect demo.",
     },
   ],
+  [
+    "lissajous",
+    {
+      async create() {
+        return (await import("../src/lissajous.ts")).lissajous;
+      },
+      description: "Lissajous curve on a black background.",
+    },
+  ],
 ]);
 
 /**
