@@ -136,8 +136,9 @@ If your input is in milliseconds, a very simple approach is to say `const progre
 However, most newer code uses [keyframes and interpolation](https://github.com/TradeIdeasPhilip/canvas-recorder/blob/master/src/interpolate.ts) as a more flexible way to determine the progress.
 
 "HEVC" or "H.265" refer the encoding that we use.
-This program is currently limited to this encoding because it works well.
+The web version of this program is currently limited to this encoding because it works well.
 In particular, my computer has dedicated hardware for this mode.
+See the node version for full access to FFMPEG.
 
 ## Project history
 
@@ -159,30 +160,37 @@ And SVG had odd quirks and often isn't reliable and often works better in test t
 ### New Version
 
 Now I'm using the HTML canvas for all of my drawings.
-I can still display things on a web page.
+I can still display things on a web page, I just need a \<canvas> instead of an \<SVG>.
 This provides very quick development with Vite.
-But now the node process can run this code directly.
-It can copy the data from the canvas very efficiently.
+It can copy the data from the canvas **very efficiently**, **much faster** than any previous implementation.
 
-This should help my dev environment, too.
-Now that I'm displaying a canvas, rather than drawing to the full screen, it will be easier for me to add a lot of debug options.
-Like inputs to control the output.
-Or multiple outputs so I can compare things side by side.
+The resulting is GUI so much better than any of the debug tools I'd cobbled together in previous versions.
+Those were minimal attempts at debugging individual issues.
+The new GUI is focused on displaying the movie, previewing it.
+If you need any other data for debugging, just display it on the screen like a normal movie.
+If you want to build a prototype, just build a simple movie.
 
 ### Node
 
-Originally I was going to have a headless mode.
-Node.js could run the bulk of the software without a browser.
+The node version still exists for special cases.
+It uses FFMPEG for encoding, so it supports pretty much any format worth supporting with tons of options.
+It only replaces the "Record and Save Video" button.
+Use the web version for developing and testing your video and use the node software at the last moment.
 
-It turned out to be a pain to have a project with Node and the web both as targets.
+The web version always encodes in HEVC.
+That works incredibly well and covers 99.5% of my needs.
+The underlying API offers a few other options, but not nearly as many as FFMPEG.
+In particular it does not have any (reliable) support for an alpha channel.
+By default this program will output in ProRes.
+That format *does* support an alpha channel and it is optimized for use in video editing programs.
+Use case:  Using this program to make a few cool animations, using other tools to make other parts of the video, and using a video editor to put it all together.
 
-The GUI integration really works well, now.
-Puppeteer was a hack, this is a real program with a real GUI.
-It's nice seeing live previews in development and live monitoring while encoding.
+It is *possible* to use FFMPEG in a web page.
+See https://github.com/TradeIdeasPhilip/handwriting-effect for a successful example of that.
+However, that trick only works with small videos.
+The ProRes format is *much* less efficient than HEVC.
 
-And I've got better performance now than ever before.
-The browser is highly optimized to work with the GPU.
-And I'm using TypeScript libraries to encode the output file, which are also GPU optimized.
-Previously I was had to compress the images to copy them between processes.
-(Only to be decompressed and recompressed by FFMPEG.)
-Now the image doesn't even leave the GPU's memory to start the **hardware** encoding.
+Note:  The default canvas is completely transparent before the content code decides to overwrite it.
+See [src/alpha-test.ts](src/alpha-test.ts) for an example with transparency.
+To run that demo and create a video with an alpha channel type `npm run record -- alpha-test`.
+Or see a live version here:  https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html?toShow=alpha-test.

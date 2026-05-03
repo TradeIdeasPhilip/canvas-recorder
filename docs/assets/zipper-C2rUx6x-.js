@@ -1,1 +1,0 @@
-import"./my-rainbow-ChWwZUpk.js";function*p(t,o=[]){const i=[...t,...o].map(r=>r[Symbol.iterator]());for(;;){const r=i.map(e=>e.next());if(r.some(({done:e})=>e)){if(r.slice(0,t.length).some(({done:e})=>!e))throw new Error("wtf");break}yield r.map(({value:e})=>e)}}export{p as z};

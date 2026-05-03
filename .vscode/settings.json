@@ -34,12 +34,15 @@
     "morphable",
     "morpher",
     "morphers",
+    "napi",
     "Neumann",
     "peano",
     "phasors",
     "philipsmolen",
+    "prores",
     "raphics",
     "rary",
+    "rawvideo",
     "Rects",
     "rehome",
     "Rehoming",
@@ -56,6 +59,7 @@
     "Verdana",
     "voiceovers",
     "wicg",
-    "yada"
+    "yada",
+    "yuva"
   ]
 }

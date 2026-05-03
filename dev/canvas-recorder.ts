@@ -124,6 +124,15 @@ showableOptions.add([
       description: "Lissajous curve on a black background.",
     },
   ],
+  [
+    "alpha-test",
+    {
+      async create() {
+        return (await import("../src/alpha-test.ts")).alphaTest;
+      },
+      description: "VP9 alpha channel test — 4 circles on transparent background.",
+    },
+  ],
 ]);
 
 /**
