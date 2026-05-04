@@ -35,9 +35,27 @@ export default defineConfig({
         "sound-explorer": resolve(__dirname, "sound-explorer.html"),
       },
       output: {
-        // Disable code splitting by setting manualChunks to an empty object
-        // Grok suggested this but it doesn't seem to do anything.
-        manualChunks: {},
+        // Extract shared library modules into a separate sync chunk so that
+        // dynamically-imported video chunks (showcase, morph-test, etc.) don't
+        // statically depend on the main entry chunk, which is async (top-level
+        // await). A static import of an async module blocks evaluation until
+        // that module finishes — creating a deadlock when the async entry is
+        // itself awaiting the dynamic import of that video chunk.
+        manualChunks(id) {
+          const libPaths = [
+            "/src/showable.",
+            "/src/interpolate.",
+            "/src/slide-components.",
+            "/src/slow-image-sources.",
+            "/src/utility.",
+            "/src/stroke-colors.",
+            "/src/binary-search.",
+            "/src/glib/",
+          ];
+          if (libPaths.some((p) => id.includes(p))) {
+            return "lib";
+          }
+        },
       },
     },
   },

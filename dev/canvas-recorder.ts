@@ -1,6 +1,5 @@
 import "./canvas-recorder.css";
 
-import "../src/morph-test.ts";
 import {
   assertNonNullable,
   FIGURE_SPACE,
