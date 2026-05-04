@@ -1,5 +1,6 @@
 import { initializedArray } from "phil-lib/misc";
 import { zipper } from "./zipper";
+import { philDebug } from "./utility";
 
 type Key = number | BigInt;
 
@@ -473,7 +474,7 @@ export class BinaryInserter<T> extends BinarySearcher<T> {
   }
 }
 
-(window as any).BinarySearcher = BinarySearcher;
-(window as any).BinaryInserter = BinaryInserter;
+philDebug.BinarySearcher = BinarySearcher;
+philDebug.BinaryInserter = BinaryInserter;
 //BinarySearcher.test();
 //BinaryInserter.test();

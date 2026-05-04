@@ -339,6 +339,10 @@ export class ArrayMap<Key, Value> {
  * This limits the pollution of then global namespace.
  * And it makes it easier to find debug stuff from the console.
  * Put it all in one place.
+ *
+ * This is mostly aimed at the browser.
+ * It does not cause any problems in tsx (node).
+ * This replaces `(window as any).something = something`, which does not work in node.
  */
-export const philDebug : Record<string,any> = {};
+export const philDebug: Record<string, any> = {};
 (globalThis as any).philDebug = philDebug;

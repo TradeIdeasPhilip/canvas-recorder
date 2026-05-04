@@ -1,4 +1,5 @@
 import { LCommand, PathShape } from "../glib/path-shape";
+import { philDebug } from "../utility";
 
 /**
  * If the entire shape is contained in a one x one square, how big is each individual segment.
@@ -118,4 +119,4 @@ export function createPeanoPath(iteration: number) {
   }
   return result;
 }
-(window as any).createPeanoPath = createPeanoPath;
+philDebug.createPeanoPath = createPeanoPath;

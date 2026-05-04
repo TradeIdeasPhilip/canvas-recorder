@@ -17,6 +17,7 @@ import {
 } from "phil-lib/misc";
 import { ease } from "../interpolate";
 import { PathShapeSplitter } from "../glib/path-shape-splitter";
+import { philDebug } from "../utility";
 
 /**
  * Transform a path.
@@ -139,7 +140,7 @@ export function samplesToFourier(samples: readonly Complex[]): FourierTerm[] {
 }
 
 const cacheHealth = { miss: 0, hit: 0 };
-(window as any).cacheHealth = cacheHealth;
+philDebug.cacheHealth = cacheHealth;
 
 /**
  * Create a parametric function based on the output of a prior call to an FFT.

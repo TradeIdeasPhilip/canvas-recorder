@@ -43,7 +43,7 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
-import { distribute, only } from "./utility";
+import { distribute, only, philDebug } from "./utility";
 import { Bezier } from "bezier-js";
 import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
@@ -346,7 +346,7 @@ class Triangle {
     return result;
   }
 }
-(window as any).Triangle = Triangle;
+philDebug.Triangle = Triangle;
 
 // MARK: MainTriangle
 
@@ -592,7 +592,7 @@ class RTriangle {
     }
   }
 }
-(window as any).RTriangle = RTriangle;
+philDebug.RTriangle = RTriangle;
 
 const FILL_ALPHA = 0.25;
 
@@ -649,7 +649,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       alignment: "center",
       width: 16,
     });
-    (window as any).MainTriangle = MainTriangle;
+    philDebug.MainTriangle = MainTriangle;
 
     const morpher = matchShapes(
       fixCorners(textPathShape),

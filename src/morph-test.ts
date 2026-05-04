@@ -30,7 +30,7 @@ import {
   makeQCommand,
   matchShapes,
 } from "./morph-animation";
-import { blackBackground } from "./utility";
+import { blackBackground, philDebug } from "./utility";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
 import {
@@ -294,7 +294,7 @@ if (false) {
     { time: period * 0.625, value: 1, easeAfter: ease },
     { time: period, value: 0 },
   ];
-  (window as any).xx = {
+  philDebug.xx = {
     period,
     easingKeyframes,
     go(timeInMs: number) {
