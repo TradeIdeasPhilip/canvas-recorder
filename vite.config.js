@@ -18,7 +18,8 @@ export default defineConfig({
     // If something fails in production, it should still be debuggable.
     // I am storing the source and object code on GitHub, so there are
     // no secrets to protect.
-    sourcemap:true,
+    // Update:  sourcemap was breaking things so I disabled it again.
+    sourcemap:false,
     target: "esnext",
     // This works well with GitHub pages.  GitHub can put everything in the docs directory on the web.
     outDir: "docs",
