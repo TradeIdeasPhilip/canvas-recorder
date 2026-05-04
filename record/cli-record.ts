@@ -8,18 +8,13 @@
  * Example: npm run record -- alpha-test
  */
 
-import { createCanvas } from "@napi-rs/canvas";
+import { createCanvas, DOMMatrix, Path2D } from "@napi-rs/canvas";
 import { spawn } from "node:child_process";
-import type { Showable } from "../src/showable.ts";
+import { showableOptions } from "../src/dynamic-exports.ts";
 
-// ---------------------------------------------------------------------------
-// Video registry — mirrors showableOptions in dev/canvas-recorder.ts.
-// Add new entries here as needed.
-// ---------------------------------------------------------------------------
-const showableOptions = new Map<string, () => Promise<Showable>>([
-  ["alpha-test", async () => (await import("../src/alpha-test.ts")).alphaTest],
-  ["lissajous",  async () => (await import("../src/lissajous.ts")).lissajous],
-]);
+// A shim.  It is not a complete replacement so I had to cast to any.
+globalThis.DOMMatrix = DOMMatrix as any;
+globalThis.Path2D = Path2D as any;
 
 // ---------------------------------------------------------------------------
 // Parse command-line argument
@@ -41,13 +36,13 @@ if (!factory) {
 // Load the showable
 // ---------------------------------------------------------------------------
 console.log(`Loading "${key}"...`);
-const showable = await factory();
+const showable = await factory.create();
 
-const WIDTH  = 3840;
+const WIDTH = 3840;
 const HEIGHT = 2160;
-const FPS    = 60;
+const FPS = 60;
 const TOTAL_FRAMES = Math.ceil((showable.duration / 1000) * FPS);
-const OUTPUT_FILE  = `${key}.mov`;
+const OUTPUT_FILE = `${key}.mov`;
 
 console.log(`${TOTAL_FRAMES} frames  →  ${OUTPUT_FILE}`);
 
@@ -59,15 +54,24 @@ const ffmpeg = spawn(
   [
     "-y",
     // Input: raw RGBA video from stdin
-    "-f", "rawvideo", "-pix_fmt", "rgba",
-    "-s", `${WIDTH}x${HEIGHT}`,
-    "-r", String(FPS),
-    "-i", "pipe:0",
+    "-f",
+    "rawvideo",
+    "-pix_fmt",
+    "rgba",
+    "-s",
+    `${WIDTH}x${HEIGHT}`,
+    "-r",
+    String(FPS),
+    "-i",
+    "pipe:0",
     // Output: ProRes 4444 (lower-bitrate 4444 variant, not 4444 XQ)
-    "-c:v", "prores_ks",
-    "-profile:v", "4444",
-    "-pix_fmt", "yuva444p10le",
-    "-an",           // no audio track
+    "-c:v",
+    "prores_ks",
+    "-profile:v",
+    "4444",
+    "-pix_fmt",
+    "yuva444p10le",
+    "-an", // no audio track
     OUTPUT_FILE,
   ],
   { stdio: ["pipe", "inherit", "inherit"] },
@@ -81,8 +85,8 @@ ffmpeg.on("error", (err) => {
 // ---------------------------------------------------------------------------
 // Render loop
 // ---------------------------------------------------------------------------
-const canvas  = createCanvas(WIDTH, HEIGHT);
-const ctx     = canvas.getContext("2d");
+const canvas = createCanvas(WIDTH, HEIGHT);
+const ctx = canvas.getContext("2d");
 const context = ctx as unknown as CanvasRenderingContext2D;
 
 const startTime = Date.now();

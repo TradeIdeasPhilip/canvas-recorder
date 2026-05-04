@@ -332,3 +332,13 @@ export class ArrayMap<Key, Value> {
   }
   // TODO add getOrInsert(), getOrInsertComputed() and forEach()
 }
+
+/**
+ * This is an easy way to expose things to the console, mostly aimed at debugging.
+ *
+ * This limits the pollution of then global namespace.
+ * And it makes it easier to find debug stuff from the console.
+ * Put it all in one place.
+ */
+export const philDebug : Record<string,any> = {};
+(globalThis as any).philDebug = philDebug;

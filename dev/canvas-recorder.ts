@@ -34,106 +34,10 @@ import {
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
-import { ArrayMap, downloadBlob } from "../src/utility.ts";
+import { downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import { componentRegistry } from "../src/slide-components.ts";
-
-/**
- * Maps URL `?toShow=` keys to available video options.
- * Fill in the `description` field for each entry — it appears in the selection page.
- */
-const showableOptions = new ArrayMap<
-  string,
-  { create(): Promise<Showable>; description: string }
->();
-showableOptions.add([
-  [
-    "showcase",
-    {
-      async create() {
-        return (await import("../src/showcase.ts")).showcase;
-      },
-      description: "Ideas to copy and paste.",
-    },
-  ],
-  [
-    "sierpiński",
-    {
-      async create() {
-        return (await import("../src/sierpiński.ts")).sierpińskiTop;
-      },
-      description:
-        "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI",
-    },
-  ],
-  [
-    "peano-fourier",
-    {
-      async create() {
-        return (await import("../src/peano-fourier/peano-fourier.ts")).peanoFourier;
-      },
-      description:
-        "Fun with math, the last scene of: https://www.youtube.com/watch?v=Imc1w0xNb4E",
-    },
-  ],
-  [
-    "peano-arithmetic",
-    {
-      async create() {
-        return (await import("../src/peano-arithmetic.ts")).peanoArithmetic;
-      },
-      description:
-        "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8",
-    },
-  ],
-  [
-    "morph-test",
-    {
-      async create() {
-        return (await import("../src/morph-test.ts")).morphTest;
-      },
-      description:
-        "Morphing the Peano Curve, the first part of https://www.youtube.com/watch?v=Imc1w0xNb4E",
-    },
-  ],
-  [
-    "stroke-colors-test",
-    {
-      async create() {
-        return (await import("../src/stroke-colors-test.ts")).strokeColorsTest;
-      },
-      description:
-        "Demonstrating and testing strokeColors(), as seen here:  https://youtu.be/MxpNJ2k86U0",
-    },
-  ],
-  [
-    "shadow-test",
-    {
-      async create() {
-        return (await import("../src/shadow-test.ts")).shadowTest;
-      },
-      description: "Halftone drop-shadow effect demo.",
-    },
-  ],
-  [
-    "lissajous",
-    {
-      async create() {
-        return (await import("../src/lissajous.ts")).lissajous;
-      },
-      description: "Lissajous curve on a black background.",
-    },
-  ],
-  [
-    "alpha-test",
-    {
-      async create() {
-        return (await import("../src/alpha-test.ts")).alphaTest;
-      },
-      description: "VP9 alpha channel test — 4 circles on transparent background.",
-    },
-  ],
-]);
+import { showableOptions } from "../src/dynamic-exports.ts";
 
 /**
  * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.
@@ -145,7 +49,6 @@ showableOptions.add([
  * a minimal link list and this function throws, halting the rest of the module.
  */
 async function resolveToShow(): Promise<Showable> {
-
   const request = new URLSearchParams(location.search).get("toShow");
   if (request !== null) {
     const record = showableOptions.get(request);

@@ -18,7 +18,7 @@ import {
 import { panAndZoom, transform } from "./transforms";
 
 import { Bezier, MinMax } from "bezier-js";
-import { mapEachPair } from "../utility";
+import { mapEachPair, philDebug } from "../utility";
 
 const formatForSvg = new Intl.NumberFormat("en-US", {
   maximumSignificantDigits: 8,
@@ -2813,4 +2813,4 @@ export class ParametricToPath {
     return arcLength / chordLength;
   }
 }
-(window as any).ParametricToPath = ParametricToPath;
+philDebug.ParametricToPath = ParametricToPath;

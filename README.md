@@ -21,7 +21,7 @@ There are more examples, but these were selected and refined as a good starting 
 
 - Put your content in [./src/](./src/)
 - Create at least on `Showable` object representing your entire movie.
-- Add this `Showable` to `showableOptions` in [./dev/canvas-recorder.ts](./dev/canvas-recorder.ts).
+- Add this `Showable` to `showableOptions` in [./src/dynamic-exports.ts](./src/dynamic-exports.ts).
 - Run Vite, `npm run dev` to host the software.
 - Click the url from Vite, and follow the menu to find your new video.
 - Change the code as desired and as soon as you save the changes will automatically reload.
@@ -54,7 +54,7 @@ Typescript and HTML Canvas.
 
 ### Performance
 
-I'm getting good result on an *old* M1 MacBook Air!
+I'm getting good result on an _old_ M1 MacBook Air!
 
 - Most of my stuff runs at 60fps, 4k, real time.
 - When frames are slower, the realtime display is very robust.
@@ -78,18 +78,61 @@ It's what you think you always have, but when you take a closer look you would b
 
 Time and space are assumed to be continuous in the bulk of this project.
 I never convert to frames or pixels until the last possible moment.
-Surprisingly, it often *helps* performance, so I have no idea why people still get this wrong in 2026.
+Surprisingly, it often _helps_ performance, so I have no idea why people still get this wrong in 2026.
 
 If you like to get really close to the screen and squint, like I do, here's some advice:
-* Avoid blurs and noise.
-  * They can look *so* good on the screen in development, but they don't survive encoding.
-  * Some problems are immediately obvious, but do a long test and you'll see even more.
-* Gradients are pushing the limits
-  * use with caution.
-  * Again, my old MacBook air's display can make perfect gradients, but they don't always translate.
-* The encoding and YouTubing process loves solid objects with crisp edges.
-  * Filling and stroking paths are easy ways to create encoder-friendly content.
-  * And check out my halftone dots example.
+
+- Avoid blurs and noise.
+  - They can look _so_ good on the screen in development, but they don't survive encoding.
+  - Some problems are immediately obvious, but do a long test and you'll see even more.
+- Gradients are pushing the limits
+  - use with caution.
+  - Again, my old MacBook air's display can make perfect gradients, but they don't always translate.
+- The encoding and YouTubing process loves solid objects with crisp edges.
+  - Filling and stroking paths are easy ways to create encoder-friendly content.
+  - And check out my halftone dots example.
+
+For failures, see my [Fourier tidbits](https://www.youtube.com/playlist?list=PLJNSFdg--j7frNYLnOyVen1Rb7SjHRd3C) playlist.
+That was a series of experiments pushing the limits of SVG.
+I often ran out of memory making the video unstable and unusable.
+Now I barely touch the GPU memory.
+
+The background for [Classic Chuzzle](https://github.com/TradeIdeasPhilip/classic-chuzzle) is another perfect example.
+I had objects sliding and rotating, simple affine transforms, should have been very GPU friendly.
+But I grouped them into \<g> elements, which were also sliding and rotating.
+I assumed this would be implemented by multiplying the transform matrix for the group with the transform matrix for the element.
+Instead Chrome implemented this by creating a texture for the \<g>, apparently in an attempt to cache some work.
+This caused **premature pixilation**, and it used lots of memory and it was very slow!
+
+Researching these SVG problems is what made me decide to switch to canvas.
+Sometimes I have to do more work myself.
+But it was being done wrong!
+
+## Command Line / FFMPEG / Alpha Channel
+
+A command line version of this program exists for special cases.
+It uses Node.js for the main program, so all of /src should be available.
+It uses FFMPEG for encoding, so it supports pretty much any format worth supporting with tons of options.
+It only replaces the "Record and Save Video" button.
+Use the web version for developing and testing your video and use the node software at the last moment.
+
+The web version always encodes in HEVC.
+That works incredibly well and covers 99.5% of my needs.
+The underlying API offers a few other options, but not nearly as many as FFMPEG.
+In particular it does not have any (reliable) support for an alpha channel.
+By default this program will output in ProRes.
+That format _does_ support an alpha channel and it is optimized for use in video editing programs.
+Use case: Using this program to make a few cool animations, using other tools to make other parts of the video, and using a video editor to put it all together.
+
+It is _possible_ to use FFMPEG in a web page.
+See https://github.com/TradeIdeasPhilip/handwriting-effect for a successful example of that.
+However, that trick only works with small videos.
+The ProRes format is _much_ less efficient than HEVC.
+
+Note: The default canvas is completely transparent before the content code decides to overwrite it.
+See [src/alpha-test.ts](src/alpha-test.ts) for an example with transparency.
+To run that demo and create a video with an alpha channel type `npm run record -- alpha-test`.
+Or see a live version here: https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html?toShow=alpha-test.
 
 ## Glossary
 
@@ -170,27 +213,13 @@ The new GUI is focused on displaying the movie, previewing it.
 If you need any other data for debugging, just display it on the screen like a normal movie.
 If you want to build a prototype, just build a simple movie.
 
-### Node
-
-The node version still exists for special cases.
-It uses FFMPEG for encoding, so it supports pretty much any format worth supporting with tons of options.
-It only replaces the "Record and Save Video" button.
-Use the web version for developing and testing your video and use the node software at the last moment.
-
-The web version always encodes in HEVC.
-That works incredibly well and covers 99.5% of my needs.
-The underlying API offers a few other options, but not nearly as many as FFMPEG.
-In particular it does not have any (reliable) support for an alpha channel.
-By default this program will output in ProRes.
-That format *does* support an alpha channel and it is optimized for use in video editing programs.
-Use case:  Using this program to make a few cool animations, using other tools to make other parts of the video, and using a video editor to put it all together.
-
-It is *possible* to use FFMPEG in a web page.
-See https://github.com/TradeIdeasPhilip/handwriting-effect for a successful example of that.
-However, that trick only works with small videos.
-The ProRes format is *much* less efficient than HEVC.
-
-Note:  The default canvas is completely transparent before the content code decides to overwrite it.
-See [src/alpha-test.ts](src/alpha-test.ts) for an example with transparency.
-To run that demo and create a video with an alpha channel type `npm run record -- alpha-test`.
-Or see a live version here:  https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html?toShow=alpha-test.
+The GUI is just so robust.
+I remember the Deno version being so delicate.
+I had to be so careful about catching exceptions, and I still missed some.
+I wanted to properly close the FFMPEG process, so the output file, while incomplete, would at least be useable.
+I've made a lot of movies with this new version of the software, and it's just never come up.
+Maybe because the preview function finds all of the real problems before
+I alway wanted a preview window in the older versions.
+I was wondering if I was recording the right project, or if it would even work at all.
+(I had no idea how powerful the preview window would be.)
+In any case, I can create the output faster with the new setup, so if I do have to encode it again, it's only a minor inconvenience.

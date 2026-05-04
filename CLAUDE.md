@@ -12,6 +12,7 @@ A TypeScript/Vite browser app for creating and recording mathematical animation 
 npm run dev        # Start Vite dev server (primary workflow)
 npm run build      # tsc + vite build → docs/ (for GitHub Pages)
 npm run preview    # Preview the production build
+npm run record -- alpha-test # Build a video using command line FFMPEG, "alpha-test" is the name of the video.
 ```
 
 No test runner. No linter script. TypeScript errors surface in the IDE and on `npm run build`.
@@ -23,7 +24,7 @@ Open the app at:
 ## Adding a New Video
 
 1. Create `src/your-name.ts` — export a `Showable` object.
-2. Register it in `dev/canvas-recorder.ts` — add an entry to `showableOptions` using a dynamic `import()`.
+2. Register it in `src/dynamic-exports.ts` — add an entry to `showableOptions` using a dynamic `import()`.
 
 `dev/canvas-recorder.ts` is the index of every available video; browse it to see what exists.
 
@@ -112,7 +113,9 @@ Draws a labeled Cartesian grid. Uses math y-up convention. Labels render *outsid
 ## Project Layout
 
 ```
-dev/canvas-recorder.ts   ← video registry (showableOptions) + GUI harness
+dev/canvas-recorder.ts   ← GUI harness
+record/cli-record.ts     ← Command line main program (for alpha channel and other rarely uses options)
+src/dynamic-exports.ts   ← video registry (showableOptions)
 src/                     ← all video content and shared libraries
 src/glib/                ← graphics library (PathShape, transforms, grid, fonts…)
 src/showcase.ts          ← curated examples; good starting point for copy-paste
