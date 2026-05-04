@@ -30,9 +30,9 @@ export default defineConfig({
         // files that have hashes in their file names.  A user would never see these unless he was
         // looking at the page source, the dev tools, etc.  I.e. the property names don't matter.
         // So I have fun with them.
-        "\u2002\u2003\u2004\u2005\u2006\u2007\u2008\u2009\u200a": resolve(__dirname, "index.html"),
-        "\u2002": resolve(__dirname, "canvas-recorder.html"),
-        "\u2003": resolve(__dirname, "sound-explorer.html"),
+        "index": resolve(__dirname, "index.html"),
+        "canvas-recorder": resolve(__dirname, "canvas-recorder.html"),
+        "sound-explorer": resolve(__dirname, "sound-explorer.html"),
       },
       output: {
         // Disable code splitting by setting manualChunks to an empty object
