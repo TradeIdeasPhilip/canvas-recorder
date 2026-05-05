@@ -1089,6 +1089,16 @@ async function readHistory(key: string): Promise<HistoryRecord | undefined> {
   });
 }
 
+async function readAllHistory(): Promise<HistoryRecord[]> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("history", "readonly");
+    const req = tx.objectStore("history").getAll();
+    req.onsuccess = () => resolve(req.result as HistoryRecord[]);
+    req.onerror = () => reject(req.error);
+  });
+}
+
 async function writeHistory(
   key: string,
   entries: HistoryEntry[],
@@ -2166,6 +2176,25 @@ getById("recordJustSound", HTMLButtonElement).addEventListener(
     downloadBlob("sound_file.wav", blob);
   },
 );
+
+getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
+  const records = await readAllHistory();
+  const pre = getById("dbDump", HTMLPreElement);
+  if (records.length === 0) {
+    pre.textContent = "(database is empty)";
+    return;
+  }
+  const lines: string[] = [];
+  for (const record of records) {
+    lines.push(`=== ${record.selectableKey} ===`);
+    const latest = record.entries.at(-1);
+    if (latest) {
+      lines.push(JSON.stringify(latest, null, 2));
+    }
+    lines.push("");
+  }
+  pre.textContent = lines.join("\n");
+});
 
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
