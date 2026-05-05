@@ -146,3 +146,4 @@ It will automatically be called by the GUI after a change was made, possibly gro
 The full refresh is very fast!
 It takes less than 1/2 second to reload the sound for the Sierpiński project.
 The visual parts reload instantly.
+Done here:  https://github.com/TradeIdeasPhilip/canvas-recorder/commit/4518aca3213f29ae0593a41af8c603fa8eaf1dd4

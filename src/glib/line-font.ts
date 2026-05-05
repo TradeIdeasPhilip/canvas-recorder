@@ -887,6 +887,25 @@ export function makeLineFontMap(
       .L(fontMetrics.aWidth * 0.75, capitalMiddle).pathShape;
     add("A", shape, aWidth);
   }
+  function doubleStruckDeltaX(x1: number, y1: number, x2: number, y2: number) {
+    const θ = Math.atan2(y2 - y1, x2 - x1);
+    const dx = Math.abs((2 * strokeWidth) / Math.sin(θ));
+    return dx;
+  }
+  {
+    // MARK: 𝔸 (double-struck)
+    const dx = doubleStruckDeltaX(0, capitalTop, aWidth / 2, 0);
+    const advance = aWidth + dx;
+    const shape = PathBuilder.M(left, baseline)
+      .L(aWidth / 2, capitalTop)
+      .L(aWidth / 2 + dx, capitalTop)
+      .L(advance, baseline)
+      .L(aWidth, baseline)
+      .L(aWidth / 2, capitalTop)
+      .M(fontMetrics.aWidth / 4, capitalMiddle)
+      .L(fontMetrics.aWidth * 0.75, capitalMiddle).pathShape;
+    add("𝔸", shape, advance);
+  }
   {
     // MARK: B
     const advance = digitWidth;
@@ -913,6 +932,40 @@ export function makeLineFontMap(
     add("B", shape, advance);
   }
   {
+    // MARK: 𝔹
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const topRadius = capitalTopMiddle - capitalTop;
+    if (topRadius <= 0) {
+      throw new Error("wtf");
+    }
+    const topLineLength = (digitWidth - topRadius) * (2 / 3);
+    const bottomRadius = baseline - capitalBottomMiddle;
+    if (bottomRadius <= 0) {
+      throw new Error("wtf");
+    }
+    const bottomLineLength = digitWidth - bottomRadius;
+    const shape = PathBuilder.M(dx, capitalTop)
+      .L(left, capitalTop)
+      .L(left, baseline)
+      .L(left + dx, baseline)
+      .L(left + dx, capitalTop)
+      .L(topLineLength + dx, capitalTop)
+      .Q_HV(topLineLength + topRadius + dx, capitalTop + topRadius)
+      .Q(
+        topLineLength + topRadius + dx,
+        capitalMiddle,
+        topLineLength + dx,
+        capitalMiddle,
+      )
+      .L(left + dx, capitalMiddle)
+      .M(Math.max(bottomLineLength, topLineLength) + dx, capitalMiddle)
+      .Q_HV(bottomLineLength + bottomRadius + dx, baseline - bottomRadius)
+      .Q_VH(bottomLineLength + dx, baseline)
+      .L(left + dx, baseline).pathShape;
+    add("𝔹", shape, advance);
+  }
+  {
     // MARK: C
     const advance = digitWidth;
     const radius = advance / 2;
@@ -925,6 +978,42 @@ export function makeLineFontMap(
       .Q(left, baseline, x1, baseline)
       .Q(x2, baseline, x2, capitalBottomMiddle).pathShape;
     add("C", shape, advance);
+  }
+  {
+    // MARK: ℂ
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const radius = digitWidth / 2;
+    const x1 = radius;
+    const x1_5 = radius + dx;
+    const x2 = advance;
+    const pathBuilder = PathBuilder.M(x2, capitalTopMiddle)
+      .Q(x2, capitalTop, x1_5, capitalTop)
+      .L(x1, capitalTop)
+      .Q(left, capitalTop, left, capitalTopMiddle)
+      .L(left, capitalBottomMiddle)
+      .Q(left, baseline, x1, baseline)
+      .L(x1_5, baseline)
+      .Q(x2, baseline, x2, capitalBottomMiddle);
+    const offset = (() => {
+      /**
+       * The curve closest to (0, 0)
+       */
+      const bezier = pathBuilder.commands[4].getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: dx, y: baseline },
+        p2: { x: dx, y: capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    pathBuilder.M(dx, capitalTop - offset).V(baseline + offset);
+    const shape = pathBuilder.pathShape;
+    add("ℂ", shape, advance);
   }
   {
     // MARK: D
@@ -942,6 +1031,26 @@ export function makeLineFontMap(
     add("D", shape, advance);
   }
   {
+    // MARK: 𝔻
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const radius = digitWidth / 2;
+    const x0 = dx;
+    const x1 = radius + dx;
+    const x2 = advance;
+    const shape = PathBuilder.M(dx, baseline)
+      .L(left, baseline)
+      .L(left, capitalTop)
+      .L(x0, capitalTop)
+      .L(x0, baseline)
+      .L(x1, baseline)
+      .Q(x2, baseline, x2, capitalBottomMiddle)
+      .L(x2, capitalTopMiddle)
+      .Q(x2, capitalTop, x1, capitalTop)
+      .L(left + dx, capitalTop).pathShape;
+    add("𝔻", shape, advance);
+  }
+  {
     // MARK: E
     const advance = digitWidth;
     const x1 = advance * (2 / 3);
@@ -955,6 +1064,23 @@ export function makeLineFontMap(
     add("E", shape, advance);
   }
   {
+    // MARK: 𝔼
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const x0 = dx;
+    const x1 = digitWidth * (2 / 3) + dx;
+    const x2 = advance;
+    const shape = PathBuilder.M(x2, capitalTop)
+      .L(left, capitalTop)
+      .L(left, baseline)
+      .L(x2, baseline)
+      .M(x0, capitalTop)
+      .L(x0, baseline)
+      .M(x1, capitalMiddle)
+      .L(x0, capitalMiddle).pathShape;
+    add("𝔼", shape, advance);
+  }
+  {
     // MARK: F
     const advance = digitWidth;
     const x1 = advance * (2 / 3);
@@ -965,6 +1091,22 @@ export function makeLineFontMap(
       .M(x1, capitalMiddle)
       .L(left, capitalMiddle).pathShape;
     add("F", shape, advance);
+  }
+  {
+    // MARK: 𝔽
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const x0 = dx;
+    const x1 = digitWidth * (2 / 3) + dx;
+    const x2 = advance;
+    const shape = PathBuilder.M(x2, capitalTop)
+      .L(left, capitalTop)
+      .L(left, baseline)
+      .L(x0, baseline)
+      .L(x0, capitalTop)
+      .M(x1, capitalMiddle)
+      .L(x0, capitalMiddle).pathShape;
+    add("𝔽", shape, advance);
   }
   {
     // MARK: G
