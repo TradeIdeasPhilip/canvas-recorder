@@ -38,8 +38,12 @@ export class AudioBuilder {
     // decodeAudioData() takes about ⅜ - ¾ of a second to decode 4 minutes and 18 seconds of audio.
     const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
     const time4 = performance.now();
+    const fileSizeKB = encodedSource.byteLength / 1024;
     console.log(
-      `fetch(): ${time2 - time1} ms, arrayBuffer(): ${time3 - time2} ms, decodeAudioData(): ${time4 - time3} ms`,
+      `[audio] fetch: ${(time2 - time1).toFixed(0)} ms (${fileSizeKB.toFixed(0)} KB, ` +
+        `${((time2 - time1) / fileSizeKB).toFixed(3)} ms/KB) | ` +
+        `arrayBuffer: ${(time3 - time2).toFixed(0)} ms | ` +
+        `decode: ${(time4 - time3).toFixed(0)} ms`,
     );
     return sourceBuffer;
   }
@@ -155,8 +159,9 @@ export class AudioBuilder {
       sourceBuffer.numberOfChannels,
     );
 
+    let samplesCopied = 0;
+    const time5 = performance.now();
     for (let ch = 0; ch < numChannels; ch++) {
-      console.log("📣");
       const sourceData = sourceBuffer.getChannelData(ch);
       const destinationData = this.buffer.getChannelData(ch);
 
@@ -170,8 +175,16 @@ export class AudioBuilder {
           break;
         }
         destinationData[destinationIndex] = sourceData[sourceStartIndex + i];
+        samplesCopied++;
       }
     }
+    const time6 = performance.now();
+
+    const copyMs = time6 - time5;
+    const copyRate = copyMs > 0 ? (samplesCopied / copyMs / 1000).toFixed(0) : "∞";
+    console.log(
+      `[audio] copy: ${copyMs.toFixed(1)} ms (${samplesCopied.toLocaleString()} samples, ${copyRate}K samples/ms)`,
+    );
   }
 
   async toBlob(): Promise<Blob> {

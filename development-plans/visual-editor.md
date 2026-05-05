@@ -35,6 +35,7 @@ Now I want to focus on those tools, and I want to pull them together into someth
 Also, I like the style in shadow-test.ts. (bright colors, white background, halftone shadow)
 
 Start with a complete dump of everything.
+(**Update:  Done!**  The first dump is available in https://github.com/TradeIdeasPhilip/canvas-recorder/commit/afe86f38f53e22c45be593f9e20b4eef730b7400)
 Right now the visual editor is very fragmented.
 You can only see things related to one particular scene or component at a time.
 And you can copy the data for the same group into the clipboard.
@@ -85,3 +86,63 @@ All of the values that we save in the database and display in the editor, they s
   * This shows the basic scope of what I'm thinking about.
   * Presumably x and y are backed by code and will automatically request a save to the database soon, just like if I'd dragged all the controls with my mouse.
   * The interface doesn't have to look exactly like this; my point is make it short and simple enough that it could be useful from the console.
+
+## Reloading the script
+
+Currently most aspects of scripts are constant.
+In particular the start time and duration of each script are never expected to change.
+We will be changing that rule.
+
+Let's start simple.
+Currently we load a lot of controls and variables and a sound buffer at the start of the main program from a single constant describing the script.
+Let's add a button that says "reload".
+That will clear out the current settings then load them the way we did at the start.
+A lot of the initialization code should probably move into a function, instead of running directly from the module level, so we can call it more than once.
+
+It seems like most of that effort will be very quick.
+It could probably fit into a standard animation frame.
+We could probably use the existing requestAnimationFrame frame logic to group changes.
+Just like dragging a control in our editor, it doesn't matter how quickly you are generating mouse move events, it will not recompute things more than once per animation frame.
+
+The problem is sound.
+That is slow; crude estimate: one second of processing time per one minute of audio.
+
+Sound is always initialized in async/await, because of the loading and decoding process.
+Presumably we will keep decoded files cached.
+We already have a cache, for when multiple scenes all request different parts of the same input file.
+I added a function to clear that cache, with the intent of calling that function at the end of the initialization phase, but I can't remember if I'm calling it or not.
+Of course we hope the second time we initialize everything will be in the cache, but there is no guarantee, so we can't get away from async / await.
+
+After loading and decoding the input sounds, then we have to copy lots of samples from one array to another.
+I think this takes noticeable time, but I'm not sure.
+The current logging statement only tells me when the entire process is done.
+**Need to add better logging.**
+How much time was spent waiting on other threads vs on work in main thread.
+Absolute time *and* ratio of read time to size of the input files and ratio of write time to amount of data copied.
+
+There are lots of options for sound.
+I hope we can keep this simple model where we always have one big sound buffer for the entire project.
+But there are lower level APIs that I might use as an alterative, providing data as needed instead of all at once.
+Need to explore, see if the current approach is good enough.
+
+For now, maybe a very simple wrapper around the sound requests.
+In particular, if I'm spamming the reload button, things shouldn't get too bad.
+If I hit the button 10 times quickly, I don't want 10 threads all running at once, or worse yet 10 requests queued up for the main thread.
+Simple, robust, just enough to keep it working until we decide on the final plan.
+
+Sound is *not* my *first* concern in this prototype.
+I haven't recorded the voiceover yet.
+But sound will be required by the end of this prototype.
+The video we produce will have a voiceover.
+
+At the moment the reload button won't do anything interesting.
+We don't yet have code that would take advantage of that.
+It would be easy enough to say `duration: 30_000 + 60_000 * Math.random(),` somewhere to make the test more interesting.
+
+Eventually the reload button will be removed.
+It will automatically be called by the GUI after a change was made, possibly grouped with other changes.
+
+**Update:  Done!**
+The full refresh is very fast!
+It takes less than 1/2 second to reload the sound for the Sierpiński project.
+The visual parts reload instantly.

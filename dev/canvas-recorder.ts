@@ -430,32 +430,50 @@ function setPlaybackRate(rate: number): void {
   });
 }
 
-const audioBuilder = new AudioBuilder(toShow.duration);
+let audioBuilder = new AudioBuilder(toShow.duration);
 
-(async () => {
-  async function doIt(item: Selectable, offset: number) {
+let reloadGeneration = 0;
+
+async function initAudio(): Promise<void> {
+  const myGen = ++reloadGeneration;
+  audioReady = false;
+  stopAudio();
+  const newBuilder = new AudioBuilder(toShow.duration);
+
+  async function doIt(item: Selectable, offset: number): Promise<boolean> {
+    if (myGen !== reloadGeneration) return false;
     if (item.soundClips) {
       for (const clip of item.soundClips) {
-        await audioBuilder.add(
+        await newBuilder.add(
           clip.source,
           offset + clip.startMsIntoScene,
           clip.startMsIntoClip,
           clip.lengthMs,
         );
+        if (myGen !== reloadGeneration) return false;
       }
     }
     if (item.children) {
       for (const { child, start } of item.children) {
-        await doIt(child, offset + start);
+        if (!(await doIt(child, offset + start))) return false;
       }
     }
+    return true;
   }
+
   const time1 = performance.now();
-  await doIt(toShow, 0);
+  const completed = await doIt(toShow, 0);
   const time2 = performance.now();
+  if (!completed) {
+    console.log(`Audio init superseded after ${(time2 - time1).toFixed(0)} ms.`);
+    return;
+  }
+  audioBuilder = newBuilder;
   audioReady = true;
   console.log(`Audio ready in ${(time2 - time1).toFixed(0)} ms.`);
-})();
+}
+
+initAudio();
 
 /**
  * Redraw the canvas and update some other controls.
@@ -787,19 +805,28 @@ function dump(
     });
   }
 }
-dump(toShow);
-//console.table(debug);
-
-/**
- * The drop down list containing the complete list of sections.
- */
 const select = getById("chapterSelector", HTMLSelectElement);
-debug.forEach((value) => {
-  const option = document.createElement("option");
-  option.textContent = value.prefix + value.description;
-  option.value = value.description;
-  select.append(option);
-});
+
+function initChapters(): void {
+  const savedDescription = debug[select.selectedIndex]?.description;
+  debug.length = 0;
+  dump(toShow);
+  select.replaceChildren();
+  debug.forEach((value) => {
+    const option = document.createElement("option");
+    option.textContent = value.prefix + value.description;
+    option.value = value.description;
+    select.append(option);
+  });
+  const restoredIndex =
+    savedDescription !== undefined
+      ? debug.findIndex((d) => d.description === savedDescription)
+      : -1;
+  select.selectedIndex = restoredIndex >= 0 ? restoredIndex : 0;
+}
+
+initChapters();
+//console.table(debug);
 
 /**
  * These describe the parent of the currently selected section.
@@ -2176,6 +2203,14 @@ getById("recordJustSound", HTMLButtonElement).addEventListener(
     downloadBlob("sound_file.wav", blob);
   },
 );
+
+function reload(): void {
+  initChapters();
+  updateFromSelect();
+  initAudio();
+}
+
+getById("reloadBtn", HTMLButtonElement).addEventListener("click", reload);
 
 getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
   const records = await readAllHistory();
