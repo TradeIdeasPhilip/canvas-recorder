@@ -1,12 +1,10 @@
 import {
   assertNonNullable,
-  FULL_CIRCLE,
   initializedArray,
   makeBoundedLinear,
   NON_BREAKING_SPACE,
   pickAny,
   polarToRectangular,
-  radiansPerDegree,
 } from "phil-lib/misc";
 import { Font, FontMetrics } from "./letters-base";
 import { PathShape, PathBuilder, LCommand, QCommand } from "./path-shape";
@@ -1125,6 +1123,44 @@ export function makeLineFontMap(
     add("G", shape, advance);
   }
   {
+    // MARK: 𝔾
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + dx;
+    const radius = digitWidth / 2;
+    const x1 = radius;
+    const x1_5 = radius + dx;
+    const x2 = advance;
+    const pathBuilder = PathBuilder.M(x2, capitalTopMiddle)
+      .Q(x2, capitalTop, x1_5, capitalTop)
+      .L(x1, capitalTop)
+      .Q(left, capitalTop, left, capitalTopMiddle)
+      .L(left, capitalBottomMiddle)
+      .Q(left, baseline, x1, baseline)
+      .L(x1_5, baseline)
+      .Q(x2, baseline, x2, capitalBottomMiddle)
+      .L(x2, capitalMiddle)
+      .L(x1 + dx, capitalMiddle);
+    const offset = (() => {
+      /**
+       * The curve closest to (0, 0)
+       */
+      const bezier = pathBuilder.commands[4].getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: dx, y: baseline },
+        p2: { x: dx, y: capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    pathBuilder.M(dx, capitalTop - offset).V(baseline + offset);
+    const shape = pathBuilder.pathShape;
+    add("𝔾", shape, advance);
+  }
+  {
     // MARK: H
     const advance = digitWidth;
     const x1 = advance;
@@ -1135,6 +1171,32 @@ export function makeLineFontMap(
       .M(left, capitalMiddle)
       .L(x1, capitalMiddle).pathShape;
     add("H", shape, advance);
+  }
+  {
+    // MARK: ℍ
+    const dx = strokeWidth * 2;
+    const advance = digitWidth + 2 * dx;
+    const x0 = dx;
+    const x1 = advance - dx;
+    // const shape = PathBuilder.M(left, capitalTop)
+    //   .L(left, baseline)
+    //   .M(x1, capitalTop)
+    //   .L(x1, baseline)
+    //   .M(left, capitalMiddle)
+    //   .L(x1, capitalMiddle).pathShape;
+    const shape = PathBuilder.M(x0, capitalMiddle)
+      .V(capitalTop)
+      .H(left)
+      .V(baseline)
+      .H(x0)
+      .L(x0, capitalMiddle)
+      .H(x1)
+      .V(baseline)
+      .H(advance)
+      .V(capitalTop)
+      .H(x1)
+      .V(capitalMiddle).pathShape;
+    add("ℍ", shape, advance);
   }
   {
     // MARK: I
@@ -1150,6 +1212,24 @@ export function makeLineFontMap(
     add("I", shape, advance);
   }
   {
+    // MARK: 𝕀
+    const dx = strokeWidth * 2;
+    const baseWidth = fontMetrics.mHeight / 3;
+    const advance = baseWidth + dx;
+    const x1 = baseWidth / 2;
+    const x1a = x1 + dx;
+    const x2 = advance;
+    const shape = PathBuilder.M(left, capitalTop)
+      .L(x2, capitalTop)
+      .M(left, baseline)
+      .L(x2, baseline)
+      .M(x1, capitalTop)
+      .L(x1, baseline)
+      .M(x1a, capitalTop)
+      .L(x1a, baseline).pathShape;
+    add("𝕀", shape, advance);
+  }
+  {
     // MARK: J
     const advance = digitWidth * 0.85;
     const radius = advance / 2;
@@ -1160,6 +1240,44 @@ export function makeLineFontMap(
       .Q(x2, baseline, x1, baseline)
       .Q(left, baseline, left, capitalBottomMiddle).pathShape;
     add("J", shape, advance);
+  }
+  {
+    // MARK: 𝕁
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth * 0.85;
+    const advance = baseWidth + dx;
+    const radius = baseWidth / 2;
+    const x1 = radius;
+    const x2 = radius + dx;
+    const x4 = advance;
+    const x3 = x4 - dx;
+    const pathBuilder = PathBuilder.M(left, capitalBottomMiddle)
+      .Q(left, baseline, x1, baseline)
+      .L(x2, baseline)
+      .Q(x4, baseline, x4, capitalBottomMiddle)
+      .L(x4, capitalTop)
+      .L(x3, capitalTop);
+    // const shape = PathBuilder.M(x2, capitalTop)
+    //   .L(x2, capitalBottomMiddle)
+    //   .Q(x2, baseline, x1, baseline)
+    //   .Q(left, baseline, left, capitalBottomMiddle).pathShape;
+    const offset = (() => {
+      const bezier = pathBuilder.commands[2].getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: x3, y: baseline },
+        p2: { x: x3, y: capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    pathBuilder.V(offset);
+    const shape = pathBuilder.pathShape;
+    add("𝕁", shape, advance);
+    //console.log(shape.rawPath)
   }
   {
     // MARK: K
@@ -1173,6 +1291,27 @@ export function makeLineFontMap(
     add("K", shape, advance);
   }
   {
+    // MARK: 𝕂
+    const dx = strokeWidth * 2;
+    const miterSize = dx / Math.SQRT2;
+    const middle = (capitalTop + baseline) / 2;
+    const diagonalWidth = -middle;
+    const advance = diagonalWidth + dx;
+    const pathBuilder = PathBuilder.M(advance, capitalTop)
+      .L(dx, middle)
+      .L(dx, capitalTop)
+      .L(left, capitalTop)
+      .L(left, baseline)
+      .L(dx, baseline)
+      .L(dx, middle + miterSize)
+      .L(advance - miterSize, baseline)
+      .L(advance, baseline)
+      .L(advance, -miterSize)
+      .L(dx + miterSize / 2, middle - miterSize / 2);
+    const shape = pathBuilder.pathShape;
+    add("𝕂", shape, advance);
+  }
+  {
     // MARK: L
     const advance = digitWidth;
     const shape = PathBuilder.M(left, capitalTop)
@@ -1181,7 +1320,21 @@ export function makeLineFontMap(
     add("L", shape, advance);
   }
   {
+    // MARK: 𝕃
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth;
+    const advance = baseWidth + dx;
+    const shape = PathBuilder.M(dx, baseline)
+      .V(capitalTop)
+      .H(left)
+      .V(baseline)
+      .L(advance, baseline).pathShape;
+    add("𝕃", shape, advance);
+    console.log(shape.rawPath);
+  }
+  {
     // MARK: M
+    //𝕄
     const advance = digitWidth * 1.5;
     const center = advance / 2;
     const shape = PathBuilder.M(left, baseline)
