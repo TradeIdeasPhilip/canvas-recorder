@@ -1334,7 +1334,6 @@ export function makeLineFontMap(
   }
   {
     // MARK: M
-    //𝕄
     const advance = digitWidth * 1.5;
     const center = advance / 2;
     const shape = PathBuilder.M(left, baseline)
@@ -1343,6 +1342,37 @@ export function makeLineFontMap(
       .L(advance, capitalTop)
       .L(advance, baseline).pathShape;
     add("M", shape, advance);
+  }
+  {
+    // MARK: 𝕄
+    const baseWidth = digitWidth * 1.5;
+    /**
+     * Center is always horizontal:  left, center, right
+     */
+    const center = baseWidth / 2;
+    const vBottom = capitalMiddle;
+    /**
+     * For the leftmost diagonal line.
+     */
+    const dx1 = doubleStruckDeltaX(left, capitalTop, center, vBottom);
+    /**
+     * For the rightmost vertical line.
+     */
+    const dx2 = strokeWidth * 2;
+    const advance = baseWidth + dx1 + dx2;
+    const shape = PathBuilder.M(left, baseline)
+      .L(left, capitalTop)
+      .L(center, vBottom)
+      .L(center + dx1, vBottom)
+      .L(baseWidth + dx1, capitalTop)
+      .L(advance, capitalTop)
+      .L(advance, baseline)
+      .L(advance - dx2, baseline)
+      .L(advance - dx2, capitalTop)
+      .M(left, capitalTop)
+      .L(left + dx1, capitalTop)
+      .L(center + dx1, vBottom).pathShape;
+    add("𝕄", shape, advance);
   }
   {
     // MARK: N
@@ -2674,6 +2704,33 @@ export function makeLineFontMap(
       new LCommand(left, bottom, advance, bottom),
     ]);
     add("∑", shape, advance);
+  }
+  // MARK: ⅀ Double Struck n-ary Summation
+  {
+    const baseWidth = digitWidth;
+    const dx = strokeWidth * 2;
+
+    const advance = baseWidth + dx;
+    /**
+     * "Center" is always horizontal.  "Left, center, right"
+     */
+    const center = (baseWidth * 3) / 5;
+    const top = capitalTop;
+    const bottom = descender;
+    /**
+     * "Middle" is always vertical.
+     * "Top, middle, bottom"
+     */
+    const middle = (top + bottom) / 2;
+    const shape = new PathShape([
+      new LCommand(advance, top, left, top),
+      new LCommand(left, top, center, middle),
+      new LCommand(center, middle, left, bottom),
+      new LCommand(left, bottom, advance, bottom),
+      new LCommand(left + dx, top, center + dx, middle),
+      new LCommand(center + dx, middle, left + dx, bottom),
+    ]);
+    add("⅀", shape, advance);
   }
   // MARK: φ Phi
   {
