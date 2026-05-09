@@ -119,6 +119,10 @@ export type Command = {
    */
   toCubic(): CCommand;
   transform(matrix: DOMMatrixReadOnly): Command;
+  /**
+   * Add this command to a path in the canvas.
+   * @param path A Path2D or a canvas rendering context.
+   */
   addToPath(path: CanvasPath): void;
 };
 
@@ -177,6 +181,24 @@ export class LCommand implements Command {
     return Math.hypot(this.x0 - this.x, this.y0 - this.y);
   }
   getBezier(): Bezier {
+    // return new Bezier([
+    //   this.x0,
+    //   this.y0,
+    //   (2 * this.x0 + this.x) / 3,
+    //   (2 * this.y0 + this.y) / 3,
+    //   (this.x0 + 2 * this.x) / 3,
+    //   (this.y0 + 2 * this.y) / 3,
+    //   this.x,
+    //   this.y,
+    // ]);
+    // return new Bezier([
+    //   this.x0,
+    //   this.y0,
+    //   (this.x + this.x0) / 2,
+    //   (this.y + this.y0) / 2,
+    //   this.x,
+    //   this.y,
+    // ]);
     return Bezier.getUtils().makeline(
       { x: this.x0, y: this.y0 },
       { x: this.x, y: this.y },

@@ -7,7 +7,15 @@ import {
   polarToRectangular,
 } from "phil-lib/misc";
 import { Font, FontMetrics } from "./letters-base";
-import { PathShape, PathBuilder, LCommand, QCommand } from "./path-shape";
+import {
+  PathShape,
+  PathBuilder,
+  LCommand,
+  QCommand,
+  Command,
+  Point,
+} from "./path-shape";
+import { Line } from "bezier-js";
 
 const dEast = 0;
 const dSouthEast = Math.PI / 4; // 45°
@@ -885,6 +893,22 @@ export function makeLineFontMap(
       .L(fontMetrics.aWidth * 0.75, capitalMiddle).pathShape;
     add("A", shape, aWidth);
   }
+  /**
+   * We often draw two lines next to each other, where the space between them,
+   * after stroking them at lineWidth, will all be lineWidth.
+   * Very often we shift second line to the right with no other changes.
+   * Depending on the angle of the line, you might have to shift right more or less,
+   * so the distance between the lines is correct.
+   *
+   * The inputs are the two endpoints of the line segment.
+   * The order of the points doesn't matter.
+   * And you get the same result if the line segment leans left or right.
+   * @param x1
+   * @param y1
+   * @param x2
+   * @param y2
+   * @returns How far to the right to shift the second line.
+   */
   function doubleStruckDeltaX(x1: number, y1: number, x2: number, y2: number) {
     const θ = Math.atan2(y2 - y1, x2 - x1);
     const dx = Math.abs((2 * strokeWidth) / Math.sin(θ));
@@ -1330,7 +1354,6 @@ export function makeLineFontMap(
       .V(baseline)
       .L(advance, baseline).pathShape;
     add("𝕃", shape, advance);
-    console.log(shape.rawPath);
   }
   {
     // MARK: M
@@ -1413,6 +1436,41 @@ export function makeLineFontMap(
     add("O", shape, advance);
   }
   {
+    // MARK: 𝕆
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth * 1.5;
+    const advance = baseWidth + dx;
+    const x1 = baseWidth / 2;
+    const x2 = x1 + dx;
+    const middle = (capitalTop + baseline) / 2;
+    const pathBuilder = PathBuilder.M(x2, capitalTop)
+      .Q_HV(advance, middle)
+      .Q_VH(x2, baseline)
+      .H(x1)
+      .Q_HV(left, middle)
+      .Q_VH(x1, capitalTop)
+      .H(x2);
+    const offset = (() => {
+      /**
+       * The bottom left curve.
+       */
+      const bezier = pathBuilder.commands.at(-3)!.getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: dx, y: baseline },
+        p2: { x: dx, y: capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    pathBuilder.M(dx, capitalTop - offset).V(baseline + offset);
+    const shape = pathBuilder.pathShape;
+    add("𝕆", shape, advance);
+  }
+  {
     // MARK: P
     const advance = digitWidth;
     const radius = capitalMiddle - capitalTopMiddle;
@@ -1428,6 +1486,27 @@ export function makeLineFontMap(
       .Q_VH(x1, capitalMiddle)
       .L(left, capitalMiddle).pathShape;
     add("P", shape, advance);
+  }
+  {
+    // MARK: ℙ
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth;
+    const advance = baseWidth + dx;
+    const radius = capitalMiddle - capitalTopMiddle;
+    if (radius <= 0) {
+      throw new Error("wtf");
+    }
+    const x1 = dx;
+    const x2 = advance - radius;
+    const shape = PathBuilder.M(x1, capitalTop)
+      .L(x1, baseline)
+      .H(left)
+      .V(capitalTop)
+      .L(x2, capitalTop)
+      .Q_HV(advance, capitalTopMiddle)
+      .Q_VH(x2, capitalMiddle)
+      .L(x1, capitalMiddle).pathShape;
+    add("ℙ", shape, advance);
   }
   {
     // MARK: Q
@@ -1496,6 +1575,29 @@ export function makeLineFontMap(
     add("R", shape, advance);
   }
   {
+    // MARK: ℝ
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth;
+    const advance = baseWidth + dx;
+    const radius = capitalMiddle - capitalTopMiddle;
+    if (radius <= 0) {
+      throw new Error("wtf");
+    }
+    const x1 = dx;
+    const x2 = advance - radius;
+    const shape = PathBuilder.M(x1, capitalTop)
+      .L(x1, baseline)
+      .H(left)
+      .V(capitalTop)
+      .L(x2, capitalTop)
+      .Q_HV(advance, capitalTopMiddle)
+      .Q_VH(x2, capitalMiddle)
+      .L(x1, capitalMiddle)
+      .M(x2, capitalMiddle)
+      .L(advance, baseline).pathShape;
+    add("ℝ", shape, advance);
+  }
+  {
     // MARK: S
     // This is basically a subset of the 8 with he direction is reversed.
     const advance = digitWidth;
@@ -1530,6 +1632,95 @@ export function makeLineFontMap(
     add("$", shape, advance);
   }
   {
+    // MARK: 𝕊
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth;
+    const advance = baseWidth + dx;
+    const x1 = baseWidth / 2;
+    const x2 = x1 + dx;
+    const right = advance;
+    /**
+     * Assume the `line` segment intersects with these `commands` in exactly two points.
+     * Create an LCommand connecting those two points.
+     * @param commands We want to draw a segment connecting to one or more of these.
+     * @param line We want to find a subset of that line, bounded by the commands.
+     * @returns A new `LCommand` if we found *exactly* two points of intersection.
+     * Otherwise `undefined`.
+     * @throws Do not include and LCommand, it will throw an exception.
+     */
+    function clippedSegment(commands: readonly Command[], line: Line) {
+      /**
+       * These are "parameters".
+       * They have no value in the real world but are appropriate inputs for Bezier.get().
+       */
+      const intersectionPoints = new Array<Point>();
+      commands.forEach((command) => {
+        const bezier = command.getBezier();
+        if (command instanceof LCommand) {
+          // Warning:  I'm catching the cases where I'm certain you are going to fail.
+          // No false positives, but lots of false negatives!
+          // straight lines are bad even if packed in a QCommand or a CCommand.
+          // TODO The internet suggests that I switch to a better library than Bezier.js if I want good intersections.
+          throw new Error(
+            "Bezier.js’s intersection functions don't work when the “curve” is a straight line!",
+          );
+        }
+        const intersectionParameters = bezier.lineIntersects(line);
+        intersectionParameters.forEach((parameter) => {
+          intersectionPoints.push(bezier.get(parameter));
+        });
+      });
+      if (intersectionPoints.length == 2) {
+        return new LCommand(
+          intersectionPoints[0].x,
+          intersectionPoints[0].y,
+          intersectionPoints[1].x,
+          intersectionPoints[1].y,
+        );
+      } else {
+        return undefined;
+      }
+    }
+    const pathBuilder = PathBuilder.M(right, capitalTopMiddle)
+      .Q_VH(x2, capitalTop)
+      .H(x1)
+      .Q_HV(left, capitalTopMiddle)
+      .Q_VH(x1, capitalMiddle)
+      .H(x2)
+      .Q_HV(right, capitalBottomMiddle)
+      .Q_VH(x2, baseline)
+      .H(x1)
+      .Q_HV(left, capitalBottomMiddle);
+    {
+      // Top left
+      const curves = pathBuilder.commands.slice(5, 7);
+      const x = dx;
+      const line = {
+        p1: { x, y: baseline },
+        p2: { x, y: capitalTop },
+      };
+      const betweenCurves = clippedSegment(curves, line);
+      const newCommand =
+        betweenCurves ?? new LCommand(x, capitalTop, x, capitalMiddle);
+      pathBuilder.addCommand(newCommand);
+    }
+    {
+      // Bottom right
+      const curves = pathBuilder.commands.slice(2, 4);
+      const x = advance - dx;
+      const line = {
+        p1: { x, y: baseline },
+        p2: { x, y: capitalTop },
+      };
+      const betweenCurves = clippedSegment(curves, line);
+      const newCommand =
+        betweenCurves ?? new LCommand(x, capitalMiddle, x, baseline);
+      pathBuilder.addCommand(newCommand);
+    }
+    const shape = pathBuilder.pathShape;
+    add("𝕊", shape, advance);
+  }
+  {
     // MARK: T
     const advance = digitWidth;
     const center = advance / 2;
@@ -1539,6 +1730,23 @@ export function makeLineFontMap(
       .L(left, capitalTop).pathShape;
     // Down then back.  That's how I do it every time.
     add("T", shape, advance);
+  }
+  {
+    // MARK: 𝕋
+    const dx = strokeWidth * 2;
+    const baseWidth = digitWidth;
+    const advance = baseWidth + dx;
+    const x1 = baseWidth / 2;
+    const x2 = x1 + dx;
+    const shape = new PathShape([
+      // Across the top
+      new LCommand(left, capitalTop, advance, capitalTop),
+      // Down the center right
+      new LCommand(x2, capitalTop, x2, baseline),
+      // Up the center left.
+      new LCommand(x1, baseline, x1, capitalTop),
+    ]);
+    add("𝕋", shape, advance);
   }
   // MARK: U
   {
@@ -1552,6 +1760,42 @@ export function makeLineFontMap(
       .V(capitalTop).pathShape;
     add("U", shape, advance);
   }
+  // MARK: 𝕌
+  {
+    const dx = strokeWidth * 2;
+    const topOfCurve = (capitalBottomMiddle + capitalMiddle) / 2;
+    const center = Math.abs(topOfCurve - baseline) * 0.85;
+    const advance = center * 2 + dx;
+    const x1 = center;
+    const x2 = center + dx;
+    const commands = PathBuilder.M(left, capitalTop)
+      .V(topOfCurve)
+      .Q_VH(x1, baseline)
+      .L(x2, baseline)
+      .Q_HV(advance, topOfCurve)
+      .V(capitalTop)
+      .commands.slice();
+    const offset = (() => {
+      /**
+       * The curve closest to (0, 0)
+       */
+      const bezier = commands[1].getBezier();
+      const intersections = bezier.intersects({
+        p1: { x: dx, y: capitalTop },
+        p2: { x: dx, y: -capitalTop },
+      }) as number[];
+      if (intersections.length == 0) {
+        return 0;
+      } else {
+        const point = bezier.get(intersections[0]);
+        return point.y;
+      }
+    })();
+    commands.unshift(new LCommand(dx, capitalTop, left, capitalTop));
+    commands.unshift(new LCommand(dx, capitalTop, dx, offset));
+    const shape = new PathShape(commands);
+    add("𝕌", shape, advance);
+  }
   // MARK: V
   {
     const advance = aWidth;
@@ -1560,6 +1804,22 @@ export function makeLineFontMap(
       .L(center, baseline)
       .L(advance, capitalTop).pathShape;
     add("V", shape, advance);
+  }
+  // MARK: 𝕍
+  {
+    const baseWidth = aWidth;
+    const x1 = baseWidth / 2;
+    const dx = doubleStruckDeltaX(left, capitalTop, x1, baseline);
+    const x2 = x1 + dx;
+    const advance = baseWidth + dx;
+
+    const shape = PathBuilder.M(x2, baseline)
+      .L(dx, capitalTop)
+      .L(left, capitalTop)
+      .L(x1, baseline)
+      .L(x2, baseline)
+      .L(advance, capitalTop).pathShape;
+    add("𝕍", shape, advance);
   }
   // MARK: W
   {
@@ -1574,6 +1834,7 @@ export function makeLineFontMap(
       .L(advance, capitalTop).pathShape;
     add("W", shape, advance);
   }
+  // MARK: 𝕎
   // MARK: X
   {
     const advance = digitWidth;
@@ -1583,6 +1844,7 @@ export function makeLineFontMap(
       .L(advance, baseline).pathShape;
     add("X", shape, advance);
   }
+  // MARK: 𝕏
   // MARK: Y
   {
     const extra = strokeWidth;
@@ -1593,6 +1855,7 @@ export function makeLineFontMap(
       .L(advance / 2, capitalMiddle).pathShape;
     add("Y", shape, advance);
   }
+  // MARK: 𝕐
   // MARK: Z
   {
     const advance = digitWidth;
@@ -1604,14 +1867,19 @@ export function makeLineFontMap(
   }
   // MARK: ℤ
   {
-    const zAdvance = digitWidth;
-    const extraWidth = strokeWidth * 2;
-    const advance = zAdvance + extraWidth;
+    const baseWidth = digitWidth;
+    const extraWidth = doubleStruckDeltaX(
+      baseWidth,
+      capitalTop,
+      left,
+      baseline,
+    );
+    const advance = baseWidth + extraWidth;
 
     const shape = PathBuilder.M(left, capitalTop)
       .H(advance)
       .L(left + extraWidth, baseline)
-      .M(zAdvance, capitalTop)
+      .M(baseWidth, capitalTop)
       .L(left, baseline)
       .H(advance).pathShape;
     add("ℤ", shape, advance);

@@ -254,6 +254,7 @@ A collection of useful things like:
   - We should probably treat the alpha like we do the transform matrix: You can only multiply the previous alpha by a number, not set it to a value. That should be a standard everywhere, not just here.
   - Keep the same underlying mechanism: When asked to show() itself, save the current state, `*=` to set the new value. We are now changing more things, maybe push the entire context at once, and pop it on exit.
   - Refusing to draw at all when alpha is 0 has been a very convenient and useful trick in related code.
+  - Note: This is **not** exactly how css handles alpha. It will create a temporary buffer for the entire group, draw the group normally, then use alpha to copy that buffer on top of the final image. That can be important if you draw multiple objects on top of each other. I'm hoping we can use this simpler option.
 - Exception handling?
   - Currently exceptions pass all the way up to the top.
   - Now that I think about it, it's hard to do anything else.

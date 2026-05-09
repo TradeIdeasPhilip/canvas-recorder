@@ -183,6 +183,14 @@ The web version of this program is currently limited to this encoding because it
 In particular, my computer has dedicated hardware for this mode.
 See the node version for full access to FFMPEG.
 
+"Parameter" often refers to some _internal_ details of the Bezier code.
+The underlying library, [Bezier.js](https://pomax.github.io/bezierjs/), often expects an input or output of that type.
+The variable name is often `t`.
+I try to hide this idea of a parameter in my wrappers of that code, but it does slip out occasionally.
+Use `Bezier.get()` to convert one of these to an (x, y) coordinate.
+See `BezierCommandSplitter.distanceToParametric()` to convert a distance along a Bezier curve into a "parameter."
+[More details](https://www.youtube.com/watch?v=HynEtQX96as) on YouTube.
+
 ## Project history
 
 I've had a few attempts at this.
@@ -214,7 +222,7 @@ If you need any other data for debugging, just display it on the screen like a n
 If you want to build a prototype, just build a simple movie.
 
 The GUI is just so robust.
-I remember the Deno version being so delicate.
+I remember the Deno version being so fragile.
 I had to be so careful about catching exceptions, and I still missed some.
 I wanted to properly close the FFMPEG process, so the output file, while incomplete, would at least be useable.
 I've made a lot of movies with this new version of the software, and it's just never come up.
