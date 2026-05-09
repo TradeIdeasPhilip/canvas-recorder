@@ -1835,6 +1835,15 @@ export function makeLineFontMap(
     add("W", shape, advance);
   }
   // MARK: 𝕎
+  {
+    const v = result.get("𝕍")!;
+    const advance = v.advance*2;
+    const shape = PathShape.join([
+      { Δx: 0, Δy: 0, shape: v.shape },
+      { Δx: v.advance, Δy: 0, shape: v.shape },
+    ]);
+    add("𝕎", shape, advance);
+  }
   // MARK: X
   {
     const advance = digitWidth;
@@ -1845,6 +1854,20 @@ export function makeLineFontMap(
     add("X", shape, advance);
   }
   // MARK: 𝕏
+  {
+    const baseWidth = digitWidth;
+    const dx = doubleStruckDeltaX(left, capitalTop,baseWidth, baseline );
+    const advance=baseWidth+dx;
+    const shape = PathBuilder.M(dx, capitalTop, )
+    .L(advance, baseline)
+    .H(advance-dx)
+.L(left, capitalTop)
+.H(dx)
+    .M(advance, capitalTop)
+      .L(left, baseline).pathShape;
+    add("𝕏", shape, advance);
+
+  }
   // MARK: Y
   {
     const extra = strokeWidth;
@@ -1856,6 +1879,20 @@ export function makeLineFontMap(
     add("Y", shape, advance);
   }
   // MARK: 𝕐
+  {
+    const extra = strokeWidth;
+    const baseWidth = digitWidth + extra;
+    const dx = doubleStruckDeltaX(baseWidth, capitalTop,extra, baseline);
+    const advance = baseWidth+dx;
+    const shape = PathBuilder.M(baseWidth, capitalTop)
+      .L(extra, baseline)
+      .H(extra+dx)
+      .L(baseWidth+dx,capitalTop)
+      .H(baseWidth)
+      .M(left, capitalTop)
+      .L(baseWidth / 2, capitalMiddle).pathShape;
+    add("𝕐", shape, advance);
+  }
   // MARK: Z
   {
     const advance = digitWidth;
