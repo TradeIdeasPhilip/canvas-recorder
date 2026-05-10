@@ -125,6 +125,22 @@ export function makeLineFont(fontMetrics: number | LineFontMetrics): Font {
   return result;
 }
 
+export function makeLineFontStrokeWidth(
+  mHeight: number,
+  strokeWidth: number,
+): Font {
+  return makeLineFont(new LineFontMetrics(mHeight, strokeWidth));
+}
+
+export function makeLineFontRatio(
+  mHeight: number,
+  boldnessRatio: number,
+): Font {
+  const strokeWidth =
+    LineFontMetrics.defaultStrokeWidth(mHeight) * boldnessRatio;
+  return makeLineFontStrokeWidth(mHeight, strokeWidth);
+}
+
 /**
  * This seems silly.  Is size really the only input?
  * I'm not sure that the size should be fixed at this time.
@@ -894,6 +910,12 @@ export function makeLineFontMap(
     add("A", shape, aWidth);
   }
   /**
+   * If you are drawing a second copy of a vertical line, move the second one this far to the right.
+   *
+   * If you are drawing a second copy of an angled line, see {@link doubleStruckDeltaX}().
+   */
+  const doubleStruckVerticalSpace = strokeWidth * 2;
+  /**
    * We often draw two lines next to each other, where the space between them,
    * after stroking them at lineWidth, will all be lineWidth.
    * Very often we shift second line to the right with no other changes.
@@ -911,7 +933,7 @@ export function makeLineFontMap(
    */
   function doubleStruckDeltaX(x1: number, y1: number, x2: number, y2: number) {
     const θ = Math.atan2(y2 - y1, x2 - x1);
-    const dx = Math.abs((2 * strokeWidth) / Math.sin(θ));
+    const dx = Math.abs(doubleStruckVerticalSpace / Math.sin(θ));
     return dx;
   }
   {
@@ -955,7 +977,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝔹
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const topRadius = capitalTopMiddle - capitalTop;
     if (topRadius <= 0) {
@@ -1003,7 +1025,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: ℂ
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const radius = digitWidth / 2;
     const x1 = radius;
@@ -1054,7 +1076,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝔻
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const radius = digitWidth / 2;
     const x0 = dx;
@@ -1087,7 +1109,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝔼
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const x0 = dx;
     const x1 = digitWidth * (2 / 3) + dx;
@@ -1116,7 +1138,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝔽
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const x0 = dx;
     const x1 = digitWidth * (2 / 3) + dx;
@@ -1148,7 +1170,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝔾
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + dx;
     const radius = digitWidth / 2;
     const x1 = radius;
@@ -1198,7 +1220,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: ℍ
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const advance = digitWidth + 2 * dx;
     const x0 = dx;
     const x1 = advance - dx;
@@ -1237,7 +1259,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕀
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = fontMetrics.mHeight / 3;
     const advance = baseWidth + dx;
     const x1 = baseWidth / 2;
@@ -1267,7 +1289,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕁
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth * 0.85;
     const advance = baseWidth + dx;
     const radius = baseWidth / 2;
@@ -1316,7 +1338,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕂
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const miterSize = dx / Math.SQRT2;
     const middle = (capitalTop + baseline) / 2;
     const diagonalWidth = -middle;
@@ -1345,7 +1367,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕃
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth;
     const advance = baseWidth + dx;
     const shape = PathBuilder.M(dx, baseline)
@@ -1381,7 +1403,7 @@ export function makeLineFontMap(
     /**
      * For the rightmost vertical line.
      */
-    const dx2 = strokeWidth * 2;
+    const dx2 = doubleStruckVerticalSpace;
     const advance = baseWidth + dx1 + dx2;
     const shape = PathBuilder.M(left, baseline)
       .L(left, capitalTop)
@@ -1437,7 +1459,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕆
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth * 1.5;
     const advance = baseWidth + dx;
     const x1 = baseWidth / 2;
@@ -1489,7 +1511,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: ℙ
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth;
     const advance = baseWidth + dx;
     const radius = capitalMiddle - capitalTopMiddle;
@@ -1526,7 +1548,7 @@ export function makeLineFontMap(
     // MARK: ℚ
     const rightWidth = digitWidth * 0.75;
     const leftWidth = rightWidth;
-    const extraWidth = strokeWidth * 2;
+    const extraWidth = doubleStruckVerticalSpace;
     const advance = leftWidth + extraWidth + rightWidth;
     const middle = (capitalTop + baseline) / 2;
     const pathBuilder = PathBuilder.M(leftWidth + extraWidth, capitalTop)
@@ -1576,7 +1598,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: ℝ
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth;
     const advance = baseWidth + dx;
     const radius = capitalMiddle - capitalTopMiddle;
@@ -1633,7 +1655,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕊
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth;
     const advance = baseWidth + dx;
     const x1 = baseWidth / 2;
@@ -1693,7 +1715,7 @@ export function makeLineFontMap(
       .Q_HV(left, capitalBottomMiddle);
     {
       // Top left
-      const curves = pathBuilder.commands.slice(5, 7);
+      const curves = pathBuilder.commands.slice(2, 4);
       const x = dx;
       const line = {
         p1: { x, y: baseline },
@@ -1706,7 +1728,7 @@ export function makeLineFontMap(
     }
     {
       // Bottom right
-      const curves = pathBuilder.commands.slice(2, 4);
+      const curves = pathBuilder.commands.slice(5, 7);
       const x = advance - dx;
       const line = {
         p1: { x, y: baseline },
@@ -1733,7 +1755,7 @@ export function makeLineFontMap(
   }
   {
     // MARK: 𝕋
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const baseWidth = digitWidth;
     const advance = baseWidth + dx;
     const x1 = baseWidth / 2;
@@ -1762,7 +1784,7 @@ export function makeLineFontMap(
   }
   // MARK: 𝕌
   {
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
     const topOfCurve = (capitalBottomMiddle + capitalMiddle) / 2;
     const center = Math.abs(topOfCurve - baseline) * 0.85;
     const advance = center * 2 + dx;
@@ -1837,7 +1859,7 @@ export function makeLineFontMap(
   // MARK: 𝕎
   {
     const v = result.get("𝕍")!;
-    const advance = v.advance*2;
+    const advance = v.advance * 2;
     const shape = PathShape.join([
       { Δx: 0, Δy: 0, shape: v.shape },
       { Δx: v.advance, Δy: 0, shape: v.shape },
@@ -1856,17 +1878,16 @@ export function makeLineFontMap(
   // MARK: 𝕏
   {
     const baseWidth = digitWidth;
-    const dx = doubleStruckDeltaX(left, capitalTop,baseWidth, baseline );
-    const advance=baseWidth+dx;
-    const shape = PathBuilder.M(dx, capitalTop, )
-    .L(advance, baseline)
-    .H(advance-dx)
-.L(left, capitalTop)
-.H(dx)
-    .M(advance, capitalTop)
+    const dx = doubleStruckDeltaX(left, capitalTop, baseWidth, baseline);
+    const advance = baseWidth + dx;
+    const shape = PathBuilder.M(dx, capitalTop)
+      .L(advance, baseline)
+      .H(advance - dx)
+      .L(left, capitalTop)
+      .H(dx)
+      .M(advance, capitalTop)
       .L(left, baseline).pathShape;
     add("𝕏", shape, advance);
-
   }
   // MARK: Y
   {
@@ -1882,12 +1903,12 @@ export function makeLineFontMap(
   {
     const extra = strokeWidth;
     const baseWidth = digitWidth + extra;
-    const dx = doubleStruckDeltaX(baseWidth, capitalTop,extra, baseline);
-    const advance = baseWidth+dx;
+    const dx = doubleStruckDeltaX(baseWidth, capitalTop, extra, baseline);
+    const advance = baseWidth + dx;
     const shape = PathBuilder.M(baseWidth, capitalTop)
       .L(extra, baseline)
-      .H(extra+dx)
-      .L(baseWidth+dx,capitalTop)
+      .H(extra + dx)
+      .L(baseWidth + dx, capitalTop)
       .H(baseWidth)
       .M(left, capitalTop)
       .L(baseWidth / 2, capitalMiddle).pathShape;
@@ -3013,7 +3034,7 @@ export function makeLineFontMap(
   // MARK: ⅀ Double Struck n-ary Summation
   {
     const baseWidth = digitWidth;
-    const dx = strokeWidth * 2;
+    const dx = doubleStruckVerticalSpace;
 
     const advance = baseWidth + dx;
     /**
@@ -3270,10 +3291,16 @@ export class LineFontMetrics implements FontMetrics {
    */
   constructor(
     public readonly fontSize: number,
-    public readonly strokeWidth = fontSize / 10,
+    public readonly strokeWidth = LineFontMetrics.defaultStrokeWidth(fontSize),
   ) {
     if (fontSize <= 0 || !isFinite(fontSize)) {
       throw new Error("wtf");
     }
+  }
+  static defaultStrokeWidth(fontSize: number) {
+    return fontSize / 10;
+  }
+  static maxRecommendedStrokeWidth(fontSize: number) {
+    return fontSize / 5;
   }
 }

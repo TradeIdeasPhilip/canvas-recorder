@@ -3,10 +3,15 @@ import {
   initializedArray,
   lerp,
   makeLinear,
+  positiveModulo,
   Random,
   ReadOnlyRect,
 } from "phil-lib/misc";
-import { LineFontMetrics, makeLineFont } from "./glib/line-font";
+import {
+  LineFontMetrics,
+  makeLineFont,
+  makeLineFontRatio,
+} from "./glib/line-font";
 import { ParagraphLayout, WordInPlace } from "./glib/paragraph-layout";
 import {
   ease,
@@ -16,10 +21,12 @@ import {
   interpolateColor,
   interpolateNumbers,
   interpolatePoints,
+  interpolateRectangle,
+  interpolateRects,
   Keyframe,
   Keyframes,
 } from "./interpolate";
-import { Point } from "./glib/path-shape";
+import { PathBuilder, Point } from "./glib/path-shape";
 import {
   MakeShowableInParallel,
   MakeShowableInSeries,
@@ -27,7 +34,7 @@ import {
   Showable,
   ShowOptions,
 } from "./showable";
-import { applyTransform, transform } from "./glib/transforms";
+import { applyTransform } from "./glib/transforms";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
@@ -3160,6 +3167,216 @@ import imageUrl from "./Philip Smolen.jpeg";
       context.lineWidth = titleFont.strokeWidth;
       context.strokeStyle = gradient;
       context.stroke(path);
+    },
+  };
+  sceneList.add(scene);
+}
+
+// MARK: Bezier.lineIntersects()
+{
+  const title = "Bezier.lineIntersects()";
+  const titlePath = ParagraphLayout.singlePathShape({
+    text: title,
+    font: titleFont,
+    alignment: "center",
+    width: 16,
+  }).canvasPath;
+  const footerSizeRatio = 0.75;
+  const footerPath = ParagraphLayout.singlePathShape({
+    text: "“𝔻ouble-𝕊truck” or “𝔹lackboard 𝔹old”",
+    font: titleFont.resize(titleFont.mHeight * footerSizeRatio),
+    alignment: "center",
+    width: 16,
+  }).translate(0, 8).canvasPath;
+  const chars = "ℂ𝔾𝕁𝕆ℚ𝕊𝕌";
+  // const normalFontWeight = LineFontMetrics.defaultStrokeWidth(1);
+  // const minBold = 0.5 * normalFontWeight;
+  // const maxBold = 1.5 * normalFontWeight;
+  // const boldestFont = makeLineFont(new LineFontMetrics(1, maxBold));
+  // let height = NaN;
+  // let width = 0;
+  // [...chars].forEach((char) => {
+  //   const paragraphLayout = new ParagraphLayout(boldestFont);
+  //   paragraphLayout.addText(char);
+  //   const alignment = paragraphLayout.align();
+  //   height = alignment.height;
+  //   width = Math.max(width, alignment.width);
+  // });
+  // const samplePathShape = PathBuilder.M(0, 0)
+  //   .H(width)
+  //   .V(height)
+  //   .H(0)
+  //   .V(0).pathShape;
+  const samplePathShape: PathShape | undefined = undefined;
+  const bigRectangleSchedule: ScheduleInfo & { type: "rectangle" } = {
+    description: "big",
+    type: "rectangle",
+    schedule: [{ time: 0, value: { x: 2.9, y: 1.5, width: 1, height: 6 } }],
+  };
+  const smallRectangleSchedule: ScheduleInfo & { type: "rectangle" } = {
+    description: "small",
+    type: "rectangle",
+    schedule: [
+      {
+        time: 0,
+        value: { x: 7.7, y: 1.5151751969961968, width: 1, height: 2.5 },
+      },
+    ],
+  };
+  const rightSchedule: ScheduleInfo & { type: "point" } = {
+    description: "right",
+    type: "point",
+    schedule: [
+      { time: 0, value: { x: 10.779843225083987, y: 1.6555431131019036 } },
+    ],
+  };
+  const downSchedule: ScheduleInfo & { type: "point" } = {
+    description: "down",
+    type: "point",
+    schedule: [{ time: 0, value: { x: 7, y: 5 } }],
+  };
+  const sampleColors: readonly string[] = myRainbow.filter(
+    (value) => value != myRainbow.orange && value != myRainbow.cssBlue,
+  );
+  const positionSchedule: ScheduleInfo & { type: "number" } = {
+    description: "Position",
+    type: "number",
+    schedule: [
+      { time: 0.75, value: 0, easeAfter: ease },
+      { time: 0.95, value: 1 },
+    ],
+  };
+  const boldnessSchedule: ScheduleInfo & { type: "number" } = {
+    description: "Boldness",
+    type: "number",
+    schedule: [
+      { time: 0.05, value: 1, easeAfter: easeOut },
+      { time: 0.25, value: 0.5, easeAfter: ease },
+      { time: 0.45, value: 1.5, easeAfter: easeIn },
+      { time: 0.65, value: 1 },
+    ],
+  };
+  const scene: Showable = {
+    description: title,
+    duration: 60_000,
+    schedules: [
+      bigRectangleSchedule,
+      smallRectangleSchedule,
+      rightSchedule,
+      downSchedule,
+      positionSchedule,
+      boldnessSchedule,
+    ],
+    show({ context, globalTime, timeInMs }) {
+      // Title
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = titleFont.strokeWidth;
+      context.strokeStyle = myRainbow.cssBlue;
+      context.stroke(titlePath);
+      context.strokeStyle = myRainbow.orange;
+      context.lineWidth *= footerSizeRatio;
+      context.stroke(footerPath);
+      //
+      const bigRectangle = interpolateRects(
+        timeInMs,
+        bigRectangleSchedule.schedule,
+      );
+      const smallRectangle = interpolateRects(
+        timeInMs,
+        smallRectangleSchedule.schedule,
+      );
+      const right = interpolatePoints(timeInMs, rightSchedule.schedule);
+      const down = interpolatePoints(timeInMs, downSchedule.schedule);
+      const baseRectangles: readonly ReadOnlyRect[] = (() => {
+        const result = [bigRectangle];
+        const dx = right.x - smallRectangle.x;
+        const dy = down.y - smallRectangle.y;
+        const secondRow = smallRectangle.y + dy;
+        for (let i = 0; i < 3; i++) {
+          const rectangle = { ...smallRectangle, x: smallRectangle.x + i * dx };
+          result.push(rectangle);
+        }
+        for (let i = 2; i >= 0; i--) {
+          const rectangle = {
+            ...smallRectangle,
+            x: smallRectangle.x + i * dx,
+            y: secondRow,
+          };
+          result.push(rectangle);
+        }
+        return result;
+      })();
+      function makeCurrentRectangles(
+        startIndexOffset: number,
+        stageProgress: number,
+      ): readonly ReadOnlyRect[] {
+        const result = initializedArray(
+          baseRectangles.length,
+          (resultIndex) => {
+            const startIndex = positiveModulo(
+              startIndexOffset + resultIndex,
+              baseRectangles.length,
+            );
+            const startRectangle = baseRectangles[startIndex];
+            const endIndex = (startIndex + 1) % baseRectangles.length;
+            const endRectangle = baseRectangles[endIndex];
+            const resultRectangle = interpolateRectangle(
+              stageProgress,
+              startRectangle,
+              endRectangle,
+            );
+            return resultRectangle;
+          },
+        );
+        return result;
+      }
+      const globalProgress = (timeInMs / this.duration) * baseRectangles.length;
+      const startIndexOffset = Math.floor(globalProgress);
+      const stageProgress = globalProgress - startIndexOffset;
+      const positionProgress = interpolateNumbers(
+        stageProgress,
+        positionSchedule.schedule,
+      );
+      const boldnessFactor = interpolateNumbers(
+        stageProgress,
+        boldnessSchedule.schedule,
+      );
+      const font = makeLineFontRatio(1, boldnessFactor);
+      context.lineWidth = font.strokeWidth;
+      const currentRectangles = makeCurrentRectangles(
+        startIndexOffset,
+        positionProgress,
+      );
+      zipper([currentRectangles, sampleColors, chars]).forEach(
+        ([currentRectangle, sampleColor, char]) => {
+          context.strokeStyle = sampleColor;
+          // if (samplePathShape) {
+          //   const finalPathShape = samplePathShape.makeItFit(
+          //     currentRectangle,
+          //     "srcRect fits completely into destRect",
+          //   );
+          //   context.lineJoin = "miter";
+          //   context.stroke(finalPathShape.canvasPath);
+          // }
+          context.lineJoin = "round";
+          const pathShape = ParagraphLayout.singlePathShape({
+            font,
+            text: char,
+          }).makeItFit(currentRectangle, "srcRect completely covers destRect");
+          context.stroke(pathShape.canvasPath);
+        },
+      );
+      /**
+       * TODO
+       * * The resize logic sucks.
+       * * I wanted a rectangle of the right size to hold the biggest letter.
+       * * Possibly one is the widest and a different one is the tallest, so we merge them.
+       * * The resize needs to apply to the strokeWidth, not just the shape.
+       * * "srcRect completely covers destRect" was part of my workaround
+       *   * I only got the height right, so I made the width small and hoped for the best.
+       *   * This is ugly at best.
+       */
     },
   };
   sceneList.add(scene);

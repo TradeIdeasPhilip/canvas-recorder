@@ -2,6 +2,7 @@ import {
   FULL_CIRCLE,
   lerp,
   makeBoundedLinear,
+  ReadOnlyRect,
   RealSvgRect,
 } from "phil-lib/misc";
 import { LCommand, PathShape, Point, QCommand } from "./glib/path-shape";
@@ -226,6 +227,19 @@ export function interpolateNumbers(
 
 type Rect = RealSvgRect;
 
+export function interpolateRectangle(
+  progress: number,
+  from: ReadOnlyRect,
+  to: ReadOnlyRect,
+): Rect {
+  return {
+    x: lerp(from.x, to.x, progress),
+    y: lerp(from.y, to.y, progress),
+    width: lerp(from.width, to.width, progress),
+    height: lerp(from.height, to.height, progress),
+  };
+}
+
 /**
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
@@ -241,12 +255,7 @@ export function interpolateRects(
     return relevant.value;
   } else {
     const { from, to, progress } = relevant;
-    return {
-      x: lerp(from.x, to.x, progress),
-      y: lerp(from.y, to.y, progress),
-      width: lerp(from.width, to.width, progress),
-      height: lerp(from.height, to.height, progress),
-    };
+    return interpolateRectangle(progress, from, to);
   }
 }
 
