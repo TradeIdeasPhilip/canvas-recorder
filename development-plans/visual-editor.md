@@ -413,3 +413,87 @@ We are hiding these details from the GUI user, but not from the TypeScript code.
 
 We need to add _something_ quickly to be useable!
 The first version will not be anywhere near complete.
+
+# Dev Log Sunday May 10, 2026
+
+## As dictated to my phone
+
+I was making what should have been a simple video and it was a painful process. I started with six or seven letters and I wanted to move them around and I tried first to build a box that was the shape of the biggest one so I could use that as my template. Somehow that code was messed up. In any case, some things grew taller while other things were growing wider. I wanted a different kind of consistency. I wanted to say find a form of scaling form of pan and zoom it would apply to the largest bit of text understanding that that might be one being really tall and a different one being really wide so big enough for all of the text. Ideally all the text would be centered in the area. Again that's very simple if you just have one thing but when I'm first saying I want to fit this ideal shape that holds any of my things and then I need to fit the current letter into that ideal shape that's where it's getting weird. For now. Never mind. One of my concerns with how to lay out a grid of items. Seems like a common enough idea. He was kind of a pain. I used one rectangle to show the ideal size and shape of the first item. Then one point show how far left to move excuse me right to move the items in the second column and another point to show how far down to move the items in the bottom row that was a bit ugly at best and whenever I move the initial rectangle I expected everything to slide with it or hope it would but that isn't what happened I definitely need something closer to a rectangle to select that area current plans I think I'm going to use a dot to locate the main item the big item and separate from that I'm only going to have a resize control The fonts always draw on its size 1 so in this case it really makes sense by say three that means a height of three so that ratio is more than just a ratio it's the size of the font. Then I'll use a rectangle to draw the area for the smaller demos. But I'm not doing the outline of it. The four corners of the rectangle refer to four extreme items in the grid. And exact location of the item relative to that point is the same as the big thing. So some stuff is definitely getting cut off, it's not a rectangle to enclose everything like I originally imagined. But what this gives us is the ability to move things together. And then this will need its own separate font size. Originally thought all that should be automatic but there's really no point. We need to change the attachment point for each of these items. Right now the attachment point is the far left of the letter and the baseline of the letter. In this simple example in this simple example the baseline is always the bottom for every letter and all the letters are the same height going from the baseline to Capitol top. So that makes my life easier in this case, but in general we need better ways to line up text. In the bare minimum case some way to move the 00 point to someplace convenient before we start doing other transforms.
+
+## Too much boilerplate
+
+```
+  const bigFontSizeSchedule: ScheduleInfo & { type: "number" } = {
+    description: "big font size",
+    type: "number",
+    schedule: [
+      {
+        time: 0,
+        value: 6,
+      },
+    ],
+  };
+```
+
+Is very verbose for code.
+I'm not sure how to fix that.
+More than just boilerplate, that's oddly tricky
+
+I didn't even need a schedule.
+I just wanted access to the schedule editor.
+I only needed one value, and a lot of my later code would also be simpler if this was not a schedule.
+
+In the past I said it we might as well make (almost) everything a schedule because why not.
+It would be good to have some wrappers or something around this to avoid the boilerplate and improve the experience.
+
+## interpolatePoints()
+
+interpolatePoints(), interpolateRects(), etc, that code is all inconvenient.
+I never remember what to type and VS code doesn't have any way to give me a suggestion.
+
+Instead of
+`interpolatePoints(timeInMs, bigLocationSchedule.schedule);` maybe `bigLocationSchedule.interpolate(timeInMs)`.It's small but it's a place where I get stuck a lot.
+
+I've been thinking about this for a different reason.
+
+I think the code for loading a schedule is still linear.
+I've been meaning to make that into a binary search.
+Let's put all of this together in one object.
+See [../src/binary-search.ts](../src/binary-search.ts)
+
+## Bug
+
+I found an old bug that I thought had already been fixed.
+I documented it because I didn't want to get off track.
+This is just frustrating.
+
+The start and end are both messed up for some chapters of the showcase
+
+## I still don't have a way to save just one scene!
+
+These little silly things are getting in the way.
+It was a minor improvement I've been meaning to add for a while.
+
+## Change the way we save the state.
+
+We save the current state a lot, to record the users changes.
+Each time we restart we reload from the typescript defaults.
+And those get saved to the database with the user's changes a lot.
+We removed some duplicates, but they still get saved and mixed in.
+
+Proposal:
+Each time we restart, this editor records the initial typescript defaults.
+It does *not* save those to the database.
+(Maybe just the first time, if nothing else is in the database.)
+It saves those to a special place in memory.
+After saving that, we restore the most recent thing from the database.
+(Leave the defaults if nothing was in the database.)
+When we give the users a \<select> full of choices, that should include anything from the database and this special item that we read from the initial state.
+
+This means that we don't lose our state in the web page when we save something in VS Code.
+That's how most of the page works.
+But the visual editor parts require the user to do a little extra work, to request to restore the state.
+
+This comes closer to our final goal.
+That involves the database being the master, and the part from TypeScript being available for a "reset."
+

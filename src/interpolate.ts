@@ -259,6 +259,17 @@ export function interpolateRects(
   }
 }
 
+export function interpolatePoint(
+  progress: number,
+  from: Point,
+  to: Point,
+): Point {
+  return {
+    x: lerp(from.x, to.x, progress),
+    y: lerp(from.y, to.y, progress),
+  };
+}
+
 /**
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
@@ -274,10 +285,7 @@ export function interpolatePoints(
     return relevant.value;
   } else {
     const { from, to, progress } = relevant;
-    return {
-      x: lerp(from.x, to.x, progress),
-      y: lerp(from.y, to.y, progress),
-    };
+    return interpolatePoint(progress, from, to);
   }
 }
 

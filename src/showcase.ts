@@ -20,8 +20,8 @@ import {
   easeOut,
   interpolateColor,
   interpolateNumbers,
+  interpolatePoint,
   interpolatePoints,
-  interpolateRectangle,
   interpolateRects,
   Keyframe,
   Keyframes,
@@ -3208,32 +3208,42 @@ import imageUrl from "./Philip Smolen.jpeg";
   //   .H(0)
   //   .V(0).pathShape;
   const samplePathShape: PathShape | undefined = undefined;
-  const bigRectangleSchedule: ScheduleInfo & { type: "rectangle" } = {
-    description: "big",
-    type: "rectangle",
-    schedule: [{ time: 0, value: { x: 2.9, y: 1.5, width: 1, height: 6 } }],
+  const bigLocationSchedule: ScheduleInfo & { type: "point" } = {
+    description: "big location",
+    type: "point",
+    schedule: [
+      { time: 0, value: { x: 3.323921783625731, y: 0.8147843567251463 } },
+    ],
   };
-  const smallRectangleSchedule: ScheduleInfo & { type: "rectangle" } = {
-    description: "small",
+  const bigFontSizeSchedule: ScheduleInfo & { type: "number" } = {
+    description: "big font size",
+    type: "number",
+    schedule: [
+      {
+        time: 0,
+        value: 5,
+      },
+    ],
+  };
+  const smallLocationsSchedule: ScheduleInfo & { type: "rectangle" } = {
+    description: "small locations",
     type: "rectangle",
     schedule: [
       {
         time: 0,
-        value: { x: 7.7, y: 1.5151751969961968, width: 1, height: 2.5 },
+        value: {
+          x: 8.458082485104274,
+          y: 1.2240703961160762,
+          width: 6.0620267502482585,
+          height: 3.6159806700319987,
+        },
       },
     ],
   };
-  const rightSchedule: ScheduleInfo & { type: "point" } = {
-    description: "right",
-    type: "point",
-    schedule: [
-      { time: 0, value: { x: 10.779843225083987, y: 1.6555431131019036 } },
-    ],
-  };
-  const downSchedule: ScheduleInfo & { type: "point" } = {
-    description: "down",
-    type: "point",
-    schedule: [{ time: 0, value: { x: 7, y: 5 } }],
+  const smallFontSizeSchedule: ScheduleInfo & { type: "number" } = {
+    description: "small font size",
+    type: "number",
+    schedule: [{ time: 0, value: 2 }],
   };
   const sampleColors: readonly string[] = myRainbow.filter(
     (value) => value != myRainbow.orange && value != myRainbow.cssBlue,
@@ -3258,12 +3268,12 @@ import imageUrl from "./Philip Smolen.jpeg";
   };
   const scene: Showable = {
     description: title,
-    duration: 60_000,
+    duration: 45_000,
     schedules: [
-      bigRectangleSchedule,
-      smallRectangleSchedule,
-      rightSchedule,
-      downSchedule,
+      bigLocationSchedule,
+      bigFontSizeSchedule,
+      smallLocationsSchedule,
+      smallFontSizeSchedule,
       positionSchedule,
       boldnessSchedule,
     ],
@@ -3277,61 +3287,71 @@ import imageUrl from "./Philip Smolen.jpeg";
       context.strokeStyle = myRainbow.orange;
       context.lineWidth *= footerSizeRatio;
       context.stroke(footerPath);
-      //
-      const bigRectangle = interpolateRects(
-        timeInMs,
-        bigRectangleSchedule.schedule,
-      );
-      const smallRectangle = interpolateRects(
-        timeInMs,
-        smallRectangleSchedule.schedule,
-      );
-      const right = interpolatePoints(timeInMs, rightSchedule.schedule);
-      const down = interpolatePoints(timeInMs, downSchedule.schedule);
-      const baseRectangles: readonly ReadOnlyRect[] = (() => {
-        const result = [bigRectangle];
-        const dx = right.x - smallRectangle.x;
-        const dy = down.y - smallRectangle.y;
-        const secondRow = smallRectangle.y + dy;
-        for (let i = 0; i < 3; i++) {
-          const rectangle = { ...smallRectangle, x: smallRectangle.x + i * dx };
-          result.push(rectangle);
-        }
-        for (let i = 2; i >= 0; i--) {
-          const rectangle = {
-            ...smallRectangle,
-            x: smallRectangle.x + i * dx,
-            y: secondRow,
-          };
-          result.push(rectangle);
-        }
-        return result;
-      })();
-      function makeCurrentRectangles(
+      const baseSampleInfos: readonly { location: Point; fontSize: number }[] =
+        (() => {
+          const bigLocation = interpolatePoints(
+            timeInMs,
+            bigLocationSchedule.schedule,
+          );
+          const bigFontSize = interpolateNumbers(
+            timeInMs,
+            bigFontSizeSchedule.schedule,
+          );
+          const result = [{ location: bigLocation, fontSize: bigFontSize }];
+          const smallLocations = interpolateRects(
+            timeInMs,
+            smallLocationsSchedule.schedule,
+          );
+          const smallFontSize = interpolateNumbers(
+            timeInMs,
+            smallFontSizeSchedule.schedule,
+          );
+          const topRowXs = [
+            smallLocations.x,
+            smallLocations.x + smallLocations.width / 2,
+            smallLocations.x + smallLocations.width,
+          ];
+          topRowXs.forEach((x) => {
+            result.push({
+              location: { x, y: smallLocations.y },
+              fontSize: smallFontSize,
+            });
+          });
+          const bottomRowXs = topRowXs.toReversed();
+          bottomRowXs.forEach((x) => {
+            result.push({
+              location: { x, y: smallLocations.y + smallLocations.height },
+              fontSize: smallFontSize,
+            });
+          });
+          return result;
+        })();
+      const numberOfSamples = baseSampleInfos.length;
+      function makeCurrentSamples(
         startIndexOffset: number,
         stageProgress: number,
-      ): readonly ReadOnlyRect[] {
-        const result = initializedArray(
-          baseRectangles.length,
-          (resultIndex) => {
-            const startIndex = positiveModulo(
-              startIndexOffset + resultIndex,
-              baseRectangles.length,
-            );
-            const startRectangle = baseRectangles[startIndex];
-            const endIndex = (startIndex + 1) % baseRectangles.length;
-            const endRectangle = baseRectangles[endIndex];
-            const resultRectangle = interpolateRectangle(
+      ): readonly { location: Point; fontSize: number }[] {
+        const result = initializedArray(numberOfSamples, (resultIndex) => {
+          const startIndex = positiveModulo(
+            startIndexOffset + resultIndex,
+            numberOfSamples,
+          );
+          const startInfo = baseSampleInfos[startIndex];
+          const endIndex = (startIndex + 1) % numberOfSamples;
+          const endInfo = baseSampleInfos[endIndex];
+          const resultSample = {
+            location: interpolatePoint(
               stageProgress,
-              startRectangle,
-              endRectangle,
-            );
-            return resultRectangle;
-          },
-        );
+              startInfo.location,
+              endInfo.location,
+            ),
+            fontSize: lerp(startInfo.fontSize, endInfo.fontSize, stageProgress),
+          };
+          return resultSample;
+        });
         return result;
       }
-      const globalProgress = (timeInMs / this.duration) * baseRectangles.length;
+      const globalProgress = (timeInMs / this.duration) * numberOfSamples;
       const startIndexOffset = Math.floor(globalProgress);
       const stageProgress = globalProgress - startIndexOffset;
       const positionProgress = interpolateNumbers(
@@ -3343,13 +3363,12 @@ import imageUrl from "./Philip Smolen.jpeg";
         boldnessSchedule.schedule,
       );
       const font = makeLineFontRatio(1, boldnessFactor);
-      context.lineWidth = font.strokeWidth;
-      const currentRectangles = makeCurrentRectangles(
+      const currentSamples = makeCurrentSamples(
         startIndexOffset,
         positionProgress,
       );
-      zipper([currentRectangles, sampleColors, chars]).forEach(
-        ([currentRectangle, sampleColor, char]) => {
+      zipper([currentSamples, sampleColors, chars]).forEach(
+        ([currentSample, sampleColor, char], index) => {
           context.strokeStyle = sampleColor;
           // if (samplePathShape) {
           //   const finalPathShape = samplePathShape.makeItFit(
@@ -3359,24 +3378,26 @@ import imageUrl from "./Philip Smolen.jpeg";
           //   context.lineJoin = "miter";
           //   context.stroke(finalPathShape.canvasPath);
           // }
+          context.lineWidth = font.strokeWidth;
           context.lineJoin = "round";
-          const pathShape = ParagraphLayout.singlePathShape({
+          const width = 16;
+          const path = ParagraphLayout.singlePathShape({
             font,
             text: char,
-          }).makeItFit(currentRectangle, "srcRect completely covers destRect");
-          context.stroke(pathShape.canvasPath);
+            alignment: "center",
+            width,
+          }).translate(-width / 2, 0).canvasPath;
+          const originalMatrix = context.getTransform();
+          context.translate(currentSample.location.x, currentSample.location.y);
+          context.scale(currentSample.fontSize, currentSample.fontSize);
+          context.stroke(path);
+          context.strokeStyle =
+            /*sampleColors[(index+3)%numberOfSamples]*/ "#00000080";
+          context.lineWidth /= 6;
+          context.stroke(path);
+          context.setTransform(originalMatrix);
         },
       );
-      /**
-       * TODO
-       * * The resize logic sucks.
-       * * I wanted a rectangle of the right size to hold the biggest letter.
-       * * Possibly one is the widest and a different one is the tallest, so we merge them.
-       * * The resize needs to apply to the strokeWidth, not just the shape.
-       * * "srcRect completely covers destRect" was part of my workaround
-       *   * I only got the height right, so I made the width small and hoped for the best.
-       *   * This is ugly at best.
-       */
     },
   };
   sceneList.add(scene);
