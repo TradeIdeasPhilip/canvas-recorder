@@ -346,3 +346,14 @@ export class ArrayMap<Key, Value> {
  */
 export const philDebug: Record<string, any> = {};
 (globalThis as any).philDebug = philDebug;
+
+export function lerp5(
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  x: number,
+): number {
+  const slope = (y2 - y1) / (x2 - x1);
+  return (x - x1) * slope + y1;
+}

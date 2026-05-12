@@ -452,7 +452,8 @@ interpolatePoints(), interpolateRects(), etc, that code is all inconvenient.
 I never remember what to type and VS code doesn't have any way to give me a suggestion.
 
 Instead of
-`interpolatePoints(timeInMs, bigLocationSchedule.schedule);` maybe `bigLocationSchedule.interpolate(timeInMs)`.It's small but it's a place where I get stuck a lot.
+`interpolatePoints(timeInMs, bigLocationSchedule.schedule);` maybe `bigLocationSchedule.interpolate(timeInMs)`.
+It's small but it's a place where I get stuck a lot.
 
 I've been thinking about this for a different reason.
 
@@ -497,3 +498,15 @@ But the visual editor parts require the user to do a little extra work, to reque
 This comes closer to our final goal.
 That involves the database being the master, and the part from TypeScript being available for a "reset."
 
+## Results
+
+* [Video](https://youtu.be/RgPUcpqsLUs) showing the results and some behind the scenes work.
+* I made [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/d2519eac1ff53e29dfb385b7b5b0e17eff23541a) before dictating that diatribe into my phone.
+* [This commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/da9d0c4990535bcc1fcd4eeb6f8451050f0d05fb) has the final version of the code, the version I used to create the video.
+
+## Final thoughts.
+
+I'm frustrated but hopeful.
+I keep thinking that my next video will be easy.
+And I keep running into annoying problems.
+I'm hopeful that if I keep pushing like this I can get past the rough spots and create a tool that's easy to use.
