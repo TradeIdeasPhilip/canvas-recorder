@@ -495,7 +495,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
   if (!audioSourceNode && !rafFallbackPlaying) {
     // No source node running: first play, after pause/seek, or after repeat.
     let startMs = playPositionSeconds.valueAsNumber * 1000;
-    if (startMs >= sectionEndTime && !continueRadioButton.checked) {
+    if (startMs >= sectionEndTime - 0.05 && !continueRadioButton.checked) {
       // At the end — jump to the beginning.
       startMs = sectionStartTime;
       loadPlayPositionSeconds(startMs);
@@ -511,7 +511,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
 
   const timeInMs = currentAudioTimeMs();
 
-  if (timeInMs >= sectionEndTime && !continueRadioButton.checked) {
+  if (timeInMs >= sectionEndTime - 0.05 && !continueRadioButton.checked) {
     if (repeatRadioButton.checked) {
       // Loop: restart from the beginning of the section.
       loadPlayPositionSeconds(sectionStartTime);
@@ -999,25 +999,20 @@ function updateFromSelect() {
     ? info.parent.children.at(info.siblingPosition + 1)
     : undefined;
   updateRow(nextSiblingCells, nextSibling);
-  sectionStartTime = info.start;
+  // Round both boundaries to 0.1 ms precision (matching the toFixed(4) display).
+  // Rounding start UP and end DOWN prevents the range from ever pointing at a frame
+  // that belongs to the adjacent chapter, even after a toFixed(4) round-trip.
+  sectionStartTime = Math.ceil(info.start * 10) / 10;
   sectionEndTime = info.end;
   if (sectionEndTime < toShow.duration) {
-    // The exact time when one section ends and the next begins typically belongs to the
-    // next section.  MakeShowableInSeries ensures that we don't have a frame with
-    // both or neither.  This is only an issue when you pause at the very end of a section.
-    sectionEndTime -= 0.1;
+    // Floor first so that subtracting 0.1 lands on a clean 0.1 ms boundary.
+    sectionEndTime = Math.floor(sectionEndTime * 10) / 10 - 0.1;
   }
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically clamps to [min, max].  Make the number match.
-  // Round the position UP to the nearest 0.1 ms so that the subsequent toFixed(4)
-  // conversion cannot push it before sectionStartTime and into the previous chapter.
-  // (The end already has a −0.1 ms guard; this mirrors that logic for the start.)
   const rawPositionMs = playPositionRange.valueAsNumber;
-  const safePositionMs = Math.max(
-    rawPositionMs,
-    Math.ceil(sectionStartTime * 10) / 10,
-  );
+  const safePositionMs = Math.max(rawPositionMs, sectionStartTime);
   loadPlayPositionSeconds(safePositionMs);
   selectedSlideChild = null;
   updateComponentEditor(info.selectable);
