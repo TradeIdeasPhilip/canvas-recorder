@@ -1,5 +1,8 @@
 {
   "files.trimTrailingWhitespace": true,
+  "files.readonlyInclude": {
+    "internals.md": true
+  },
   "cSpell.words": [
     "Analyser",
     "azúcar",
