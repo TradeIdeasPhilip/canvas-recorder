@@ -610,7 +610,7 @@ const liveControls = getById("liveControls", HTMLFieldSetElement);
  */
 let canceled = false;
 
-async function startRecording() {
+async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   stopAudio();
   startRecordingButton.disabled = true;
   liveControls.disabled = true;
@@ -648,7 +648,20 @@ async function startRecording() {
 
   output.addVideoTrack(videoSource, { frameRate: FPS });
 
-  const audioBuffer = audioBuilder.getAudioBuffer();
+  const fullAudioBuffer = audioBuilder.getAudioBuffer();
+  let audioBuffer: AudioBuffer;
+  if (saveStartMs === 0 && saveEndMs >= toShow.duration) {
+    audioBuffer = fullAudioBuffer;
+  } else {
+    const sr = fullAudioBuffer.sampleRate;
+    const s0 = Math.round((saveStartMs / 1000) * sr);
+    const s1 = Math.min(Math.round((saveEndMs / 1000) * sr), fullAudioBuffer.length);
+    const len = Math.max(0, s1 - s0);
+    audioBuffer = new AudioBuffer({ numberOfChannels: fullAudioBuffer.numberOfChannels, length: len, sampleRate: sr });
+    for (let ch = 0; ch < fullAudioBuffer.numberOfChannels; ch++) {
+      audioBuffer.copyToChannel(fullAudioBuffer.getChannelData(ch).subarray(s0, s0 + len), ch);
+    }
+  }
   const audioSource = new AudioBufferSource({
     codec: "aac",
     bitrate: QUALITY_HIGH,
@@ -668,8 +681,8 @@ async function startRecording() {
   // Offline loop: draw + push frames (not limited to realtime)
   let frameNumber = 0;
   while (!canceled) {
-    const timeInMs = (frameNumber + 0.5) * frameDuration;
-    if (timeInMs > toShow.duration) {
+    const timeInMs = saveStartMs + (frameNumber + 0.5) * frameDuration;
+    if (timeInMs >= saveEndMs) {
       break;
     }
     showFrame(timeInMs, false);
@@ -709,10 +722,117 @@ async function startRecording() {
   `;
 }
 
-startRecordingButton.addEventListener("click", startRecording);
 cancelRecordingButton.addEventListener("click", () => {
   canceled = true;
   cancelRecordingButton.disabled = true;
+});
+
+// ---------------------------------------------------------------------------
+// Save dialog
+// ---------------------------------------------------------------------------
+
+const saveDialog = getById("saveDialog", HTMLDialogElement);
+const saveChapterSelect = getById("saveChapterSelect", HTMLSelectElement);
+const saveStartSecondsInput = getById("saveStartSeconds", HTMLInputElement);
+const saveEndSecondsInput = getById("saveEndSeconds", HTMLInputElement);
+const saveInfoStart = getById("saveInfoStart", HTMLTableCellElement);
+const saveInfoEnd = getById("saveInfoEnd", HTMLTableCellElement);
+const saveInfoDuration = getById("saveInfoDuration", HTMLTableCellElement);
+const saveInfoFrames = getById("saveInfoFrames", HTMLTableCellElement);
+
+function formatTimecode(ms: number): string {
+  const totalFrames = Math.round((ms * FPS) / 1000);
+  const frames = totalFrames % FPS;
+  const totalSec = Math.floor(totalFrames / FPS);
+  const seconds = totalSec % 60;
+  const minutes = Math.floor(totalSec / 60) % 60;
+  const hours = Math.floor(totalSec / 3600);
+  return `${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}.${String(frames).padStart(2, "0")}`;
+}
+
+function updateSaveDialogInfo(): void {
+  const startMs = (saveStartSecondsInput.valueAsNumber || 0) * 1000;
+  const endMs = (saveEndSecondsInput.valueAsNumber || 0) * 1000;
+  const durationMs = Math.max(0, endMs - startMs);
+  const invalid = endMs <= startMs;
+  saveInfoStart.textContent = formatTimecode(startMs);
+  saveInfoEnd.textContent = formatTimecode(endMs);
+  saveInfoDuration.textContent = formatTimecode(durationMs);
+  saveInfoDuration.style.color = invalid ? "red" : "";
+  saveInfoFrames.textContent = Math.floor((durationMs * FPS) / 1000).toLocaleString();
+  saveInfoFrames.style.color = invalid ? "red" : "";
+}
+
+function setSaveRange(startMs: number, endMs: number): void {
+  saveStartSecondsInput.value = (startMs / 1000).toString();
+  saveEndSecondsInput.value = (endMs / 1000).toString();
+  updateSaveDialogInfo();
+}
+
+function populateSaveChapterSelect(): void {
+  saveChapterSelect.replaceChildren();
+  const entire = document.createElement("option");
+  entire.textContent = "Entire video";
+  entire.dataset.startMs = "0";
+  entire.dataset.endMs = toShow.duration.toString();
+  saveChapterSelect.append(entire);
+  debug.forEach((item) => {
+    const opt = document.createElement("option");
+    opt.textContent = item.prefix + item.description;
+    opt.dataset.startMs = item.start.toString();
+    opt.dataset.endMs = item.end.toString();
+    saveChapterSelect.append(opt);
+  });
+}
+
+saveChapterSelect.addEventListener("change", () => {
+  const opt = saveChapterSelect.selectedOptions[0];
+  if (opt) {
+    setSaveRange(
+      parseFloat(opt.dataset.startMs ?? "0"),
+      parseFloat(opt.dataset.endMs ?? toShow.duration.toString()),
+    );
+  }
+});
+
+getById("saveAllBtn", HTMLButtonElement).addEventListener("click", () => {
+  saveChapterSelect.selectedIndex = 0;
+  setSaveRange(0, toShow.duration);
+});
+
+getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener("click", () => {
+  const info = debug[select.selectedIndex];
+  if (info) {
+    saveChapterSelect.selectedIndex = info.absolutePosition + 1;
+    setSaveRange(info.start, info.end);
+  }
+});
+
+saveStartSecondsInput.addEventListener("change", () => {
+  saveChapterSelect.selectedIndex = -1;
+  updateSaveDialogInfo();
+});
+
+saveEndSecondsInput.addEventListener("change", () => {
+  saveChapterSelect.selectedIndex = -1;
+  updateSaveDialogInfo();
+});
+
+getById("saveDialogCancelBtn", HTMLButtonElement).addEventListener("click", () =>
+  saveDialog.close(),
+);
+
+getById("saveOkBtn", HTMLButtonElement).addEventListener("click", () => {
+  const startMs = (saveStartSecondsInput.valueAsNumber || 0) * 1000;
+  const endMs = (saveEndSecondsInput.valueAsNumber || 0) * 1000;
+  saveDialog.close();
+  startRecording(startMs, endMs);
+});
+
+startRecordingButton.addEventListener("click", () => {
+  populateSaveChapterSelect();
+  setSaveRange(0, toShow.duration);
+  saveDialog.showModal();
 });
 
 /**
@@ -2090,7 +2210,9 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
         select.selectedIndex = 0;
       }
       updateFromSelect();
-      playPositionSeconds.value = timeInSeconds;
+      const savedMs = parseFloat(timeInSeconds) * 1000;
+      const clampedMs = Math.max(sectionStartTime, Math.min(sectionEndTime, savedMs));
+      loadPlayPositionSeconds(clampedMs);
       loadPlayPositionRange();
       querySelector(
         `input[name="onSectionEnd"][value="${state}"]`,
