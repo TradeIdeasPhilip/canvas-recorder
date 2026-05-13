@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "record": "tsx record/cli-record.ts"
+    "record": "tsx record/cli-record.ts",
+    "internals": "tsx record/cli-internals.ts"
   },
   "devDependencies": {
     "@types/bezier-js": "^4.1.3",

@@ -13,6 +13,7 @@ npm run dev        # Start Vite dev server (primary workflow)
 npm run build      # tsc + vite build → docs/ (for GitHub Pages)
 npm run preview    # Preview the production build
 npm run record -- alpha-test # Build a video using command line FFMPEG, "alpha-test" is the name of the video.
+npm run internals  # Regenerate internals.md (font character tables, etc.)
 ```
 
 No test runner. No linter script. TypeScript errors surface in the IDE and on `npm run build`.
@@ -103,6 +104,8 @@ Draws a labeled Cartesian grid. Uses math y-up convention. Labels render *outsid
 **`src/glib/my-rainbow.ts`** — `myRainbow`: a curated array of colors used as the default palette throughout.
 
 **`src/glib/line-font.ts`** + **`src/glib/paragraph-layout.ts`** — stroke-based text rendered as `PathShape` (encoder-friendly, no raster fonts).
+
+**Available font characters:** `internals.md` lists every character in `makeLineFont()`, `Font.futuraL()`, and `Font.cursive()` with Unicode code points. Consult it before using any non-ASCII character in text content. Run `npm run internals` to regenerate.
 
 ## Pixel-Perfect Encoding Notes (from README)
 
