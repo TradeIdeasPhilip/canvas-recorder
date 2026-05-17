@@ -1328,6 +1328,18 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         if (sel.schedules?.length && last.schedules.length) {
           applySnapshot(sel.schedules, last.schedules);
         }
+        if (sel.components !== undefined && last.components) {
+          sel.components.length = 0;
+          for (const sc of last.components) {
+            const factory = componentRegistry.get(sc.registryKey);
+            if (!factory) continue;
+            const child = factory();
+            componentRegistryKey.set(child, sc.registryKey);
+            if (child.schedules?.length)
+              applySnapshot(child.schedules, sc.schedules);
+            sel.components.push(child);
+          }
+        }
       }),
     );
   }

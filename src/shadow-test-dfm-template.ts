@@ -61,7 +61,12 @@ class NineShapes extends VisuallyEditable {
     const layout = new RectangleScheduleInfo(
       "layout",
       "The shapes will be put into this rectangle.",
-      [{ time: 0, value: { x: 2, y: 2, width: 6, height: 4 } }],
+      [
+        { time: 0, value: { x: 0.5, y: 4.5, width: 6, height: 4 } },
+        { time: 3000, value: { x: 5, y: 0.5, width: 6, height: 4 } },
+        { time: 6500, value: { x: 9.5, y: 4.5, width: 6, height: 4 } },
+        { time: 9500, value: { x: 0.5, y: 0.5, width: 15, height: 8 } },
+      ],
     );
     super(
       "nineShapes",
