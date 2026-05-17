@@ -484,7 +484,7 @@ We removed some duplicates, but they still get saved and mixed in.
 
 Proposal:
 Each time we restart, this editor records the initial typescript defaults.
-It does *not* save those to the database.
+It does _not_ save those to the database.
 (Maybe just the first time, if nothing else is in the database.)
 It saves those to a special place in memory.
 After saving that, we restore the most recent thing from the database.
@@ -500,9 +500,9 @@ That involves the database being the master, and the part from TypeScript being 
 
 ## Results
 
-* [Video](https://youtu.be/RgPUcpqsLUs) showing the results and some behind the scenes work.
-* I made [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/d2519eac1ff53e29dfb385b7b5b0e17eff23541a) before dictating that diatribe into my phone.
-* [This commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/da9d0c4990535bcc1fcd4eeb6f8451050f0d05fb) has the final version of the code, the version I used to create the video.
+- [Video](https://youtu.be/RgPUcpqsLUs) showing the results and some behind the scenes work.
+- I made [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/d2519eac1ff53e29dfb385b7b5b0e17eff23541a) before dictating that diatribe into my phone.
+- [This commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/da9d0c4990535bcc1fcd4eeb6f8451050f0d05fb) has the final version of the code, the version I used to create the video.
 
 ## Final thoughts.
 
@@ -510,3 +510,101 @@ I'm frustrated but hopeful.
 I keep thinking that my next video will be easy.
 And I keep running into annoying problems.
 I'm hopeful that if I keep pushing like this I can get past the rough spots and create a tool that's easy to use.
+
+# More TODOs
+
+## unnamed fields
+
+Chrome has started complaining:
+
+> A form field element has neither an id nor a name attribute. This might prevent the browser from correctly autofilling the form.
+>
+> To fix this issue, add a unique id or name attribute to a form field. This is not strictly needed, but still recommended even if you have an autocomplete attribute on the same element.
+
+It is complaining about controls that get created on the fly in the Visual Editor.
+These are both \<input> and \<select> elements.
+At the moment I get 9 of these, but that will vary depending on the current GUI state.
+
+**Fixed!!**
+
+## Next step:  Recursive Saves
+
+We seem to have a problem.
+A bug or a feature that was never completed.
+We don't seem be to saving components at all.
+
+The details vary.
+When I try different tests, I see different things in the database dump.
+I can't find any meaningful pattern to the results.
+I never see anything saved for the components.
+Other details of `=== shadow-test|Slide 1: Shape Gallery ===` vary from test to test.
+
+The visual editor can save simple things just fine.
+I did a lot of testing on Slide 5: Vertical Lines.
+I got confused at first, but everything is working on this slide.
+
+Notice `const multiLevelTest: ScheduleInfo = shadowTest.shapeGallery.nineShapes.layout;` in shadow-test-dfm-template.ts.
+This shows how I think this should be loaded.
+
+It appears that we are not making any attempt to save the components of a slide.
+I don't see any references to the the components in the database ever.
+And (no surprise) all of my settings in my components get reset when I hit refresh.
+
+### Fix it!
+
+Let's fix this slide.
+
+Do we need to create our slide object now?
+(Called "## Miscellaneous Generic Component", above.)
+That would know how to save and load itself from the database.
+
+Or maybe start with a lower level solution?
+Something smaller that only applies to this slide,
+but could be copied into the "Miscellaneous Generic Component" and other places.
+
+I'm leaning very slightly toward the first option.
+
+### New database schema
+
+This might be a good time to change the database.
+
+I think we're going to need a guid for a key.
+I recently found both `=== shadow-test|Slide 5: Vertical Lines ===` and  `=== shadow-test|Slide 5: vertical Lines ===` in the database.
+I'm sure I **confused** myself when I renamed that and didn't realized that I'd lost the old database settings.
+Also, a lot of slides will start with a default name like "slide6" and will be renamed to something more relevant when the user has time, this will be a common use case.
+But this has been coming for a long time.
+
+Will we still want to save the name of the project somewhere?
+(Currently it's smashed into the key.)
+I don't think so.
+We're building a tree.
+You just need the top node of the tree to find the rest of the tree, that's what a tree is.
+I've been thinking about one tree per video, but that's not a requirement, these are just resources that the main program can use as it sees fit.
+E.g. libraries shared between videos.
+
+I just saved the current state of the the database into shadow-test-dfm.ts, where it will sit on GitHub forever.
+So there is no need to try to preserve old data.
+Just jump to version 2 of the database and throw the old stuff out.
+
+## Saving to Disk
+
+It's a code generator.
+Here are some relevant clips from another conversation.
+
+> I just had an epiphany:  We don't need these changes to be instant.  In fact, we might not want them to be instant.  Each time we change code, vite resets.  I do a pretty good job of smoothing that out so the user barely notices.  But if we are constantly making changes it might not be great to constantly restart.  Also, this is only important when I choose to go back to the code editor window.  I don't need instant feedback from VS code because the GUI tool was *made for instant feedback*!  So maybe we need just a single button to download the latest code.  I.e. no instant update, no separate command line program, no serious security concerns.  Maybe initialize the save dialog to point to the exact spot in the project where we want the file?
+>
+> In short, I'm thinking about taking our "dump all DB state" button and replacing the json output with automatically generated typescript code.  I've been thinking about this problem for a while and I think this may be the answer.
+
+
+> Re:  "you'd pre-fill suggestedName with something like src/generated/visual-editor-state.ts " Now that I think about it, the user would probably have to do this the first time, but we can save that value and reuse it each time.  (some save widgets do that automatically but I can't remember which programming environment I was in, I don't think it was the web.)
+
+
+> On point 2: showSaveFilePicker does NOT remember the last location across page loads. You'd need to store the FileSystemFileHandle (or at least the path) yourself. But FileSystemFileHandle can be persisted via IndexedDB (you can serialize it with indexedDB since file handles are serializable in the File System Access API).
+>
+> So the approach would be to store the file handle in IndexedDB after the user first picks a location, then retrieve and reuse it on subsequent saves—though you might need to request permission again with requestPermission() before writing.
+
+## Too Many Duplicates
+
+Each time I hit refresh, now my settings are still visible and unchanged as they should be, but there is a new entry in the database.
+It's a often a duplicate of what's already in there.
+Can we check that the newest value isn't the same as the value we're about to add?

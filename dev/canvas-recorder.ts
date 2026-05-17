@@ -465,7 +465,9 @@ async function initAudio(): Promise<void> {
   const completed = await doIt(toShow, 0);
   const time2 = performance.now();
   if (!completed) {
-    console.log(`Audio init superseded after ${(time2 - time1).toFixed(0)} ms.`);
+    console.log(
+      `Audio init superseded after ${(time2 - time1).toFixed(0)} ms.`,
+    );
     return;
   }
   audioBuilder = newBuilder;
@@ -655,11 +657,21 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   } else {
     const sr = fullAudioBuffer.sampleRate;
     const s0 = Math.round((saveStartMs / 1000) * sr);
-    const s1 = Math.min(Math.round((saveEndMs / 1000) * sr), fullAudioBuffer.length);
+    const s1 = Math.min(
+      Math.round((saveEndMs / 1000) * sr),
+      fullAudioBuffer.length,
+    );
     const len = Math.max(0, s1 - s0);
-    audioBuffer = new AudioBuffer({ numberOfChannels: fullAudioBuffer.numberOfChannels, length: len, sampleRate: sr });
+    audioBuffer = new AudioBuffer({
+      numberOfChannels: fullAudioBuffer.numberOfChannels,
+      length: len,
+      sampleRate: sr,
+    });
     for (let ch = 0; ch < fullAudioBuffer.numberOfChannels; ch++) {
-      audioBuffer.copyToChannel(fullAudioBuffer.getChannelData(ch).subarray(s0, s0 + len), ch);
+      audioBuffer.copyToChannel(
+        fullAudioBuffer.getChannelData(ch).subarray(s0, s0 + len),
+        ch,
+      );
     }
   }
   const audioSource = new AudioBufferSource({
@@ -759,7 +771,9 @@ function updateSaveDialogInfo(): void {
   saveInfoEnd.textContent = formatTimecode(endMs);
   saveInfoDuration.textContent = formatTimecode(durationMs);
   saveInfoDuration.style.color = invalid ? "red" : "";
-  saveInfoFrames.textContent = Math.floor((durationMs * FPS) / 1000).toLocaleString();
+  saveInfoFrames.textContent = Math.floor(
+    (durationMs * FPS) / 1000,
+  ).toLocaleString();
   saveInfoFrames.style.color = invalid ? "red" : "";
 }
 
@@ -800,13 +814,16 @@ getById("saveAllBtn", HTMLButtonElement).addEventListener("click", () => {
   setSaveRange(0, toShow.duration);
 });
 
-getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener("click", () => {
-  const info = debug[select.selectedIndex];
-  if (info) {
-    saveChapterSelect.selectedIndex = info.absolutePosition + 1;
-    setSaveRange(info.start, info.end);
-  }
-});
+getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    const info = debug[select.selectedIndex];
+    if (info) {
+      saveChapterSelect.selectedIndex = info.absolutePosition + 1;
+      setSaveRange(info.start, info.end);
+    }
+  },
+);
 
 saveStartSecondsInput.addEventListener("change", () => {
   saveChapterSelect.selectedIndex = -1;
@@ -818,8 +835,9 @@ saveEndSecondsInput.addEventListener("change", () => {
   updateSaveDialogInfo();
 });
 
-getById("saveDialogCancelBtn", HTMLButtonElement).addEventListener("click", () =>
-  saveDialog.close(),
+getById("saveDialogCancelBtn", HTMLButtonElement).addEventListener(
+  "click",
+  () => saveDialog.close(),
 );
 
 getById("saveOkBtn", HTMLButtonElement).addEventListener("click", () => {
@@ -1210,6 +1228,14 @@ type HistoryRecord = { selectableKey: string; entries: HistoryEntry[] };
 
 const MAX_HISTORY_ENTRIES = 20;
 
+/**
+ * TypeScript defaults captured at page load — before any DB restoration.
+ * Keyed by {@link selectableKey}. Shown as a permanent "TypeScript defaults"
+ * option in the history select so the user can always reset to the
+ * code-defined starting point. Never written to IndexedDB.
+ */
+const tsDefaults = new Map<string, HistoryEntry>();
+
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open("canvas-recorder-schedules", 1);
@@ -1252,6 +1278,90 @@ async function writeHistory(
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+/**
+ * Snapshots the current (TypeScript-defined) schedule state for every
+ * selectable in the chapter list into {@link tsDefaults}.
+ * Must be called once at page load, before any DB restoration, so the
+ * map always reflects the true code-defined starting point.
+ */
+function captureDefaults(): void {
+  tsDefaults.clear();
+  const seen = new Set<string>();
+  for (const item of debug) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const hasSchedules = !!sel.schedules?.length;
+    const hasChildren = Array.isArray(sel.components);
+    if (!hasSchedules && !hasChildren) continue;
+    const entry: HistoryEntry = {
+      timestamp: 0,
+      schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
+    };
+    if (hasChildren) entry.components = [];
+    tsDefaults.set(key, entry);
+  }
+}
+
+/**
+ * Restores the most recent DB entry for every chapter that has one.
+ * Runs once at page load (after {@link captureDefaults}) so that Vite
+ * hot-reloads don't wipe out in-progress edits.
+ * Refreshes the schedule editor for the currently visible chapter when done.
+ */
+async function initFromDB(unloadBackup?: string | null): Promise<void> {
+  const seen = new Set<string>();
+  const restores: Promise<void>[] = [];
+  for (const item of debug) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!sel.schedules?.length && !Array.isArray(sel.components)) continue;
+    restores.push(
+      readHistory(key).then((record) => {
+        const last = record?.entries.at(-1);
+        if (!last) return;
+        if (sel.schedules?.length && last.schedules.length) {
+          applySnapshot(sel.schedules, last.schedules);
+        }
+      }),
+    );
+  }
+  await Promise.all(restores);
+
+  // Apply the synchronous unload backup if it's newer than what we just restored from DB.
+  if (unloadBackup) {
+    try {
+      const { key, entry } = JSON.parse(unloadBackup) as {
+        key: string;
+        entry: HistoryEntry;
+      };
+      const item = debug.find((d) => selectableKey(d.selectable) === key);
+      if (item) {
+        const sel = item.selectable;
+        const record = await readHistory(key);
+        const entries = record?.entries ?? [];
+        const lastTs = entries.at(-1)?.timestamp ?? 0;
+        if (entry.timestamp > lastTs) {
+          if (sel.schedules?.length && entry.schedules.length) {
+            applySnapshot(sel.schedules, entry.schedules);
+          }
+          entries.push(entry);
+          while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+          await writeHistory(key, entries);
+        }
+      }
+    } catch {
+      /* malformed backup — ignore */
+    }
+  }
+
+  const currentSel = debug[select.selectedIndex]?.selectable;
+  if (currentSel) updateScheduleEditor(currentSel);
 }
 
 function easeName(fn: ((t: number) => number) | undefined): string | undefined {
@@ -1313,22 +1423,41 @@ function selectableKey(selectable: Selectable): string {
   return `${toShowKey}|${selectable.description}`;
 }
 
-/** Reads history from IndexedDB and repopulates the history <select>. */
-async function refreshHistoryUI(selectable: Selectable) {
-  const record = await readHistory(selectableKey(selectable));
+/** Reads history from IndexedDB and repopulates the history <select>.
+ *  selectValue: explicit option to select; omit to default to the most recent DB entry. */
+async function refreshHistoryUI(selectable: Selectable, selectValue?: string) {
+  const key = selectableKey(selectable);
+  const record = await readHistory(key);
   const entries = record?.entries ?? [];
+  const hasDefaults = tsDefaults.has(key);
   scheduleHistorySelect.replaceChildren();
-  if (entries.length === 0) {
+  if (entries.length === 0 && !hasDefaults) {
     scheduleHistorySelect.hidden = true;
     loadScheduleBtn.hidden = true;
   } else {
     scheduleHistorySelect.hidden = false;
     loadScheduleBtn.hidden = false;
+    if (hasDefaults) {
+      const opt = document.createElement("option");
+      opt.value = "ts-defaults";
+      opt.textContent = "TypeScript defaults";
+      scheduleHistorySelect.append(opt);
+    }
     for (let i = entries.length - 1; i >= 0; i--) {
       const opt = document.createElement("option");
       opt.value = String(i);
       opt.textContent = new Date(entries[i].timestamp).toLocaleString();
       scheduleHistorySelect.append(opt);
+    }
+    // Use explicit selectValue if valid; otherwise default to most recent DB entry.
+    const target =
+      selectValue ??
+      (entries.length > 0 ? String(entries.length - 1) : undefined);
+    if (
+      target &&
+      [...scheduleHistorySelect.options].some((o) => o.value === target)
+    ) {
+      scheduleHistorySelect.value = target;
     }
   }
 }
@@ -1353,6 +1482,10 @@ async function saveScheduleState(selectable: Selectable) {
         ];
       })
     : undefined;
+  const newJson = JSON.stringify({
+    schedules: newSchedules,
+    components: newComponents,
+  });
   // Skip saving if nothing changed since the last entry (e.g. Vite hot-reload
   // with no user edits triggers beforeunload and would pollute history).
   const last = entries[entries.length - 1];
@@ -1361,11 +1494,19 @@ async function saveScheduleState(selectable: Selectable) {
       schedules: last.schedules,
       components: last.components,
     });
-    const newJson = JSON.stringify({
-      schedules: newSchedules,
-      components: newComponents,
-    });
     if (prevJson === newJson) return;
+  }
+  // Skip saving if the state is still the unmodified TypeScript defaults.
+  // This prevents auto-saves (visibilitychange on tab-hide, Vite hot-reload
+  // beforeunload) from overwriting a good DB entry with the page-load default
+  // before initFromDB has had a chance to restore from the DB.
+  const tsDefault = tsDefaults.get(key);
+  if (tsDefault) {
+    const defaultJson = JSON.stringify({
+      schedules: tsDefault.schedules,
+      components: tsDefault.components,
+    });
+    if (defaultJson === newJson) return;
   }
   const entry: HistoryEntry = {
     timestamp: Date.now(),
@@ -1375,7 +1516,7 @@ async function saveScheduleState(selectable: Selectable) {
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
-  await refreshHistoryUI(selectable);
+  await refreshHistoryUI(selectable, String(entries.length - 1));
 }
 
 /**
@@ -1398,7 +1539,19 @@ saveScheduleNowBtn.addEventListener("click", () => {
 loadScheduleBtn.addEventListener("click", () => {
   const target = currentSaveTarget();
   if (!target) return;
-  const index = parseInt(scheduleHistorySelect.value, 10);
+  const loadedValue = scheduleHistorySelect.value;
+  if (loadedValue === "ts-defaults") {
+    const defaults = tsDefaults.get(selectableKey(target));
+    if (!defaults) return;
+    if (target.schedules?.length && defaults.schedules.length) {
+      applySnapshot(target.schedules, defaults.schedules);
+    }
+    selectedSlideChild = null;
+    updateComponentEditor(target);
+    updateScheduleEditor(target, "ts-defaults");
+    return;
+  }
+  const index = parseInt(loadedValue, 10);
   readHistory(selectableKey(target)).then((record) => {
     const entry = record?.entries[index];
     if (!entry) return;
@@ -1419,13 +1572,56 @@ loadScheduleBtn.addEventListener("click", () => {
     }
     selectedSlideChild = null;
     updateComponentEditor(target);
-    updateScheduleEditor(target);
+    updateScheduleEditor(target, loadedValue);
   });
 });
 
 function saveOnUnload() {
   const selectable = currentSaveTarget();
-  if (selectable) saveScheduleState(selectable);
+  if (!selectable) return;
+  // Synchronous sessionStorage backup — the async DB write in saveScheduleState may
+  // not complete before the page navigates away (beforeunload race). initFromDB picks
+  // this backup up on the next load and writes it to IndexedDB at that point.
+  const hasSchedules = !!selectable.schedules?.length;
+  const hasChildren = Array.isArray(selectable.components);
+  if (hasSchedules || hasChildren) {
+    const key = selectableKey(selectable);
+    const schedules = hasSchedules
+      ? serializeSchedules(selectable.schedules!)
+      : [];
+    const components = hasChildren
+      ? selectable.components!.flatMap((child) => {
+          const rk = componentRegistryKey.get(child);
+          if (!rk || !child.schedules?.length) return [];
+          return [
+            { registryKey: rk, schedules: serializeSchedules(child.schedules) },
+          ];
+        })
+      : undefined;
+    const tsDefault = tsDefaults.get(key);
+    const newJson = JSON.stringify({ schedules, components });
+    const defaultJson = tsDefault
+      ? JSON.stringify({
+          schedules: tsDefault.schedules,
+          components: tsDefault.components,
+        })
+      : null;
+    if (newJson !== defaultJson) {
+      sessionStorage.setItem(
+        "pendingScheduleSave",
+        JSON.stringify({
+          key,
+          entry: {
+            timestamp: Date.now(),
+            schedules,
+            ...(components !== undefined && { components }),
+          },
+        }),
+      );
+    }
+  }
+  // Also try the async DB write — succeeds on tab-hide, may be abandoned on navigation.
+  saveScheduleState(selectable);
 }
 window.addEventListener("beforeunload", saveOnUnload);
 document.addEventListener("visibilitychange", () => {
@@ -1448,11 +1644,17 @@ function cssColorToHex(color: string): string {
   return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
 }
 
+function addName<T extends { name: string }>(element: T) {
+  // Chrome has started to complain about unnamed form elements.
+  element.name = crypto.randomUUID();
+  return element;
+}
+
 function buildNumericInput(
   value: number,
   onChange: (n: number) => void,
 ): HTMLInputElement {
-  const input = document.createElement("input");
+  const input = addName(document.createElement("input"));
   input.type = "number";
   input.value = String(value);
   input.step = "0.1";
@@ -1466,7 +1668,7 @@ function buildNumericInput(
 function buildEaseSelect(keyframe: {
   easeAfter?: (t: number) => number;
 }): HTMLSelectElement {
-  const select = document.createElement("select");
+  const select = addName(document.createElement("select"));
   for (const label of ["linear", "ease", "easeIn", "easeOut", "hold"]) {
     const opt = document.createElement("option");
     opt.value = opt.textContent = label;
@@ -1690,7 +1892,7 @@ function buildScheduleSection(
     if (info.type === "color") {
       const colorKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      const input = document.createElement("input");
+      const input = addName(document.createElement("input"));
       input.type = "color";
       try {
         input.value = cssColorToHex(colorKf.value);
@@ -1711,7 +1913,7 @@ function buildScheduleSection(
     } else if (info.type === "string") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      const input = document.createElement("input");
+      const input = addName(document.createElement("input"));
       input.type = "text";
       input.value = strKf.value;
       input.addEventListener("input", () => {
@@ -1889,7 +2091,7 @@ function updateComponentEditor(selectable: Selectable) {
   const addRow = document.createElement("div");
   addRow.style.cssText = "display:flex;align-items:center;gap:0.4em";
 
-  const addSelect = document.createElement("select");
+  const addSelect = addName(document.createElement("select"));
   for (const [key] of componentRegistry) {
     const opt = document.createElement("option");
     opt.value = key;
@@ -1916,7 +2118,10 @@ function updateComponentEditor(selectable: Selectable) {
   componentsEditorFieldset.append(addRow);
 }
 
-function updateScheduleEditor(selectable: Selectable) {
+function updateScheduleEditor(
+  selectable: Selectable,
+  historySelectValue?: string,
+) {
   scheduleEditorFieldset.replaceChildren();
   editingRectKf = null;
   viewingRectKfs.clear();
@@ -1930,7 +2135,7 @@ function updateScheduleEditor(selectable: Selectable) {
   const saveTarget = currentSaveTarget();
   if (saveTarget) {
     scheduleHistoryControls.hidden = false;
-    refreshHistoryUI(saveTarget);
+    refreshHistoryUI(saveTarget, historySelectValue);
   } else {
     scheduleHistoryControls.hidden = true;
   }
@@ -2194,6 +2399,15 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
 
 // MARK: Load previous state.
 {
+  // Read the unload backup BEFORE sessionStorage.clear() wipes it below.
+  const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
+  // Capture TypeScript defaults before any DB restoration, so they're available
+  // as the "reset" option in the history select throughout this session.
+  captureDefaults();
+  // Restore the most recent DB entry for every chapter — keeps edits alive
+  // across Vite hot-reloads without the user having to manually click Load.
+  void initFromDB(unloadBackup);
+
   // When first loading this page, try to restore the settings from the last session.
   // So when you configure the web page, and you hit refresh, or the page automatically
   // refreshes, you don't lose your settings.
@@ -2211,7 +2425,10 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
       }
       updateFromSelect();
       const savedMs = parseFloat(timeInSeconds) * 1000;
-      const clampedMs = Math.max(sectionStartTime, Math.min(sectionEndTime, savedMs));
+      const clampedMs = Math.max(
+        sectionStartTime,
+        Math.min(sectionEndTime, savedMs),
+      );
       loadPlayPositionSeconds(clampedMs);
       loadPlayPositionRange();
       querySelector(
