@@ -527,7 +527,7 @@ At the moment I get 9 of these, but that will vary depending on the current GUI 
 
 **Fixed!!**
 
-## Next step:  Recursive Saves
+## Next step: Recursive Saves
 
 We seem to have a problem.
 A bug or a feature that was never completed.
@@ -564,12 +564,104 @@ but could be copied into the "Miscellaneous Generic Component" and other places.
 
 I'm leaning very slightly toward the first option.
 
+**Fixed**: We can now save components.
+Some code was just missing, we never got that far in the original implementation.
+This only fixes the bug.
+This does **not** change the database, create a "Miscellaneous Generic Component", etc.
+
+**Note**: The entire recursive component thing all saves to a single entry in the database.
+Here's an example from our Dump All DB State button:
+
+```
+=== shadow-test|Slide 1: Shape Gallery ===
+{
+  "timestamp": 1779046085003,
+  "schedules": [],
+  "components": [
+    {
+      "registryKey": "Nine Shapes (Shadow Test)",
+      "schedules": [
+        {
+          "description": "Layout",
+          "type": "rectangle",
+          "keyframes": [
+            {
+              "time": 0,
+              "value": {
+                "x": 0.5,
+                "y": 4.5,
+                "width": 6,
+                "height": 4
+              }
+            },
+            {
+              "time": 3000,
+              "value": {
+                "x": 5,
+                "y": 0.5,
+                "width": 6,
+                "height": 4
+              }
+            },
+            {
+              "time": 6500,
+              "value": {
+                "x": 9.5,
+                "y": 4.5,
+                "width": 6,
+                "height": 4
+              }
+            },
+            {
+              "time": 9500,
+              "value": {
+                "x": 0.5,
+                "y": 0.5,
+                "width": 15,
+                "height": 8
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
+
+=== shadow-test|Slide 5: Vertical Lines ===
+{
+  "timestamp": 1778998666332,
+  "schedules": [
+    {
+      "description": "Starting Position",
+      "type": "point",
+      "keyframes": [
+        {
+          "time": 0,
+          "value": {
+            "x": 1,
+            "y": 1
+          }
+        },
+        {
+          "time": 8400,
+          "value": {
+            "x": 1,
+            "y": 3
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
 ### New database schema
 
 This might be a good time to change the database.
 
 I think we're going to need a guid for a key.
-I recently found both `=== shadow-test|Slide 5: Vertical Lines ===` and  `=== shadow-test|Slide 5: vertical Lines ===` in the database.
+I recently found both `=== shadow-test|Slide 5: Vertical Lines ===` and `=== shadow-test|Slide 5: vertical Lines ===` in the database.
 I'm sure I **confused** myself when I renamed that and didn't realized that I'd lost the old database settings.
 Also, a lot of slides will start with a default name like "slide6" and will be renamed to something more relevant when the user has time, this will be a common use case.
 But this has been coming for a long time.
@@ -591,13 +683,11 @@ Just jump to version 2 of the database and throw the old stuff out.
 It's a code generator.
 Here are some relevant clips from another conversation.
 
-> I just had an epiphany:  We don't need these changes to be instant.  In fact, we might not want them to be instant.  Each time we change code, vite resets.  I do a pretty good job of smoothing that out so the user barely notices.  But if we are constantly making changes it might not be great to constantly restart.  Also, this is only important when I choose to go back to the code editor window.  I don't need instant feedback from VS code because the GUI tool was *made for instant feedback*!  So maybe we need just a single button to download the latest code.  I.e. no instant update, no separate command line program, no serious security concerns.  Maybe initialize the save dialog to point to the exact spot in the project where we want the file?
+> I just had an epiphany: We don't need these changes to be instant. In fact, we might not want them to be instant. Each time we change code, vite resets. I do a pretty good job of smoothing that out so the user barely notices. But if we are constantly making changes it might not be great to constantly restart. Also, this is only important when I choose to go back to the code editor window. I don't need instant feedback from VS code because the GUI tool was _made for instant feedback_! So maybe we need just a single button to download the latest code. I.e. no instant update, no separate command line program, no serious security concerns. Maybe initialize the save dialog to point to the exact spot in the project where we want the file?
 >
-> In short, I'm thinking about taking our "dump all DB state" button and replacing the json output with automatically generated typescript code.  I've been thinking about this problem for a while and I think this may be the answer.
+> In short, I'm thinking about taking our "dump all DB state" button and replacing the json output with automatically generated typescript code. I've been thinking about this problem for a while and I think this may be the answer.
 
-
-> Re:  "you'd pre-fill suggestedName with something like src/generated/visual-editor-state.ts " Now that I think about it, the user would probably have to do this the first time, but we can save that value and reuse it each time.  (some save widgets do that automatically but I can't remember which programming environment I was in, I don't think it was the web.)
-
+> Re: "you'd pre-fill suggestedName with something like src/generated/visual-editor-state.ts " Now that I think about it, the user would probably have to do this the first time, but we can save that value and reuse it each time. (some save widgets do that automatically but I can't remember which programming environment I was in, I don't think it was the web.)
 
 > On point 2: showSaveFilePicker does NOT remember the last location across page loads. You'd need to store the FileSystemFileHandle (or at least the path) yourself. But FileSystemFileHandle can be persisted via IndexedDB (you can serialize it with indexedDB since file handles are serializable in the File System Access API).
 >
@@ -608,3 +698,43 @@ Here are some relevant clips from another conversation.
 Each time I hit refresh, now my settings are still visible and unchanged as they should be, but there is a new entry in the database.
 It's a often a duplicate of what's already in there.
 Can we check that the newest value isn't the same as the value we're about to add?
+
+**Fixed!!**
+
+# Building a Sample 5/17/2026
+
+I want to pause the work on the save-to-code mechanism for a moment.
+This was a good start.
+I understand what's going on in the code better.
+And I now see the save-to-typescript option as taking some time to get right, but otherwise very low risk.
+
+I _now_ have the ability to build compound things in the gui and save them.
+(A huge milestone!)
+The save-to-code mechanism is only required for custom things,
+like when the user creates a rectangle in the Visual Editor and TypeScript code does something with it.
+However, we can start with text and images, which already work!
+Add new things as I need them, like the slide (Miscellaneous Generic Component) object and the slide deck (sequential display of children) and whatever else comes up.
+
+I'll get back to saving the database as code when I find some good examples or at least learn more about the data that we will be turning into code.
+I.e. I explored the code generator enough to feel comfortable with it, so now I'm exploring the tools for creating components, looking for that same level of comfort and understanding.
+
+## Restarts when Adjusting the Duration of Things.
+
+Regarding restarts: Ignore them.
+Somewhere above (or in another \*.md file) I talked about how much of the code is read only.
+So we'd have to reload a lot of things from scratch each time we make certain changes.
+For now, ignore that.
+Give the top level slide object a duration longer than you think you will need.
+Update that by hand in the code, if and when required.
+Create the new "in parallel" and "in series" objects the way we need them, maybe everything is mutable.
+
+At the moment the individual pieces of our slide deck tree don't have to interact with the main program at all.
+Eventually we may want the individual parts to be available on the timeline.
+E.g. to synchronize a sound clip to a specific piece of an animation, not the entire slide deck.
+
+There is no notification mechanism.
+These objects might cache some state.
+If they do that's handled internally.
+As descried above, we expect the Visual editor to make a large scale reset when required.
+It will be responsible for knowing when the reset it required, and grouping resets so they don't get in the way of the GUI.
+This component won't ever have to notify anyone of changes.

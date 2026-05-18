@@ -1357,14 +1357,27 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         const sel = item.selectable;
         const record = await readHistory(key);
         const entries = record?.entries ?? [];
-        const lastTs = entries.at(-1)?.timestamp ?? 0;
+        const last = entries.at(-1);
+        const lastTs = last?.timestamp ?? 0;
         if (entry.timestamp > lastTs) {
           if (sel.schedules?.length && entry.schedules.length) {
             applySnapshot(sel.schedules, entry.schedules);
           }
-          entries.push(entry);
-          while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-          await writeHistory(key, entries);
+          const entryJson = JSON.stringify({
+            schedules: entry.schedules,
+            components: entry.components,
+          });
+          const lastJson = last
+            ? JSON.stringify({
+                schedules: last.schedules,
+                components: last.components,
+              })
+            : null;
+          if (entryJson !== lastJson) {
+            entries.push(entry);
+            while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+            await writeHistory(key, entries);
+          }
         }
       }
     } catch {
