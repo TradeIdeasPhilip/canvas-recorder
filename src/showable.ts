@@ -1,5 +1,5 @@
 import { positiveModulo, ReadOnlyRect } from "phil-lib/misc";
-import { Keyframe } from "./interpolate";
+import { ease, easeIn, easeOut, Keyframe } from "./interpolate";
 import { Point } from "./glib/path-shape";
 
 /**
@@ -64,6 +64,14 @@ export type Selectable = {
    * Set to [] to opt in with an initially empty list.
    */
   readonly components?: Showable[];
+
+  /**
+   * Key in `componentRegistry` that can recreate this component.
+   * Set this on any component that is hardcoded in TypeScript source so the
+   * visual editor can serialize it into TypeScript defaults and the save/restore
+   * pipeline can round-trip it correctly.
+   */
+  registryKey?: string;
 };
 
 export type ScheduleInfo = {
@@ -87,6 +95,49 @@ export type ScheduleInfo = {
   | { readonly type: "rectangle"; readonly schedule: Keyframe<ReadOnlyRect>[] }
   | { readonly type: "point"; readonly schedule: Keyframe<Point>[] }
 );
+
+export type SerializedKf = { time: number; value: unknown; easeAfter?: string };
+export type SerializedSchedule = {
+  description: string;
+  type: string;
+  keyframes: SerializedKf[];
+};
+
+function easeFromName(
+  name: string | undefined,
+): ((t: number) => number) | undefined {
+  if (name === "ease") return ease;
+  if (name === "easeIn") return easeIn;
+  if (name === "easeOut") return easeOut;
+  if (name === "hold") return (t: number) => (t < 1 ? 0 : 1);
+  return undefined;
+}
+
+/**
+ * Mutates the live schedule arrays in-place from serialized keyframe data.
+ * Use this to initialize a component's schedules from a saved database entry
+ * rather than duplicating keyframe literals in TypeScript source.
+ */
+export function applySnapshot(
+  schedules: readonly ScheduleInfo[],
+  snapshot: SerializedSchedule[],
+): void {
+  for (const serialized of snapshot) {
+    const live = schedules.find(
+      (s) => s.description === serialized.description && s.type === serialized.type,
+    );
+    if (!live) continue;
+    const liveArr = live.schedule as unknown[];
+    liveArr.length = 0;
+    for (const skf of serialized.keyframes) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const kf: any = { time: skf.time, value: skf.value };
+      const fn = easeFromName(skf.easeAfter);
+      if (fn) kf.easeAfter = fn;
+      liveArr.push(kf);
+    }
+  }
+}
 
 /**
  * All of the information available to {@link Showable.show}.

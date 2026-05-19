@@ -738,3 +738,36 @@ If they do that's handled internally.
 As descried above, we expect the Visual editor to make a large scale reset when required.
 It will be responsible for knowing when the reset it required, and grouping resets so they don't get in the way of the GUI.
 This component won't ever have to notify anyone of changes.
+
+## Text Control
+
+Very simple.
+All one font.
+Eventually I'm sure I'll have something more powerful, but this is a good start.
+
+Always lineFont.
+User selects height.
+User selects boldness as a % of default line width.
+The line width we use to render the font and the line width we tell the font we will use are identical.
+User selects an obliqueness.
+User selects a stroke color.
+
+## In Series Control
+
+What does the editor look like?
+We don't have a graphical way to set a duration for each item, only to set its start time.
+If the user changes a duration, that should change all durations after it.
+Ideally, under the hood the editor would create a normal schedule with start times,
+even though we show durations to the user.
+We also need a way to reorder the items and possibly to add and remove items.
+
+What does the at() function look like for this schedule?
+It calls timedKeyframes directly.
+It looks at the index of the result so it can find the start time of this scene.
+The the keyframe's value might be a number, an index into the list of children.
+Or it might just point directly to the child!
+
+The GUI should prevent someone from adding an easing function.
+Same for anything with strings.
+
+All children are slides, our generic container for stuff.

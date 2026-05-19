@@ -21,7 +21,13 @@ import {
   AudioBufferSource,
   QUALITY_HIGH,
 } from "mediabunny";
-import { Selectable, Showable } from "../src/showable.ts";
+import {
+  applySnapshot,
+  Selectable,
+  SerializedKf,
+  SerializedSchedule,
+  Showable,
+} from "../src/showable.ts";
 import {
   discreteKeyframes,
   ease,
@@ -1212,12 +1218,6 @@ type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
 
 const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
 
-type SerializedKf = { time: number; value: unknown; easeAfter?: string };
-type SerializedSchedule = {
-  description: string;
-  type: string;
-  keyframes: SerializedKf[];
-};
 type SerializedChild = { registryKey: string; schedules: SerializedSchedule[] };
 type HistoryEntry = {
   timestamp: number;
@@ -1301,7 +1301,13 @@ function captureDefaults(): void {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
-    if (hasChildren) entry.components = [];
+    if (hasChildren) {
+      entry.components = sel.components!.flatMap((child) => {
+        const rk = child.registryKey ?? componentRegistryKey.get(child);
+        if (!rk || !child.schedules?.length) return [];
+        return [{ registryKey: rk, schedules: serializeSchedules(child.schedules) }];
+      });
+    }
     tsDefaults.set(key, entry);
   }
 }
@@ -1346,14 +1352,16 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   await Promise.all(restores);
 
   // Apply the synchronous unload backup if it's newer than what we just restored from DB.
+  // Format is an array of { key, entry } objects (old single-object format also accepted).
   if (unloadBackup) {
     try {
-      const { key, entry } = JSON.parse(unloadBackup) as {
-        key: string;
-        entry: HistoryEntry;
-      };
-      const item = debug.find((d) => selectableKey(d.selectable) === key);
-      if (item) {
+      const parsed = JSON.parse(unloadBackup) as
+        | { key: string; entry: HistoryEntry }
+        | { key: string; entry: HistoryEntry }[];
+      const backups = Array.isArray(parsed) ? parsed : [parsed];
+      for (const { key, entry } of backups) {
+        const item = debug.find((d) => selectableKey(d.selectable) === key);
+        if (!item) continue;
         const sel = item.selectable;
         const record = await readHistory(key);
         const entries = record?.entries ?? [];
@@ -1397,16 +1405,6 @@ function easeName(fn: ((t: number) => number) | undefined): string | undefined {
   return "hold";
 }
 
-function easeFromName(
-  name: string | undefined,
-): ((t: number) => number) | undefined {
-  if (name === "ease") return ease;
-  if (name === "easeIn") return easeIn;
-  if (name === "easeOut") return easeOut;
-  if (name === "hold") return (t) => (t < 1 ? 0 : 1);
-  return undefined;
-}
-
 function serializeSchedules(
   schedules: readonly ScheduleInfo[],
 ): SerializedSchedule[] {
@@ -1420,28 +1418,6 @@ function serializeSchedules(
       return entry;
     }),
   }));
-}
-
-function applySnapshot(
-  schedules: readonly ScheduleInfo[],
-  snapshot: SerializedSchedule[],
-) {
-  for (const serialized of snapshot) {
-    const live = schedules.find(
-      (s) =>
-        s.description === serialized.description && s.type === serialized.type,
-    );
-    if (!live) continue;
-    const liveArr = live.schedule as unknown[];
-    liveArr.length = 0;
-    for (const skf of serialized.keyframes) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const kf: any = { time: skf.time, value: skf.value };
-      const fn = easeFromName(skf.easeAfter);
-      if (fn) kf.easeAfter = fn;
-      liveArr.push(kf);
-    }
-  }
 }
 
 function selectableKey(selectable: Selectable): string {
@@ -1488,7 +1464,7 @@ async function refreshHistoryUI(selectable: Selectable, selectValue?: string) {
 }
 
 /** Saves current schedule state to IndexedDB. */
-async function saveScheduleState(selectable: Selectable) {
+async function saveScheduleState(selectable: Selectable, updateUI = true) {
   const hasSchedules = !!selectable.schedules?.length;
   const hasChildren = Array.isArray(selectable.components);
   if (!hasSchedules && !hasChildren) return;
@@ -1500,7 +1476,7 @@ async function saveScheduleState(selectable: Selectable) {
     : [];
   const newComponents = hasChildren
     ? selectable.components!.flatMap((child) => {
-        const registryKey = componentRegistryKey.get(child);
+        const registryKey = child.registryKey ?? componentRegistryKey.get(child);
         if (!registryKey || !child.schedules?.length) return [];
         return [
           { registryKey, schedules: serializeSchedules(child.schedules) },
@@ -1541,7 +1517,7 @@ async function saveScheduleState(selectable: Selectable) {
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
-  await refreshHistoryUI(selectable, String(entries.length - 1));
+  if (updateUI) await refreshHistoryUI(selectable, String(entries.length - 1));
 }
 
 /**
@@ -1570,6 +1546,18 @@ loadScheduleBtn.addEventListener("click", () => {
     if (!defaults) return;
     if (target.schedules?.length && defaults.schedules.length) {
       applySnapshot(target.schedules, defaults.schedules);
+    }
+    if (target.components !== undefined && defaults.components) {
+      target.components.length = 0;
+      for (const sc of defaults.components) {
+        const factory = componentRegistry.get(sc.registryKey);
+        if (!factory) continue;
+        const child = factory();
+        componentRegistryKey.set(child, sc.registryKey);
+        if (child.schedules?.length)
+          applySnapshot(child.schedules, sc.schedules);
+        target.components.push(child);
+      }
     }
     selectedSlideChild = null;
     updateComponentEditor(target);
@@ -1602,51 +1590,52 @@ loadScheduleBtn.addEventListener("click", () => {
 });
 
 function saveOnUnload() {
-  const selectable = currentSaveTarget();
-  if (!selectable) return;
-  // Synchronous sessionStorage backup — the async DB write in saveScheduleState may
-  // not complete before the page navigates away (beforeunload race). initFromDB picks
-  // this backup up on the next load and writes it to IndexedDB at that point.
-  const hasSchedules = !!selectable.schedules?.length;
-  const hasChildren = Array.isArray(selectable.components);
-  if (hasSchedules || hasChildren) {
-    const key = selectableKey(selectable);
-    const schedules = hasSchedules
-      ? serializeSchedules(selectable.schedules!)
-      : [];
+  // Save every slide that has editable state, not just the currently-visible one.
+  // A user may edit slide 1 then navigate to slide 5 before refreshing; we must
+  // persist slide 1's changes even though it is no longer selected.
+  const seen = new Set<string>();
+  const backups: { key: string; entry: HistoryEntry }[] = [];
+
+  for (const item of debug) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const hasSchedules = !!sel.schedules?.length;
+    const hasChildren = Array.isArray(sel.components);
+    if (!hasSchedules && !hasChildren) continue;
+
+    const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
     const components = hasChildren
-      ? selectable.components!.flatMap((child) => {
-          const rk = componentRegistryKey.get(child);
+      ? sel.components!.flatMap((child) => {
+          const rk = child.registryKey ?? componentRegistryKey.get(child);
           if (!rk || !child.schedules?.length) return [];
-          return [
-            { registryKey: rk, schedules: serializeSchedules(child.schedules) },
-          ];
+          return [{ registryKey: rk, schedules: serializeSchedules(child.schedules) }];
         })
       : undefined;
     const tsDefault = tsDefaults.get(key);
     const newJson = JSON.stringify({ schedules, components });
     const defaultJson = tsDefault
-      ? JSON.stringify({
-          schedules: tsDefault.schedules,
-          components: tsDefault.components,
-        })
+      ? JSON.stringify({ schedules: tsDefault.schedules, components: tsDefault.components })
       : null;
     if (newJson !== defaultJson) {
-      sessionStorage.setItem(
-        "pendingScheduleSave",
-        JSON.stringify({
-          key,
-          entry: {
-            timestamp: Date.now(),
-            schedules,
-            ...(components !== undefined && { components }),
-          },
-        }),
-      );
+      backups.push({
+        key,
+        entry: {
+          timestamp: Date.now(),
+          schedules,
+          ...(components !== undefined && { components }),
+        },
+      });
     }
+    // Async DB write — succeeds on tab-hide, may be abandoned on navigation.
+    saveScheduleState(sel, false);
   }
-  // Also try the async DB write — succeeds on tab-hide, may be abandoned on navigation.
-  saveScheduleState(selectable);
+
+  if (backups.length > 0) {
+    sessionStorage.setItem("pendingScheduleSave", JSON.stringify(backups));
+  }
 }
 window.addEventListener("beforeunload", saveOnUnload);
 document.addEventListener("visibilitychange", () => {
