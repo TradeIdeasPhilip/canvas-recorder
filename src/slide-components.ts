@@ -34,6 +34,9 @@ export function createTextComponent(
   const sizeSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
   const boldnessSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
   const obliquenessSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
+  const alignmentChoices = ["left", "center", "right", "justify"] as const;
+  type Alignment = (typeof alignmentChoices)[number];
+  const alignmentSchedule: Keyframe<Alignment>[] = [{ time: 0, value: "left" }];
   type CachedFont = {
     readonly font: Font;
     readonly size: number;
@@ -47,6 +50,7 @@ export function createTextComponent(
         readonly cachedFont: CachedFont;
         readonly width: number;
         readonly text: string;
+        readonly alignment: Alignment;
         readonly path: Path2D;
       };
   return {
@@ -63,6 +67,12 @@ export function createTextComponent(
         type: "number",
         schedule: obliquenessSchedule,
       },
+      {
+        description: "Alignment",
+        type: "select",
+        choices: alignmentChoices,
+        schedule: alignmentSchedule,
+      },
     ],
     show({ context, timeInMs }) {
       const color = interpolateColors(timeInMs, colorSchedule);
@@ -71,6 +81,7 @@ export function createTextComponent(
       const size = interpolateNumbers(timeInMs, sizeSchedule);
       const boldness = interpolateNumbers(timeInMs, boldnessSchedule);
       const obliqueness = interpolateNumbers(timeInMs, obliquenessSchedule);
+      const alignment = discreteKeyframes(timeInMs, alignmentSchedule);
       context.strokeStyle = color;
       if (
         !cachedFont ||
@@ -85,14 +96,16 @@ export function createTextComponent(
         !cachedPath ||
         cachedPath.cachedFont != cachedFont ||
         cachedPath.width != rect.width ||
-        cachedPath.text != text
+        cachedPath.text != text ||
+        cachedPath.alignment != alignment
       ) {
         const path = ParagraphLayout.singlePathShape({
           font: cachedFont.font,
           text,
           width: rect.width,
+          alignment,
         }).canvasPath;
-        cachedPath = { cachedFont, path, text, width: rect.width };
+        cachedPath = { cachedFont, path, text, width: rect.width, alignment };
       }
       context.lineCap = "round";
       context.lineJoin = "round";

@@ -1305,7 +1305,9 @@ function captureDefaults(): void {
       entry.components = sel.components!.flatMap((child) => {
         const rk = child.registryKey ?? componentRegistryKey.get(child);
         if (!rk || !child.schedules?.length) return [];
-        return [{ registryKey: rk, schedules: serializeSchedules(child.schedules) }];
+        return [
+          { registryKey: rk, schedules: serializeSchedules(child.schedules) },
+        ];
       });
     }
     tsDefaults.set(key, entry);
@@ -1479,7 +1481,8 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     : [];
   const newComponents = hasChildren
     ? selectable.components!.flatMap((child) => {
-        const registryKey = child.registryKey ?? componentRegistryKey.get(child);
+        const registryKey =
+          child.registryKey ?? componentRegistryKey.get(child);
         if (!registryKey || !child.schedules?.length) return [];
         return [
           { registryKey, schedules: serializeSchedules(child.schedules) },
@@ -1614,13 +1617,18 @@ function saveOnUnload() {
       ? sel.components!.flatMap((child) => {
           const rk = child.registryKey ?? componentRegistryKey.get(child);
           if (!rk || !child.schedules?.length) return [];
-          return [{ registryKey: rk, schedules: serializeSchedules(child.schedules) }];
+          return [
+            { registryKey: rk, schedules: serializeSchedules(child.schedules) },
+          ];
         })
       : undefined;
     const tsDefault = tsDefaults.get(key);
     const newJson = JSON.stringify({ schedules, components });
     const defaultJson = tsDefault
-      ? JSON.stringify({ schedules: tsDefault.schedules, components: tsDefault.components })
+      ? JSON.stringify({
+          schedules: tsDefault.schedules,
+          components: tsDefault.components,
+        })
       : null;
     if (newJson !== defaultJson) {
       backups.push({
@@ -1735,7 +1743,11 @@ function scheduleToTypeScript(
   }
 
   function formatValue(value: unknown): string {
-    if (info.type === "color" || info.type === "string") {
+    if (
+      info.type === "color" ||
+      info.type === "string" ||
+      info.type === "select"
+    ) {
       return JSON.stringify(value as string);
     } else if (info.type === "number") {
       return String(value as number);
@@ -1937,6 +1949,20 @@ function buildScheduleSection(
         strKf.value = input.value;
       });
       cell.append(input);
+    } else if (info.type === "select") {
+      const strKf = kf as Keyframe<string>;
+      const cell = row.insertCell();
+      const sel = addName(document.createElement("select"));
+      for (const choice of info.choices) {
+        const opt = document.createElement("option");
+        opt.value = opt.textContent = choice;
+        sel.append(opt);
+      }
+      sel.value = strKf.value;
+      sel.addEventListener("change", () => {
+        strKf.value = sel.value;
+      });
+      cell.append(sel);
     } else if (info.type === "point") {
       const ptKf = kf as PointKf;
       const fieldInputs: { x?: HTMLInputElement; y?: HTMLInputElement } = {};

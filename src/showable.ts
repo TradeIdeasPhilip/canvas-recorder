@@ -88,6 +88,11 @@ export type ScheduleInfo = {
       readonly schedule: Keyframe<string>[];
     }
   | {
+      readonly type: "select";
+      readonly choices: readonly string[];
+      readonly schedule: Keyframe<string>[];
+    }
+  | {
       readonly type: "color";
       readonly schedule: Keyframe<string>[];
     }
@@ -124,7 +129,8 @@ export function applySnapshot(
 ): void {
   for (const serialized of snapshot) {
     const live = schedules.find(
-      (s) => s.description === serialized.description && s.type === serialized.type,
+      (s) =>
+        s.description === serialized.description && s.type === serialized.type,
     );
     if (!live) continue;
     const liveArr = live.schedule as unknown[];
