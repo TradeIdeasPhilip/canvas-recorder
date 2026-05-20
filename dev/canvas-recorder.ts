@@ -1394,7 +1394,10 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   }
 
   const currentSel = debug[select.selectedIndex]?.selectable;
-  if (currentSel) updateScheduleEditor(currentSel);
+  if (currentSel) {
+    updateComponentEditor(currentSel);
+    updateScheduleEditor(currentSel);
+  }
 }
 
 function easeName(fn: ((t: number) => number) | undefined): string | undefined {

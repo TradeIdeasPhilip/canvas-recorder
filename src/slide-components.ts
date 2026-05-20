@@ -9,6 +9,101 @@ import {
 import { applySnapshot, SerializedSchedule, Showable } from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
+import { Font } from "./glib/letters-base";
+import {
+  LineFontMetrics,
+  makeLineFont,
+  makeLineFontRatio,
+} from "./glib/line-font";
+import { ParagraphLayout } from "./glib/paragraph-layout";
+
+export function createTextComponent(
+  initialColorSchedule?: Keyframe<string>[],
+  initialRectSchedule?: Keyframe<ReadOnlyRect>[],
+  initialTextSchedule?: Keyframe<string>[],
+): Showable {
+  const colorSchedule: Keyframe<string>[] = initialColorSchedule ?? [
+    { time: 0, value: "#888" },
+  ];
+  const rectSchedule: Keyframe<ReadOnlyRect>[] = initialRectSchedule ?? [
+    { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
+  ];
+  const textSchedule: Keyframe<string>[] = initialTextSchedule ?? [
+    { time: 0, value: "Type Here" },
+  ];
+  const sizeSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
+  const boldnessSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
+  const obliquenessSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
+  type CachedFont = {
+    readonly font: Font;
+    readonly size: number;
+    readonly boldness: number;
+    readonly obliqueness: number;
+  };
+  let cachedFont: undefined | CachedFont;
+  let cachedPath:
+    | undefined
+    | {
+        readonly cachedFont: CachedFont;
+        readonly width: number;
+        readonly text: string;
+        readonly path: Path2D;
+      };
+  return {
+    description: "Text",
+    duration: 0,
+    schedules: [
+      { description: "Color", type: "color", schedule: colorSchedule },
+      { description: "Rect", type: "rectangle", schedule: rectSchedule },
+      { description: "Text", type: "string", schedule: textSchedule },
+      { description: "Size", type: "number", schedule: sizeSchedule },
+      { description: "Boldness", type: "number", schedule: boldnessSchedule },
+      {
+        description: "Obliqueness",
+        type: "number",
+        schedule: obliquenessSchedule,
+      },
+    ],
+    show({ context, timeInMs }) {
+      const color = interpolateColors(timeInMs, colorSchedule);
+      const rect = interpolateRects(timeInMs, rectSchedule);
+      const text = discreteKeyframes(timeInMs, textSchedule);
+      const size = interpolateNumbers(timeInMs, sizeSchedule);
+      const boldness = interpolateNumbers(timeInMs, boldnessSchedule);
+      const obliqueness = interpolateNumbers(timeInMs, obliquenessSchedule);
+      context.strokeStyle = color;
+      if (
+        !cachedFont ||
+        cachedFont.size != size ||
+        cachedFont.boldness != boldness ||
+        cachedFont.obliqueness != obliqueness
+      ) {
+        const font = makeLineFontRatio(size, boldness).oblique(obliqueness);
+        cachedFont = { font, size, boldness, obliqueness };
+      }
+      if (
+        !cachedPath ||
+        cachedPath.cachedFont != cachedFont ||
+        cachedPath.width != rect.width ||
+        cachedPath.text != text
+      ) {
+        const path = ParagraphLayout.singlePathShape({
+          font: cachedFont.font,
+          text,
+          width: rect.width,
+        }).canvasPath;
+        cachedPath = { cachedFont, path, text, width: rect.width };
+      }
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = cachedFont.font.strokeWidth;
+      const matrix = context.getTransform();
+      context.translate(rect.x, rect.y);
+      context.stroke(cachedPath.path);
+      context.setTransform(matrix);
+    },
+  };
+}
 
 /**
  * Standard registry component: a filled rectangle with an editable color and
@@ -271,6 +366,7 @@ export function createFunctionGraphComponent(
 
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
+  ["Text", () => createTextComponent()],
   ["Rectangle", () => createRectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
