@@ -7,19 +7,18 @@ import {
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { myRainbow } from "./glib/my-rainbow";
-import { applySnapshot, MakeShowableInSeries, Showable, ShowOptions } from "./showable";
+import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
 import {
+  buildComponents,
   componentRegistry,
   createRectangleComponent,
 } from "./slide-components";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { computeGridTransform, drawGrid } from "./glib/grid";
-import { RectangleScheduleInfo } from "./visually-editable-base";
-import {  only } from "./utility";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -363,54 +362,26 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // Slide 1 — shape gallery
 // ---------------------------------------------------------------------------
 {
-  const component = createNineShapesComponent();
-  component.registryKey = "Nine Shapes (Shadow Test)";
-  applySnapshot(component.schedules!,[ {
-          "description": "Layout",
-          "type": "rectangle",
-          "keyframes": [
-            {
-              "time": 0,
-              "value": {
-                "x": -1.5,
-                "y": 4.5,
-                "width": 6,
-                "height": 4
-              }
-            },
-            {
-              "time": 3000,
-              "value": {
-                "x": 5,
-                "y": 0.5,
-                "width": 6,
-                "height": 4
-              }
-            },
-            {
-              "time": 6500,
-              "value": {
-                "x": 9.5,
-                "y": 4.5,
-                "width": 6,
-                "height": 4
-              }
-            },
-            {
-              "time": 9500,
-              "value": {
-                "x": 0.5,
-                "y": 0.5,
-                "width": 15,
-                "height": 8
-              }
-            }
-          ]
-        }])
   const slide: Showable = {
-    description: "Slide 1: Shape Gallery11",
+    description: "Slide 1: Shape Gallery",
     duration: DEFAULT_SLIDE_DURATION_MS,
-    components: [component],
+    components: buildComponents([
+      {
+        registryKey: "Nine Shapes (Shadow Test)",
+        schedules: [
+          {
+            description: "Layout",
+            type: "rectangle",
+            keyframes: [
+              { time: 0,    value: { x: 0.5, y: 4.5, width: 6,  height: 4 } },
+              { time: 3000, value: { x: 5,   y: 0.5, width: 6,  height: 4 } },
+              { time: 6500, value: { x: 9.5, y: 4.5, width: 6,  height: 4 } },
+              { time: 9500, value: { x: 0.5, y: 0.5, width: 15, height: 8 } },
+            ],
+          },
+        ],
+      },
+    ]),
     show(options) {
       for (const child of this.components!) child.show(options);
     },

@@ -6,7 +6,7 @@ import {
   interpolateRects,
   Keyframe,
 } from "./interpolate";
-import { Showable } from "./showable";
+import { applySnapshot, SerializedSchedule, Showable } from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 
@@ -276,3 +276,26 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
   ["Static Image", () => createSingleImageComponent()],
 ]);
+
+export type SerializedChild = {
+  registryKey: string;
+  schedules: SerializedSchedule[];
+};
+
+/**
+ * Rebuilds a component list from a serialized snapshot (e.g. a database entry
+ * pasted directly into source code).  Each entry is created via its registry
+ * factory, has its `registryKey` stamped on it, and has its schedules restored
+ * via `applySnapshot`.  Components whose `registryKey` is not found in the
+ * registry are silently skipped.
+ */
+export function buildComponents(snapshot: SerializedChild[]): Showable[] {
+  return snapshot.flatMap((sc) => {
+    const factory = componentRegistry.get(sc.registryKey);
+    if (!factory) return [];
+    const child = factory();
+    child.registryKey = sc.registryKey;
+    if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
+    return [child];
+  });
+}
