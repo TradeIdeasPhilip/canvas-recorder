@@ -41,7 +41,11 @@ import {
 } from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
-import { buildComponents, componentRegistry, SerializedChild } from "../src/slide-components.ts";
+import {
+  buildComponents,
+  componentRegistry,
+  SerializedChild,
+} from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
 /**
@@ -1416,7 +1420,9 @@ function serializeComponents(components: Showable[]): SerializedChild[] {
     if (!rk) return [];
     const entry: SerializedChild = {
       registryKey: rk,
-      schedules: child.schedules?.length ? serializeSchedules(child.schedules) : [],
+      schedules: child.schedules?.length
+        ? serializeSchedules(child.schedules)
+        : [],
     };
     if (child.components !== undefined) {
       entry.components = serializeComponents(child.components);
@@ -2056,6 +2062,49 @@ function buildScheduleSection(
   return section;
 }
 
+function serializeComponent(child: Showable): SerializedChild {
+  const rk = child.registryKey ?? componentRegistryKey.get(child) ?? "";
+  const entry: SerializedChild = {
+    registryKey: rk,
+    schedules: child.schedules?.length
+      ? serializeSchedules(child.schedules)
+      : [],
+  };
+  if (child.components !== undefined) {
+    entry.components = serializeComponents(child.components);
+  }
+  return entry;
+}
+
+async function pasteInto(target: Showable, selectable: Selectable) {
+  let text: string;
+  try {
+    text = await navigator.clipboard.readText();
+  } catch {
+    alert("Could not read clipboard.");
+    return;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    alert("Clipboard does not contain valid JSON.");
+    return;
+  }
+  const arr: SerializedChild[] = Array.isArray(parsed)
+    ? (parsed as SerializedChild[])
+    : [parsed as SerializedChild];
+  const built = buildComponents(arr);
+  if (built.length === 0) {
+    alert("Nothing recognized in clipboard (unknown registryKey?).");
+    return;
+  }
+  target.components!.push(...built);
+  selectedSlideChild = built[built.length - 1];
+  updateComponentEditor(selectable);
+  updateScheduleEditor(selectedSlideChild);
+}
+
 function updateComponentEditor(selectable: Selectable) {
   const rootComponents = selectable.components;
   componentsEditorFieldset.hidden = rootComponents === undefined;
@@ -2068,7 +2117,9 @@ function updateComponentEditor(selectable: Selectable) {
     "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
 
   function renderComponentTree(container: Showable, depth: number) {
-    for (const child of container.components ?? []) {
+    const siblings = container.components ?? [];
+    for (let idx = 0; idx < siblings.length; idx++) {
+      const child = siblings[idx];
       const row = document.createElement("div");
       row.style.cssText = `display:flex;align-items:center;gap:0.4em;padding-left:${depth * 1.2}em`;
 
@@ -2084,13 +2135,61 @@ function updateComponentEditor(selectable: Selectable) {
         updateScheduleEditor(child);
       });
 
+      function moveChild(fromIdx: number, toIdx: number) {
+        const arr = container.components!;
+        const [item] = arr.splice(fromIdx, 1);
+        arr.splice(toIdx, 0, item);
+        updateComponentEditor(selectable);
+      }
+
+      const topBtn = document.createElement("button");
+      topBtn.type = "button";
+      topBtn.textContent = "⤒";
+      topBtn.title = "Move to top";
+      topBtn.disabled = idx === 0;
+      topBtn.addEventListener("click", () => moveChild(idx, 0));
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.textContent = "↑";
+      upBtn.title = "Move up";
+      upBtn.disabled = idx === 0;
+      upBtn.addEventListener("click", () => moveChild(idx, idx - 1));
+
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.textContent = "↓";
+      downBtn.title = "Move down";
+      downBtn.disabled = idx === siblings.length - 1;
+      downBtn.addEventListener("click", () => moveChild(idx, idx + 1));
+
+      const bottomBtn = document.createElement("button");
+      bottomBtn.type = "button";
+      bottomBtn.textContent = "⤓";
+      bottomBtn.title = "Move to bottom";
+      bottomBtn.disabled = idx === siblings.length - 1;
+      bottomBtn.addEventListener("click", () =>
+        moveChild(idx, container.components!.length - 1),
+      );
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.textContent = "⎘";
+      copyBtn.title = "Copy component";
+      copyBtn.addEventListener("click", () => {
+        const json = JSON.stringify([serializeComponent(child)], null, 2);
+        navigator.clipboard
+          .writeText(json)
+          .catch(() => alert("Could not write to clipboard."));
+      });
+
       const deleteBtn = document.createElement("button");
       deleteBtn.type = "button";
       deleteBtn.textContent = "🗑";
       deleteBtn.addEventListener("click", () => {
-        const siblings = container.components!;
-        const idx = siblings.indexOf(child);
-        if (idx !== -1) siblings.splice(idx, 1);
+        const arr = container.components!;
+        const i = arr.indexOf(child);
+        if (i !== -1) arr.splice(i, 1);
         if (selectedSlideChild === child) {
           selectedSlideChild = null;
           updateScheduleEditor(selectable);
@@ -2098,10 +2197,29 @@ function updateComponentEditor(selectable: Selectable) {
         updateComponentEditor(selectable);
       });
 
-      row.append(editBtn, deleteBtn);
+      row.append(
+        editBtn,
+        topBtn,
+        upBtn,
+        downBtn,
+        bottomBtn,
+        copyBtn,
+        deleteBtn,
+      );
+
+      if (child.components !== undefined) {
+        const pasteIntoBtn = document.createElement("button");
+        pasteIntoBtn.type = "button";
+        pasteIntoBtn.textContent = "⎘→";
+        pasteIntoBtn.title = `Paste into "${child.description}"`;
+        pasteIntoBtn.addEventListener("click", () =>
+          pasteInto(child, selectable),
+        );
+        row.append(pasteIntoBtn);
+      }
+
       list.append(row);
 
-      // Recursively render children of container-type components.
       if (child.components !== undefined) {
         renderComponentTree(child, depth + 1);
       }
@@ -2111,9 +2229,15 @@ function updateComponentEditor(selectable: Selectable) {
   renderComponentTree(selectable as Showable, 0);
   componentsEditorFieldset.append(list);
 
-  // Add row — adds to selectedSlideChild if it's a container, else to root.
-  const addRow = document.createElement("div");
-  addRow.style.cssText = "display:flex;align-items:center;gap:0.4em";
+  // Bottom toolbar: add + copy-all + paste-to-root.
+  const addTarget =
+    selectedSlideChild?.components !== undefined
+      ? selectedSlideChild
+      : (selectable as Showable);
+
+  const toolbar = document.createElement("div");
+  toolbar.style.cssText =
+    "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
 
   const addSelect = addName(document.createElement("select"));
   for (const [key] of componentRegistry) {
@@ -2123,15 +2247,12 @@ function updateComponentEditor(selectable: Selectable) {
     addSelect.append(opt);
   }
 
-  const addTarget =
-    selectedSlideChild?.components !== undefined
-      ? selectedSlideChild
-      : (selectable as Showable);
-
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.textContent =
-    addTarget === selectable ? "+ Add to root" : `+ Add to "${addTarget.description}"`;
+    addTarget === selectable
+      ? "+ Add to root"
+      : `+ Add to "${addTarget.description}"`;
   addBtn.addEventListener("click", () => {
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
@@ -2145,8 +2266,26 @@ function updateComponentEditor(selectable: Selectable) {
     updateScheduleEditor(newChild);
   });
 
-  addRow.append(addSelect, addBtn);
-  componentsEditorFieldset.append(addRow);
+  const copyAllBtn = document.createElement("button");
+  copyAllBtn.type = "button";
+  copyAllBtn.textContent = "⎘ Copy all";
+  copyAllBtn.title = "Copy all root components as JSON";
+  copyAllBtn.addEventListener("click", () => {
+    const json = JSON.stringify(serializeComponents(rootComponents!), null, 2);
+    navigator.clipboard
+      .writeText(json)
+      .catch(() => alert("Could not write to clipboard."));
+  });
+
+  const pasteRootBtn = document.createElement("button");
+  pasteRootBtn.type = "button";
+  pasteRootBtn.textContent = "⎘→ Paste to root";
+  pasteRootBtn.addEventListener("click", () =>
+    pasteInto(selectable as Showable, selectable),
+  );
+
+  toolbar.append(addSelect, addBtn, copyAllBtn, pasteRootBtn);
+  componentsEditorFieldset.append(toolbar);
 }
 
 function updateScheduleEditor(

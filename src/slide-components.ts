@@ -15,6 +15,53 @@ import { ParagraphLayout } from "./glib/paragraph-layout";
 import { applyTransform } from "./glib/transforms";
 
 /**
+ * This is a very early prototype of a slide deck.
+ * This is the Visual Editor's answer to MakeShowableInSeries.
+ * A user can schedule animations one after the next.
+ * In particular, if one gets shorter or longer or added or removed, all those after get moved automatically.
+ *
+ * Internally I can imagine a very normal looking list of start times, like any schedule.
+ * But we only show the user the duration of each item, not the start time.
+ * Maybe the user sees both, but it's clear that we are editing a list of durations.
+ * Changing one duration does not affect any of the other durations.
+ *
+ * Should we add info for the children?
+ * In particular, the slide deck is fully responsible for the duration that the child runs.
+ * (I want to explore the option of children making requests for a certain amount of time, but for now I'm taking the simplest route, all info is prescribed down.)
+ * It seems like we should tell each slide how much time it has.
+ * Optional fields in ShowOptions could handle this.
+ * Maybe the slide gets a field called `progress`, 0 to 1.
+ * (or `slideProgress`)
+ * Then the slide deck's schedule could include an easing function!
+ * **I like this a lot**!
+ *
+ * I was originally going to limit this metaphor to only holding slides as direct descendants.
+ * I'm holding off on that only because I have no easy way to enforce that.
+ * Now I'm wondering if there is any reason to enforce that limit?
+ * I thought it might be easier because I'd have an "add slide" button that only knew how to add slides.
+ * But I already have an add anything button, so why would I want to build my own add slide button.
+ * Maybe there could be some sort of SlideDeckChild interface.
+ * It could help negotiate the requested time.
+ *
+ * Should this get its own Visual Editor screen?
+ * We need a list of children, which we already get from the existing editor.
+ * We need a numbers for the durations, which should be editable.
+ *
+ * You get a list of names, corresponding to the children.
+ * When we display a list of children, we should already number them.
+ *
+ * Ideally the editor would include the name next to the part that you can edit, instead of a number, but that's not urgent.
+ * Also, what happens if you delete a slide?
+ * This can get complicated.
+ * For now let's focus on the durations and just use a number for the value.
+* @returns
+ */
+export function createSlideDeckComponent():Showable {
+  // TODO
+  return undefined!
+}
+
+/**
  * A slide is a generic container, like `<g>` or `<div>`.
  *
  * See "## Miscellaneous Generic Component" in visual-editor.md for long term plans for this.

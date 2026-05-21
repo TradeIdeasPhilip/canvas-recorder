@@ -79,6 +79,12 @@ export type ScheduleInfo = {
    * Visible on the GUI
    */
   readonly description: string;
+  /**
+   * If true, the user edits the durations of the schedules.
+   * If false, the default, the user edits the start times of the schedule.
+   * Either way, we store start times in the schedule.
+   */
+  readonly editDurations?:boolean;
 } & (
   | {
       readonly type: "string";
