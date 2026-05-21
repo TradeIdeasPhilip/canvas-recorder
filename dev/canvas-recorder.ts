@@ -41,7 +41,7 @@ import {
 } from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
-import { componentRegistry } from "../src/slide-components.ts";
+import { buildComponents, componentRegistry, SerializedChild } from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
 /**
@@ -1218,7 +1218,6 @@ type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
 
 const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
 
-type SerializedChild = { registryKey: string; schedules: SerializedSchedule[] };
 type HistoryEntry = {
   timestamp: number;
   schedules: SerializedSchedule[];
@@ -1302,13 +1301,7 @@ function captureDefaults(): void {
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
     if (hasChildren) {
-      entry.components = sel.components!.flatMap((child) => {
-        const rk = child.registryKey ?? componentRegistryKey.get(child);
-        if (!rk || !child.schedules?.length) return [];
-        return [
-          { registryKey: rk, schedules: serializeSchedules(child.schedules) },
-        ];
-      });
+      entry.components = serializeComponents(sel.components!);
     }
     tsDefaults.set(key, entry);
   }
@@ -1338,15 +1331,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         }
         if (sel.components !== undefined && last.components) {
           sel.components.length = 0;
-          for (const sc of last.components) {
-            const factory = componentRegistry.get(sc.registryKey);
-            if (!factory) continue;
-            const child = factory();
-            componentRegistryKey.set(child, sc.registryKey);
-            if (child.schedules?.length)
-              applySnapshot(child.schedules, sc.schedules);
-            sel.components.push(child);
-          }
+          sel.components.push(...buildComponents(last.components));
         }
       }),
     );
@@ -1425,6 +1410,21 @@ function serializeSchedules(
   }));
 }
 
+function serializeComponents(components: Showable[]): SerializedChild[] {
+  return components.flatMap((child) => {
+    const rk = child.registryKey ?? componentRegistryKey.get(child);
+    if (!rk) return [];
+    const entry: SerializedChild = {
+      registryKey: rk,
+      schedules: child.schedules?.length ? serializeSchedules(child.schedules) : [],
+    };
+    if (child.components !== undefined) {
+      entry.components = serializeComponents(child.components);
+    }
+    return [entry];
+  });
+}
+
 function selectableKey(selectable: Selectable): string {
   return `${toShowKey}|${selectable.description}`;
 }
@@ -1480,14 +1480,7 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     ? serializeSchedules(selectable.schedules!)
     : [];
   const newComponents = hasChildren
-    ? selectable.components!.flatMap((child) => {
-        const registryKey =
-          child.registryKey ?? componentRegistryKey.get(child);
-        if (!registryKey || !child.schedules?.length) return [];
-        return [
-          { registryKey, schedules: serializeSchedules(child.schedules) },
-        ];
-      })
+    ? serializeComponents(selectable.components!)
     : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
@@ -1555,15 +1548,7 @@ loadScheduleBtn.addEventListener("click", () => {
     }
     if (target.components !== undefined && defaults.components) {
       target.components.length = 0;
-      for (const sc of defaults.components) {
-        const factory = componentRegistry.get(sc.registryKey);
-        if (!factory) continue;
-        const child = factory();
-        componentRegistryKey.set(child, sc.registryKey);
-        if (child.schedules?.length)
-          applySnapshot(child.schedules, sc.schedules);
-        target.components.push(child);
-      }
+      target.components.push(...buildComponents(defaults.components));
     }
     selectedSlideChild = null;
     updateComponentEditor(target);
@@ -1579,15 +1564,7 @@ loadScheduleBtn.addEventListener("click", () => {
     }
     if (target.components !== undefined && entry.components) {
       target.components.length = 0;
-      for (const sc of entry.components) {
-        const factory = componentRegistry.get(sc.registryKey);
-        if (!factory) continue;
-        const child = factory();
-        componentRegistryKey.set(child, sc.registryKey);
-        if (child.schedules?.length)
-          applySnapshot(child.schedules, sc.schedules);
-        target.components.push(child);
-      }
+      target.components.push(...buildComponents(entry.components));
     }
     selectedSlideChild = null;
     updateComponentEditor(target);
@@ -1614,13 +1591,7 @@ function saveOnUnload() {
 
     const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
     const components = hasChildren
-      ? sel.components!.flatMap((child) => {
-          const rk = child.registryKey ?? componentRegistryKey.get(child);
-          if (!rk || !child.schedules?.length) return [];
-          return [
-            { registryKey: rk, schedules: serializeSchedules(child.schedules) },
-          ];
-        })
+      ? serializeComponents(sel.components!)
       : undefined;
     const tsDefault = tsDefaults.get(key);
     const newJson = JSON.stringify({ schedules, components });
@@ -2086,51 +2057,61 @@ function buildScheduleSection(
 }
 
 function updateComponentEditor(selectable: Selectable) {
-  const children = selectable.components;
-  componentsEditorFieldset.hidden = children === undefined;
-  if (children === undefined) return;
+  const rootComponents = selectable.components;
+  componentsEditorFieldset.hidden = rootComponents === undefined;
+  if (rootComponents === undefined) return;
 
   componentsEditorFieldset.replaceChildren();
 
-  // List of current children
   const list = document.createElement("div");
   list.style.cssText =
     "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
-  for (const child of children) {
-    const row = document.createElement("div");
-    row.style.cssText = "display:flex;align-items:center;gap:0.4em";
 
-    const editBtn = document.createElement("button");
-    editBtn.type = "button";
-    editBtn.textContent = "✎ " + child.description;
-    editBtn.style.cssText = "flex:1;text-align:left";
-    if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
-    editBtn.addEventListener("click", () => {
-      selectedSlideChild = child;
-      showEditorCheckbox.checked = true;
-      updateComponentEditor(selectable);
-      updateScheduleEditor(child);
-    });
+  function renderComponentTree(container: Showable, depth: number) {
+    for (const child of container.components ?? []) {
+      const row = document.createElement("div");
+      row.style.cssText = `display:flex;align-items:center;gap:0.4em;padding-left:${depth * 1.2}em`;
 
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.textContent = "🗑";
-    deleteBtn.addEventListener("click", () => {
-      const idx = children.indexOf(child);
-      if (idx !== -1) children.splice(idx, 1);
-      if (selectedSlideChild === child) {
-        selectedSlideChild = null;
-        updateScheduleEditor(selectable);
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "✎ " + child.description;
+      editBtn.style.cssText = "flex:1;text-align:left";
+      if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
+      editBtn.addEventListener("click", () => {
+        selectedSlideChild = child;
+        showEditorCheckbox.checked = true;
+        updateComponentEditor(selectable);
+        updateScheduleEditor(child);
+      });
+
+      const deleteBtn = document.createElement("button");
+      deleteBtn.type = "button";
+      deleteBtn.textContent = "🗑";
+      deleteBtn.addEventListener("click", () => {
+        const siblings = container.components!;
+        const idx = siblings.indexOf(child);
+        if (idx !== -1) siblings.splice(idx, 1);
+        if (selectedSlideChild === child) {
+          selectedSlideChild = null;
+          updateScheduleEditor(selectable);
+        }
+        updateComponentEditor(selectable);
+      });
+
+      row.append(editBtn, deleteBtn);
+      list.append(row);
+
+      // Recursively render children of container-type components.
+      if (child.components !== undefined) {
+        renderComponentTree(child, depth + 1);
       }
-      updateComponentEditor(selectable);
-    });
-
-    row.append(editBtn, deleteBtn);
-    list.append(row);
+    }
   }
+
+  renderComponentTree(selectable as Showable, 0);
   componentsEditorFieldset.append(list);
 
-  // Add row
+  // Add row — adds to selectedSlideChild if it's a container, else to root.
   const addRow = document.createElement("div");
   addRow.style.cssText = "display:flex;align-items:center;gap:0.4em";
 
@@ -2142,15 +2123,22 @@ function updateComponentEditor(selectable: Selectable) {
     addSelect.append(opt);
   }
 
+  const addTarget =
+    selectedSlideChild?.components !== undefined
+      ? selectedSlideChild
+      : (selectable as Showable);
+
   const addBtn = document.createElement("button");
   addBtn.type = "button";
-  addBtn.textContent = "+ Add";
+  addBtn.textContent =
+    addTarget === selectable ? "+ Add to root" : `+ Add to "${addTarget.description}"`;
   addBtn.addEventListener("click", () => {
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
     const newChild = factory();
+    newChild.registryKey = addSelect.value;
     componentRegistryKey.set(newChild, addSelect.value);
-    children.push(newChild);
+    addTarget.components!.push(newChild);
     selectedSlideChild = newChild;
     showEditorCheckbox.checked = true;
     updateComponentEditor(selectable);

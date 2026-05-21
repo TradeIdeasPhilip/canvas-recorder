@@ -10,12 +10,87 @@ import { applySnapshot, SerializedSchedule, Showable } from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
-import {
-  LineFontMetrics,
-  makeLineFont,
-  makeLineFontRatio,
-} from "./glib/line-font";
+import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
+import { applyTransform } from "./glib/transforms";
+
+/**
+ * A slide is a generic container, like `<g>` or `<div>`.
+ *
+ * See "## Miscellaneous Generic Component" in visual-editor.md for long term plans for this.
+ * For now I support a very minimal transform property, and a border to help show off that transform.
+ *
+ * You should be able to add one of these anywhere.
+ * A slide deck might require each direct child to be one of these.
+ */
+export function createSlideComponent(): Showable {
+  const transformStringSchedule: Keyframe<string>[] = [
+    { time: 0, value: "translate(1px, 1px) scale(0.5)" },
+  ];
+  const borderColorSchedule: Keyframe<string>[] = [{ time: 0, value: "blue" }];
+  return {
+    description: "Slide",
+    duration: 0,
+    components: [],
+    schedules: [
+      {
+        type: "string",
+        description: "Transform",
+        schedule: transformStringSchedule,
+      },
+      {
+        type: "color",
+        description: "Border Color",
+        schedule: borderColorSchedule,
+      },
+    ],
+    show(options) {
+      const font = makeLineFont(1);
+      const { context, timeInMs } = options;
+      const transformString = discreteKeyframes(
+        timeInMs,
+        transformStringSchedule,
+      );
+      let transform: DOMMatrixReadOnly | undefined;
+      try {
+        const originalTransform = context.getTransform();
+        const transform = new DOMMatrixReadOnly(transformString);
+        applyTransform(context, transform);
+        context.lineJoin = "miter";
+        context.lineWidth = font.strokeWidth;
+        const color = interpolateColors(timeInMs, borderColorSchedule);
+        context.strokeStyle = color;
+        context.strokeRect(0, 0, 16, 9);
+        this.components!.forEach((component) => {
+          component.show(options);
+        });
+        context.setTransform(originalTransform);
+      } catch (ex) {
+        if (transform) {
+          // Unknown problem.
+          // We might be in a weird state.
+          throw ex;
+        }
+        // Report problem interpreting transform string but keep going.
+        const path = ParagraphLayout.singlePathShape({
+          font,
+          text: "Invalid Transform String:\n" + transformString,
+          alignment: "center",
+          width: 15.5,
+        }).canvasPath;
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = font.strokeWidth * 3;
+        context.strokeStyle = "white";
+        context.stroke(path);
+        context.lineWidth = font.strokeWidth;
+        context.strokeStyle = "red";
+        context.stroke(path);
+      }
+      const matrix = context.getTransform();
+    },
+  };
+}
 
 export function createTextComponent(
   initialColorSchedule?: Keyframe<string>[],
@@ -379,6 +454,7 @@ export function createFunctionGraphComponent(
 
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
+  ["Slide", () => createSlideComponent()],
   ["Text", () => createTextComponent()],
   ["Rectangle", () => createRectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
@@ -389,14 +465,15 @@ export const componentRegistry = new Map<string, () => Showable>([
 export type SerializedChild = {
   registryKey: string;
   schedules: SerializedSchedule[];
+  components?: SerializedChild[];
 };
 
 /**
  * Rebuilds a component list from a serialized snapshot (e.g. a database entry
  * pasted directly into source code).  Each entry is created via its registry
- * factory, has its `registryKey` stamped on it, and has its schedules restored
- * via `applySnapshot`.  Components whose `registryKey` is not found in the
- * registry are silently skipped.
+ * factory, has its `registryKey` stamped on it, schedules restored via
+ * `applySnapshot`, and nested components rebuilt recursively.  Entries whose
+ * `registryKey` is not found in the registry are silently skipped.
  */
 export function buildComponents(snapshot: SerializedChild[]): Showable[] {
   return snapshot.flatMap((sc) => {
@@ -405,6 +482,9 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     const child = factory();
     child.registryKey = sc.registryKey;
     if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
+    if (child.components !== undefined && sc.components?.length) {
+      child.components.push(...buildComponents(sc.components));
+    }
     return [child];
   });
 }

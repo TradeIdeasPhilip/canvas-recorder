@@ -752,6 +752,9 @@ The line width we use to render the font and the line width we tell the font we 
 User selects an obliqueness.
 User selects a stroke color.
 
+First version is **done** and works well.
+See createTextComponent() in slide-components.ts.
+
 ## In Series Control
 
 What does the editor look like?
