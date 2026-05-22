@@ -4,6 +4,7 @@ import {
   durationKeyframes,
   interpolateColors,
   interpolateNumbers,
+  interpolatePoints,
   interpolateRects,
   Keyframe,
 } from "./interpolate";
@@ -19,6 +20,8 @@ import { Font } from "./glib/letters-base";
 import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { applyTransform } from "./glib/transforms";
+import { Point } from "./glib/path-shape";
+import { myRainbow } from "./glib/my-rainbow";
 
 const errorFont = makeLineFont(1);
 
@@ -39,6 +42,97 @@ function showError(context: CanvasRenderingContext2D, text: string) {
   context.strokeStyle = "red";
   context.stroke(path);
 }
+
+/**
+ * Traditional text component:
+ * Text to display is a string schedule.
+ * Position is a point schedule.
+ * Fill color is a color schedule.
+ * Outline color is a color schedule.
+ * Outline width is a number schedule.
+ * The outline is made by stroking **before** filling, for readability.
+ * Font size (in userspace units) is a number schedule.
+ * Font family is a string schedule.
+ * https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts offers ways to ensure that the font has loaded.
+ *
+ * TODO:  textAlign, textBaseline, and direction
+ * TODO:  The following can be specified before font-style:
+ * font-variant, font-weight, font-stretch, and line-height
+ */
+export function createTraditionalTextComponent(): Showable {
+  const textSchedule: Keyframe<string>[] = [{ time: 0, value: "Type Here" }];
+  const positionSchedule: Keyframe<Point>[] = [
+    { time: 0, value: { x: 2, y: 1 } },
+  ];
+  const fillColorSchedule: Keyframe<string>[] = [
+    { time: 0, value: myRainbow.violet },
+  ];
+  const outlineColorSchedule: Keyframe<string>[] = [
+    { time: 0, value: myRainbow.orange },
+  ];
+  const outlineWidthSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
+  const fontSizeSchedule: Keyframe<number>[] = [{ time: 0, value: 0.5 }];
+  const fontFamilySchedule: Keyframe<string>[] = [
+    { time: 0, value: "Life Savers" },
+  ];
+  // what about linejoin?
+  // It seems like one of those funny typewriter fonts was freaking out when I tried to do an outline this way.
+  // I didn't think about it at the time but linejoin="round" or "bevel" probably would have helped.
+  // Maybe miterlimit is what I really needed.
+  return {
+    description: "Traditional Text",
+    duration: 0,
+    schedules: [
+      { description: "Text", type: "string", schedule: textSchedule },
+      { description: "Position", type: "point", schedule: positionSchedule },
+      { description: "Fill Color", type: "color", schedule: fillColorSchedule },
+      {
+        description: "Outline Color",
+        type: "color",
+        schedule: outlineColorSchedule,
+      },
+      {
+        description: "Outline Width",
+        type: "number",
+        schedule: outlineWidthSchedule,
+      },
+      { description: "Font Size", type: "number", schedule: fontSizeSchedule },
+      {
+        description: "Font Family",
+        type: "string",
+        schedule: fontFamilySchedule,
+      },
+    ],
+    show({ context, timeInMs }) {
+      const text = discreteKeyframes(timeInMs, textSchedule);
+      const position = interpolatePoints(timeInMs, positionSchedule);
+      const fillColor = interpolateColors(timeInMs, fillColorSchedule);
+      const outlineWidth = interpolateNumbers(timeInMs, outlineWidthSchedule);
+      const fontSize = interpolateNumbers(timeInMs, fontSizeSchedule);
+      const fontFamily = discreteKeyframes(timeInMs, fontFamilySchedule);
+      const fontString = `${fontSize}px ${fontFamily}`;
+      context.font = fontString;
+      if (outlineWidth > 0) {
+        const outlineColor = interpolateColors(timeInMs, outlineColorSchedule);
+        context.lineWidth = outlineWidth;
+        context.lineJoin = "miter";
+        context.strokeStyle = outlineColor;
+        context.strokeText(text, position.x, position.y);
+      }
+      context.fillStyle = fillColor;
+      context.fillText(text, position.x, position.y);
+    },
+  };
+}
+
+// TODO start using NumberScheduleInfo, etc.
+// Use it locally.
+// when I create a component, and I create schedules for that component, make the schedules use these objects.
+// Need to add at least one example for the duration version of numbers.
+// Showable keeps its interface, which these helper objects implement.
+// Locally we can use at() in each case, as we should!
+// And the return value for the component should be more explicit.
+// Something like Showable & { components: [color:ColorScheduleInfo, text:StringScheduleInfo]}
 
 /**
  * This is a very early prototype of a slide deck.
@@ -544,6 +638,7 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Slide Deck", () => createSlideDeckComponent()],
   ["Slide", () => createSlideComponent()],
   ["Text", () => createTextComponent()],
+  ["Traditional Text", () => createTraditionalTextComponent()],
   ["Rectangle", () => createRectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
