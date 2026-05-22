@@ -171,6 +171,40 @@ export function discreteKeyframes<T>(
 }
 
 /**
+ *
+ * @param time Look for the value at this time.
+ * Automatically clamped between 0 and the total duration.
+ * @param keyframes The time value of each keyframe is a duration, not a start time.
+ * @returns The value at this time.  And the progress (0 to 1) within this value.
+ */
+export function durationKeyframes<T> (time:number, keyframes:Keyframes<T>){
+  let foundAt = -1;
+  for (let i = 0; i < keyframes.length;i++ ) {
+    const keyframe = keyframes[i];
+    if (time < keyframe.time) {
+      foundAt = i;
+      break
+    }
+    time -= keyframe.time;
+  }
+  if ((foundAt==-1)) {
+    // Time before 0 points to the beginning of the first item.
+    // Sometimes you need to freeze at the beginning or end.
+    // I was worried that you might miss the exact end because of round off error.
+    // So I extend the end forever rather than trying to cut it off exactly at the end.
+    foundAt = keyframes.length -1;
+    time = keyframes[foundAt].time;
+  }
+  const keyframe = keyframes[foundAt];
+  let progress = time / keyframe.time;
+  progress = Math.min(1, Math.max(0, progress));
+  if (keyframe.easeAfter) {
+    progress = keyframe.easeAfter(progress);
+  }
+  return {value:keyframe.value, progress}
+}
+
+/**
  * Common design pattern:
  * ```
  *  // Once in advance:

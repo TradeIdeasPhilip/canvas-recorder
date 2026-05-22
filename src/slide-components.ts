@@ -1,18 +1,44 @@
 import { ReadOnlyRect } from "phil-lib/misc";
 import {
   discreteKeyframes,
+  durationKeyframes,
   interpolateColors,
   interpolateNumbers,
   interpolateRects,
   Keyframe,
 } from "./interpolate";
-import { applySnapshot, SerializedSchedule, Showable } from "./showable";
+import {
+  applySnapshot,
+  SerializedSchedule,
+  Showable,
+  ShowOptions,
+} from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
 import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { applyTransform } from "./glib/transforms";
+
+const errorFont = makeLineFont(1);
+
+function showError(context: CanvasRenderingContext2D, text: string) {
+  const font = errorFont;
+  const path = ParagraphLayout.singlePathShape({
+    font,
+    text,
+    alignment: "center",
+    width: 15.5,
+  }).canvasPath;
+  context.lineCap = "round";
+  context.lineJoin = "round";
+  context.lineWidth = font.strokeWidth * 3;
+  context.strokeStyle = "white";
+  context.stroke(path);
+  context.lineWidth = font.strokeWidth;
+  context.strokeStyle = "red";
+  context.stroke(path);
+}
 
 /**
  * This is a very early prototype of a slide deck.
@@ -54,11 +80,39 @@ import { applyTransform } from "./glib/transforms";
  * Also, what happens if you delete a slide?
  * This can get complicated.
  * For now let's focus on the durations and just use a number for the value.
-* @returns
+ * @returns
  */
-export function createSlideDeckComponent():Showable {
-  // TODO
-  return undefined!
+export function createSlideDeckComponent(): Showable {
+  const whichSlideSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
+  return {
+    description: "Slide Deck",
+    duration: 0,
+    components: [],
+    schedules: [
+      {
+        type: "number",
+        description: "Which Slide",
+        editDurations: true,
+        schedule: whichSlideSchedule,
+      },
+    ],
+    show(options) {
+      const { timeInMs, context } = options;
+      const { progress, value } = durationKeyframes(
+        timeInMs,
+        whichSlideSchedule,
+      );
+      const slideProgress = progress;
+      const whichSlide = value;
+      const component = this.components![whichSlide];
+      if (!component) {
+        showError(context, `${whichSlide} ${slideProgress.toFixed(3)}`);
+      } else {
+        const slideOptions = { ...options, slideProgress };
+        component.show(slideOptions);
+      }
+    },
+  };
 }
 
 /**
@@ -92,7 +146,6 @@ export function createSlideComponent(): Showable {
       },
     ],
     show(options) {
-      const font = makeLineFont(1);
       const { context, timeInMs } = options;
       const transformString = discreteKeyframes(
         timeInMs,
@@ -104,7 +157,7 @@ export function createSlideComponent(): Showable {
         const transform = new DOMMatrixReadOnly(transformString);
         applyTransform(context, transform);
         context.lineJoin = "miter";
-        context.lineWidth = font.strokeWidth;
+        context.lineWidth = errorFont.strokeWidth;
         const color = interpolateColors(timeInMs, borderColorSchedule);
         context.strokeStyle = color;
         context.strokeRect(0, 0, 16, 9);
@@ -119,20 +172,7 @@ export function createSlideComponent(): Showable {
           throw ex;
         }
         // Report problem interpreting transform string but keep going.
-        const path = ParagraphLayout.singlePathShape({
-          font,
-          text: "Invalid Transform String:\n" + transformString,
-          alignment: "center",
-          width: 15.5,
-        }).canvasPath;
-        context.lineCap = "round";
-        context.lineJoin = "round";
-        context.lineWidth = font.strokeWidth * 3;
-        context.strokeStyle = "white";
-        context.stroke(path);
-        context.lineWidth = font.strokeWidth;
-        context.strokeStyle = "red";
-        context.stroke(path);
+        showError(context, "Invalid Transform String:\n" + transformString);
       }
       const matrix = context.getTransform();
     },
@@ -501,6 +541,7 @@ export function createFunctionGraphComponent(
 
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
+  ["Slide Deck", () => createSlideDeckComponent()],
   ["Slide", () => createSlideComponent()],
   ["Text", () => createTextComponent()],
   ["Rectangle", () => createRectangleComponent()],

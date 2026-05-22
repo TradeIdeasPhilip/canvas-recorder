@@ -1754,6 +1754,14 @@ function buildScheduleSection(
 ): HTMLElement {
   const section = document.createElement("fieldset");
 
+  if (info.editDurations) {
+    // Durations must be positive; clamp any bad values left over from serialization.
+    const schedule = info.schedule as (typeof info.schedule)[number][];
+    for (const kf of schedule) {
+      if (kf.time <= 0) kf.time = 5000;
+    }
+  }
+
   function rebuild() {
     // If the editing/viewing rect kf was removed from the schedule, clear it.
     if (info.type === "rectangle") {
@@ -1810,18 +1818,42 @@ function buildScheduleSection(
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.textContent = "+ Add";
-  addBtn.title = "Add keyframe at current time";
-  addBtn.addEventListener("click", addKeyframeAtCurrentTime);
   const sortBtn = document.createElement("button");
   sortBtn.type = "button";
   sortBtn.textContent = "Sort";
   sortBtn.title = "Re-sort rows by time";
-  sortBtn.addEventListener("click", () => {
-    (info.schedule as (typeof info.schedule)[number][]).sort(
-      (a, b) => a.time - b.time,
-    );
-    rebuild();
-  });
+
+  if (info.editDurations) {
+    addBtn.title = "Append item";
+    addBtn.addEventListener("click", () => {
+      const schedule = info.schedule as (typeof info.schedule)[number][];
+      const lastKf = schedule[schedule.length - 1];
+      const value: unknown = lastKf
+        ? lastKf.value
+        : info.type === "color"
+          ? "#ffffff"
+          : info.type === "number"
+            ? 0
+            : info.type === "rectangle"
+              ? { x: 0, y: 0, width: 4, height: 3 }
+              : info.type === "point"
+                ? { x: 0, y: 0 }
+                : "";
+      schedule.push({ time: 5000, value } as (typeof info.schedule)[number]);
+      rebuild();
+    });
+    sortBtn.hidden = true;
+  } else {
+    addBtn.title = "Add keyframe at current time";
+    addBtn.addEventListener("click", addKeyframeAtCurrentTime);
+    sortBtn.addEventListener("click", () => {
+      (info.schedule as (typeof info.schedule)[number][]).sort(
+        (a, b) => a.time - b.time,
+      );
+      rebuild();
+    });
+  }
+
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
   copyBtn.textContent = "📋";
@@ -1843,7 +1875,12 @@ function buildScheduleSection(
       : info.type === "rectangle"
         ? ["x", "y", "width", "height", "Canvas"]
         : ["Value"];
-  for (const h of ["Time (ms)", ...valueHeaders, "Ease ↓", ""]) {
+  for (const h of [
+    info.editDurations ? "Duration (ms)" : "Time (ms)",
+    ...valueHeaders,
+    "Ease ↓",
+    "",
+  ]) {
     const th = document.createElement("th");
     th.textContent = h;
     headerRow.append(th);
@@ -1858,6 +1895,13 @@ function buildScheduleSection(
   >();
 
   function updateEaseVisibility() {
+    if (info.editDurations) {
+      // In duration mode, ease is meaningful on every row including the last.
+      easeCellForKf.forEach((cell) => {
+        cell.style.visibility = "";
+      });
+      return;
+    }
     const maxTime = Math.max(...info.schedule.map((kf) => kf.time));
     easeCellForKf.forEach((cell, kf) => {
       cell.style.visibility = kf.time >= maxTime ? "hidden" : "";
@@ -1869,31 +1913,47 @@ function buildScheduleSection(
     const kf = info.schedule[i];
     const row = tbody.insertRow();
 
-    // Time cell: editable input + "← now" button
-    const timeInput = buildNumericInput(kf.time, (n) => {
-      kf.time = n;
-      // Keep the internal array sorted so interpolation always works correctly.
-      // The UI rows stay in their current positions until Sort is clicked.
-      (info.schedule as (typeof info.schedule)[number][]).sort(
-        (a, b) => a.time - b.time,
-      );
-      updateEaseVisibility();
-    });
-    timeInput.step = "any";
-    timeInput.style.width = "6em";
-    const nowBtn = document.createElement("button");
-    nowBtn.type = "button";
-    nowBtn.textContent = "←";
-    nowBtn.title = "Set to current time";
-    nowBtn.addEventListener("click", () => {
-      kf.time = localTimeMs();
-      timeInput.valueAsNumber = kf.time;
-      (info.schedule as (typeof info.schedule)[number][]).sort(
-        (a, b) => a.time - b.time,
-      );
-      updateEaseVisibility();
-    });
-    row.insertCell().append(timeInput, "\u00a0", nowBtn);
+    if (info.editDurations) {
+      const durationInput = buildNumericInput(kf.time, (n) => {
+        if (n <= 0) {
+          durationInput.setCustomValidity("Duration must be positive");
+          durationInput.reportValidity();
+          durationInput.valueAsNumber = kf.time;
+          return;
+        }
+        durationInput.setCustomValidity("");
+        kf.time = n;
+      });
+      durationInput.step = "any";
+      durationInput.style.width = "6em";
+      row.insertCell().append(durationInput);
+    } else {
+      // Time cell: editable input + "← now" button
+      const timeInput = buildNumericInput(kf.time, (n) => {
+        kf.time = n;
+        // Keep the internal array sorted so interpolation always works correctly.
+        // The UI rows stay in their current positions until Sort is clicked.
+        (info.schedule as (typeof info.schedule)[number][]).sort(
+          (a, b) => a.time - b.time,
+        );
+        updateEaseVisibility();
+      });
+      timeInput.step = "any";
+      timeInput.style.width = "6em";
+      const nowBtn = document.createElement("button");
+      nowBtn.type = "button";
+      nowBtn.textContent = "←";
+      nowBtn.title = "Set to current time";
+      nowBtn.addEventListener("click", () => {
+        kf.time = localTimeMs();
+        timeInput.valueAsNumber = kf.time;
+        (info.schedule as (typeof info.schedule)[number][]).sort(
+          (a, b) => a.time - b.time,
+        );
+        updateEaseVisibility();
+      });
+      row.insertCell().append(timeInput, "\u00a0", nowBtn);
+    }
 
     if (info.type === "color") {
       const colorKf = kf as Keyframe<string>;
@@ -2053,7 +2113,49 @@ function buildScheduleSection(
       (info.schedule as (typeof info.schedule)[number][]).splice(i, 1);
       rebuild();
     });
-    row.insertCell().append(deleteBtn);
+
+    const actionCell = row.insertCell();
+    if (info.editDurations) {
+      function moveKf(fromIdx: number, toIdx: number) {
+        const schedule = info.schedule as (typeof info.schedule)[number][];
+        const [item] = schedule.splice(fromIdx, 1);
+        schedule.splice(toIdx, 0, item);
+        rebuild();
+      }
+      const topBtn = document.createElement("button");
+      topBtn.type = "button";
+      topBtn.textContent = "⤒";
+      topBtn.title = "Move to top";
+      topBtn.disabled = i === 0;
+      topBtn.addEventListener("click", () => moveKf(i, 0));
+
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.textContent = "↑";
+      upBtn.title = "Move up";
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener("click", () => moveKf(i, i - 1));
+
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.textContent = "↓";
+      downBtn.title = "Move down";
+      downBtn.disabled = i === info.schedule.length - 1;
+      downBtn.addEventListener("click", () => moveKf(i, i + 1));
+
+      const bottomBtn = document.createElement("button");
+      bottomBtn.type = "button";
+      bottomBtn.textContent = "⤓";
+      bottomBtn.title = "Move to bottom";
+      bottomBtn.disabled = i === info.schedule.length - 1;
+      bottomBtn.addEventListener("click", () =>
+        moveKf(i, info.schedule.length - 1),
+      );
+
+      actionCell.append(topBtn, upBtn, downBtn, bottomBtn, deleteBtn);
+    } else {
+      actionCell.append(deleteBtn);
+    }
   }
   updateEaseVisibility();
 
