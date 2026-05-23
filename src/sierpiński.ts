@@ -860,7 +860,7 @@ const recursiveTriangles = (() => {
  * If the input is 1 or more, the function will return a version of the PathShape with completely rounded corners.
  * If the input is in between, the result will be interpolated.
  */
-function makeCornerRounder(
+export function makeCornerRounder(
   originalPathShape: PathShape,
   amountOfCurve = 1 / 3,
 ) {

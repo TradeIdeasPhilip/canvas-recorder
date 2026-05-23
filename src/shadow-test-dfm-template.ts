@@ -60,7 +60,7 @@ class NineShapes extends VisuallyEditable {
   private constructor() {
     const layout = new RectangleScheduleInfo(
       "layout",
-      "The shapes will be put into this rectangle.",
+      //"The shapes will be put into this rectangle.",
       [
         { time: 0, value: { x: 0.5, y: 4.5, width: 6, height: 4 } },
         { time: 3000, value: { x: 5, y: 0.5, width: 6, height: 4 } },
@@ -70,7 +70,7 @@ class NineShapes extends VisuallyEditable {
     );
     super(
       "nineShapes",
-      "doesn't exist yet, currently missing from database",
+      //"doesn't exist yet, currently missing from database",
       [],
       [
         /*todo*/
@@ -93,7 +93,7 @@ class ShapeGallery extends VisuallyEditable {
   private constructor() {
     super(
       "shapeGallery",
-      "shadow-test|Slide 1: Shape Gallery",
+      //"shadow-test|Slide 1: Shape Gallery",
       [NineShapes.instance],
       [],
     );
@@ -130,20 +130,19 @@ class FontInspector extends VisuallyEditable {
     // 𝕋𝕖𝕞𝕡𝕠𝕣𝕒𝕣𝕪 ℕ𝕠𝕥𝕖:  We cannot access this.text before calling super,
     // so we have to write the code in this order.
     // Slightly annoying but not a big deal.
-    const text = new StringScheduleInfo("text", "Text", [
+    const text = new StringScheduleInfo( "Text", [
       { time: 0, value: "Ag" },
     ]);
-    const zoomArea = new RectangleScheduleInfo("zoomArea", "Zoom Area", [
+    const zoomArea = new RectangleScheduleInfo( "Zoom Area", [
       { time: 0, value: { x: 0.3, y: 0.5, width: 10.5, height: 8 } },
     ]);
     const simpleTextPosition = new PointScheduleInfo(
-      "simpleTextPosition",
       "Simple Text Position",
       [{ time: 0, value: { x: 12.5, y: 5 } }],
     );
     super(
       "fontInspector",
-      "shadow-test|Font Inspector",
+     // "shadow-test|Font Inspector",
       [],
       [text, zoomArea, simpleTextPosition],
     );
@@ -181,7 +180,7 @@ class TopLevelVisuallyEditable extends VisuallyEditable {
     // so we have to duplicate a little bit of code.
     // Slightly annoying but not a big deal.
     super(
-      "shadowTest",
+      //"shadowTest",
       "shadow-test",
       [ShapeGallery.instance, FontInspector.instance],
       [],

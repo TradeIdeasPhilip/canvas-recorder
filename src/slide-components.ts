@@ -8,12 +8,7 @@ import {
   interpolateRects,
   Keyframe,
 } from "./interpolate";
-import {
-  applySnapshot,
-  SerializedSchedule,
-  Showable,
-  ShowOptions,
-} from "./showable";
+import { applySnapshot, SerializedSchedule, Showable } from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
@@ -22,9 +17,21 @@ import { ParagraphLayout } from "./glib/paragraph-layout";
 import { applyTransform } from "./glib/transforms";
 import { Point } from "./glib/path-shape";
 import { myRainbow } from "./glib/my-rainbow";
+import {
+  ColorScheduleInfo,
+  NumberScheduleInfo,
+  PointScheduleInfo,
+  StringScheduleInfo,
+} from "./visually-editable-base";
 
 const errorFont = makeLineFont(1);
 
+/**
+ * Write text on the screen where it is big and easy to see, even without knowing what else is there.
+ * @param context Where to draw.
+ * @param text What to draw.
+ * Can include " " and "\n" for optional and forced line breaks.
+ */
 function showError(context: CanvasRenderingContext2D, text: string) {
   const font = errorFont;
   const path = ParagraphLayout.singlePathShape({
@@ -43,6 +50,14 @@ function showError(context: CanvasRenderingContext2D, text: string) {
   context.stroke(path);
 }
 
+type TraditionalTextSchedules = [
+  text: StringScheduleInfo,
+  position: PointScheduleInfo,
+  fillColor: ColorScheduleInfo,
+  outlineColor:ColorScheduleInfo,
+// TODO finish this.
+];
+
 /**
  * Traditional text component:
  * Text to display is a string schedule.
@@ -60,21 +75,27 @@ function showError(context: CanvasRenderingContext2D, text: string) {
  * font-variant, font-weight, font-stretch, and line-height
  */
 export function createTraditionalTextComponent(): Showable {
-  const textSchedule: Keyframe<string>[] = [{ time: 0, value: "Type Here" }];
-  const positionSchedule: Keyframe<Point>[] = [
+  const textSchedule = new StringScheduleInfo("Text", [
+    { time: 0, value: "Type Here" },
+  ]);
+  const positionSchedule = new PointScheduleInfo("Position", [
     { time: 0, value: { x: 2, y: 1 } },
-  ];
-  const fillColorSchedule: Keyframe<string>[] = [
+  ]);
+  const fillColorSchedule = new ColorScheduleInfo("Fill Color", [
     { time: 0, value: myRainbow.violet },
-  ];
-  const outlineColorSchedule: Keyframe<string>[] = [
+  ]);
+  const outlineColorSchedule = new ColorScheduleInfo("Outline Color", [
     { time: 0, value: myRainbow.orange },
-  ];
-  const outlineWidthSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
-  const fontSizeSchedule: Keyframe<number>[] = [{ time: 0, value: 0.5 }];
-  const fontFamilySchedule: Keyframe<string>[] = [
+  ]);
+  const outlineWidthSchedule = new NumberScheduleInfo("Outline Width", [
+    { time: 0, value: 0 },
+  ]);
+  const fontSizeSchedule = new NumberScheduleInfo("Font Size", [
+    { time: 0, value: 0.5 },
+  ]);
+  const fontFamilySchedule = new StringScheduleInfo("Font Family", [
     { time: 0, value: "Life Savers" },
-  ];
+  ]);
   // what about linejoin?
   // It seems like one of those funny typewriter fonts was freaking out when I tried to do an outline this way.
   // I didn't think about it at the time but linejoin="round" or "bevel" probably would have helped.
@@ -83,37 +104,25 @@ export function createTraditionalTextComponent(): Showable {
     description: "Traditional Text",
     duration: 0,
     schedules: [
-      { description: "Text", type: "string", schedule: textSchedule },
-      { description: "Position", type: "point", schedule: positionSchedule },
-      { description: "Fill Color", type: "color", schedule: fillColorSchedule },
-      {
-        description: "Outline Color",
-        type: "color",
-        schedule: outlineColorSchedule,
-      },
-      {
-        description: "Outline Width",
-        type: "number",
-        schedule: outlineWidthSchedule,
-      },
-      { description: "Font Size", type: "number", schedule: fontSizeSchedule },
-      {
-        description: "Font Family",
-        type: "string",
-        schedule: fontFamilySchedule,
-      },
+      textSchedule,
+      positionSchedule,
+      fillColorSchedule,
+      outlineColorSchedule,
+      outlineWidthSchedule,
+      fontSizeSchedule,
+      fontFamilySchedule,
     ],
     show({ context, timeInMs }) {
-      const text = discreteKeyframes(timeInMs, textSchedule);
-      const position = interpolatePoints(timeInMs, positionSchedule);
-      const fillColor = interpolateColors(timeInMs, fillColorSchedule);
-      const outlineWidth = interpolateNumbers(timeInMs, outlineWidthSchedule);
-      const fontSize = interpolateNumbers(timeInMs, fontSizeSchedule);
-      const fontFamily = discreteKeyframes(timeInMs, fontFamilySchedule);
+      const text = textSchedule.at(timeInMs);
+      const position = positionSchedule.at(timeInMs);
+      const fillColor = fillColorSchedule.at(timeInMs);
+      const outlineWidth = outlineWidthSchedule.at(timeInMs);
+      const fontSize = fontSizeSchedule.at(timeInMs);
+      const fontFamily = fontFamilySchedule.at(timeInMs);
       const fontString = `${fontSize}px ${fontFamily}`;
       context.font = fontString;
       if (outlineWidth > 0) {
-        const outlineColor = interpolateColors(timeInMs, outlineColorSchedule);
+        const outlineColor = outlineColorSchedule.at(timeInMs);
         context.lineWidth = outlineWidth;
         context.lineJoin = "miter";
         context.strokeStyle = outlineColor;

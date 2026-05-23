@@ -25,7 +25,6 @@ export class StringScheduleInfo {
     return discreteKeyframes(timeInMs, this.schedule);
   }
   /**
-   * @param name How you will access this from the individual video's code.
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
@@ -33,7 +32,6 @@ export class StringScheduleInfo {
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly name: string,
     readonly description: string,
     readonly schedule: Keyframe<string>[],
   ) {}
@@ -45,7 +43,6 @@ export class ColorScheduleInfo {
     return interpolateColors(timeInMs, this.schedule);
   }
   /**
-   * @param name How you will access this from the individual video's code.
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
@@ -53,7 +50,6 @@ export class ColorScheduleInfo {
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly name: string,
     readonly description: string,
     readonly schedule: Keyframe<string>[],
   ) {}
@@ -65,7 +61,6 @@ export class NumberScheduleInfo {
     return interpolateNumbers(timeInMs, this.schedule);
   }
   /**
-   * @param name How you will access this from the individual video's code.
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
@@ -73,7 +68,6 @@ export class NumberScheduleInfo {
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly name: string,
     readonly description: string,
     readonly schedule: Keyframe<number>[],
   ) {}
@@ -85,7 +79,6 @@ export class RectangleScheduleInfo {
     return interpolateRects(timeInMs, this.schedule);
   }
   /**
-   * @param name How you will access this from the individual video's code.
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
@@ -93,7 +86,6 @@ export class RectangleScheduleInfo {
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly name: string,
     readonly description: string,
     readonly schedule: Keyframe<ReadOnlyRect>[],
   ) {}
@@ -105,7 +97,6 @@ export class PointScheduleInfo {
     return interpolatePoints(timeInMs, this.schedule);
   }
   /**
-   * @param name How you will access this from the individual video's code.
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
@@ -113,7 +104,6 @@ export class PointScheduleInfo {
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly name: string,
     readonly description: string,
     readonly schedule: Keyframe<Point>[],
   ) {}
@@ -127,15 +117,13 @@ export class PointScheduleInfo {
  */
 export class VisuallyEditable {
   /**
-   * @param name Code identifier used for typed property access in generated files.
-    * @param key The IndexedDB key for this node's document (e.g. `"shadow-test|Font Inspector"`).
+   * @param key The IndexedDB key for this node's document (e.g. `"shadow-test|Font Inspector"`).
    * All schedules belonging to this node are stored together under this key;
    * individual schedules are distinguished within that document by their {@link ScheduleInfo.description}.
    * @param children Child nodes, each with their own key and schedules.
    * @param schedules The editable schedules attached directly to this node.
    */
   constructor(
-    readonly name: string,
     readonly key: IndexDbKey,
     readonly children: readonly VisuallyEditable[],
     readonly schedules: readonly ScheduleInfo[],
