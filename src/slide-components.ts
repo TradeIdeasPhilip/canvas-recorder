@@ -8,19 +8,24 @@ import {
   interpolateRects,
   Keyframe,
 } from "./interpolate";
-import { applySnapshot, SerializedSchedule, Showable } from "./showable";
+import {
+  applySnapshot,
+  SerializedSchedule,
+  Showable,
+  ShowOptions,
+} from "./showable";
 import { SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
 import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { applyTransform } from "./glib/transforms";
-import { Point } from "./glib/path-shape";
 import { myRainbow } from "./glib/my-rainbow";
 import {
   ColorScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
+  SelectScheduleInfo,
   StringScheduleInfo,
 } from "./visually-editable-base";
 
@@ -50,98 +55,153 @@ function showError(context: CanvasRenderingContext2D, text: string) {
   context.stroke(path);
 }
 
-type TraditionalTextSchedules = [
-  text: StringScheduleInfo,
-  position: PointScheduleInfo,
-  fillColor: ColorScheduleInfo,
-  outlineColor:ColorScheduleInfo,
-// TODO finish this.
-];
-
 /**
- * Traditional text component:
- * Text to display is a string schedule.
- * Position is a point schedule.
- * Fill color is a color schedule.
- * Outline color is a color schedule.
- * Outline width is a number schedule.
- * The outline is made by stroking **before** filling, for readability.
- * Font size (in userspace units) is a number schedule.
- * Font family is a string schedule.
- * https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts offers ways to ensure that the font has loaded.
+ * Traditional text component.
  *
- * TODO:  textAlign, textBaseline, and direction
+ * Uses the canvas's strokeText() and fillText().
+ * Does **not** use the custom strokable fonts, like {@link createTextComponent}().
+ * Uses CSS fonts, including downloaded or built in fonts.
+ *
+ * TODO: https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts offers ways to ensure that the font has loaded.
+ * We should add methods to this class for awaiting and possibly failing.
+ * Like we started and discussed in {@link SlowImage}.
+ *
+ * TODO??:   direction?? Seems worthless.
+ * The best I can tell it is used to manually say whether context.textAlign="start"
+ * is equivalent to context.textAlign="left" or context.textAlign="right".
+ * That just seems stupid and useless and confusing.
+ * In fact, I'm removing start and end from the list of options.
+ * Note that שָׁלוֹם is drawn correctly, right-to-left, regardless of this setting.
+ *
  * TODO:  The following can be specified before font-style:
  * font-variant, font-weight, font-stretch, and line-height
  */
-export function createTraditionalTextComponent(): Showable {
-  const textSchedule = new StringScheduleInfo("Text", [
+class TraditionalTextComponent implements Showable {
+  /**
+   * What to display.
+   */
+  readonly textSchedule = new StringScheduleInfo("Text", [
     { time: 0, value: "Type Here" },
   ]);
-  const positionSchedule = new PointScheduleInfo("Position", [
+  /**
+   * Where to display it.
+   * See {@link textAlignSchedule} and {@link textBaselineSchedule} to know how this position will be interpreted.
+   */
+  readonly positionSchedule = new PointScheduleInfo("Position", [
     { time: 0, value: { x: 2, y: 1 } },
   ]);
-  const fillColorSchedule = new ColorScheduleInfo("Fill Color", [
+  /**
+   * The fill is the normal way of rendering traditional text.
+   */
+  readonly fillColorSchedule = new ColorScheduleInfo("Fill Color", [
     { time: 0, value: myRainbow.violet },
   ]);
-  const outlineColorSchedule = new ColorScheduleInfo("Outline Color", [
+  /**
+   * The outline is stroked using this color.
+   * See {@link outlineWidth} if you want to disable the outline.
+   *
+   * Note that the outline is stroked *before* it is filled.
+   * That is the opposite of SVG.
+   * I find the text is unreadable if you do it the other way.
+   */
+  readonly outlineColorSchedule = new ColorScheduleInfo("Outline Color", [
     { time: 0, value: myRainbow.orange },
   ]);
-  const outlineWidthSchedule = new NumberScheduleInfo("Outline Width", [
+  /**
+   * The outline is stroked using this lineWidth.
+   * Set this to 0 if you want to disable the outline.
+   *
+   * Note that the outline is stroked *before* it is filled.
+   * That is the opposite of SVG.
+   * I find the text is unreadable if you do it the other way.
+   */
+  readonly outlineWidthSchedule = new NumberScheduleInfo("Outline Width", [
     { time: 0, value: 0 },
   ]);
-  const fontSizeSchedule = new NumberScheduleInfo("Font Size", [
+  /**
+   * This corresponds to "px" in the API.
+   * However, these are our normal userspace units, not actually pixels.
+   * The screen is typically 16×9.
+   */
+  readonly fontSizeSchedule = new NumberScheduleInfo("Font Size", [
     { time: 0, value: 0.5 },
   ]);
-  const fontFamilySchedule = new StringScheduleInfo("Font Family", [
+  /**
+   * TODO make this a drop down.  (Constrained.)
+   * We can read what is available at https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts
+   * That includes the family names, and the bold and italic options for the family.
+   */
+  readonly fontFamilySchedule = new StringScheduleInfo("Font Family", [
     { time: 0, value: "Life Savers" },
   ]);
-  // what about linejoin?
-  // It seems like one of those funny typewriter fonts was freaking out when I tried to do an outline this way.
-  // I didn't think about it at the time but linejoin="round" or "bevel" probably would have helped.
-  // Maybe miterlimit is what I really needed.
-  return {
-    description: "Traditional Text",
-    duration: 0,
-    schedules: [
-      textSchedule,
-      positionSchedule,
-      fillColorSchedule,
-      outlineColorSchedule,
-      outlineWidthSchedule,
-      fontSizeSchedule,
-      fontFamilySchedule,
-    ],
-    show({ context, timeInMs }) {
-      const text = textSchedule.at(timeInMs);
-      const position = positionSchedule.at(timeInMs);
-      const fillColor = fillColorSchedule.at(timeInMs);
-      const outlineWidth = outlineWidthSchedule.at(timeInMs);
-      const fontSize = fontSizeSchedule.at(timeInMs);
-      const fontFamily = fontFamilySchedule.at(timeInMs);
-      const fontString = `${fontSize}px ${fontFamily}`;
-      context.font = fontString;
-      if (outlineWidth > 0) {
-        const outlineColor = outlineColorSchedule.at(timeInMs);
-        context.lineWidth = outlineWidth;
-        context.lineJoin = "miter";
-        context.strokeStyle = outlineColor;
-        context.strokeText(text, position.x, position.y);
-      }
-      context.fillStyle = fillColor;
-      context.fillText(text, position.x, position.y);
-    },
-  };
+  /**
+   * The {@link positionSchedule} names a point.
+   * Should that point refer to the left, center or right side of the text?
+   */
+  readonly textAlignSchedule = new SelectScheduleInfo("Align", "center", [
+    "left",
+    "center",
+    "right",
+  ]);
+  /**
+   * How does the text align with {@link positionSchedule} vertically?
+   * https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D/textBaseline
+   */
+  readonly textBaselineSchedule = new SelectScheduleInfo(
+    "Baseline",
+    "alphabetic",
+    ["top", "hanging", "middle", "alphabetic", "ideographic", "bottom"],
+  );
+  readonly schedules = [
+    this.textSchedule,
+    this.positionSchedule,
+    this.fillColorSchedule,
+    this.outlineColorSchedule,
+    this.outlineWidthSchedule,
+    this.fontSizeSchedule,
+    this.fontFamilySchedule,
+    this.textAlignSchedule,
+    this.textBaselineSchedule,
+  ] as const;
+  readonly description = "Traditional Text";
+  readonly duration = 0;
+  show({ context, timeInMs }: ShowOptions) {
+    const text = this.textSchedule.at(timeInMs);
+    const position = this.positionSchedule.at(timeInMs);
+    const fillColor = this.fillColorSchedule.at(timeInMs);
+    const outlineWidth = this.outlineWidthSchedule.at(timeInMs);
+    const fontSize = this.fontSizeSchedule.at(timeInMs);
+    const fontFamily = this.fontFamilySchedule.at(timeInMs);
+    const fontString = `${fontSize}px ${fontFamily}`;
+    context.font = fontString;
+    context.textAlign = this.textAlignSchedule.at(timeInMs);
+    context.textBaseline = this.textBaselineSchedule.at(timeInMs);
+    if (outlineWidth > 0) {
+      const outlineColor = this.outlineColorSchedule.at(timeInMs);
+      context.lineWidth = outlineWidth;
+      context.lineJoin = "miter";
+      context.strokeStyle = outlineColor;
+      context.strokeText(text, position.x, position.y);
+    }
+    context.fillStyle = fillColor;
+    context.fillText(text, position.x, position.y);
+  }
 }
 
-// TODO start using NumberScheduleInfo, etc.
-// Use it locally.
-// when I create a component, and I create schedules for that component, make the schedules use these objects.
-// Need to add at least one example for the duration version of numbers.
-// Showable keeps its interface, which these helper objects implement.
-// Locally we can use at() in each case, as we should!
-// And the return value for the component should be more explicit.
-// Something like Showable & { components: [color:ColorScheduleInfo, text:StringScheduleInfo]}
+// Components do not have to be classes.
+// They only have to implement Showable.
+// Making this a class makes it easy for a programmer to access all of the schedules.
+// These are like properties of an html element or a Delphi control.
+// A programmer might want to read or change these at runtime.
+// The Visual Editor can dynamically inspect the list of schedules.
+// But a programmer shouldn't *have to* use the dynamic interface.
+// Instead, properties have names, object.propertyName, along with types and JSDoc comments.
+// This works whether you recently created a TraditionalTextComponent:
+//     const sample = new TraditionalTextComponent();
+//     const fontFamily = sample.fontFamilySchedule.at(0 /* timeInMs*/);
+// or you asked
+//     if (fromDatabase instanceof TraditionalTextComponent) { … }
+// because TraditionalTextComponent is a class.
 
 /**
  * This is a very early prototype of a slide deck.
@@ -647,7 +707,7 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Slide Deck", () => createSlideDeckComponent()],
   ["Slide", () => createSlideComponent()],
   ["Text", () => createTextComponent()],
-  ["Traditional Text", () => createTraditionalTextComponent()],
+  ["Traditional Text", () => new TraditionalTextComponent()],
   ["Rectangle", () => createRectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],

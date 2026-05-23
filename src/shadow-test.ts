@@ -353,13 +353,13 @@ const SHADOW_OPTIONS: Omit<Parameters<typeof makeShadowDemo>[0], "base"> = {
 };
 
 // ---------------------------------------------------------------------------
-// Slide list
+// MARK: Slide list
 // ---------------------------------------------------------------------------
 
 const slideList = new MakeShowableInSeries("Shadow Test");
 
 // ---------------------------------------------------------------------------
-// Slide 1 — shape gallery
+// MARK: Slide 1 — shape gallery
 // ---------------------------------------------------------------------------
 {
   const slide: Showable = {
@@ -373,9 +373,9 @@ const slideList = new MakeShowableInSeries("Shadow Test");
             description: "Layout",
             type: "rectangle",
             keyframes: [
-              { time: 0,    value: { x: 0.5, y: 4.5, width: 6,  height: 4 } },
-              { time: 3000, value: { x: 5,   y: 0.5, width: 6,  height: 4 } },
-              { time: 6500, value: { x: 9.5, y: 4.5, width: 6,  height: 4 } },
+              { time: 0, value: { x: 0.5, y: 4.5, width: 6, height: 4 } },
+              { time: 3000, value: { x: 5, y: 0.5, width: 6, height: 4 } },
+              { time: 6500, value: { x: 9.5, y: 4.5, width: 6, height: 4 } },
               { time: 9500, value: { x: 0.5, y: 0.5, width: 15, height: 8 } },
             ],
           },
@@ -390,7 +390,714 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
-// Slide 2 — growing rectangle (linear width → linear shadow)
+// MARK: Slide 1a — Generic Container
+// ---------------------------------------------------------------------------
+{
+  const slide: Showable = {
+    description: "Slide 1a: Generic Container",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    components: buildComponents([
+      {
+        registryKey: "Nine Shapes (Shadow Test)",
+        schedules: [
+          {
+            description: "Layout",
+            type: "rectangle",
+            keyframes: [
+              {
+                time: 0,
+                value: {
+                  x: 0.5,
+                  y: 4.5,
+                  width: 6,
+                  height: 4,
+                },
+              },
+              {
+                time: 3000,
+                value: {
+                  x: 5,
+                  y: 0.5,
+                  width: 6,
+                  height: 4,
+                },
+              },
+              {
+                time: 6500,
+                value: {
+                  x: 9.5,
+                  y: 4.5,
+                  width: 6,
+                  height: 4,
+                },
+              },
+              {
+                time: 9500,
+                value: {
+                  x: 0.5,
+                  y: 0.5,
+                  width: 15,
+                  height: 8,
+                },
+              },
+            ],
+          },
+        ],
+      },
+      {
+        registryKey: "Text",
+        schedules: [
+          {
+            description: "Color",
+            type: "color",
+            keyframes: [
+              {
+                time: 0,
+                value: "#888",
+              },
+            ],
+          },
+          {
+            description: "Rect",
+            type: "rectangle",
+            keyframes: [
+              {
+                time: 0,
+                value: {
+                  x: 0.5,
+                  y: 0.5,
+                  width: 8,
+                  height: 4,
+                },
+              },
+            ],
+          },
+          {
+            description: "Text",
+            type: "string",
+            keyframes: [
+              {
+                time: 0,
+                value: "a b c d e f g h i j k l m n o p q r s t u v w x y z",
+              },
+              {
+                time: 9178.699999999999,
+                value: "a b c d e f g h i j k l m n o p q r s t u v w x y z",
+              },
+            ],
+          },
+          {
+            description: "Size",
+            type: "number",
+            keyframes: [
+              {
+                time: 0,
+                value: 1,
+              },
+            ],
+          },
+          {
+            description: "Boldness",
+            type: "number",
+            keyframes: [
+              {
+                time: 0,
+                value: 1,
+              },
+              {
+                time: 1250,
+                value: 0.5,
+              },
+              {
+                time: 3750,
+                value: 1.5,
+              },
+              {
+                time: 5000,
+                value: 1,
+              },
+            ],
+          },
+          {
+            description: "Obliqueness",
+            type: "number",
+            keyframes: [
+              {
+                time: 0,
+                value: 0,
+              },
+              {
+                time: 5000,
+                value: 0,
+              },
+              {
+                time: 7500,
+                value: 15,
+              },
+              {
+                time: 10000,
+                value: 0,
+              },
+            ],
+          },
+          {
+            description: "Alignment",
+            type: "select",
+            keyframes: [
+              {
+                time: 0,
+                value: "justify",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        registryKey: "Slide",
+        schedules: [
+          {
+            description: "Transform",
+            type: "string",
+            keyframes: [
+              {
+                time: 0,
+                value: "translate(1px, 1px) scale(0.5)",
+              },
+            ],
+          },
+          {
+            description: "Border Color",
+            type: "color",
+            keyframes: [
+              {
+                time: 0,
+                value: "blue",
+              },
+            ],
+          },
+        ],
+        components: [
+          {
+            registryKey: "Slide",
+            schedules: [
+              {
+                description: "Transform",
+                type: "string",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "translate(1px, 1px) scale(0.5)",
+                  },
+                ],
+              },
+              {
+                description: "Border Color",
+                type: "color",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "blue",
+                  },
+                ],
+              },
+            ],
+            components: [
+              {
+                registryKey: "Text",
+                schedules: [
+                  {
+                    description: "Color",
+                    type: "color",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: "#888",
+                      },
+                    ],
+                  },
+                  {
+                    description: "Rect",
+                    type: "rectangle",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: {
+                          x: 2,
+                          y: 2,
+                          width: 6,
+                          height: 4,
+                        },
+                      },
+                    ],
+                  },
+                  {
+                    description: "Text",
+                    type: "string",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: "Type Here",
+                      },
+                    ],
+                  },
+                  {
+                    description: "Size",
+                    type: "number",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: 1,
+                      },
+                    ],
+                  },
+                  {
+                    description: "Boldness",
+                    type: "number",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: 1,
+                      },
+                    ],
+                  },
+                  {
+                    description: "Obliqueness",
+                    type: "number",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: 0,
+                      },
+                    ],
+                  },
+                  {
+                    description: "Alignment",
+                    type: "select",
+                    keyframes: [
+                      {
+                        time: 0,
+                        value: "left",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        registryKey: "Slide",
+        schedules: [
+          {
+            description: "Transform",
+            type: "string",
+            keyframes: [
+              {
+                time: 0,
+                value: "translate(1px, 1px) scale(0.5)",
+              },
+            ],
+          },
+          {
+            description: "Border Color",
+            type: "color",
+            keyframes: [
+              {
+                time: 0,
+                value: "blue",
+              },
+            ],
+          },
+        ],
+        components: [
+          {
+            registryKey: "Text",
+            schedules: [
+              {
+                description: "Color",
+                type: "color",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "#888",
+                  },
+                ],
+              },
+              {
+                description: "Rect",
+                type: "rectangle",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: {
+                      x: 2,
+                      y: 2,
+                      width: 6,
+                      height: 4,
+                    },
+                  },
+                ],
+              },
+              {
+                description: "Text",
+                type: "string",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "Type Here",
+                  },
+                ],
+              },
+              {
+                description: "Size",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Boldness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Obliqueness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 0,
+                  },
+                ],
+              },
+              {
+                description: "Alignment",
+                type: "select",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "left",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        registryKey: "Slide Deck",
+        schedules: [
+          {
+            description: "Which Slide",
+            type: "number",
+            keyframes: [
+              {
+                time: 3000,
+                value: 0,
+              },
+              {
+                time: 3000,
+                value: 1,
+              },
+              {
+                time: 1000,
+                value: 2,
+              },
+            ],
+          },
+        ],
+        components: [
+          {
+            registryKey: "Text",
+            schedules: [
+              {
+                description: "Color",
+                type: "color",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "#5628fb",
+                  },
+                ],
+              },
+              {
+                description: "Rect",
+                type: "rectangle",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: {
+                      x: 2,
+                      y: 2,
+                      width: 6,
+                      height: 4,
+                    },
+                  },
+                ],
+              },
+              {
+                description: "Text",
+                type: "string",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "first",
+                  },
+                ],
+              },
+              {
+                description: "Size",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Boldness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Obliqueness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 0,
+                  },
+                ],
+              },
+              {
+                description: "Alignment",
+                type: "select",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "left",
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            registryKey: "Text",
+            schedules: [
+              {
+                description: "Color",
+                type: "color",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "#049f1e",
+                  },
+                ],
+              },
+              {
+                description: "Rect",
+                type: "rectangle",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: {
+                      x: 2,
+                      y: 2,
+                      width: 6,
+                      height: 4,
+                    },
+                  },
+                ],
+              },
+              {
+                description: "Text",
+                type: "string",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "Two",
+                  },
+                ],
+              },
+              {
+                description: "Size",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Boldness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 1,
+                  },
+                ],
+              },
+              {
+                description: "Obliqueness",
+                type: "number",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: 0,
+                  },
+                ],
+              },
+              {
+                description: "Alignment",
+                type: "select",
+                keyframes: [
+                  {
+                    time: 0,
+                    value: "left",
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        registryKey: "Traditional Text",
+        schedules: [
+          {
+            description: "Text",
+            type: "string",
+            keyframes: [
+              {
+                time: 0,
+                value: "Traditional Text",
+              },
+            ],
+          },
+          {
+            description: "Position",
+            type: "point",
+            keyframes: [
+              {
+                time: 0,
+                value: {
+                  x: 6.841521062021537,
+                  y: 6.7561945054266515,
+                },
+              },
+            ],
+          },
+          {
+            description: "Fill Color",
+            type: "color",
+            keyframes: [
+              {
+                time: 0,
+                value: "#00ffcc",
+              },
+              {
+                time: 5000,
+                value: "#00ffcc",
+              },
+              {
+                time: 7000,
+                value: "#ff0040",
+              },
+              {
+                time: 9013.3,
+                value: "#0008ff",
+              },
+            ],
+          },
+          {
+            description: "Outline Color",
+            type: "color",
+            keyframes: [
+              {
+                time: 0,
+                value: "#001eff",
+              },
+            ],
+          },
+          {
+            description: "Outline Width",
+            type: "number",
+            keyframes: [
+              {
+                time: 0,
+                value: 0.05,
+              },
+            ],
+          },
+          {
+            description: "Font Size",
+            type: "number",
+            keyframes: [
+              {
+                time: 0,
+                value: 1,
+              },
+            ],
+          },
+          {
+            description: "Font Family",
+            type: "string",
+            keyframes: [
+              {
+                time: 0,
+                value: "Life Savers",
+              },
+            ],
+          },
+          {
+            description: "Align",
+            type: "select",
+            keyframes: [
+              {
+                time: 0,
+                value: "start",
+              },
+            ],
+          },
+          {
+            description: "Baseline",
+            type: "select",
+            keyframes: [
+              {
+                time: 0,
+                value: "bottom",
+              },
+            ],
+          },
+        ],
+      },
+    ]),
+    show(options) {
+      for (const child of this.components!) child.show(options);
+    },
+  };
+  slideList.add(slide);
+}
+
+// ---------------------------------------------------------------------------
+// MARK: Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
 {
   const slide: Showable = {
@@ -419,7 +1126,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
-// Slide 3 — shape with diagonal + curve right edge sweeping across
+// MARK: Slide 3 — shape with diagonal + curve right edge sweeping across
 //
 // Path:  M x0,y0  h w  l 1,1.5  q 0,1.5 -1,1.5  h -w  z
 //   Left side:   vertical, closed.
@@ -445,7 +1152,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
-// Slide 4 — animated pattern fill, verifying radius ∝ √(coverage)
+// MARK: Slide 4 — animated pattern fill, verifying radius ∝ √(coverage)
 //
 // Fills the three solid shapes (top row of slide 1, no stroke) with a 16×16
 // device-pixel pattern.  Each frame, exactly n of the 256 pixels are opaque.
@@ -526,7 +1233,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
-// Slide 5 — vertical lines
+// MARK: Slide 5 — vertical lines
 // ---------------------------------------------------------------------------
 {
   const positionSchedule: Keyframe<Point>[] = [
@@ -576,7 +1283,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
-// Font Inspector — lineFont metrics and glyph viewer
+// MARK: Font Inspector — lineFont metrics and glyph viewer
 // ---------------------------------------------------------------------------
 {
   const FONT_SIZE = 1.0;

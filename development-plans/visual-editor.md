@@ -373,6 +373,9 @@ And you should be able to reorder these easily,
 
 ## Text Control
 
+**First version is complete!**
+See "Text" and "Traditional Text" in the `componentRegistry` in slide-components.ts.
+
 There are no limits to what you can to what you can do with text programmatically.
 
 Current tools: I have a lot of small pieces that can be applied and grouped to make the text more interesting.
@@ -448,6 +451,9 @@ It would be good to have some wrappers or something around this to avoid the boi
 
 ## interpolatePoints()
 
+**The fix is in progress!**
+See `ColorScheduleInfo`, `StringScheduleInfo`, `SelectScheduleInfo`, etc.
+
 interpolatePoints(), interpolateRects(), etc, that code is all inconvenient.
 I never remember what to type and VS code doesn't have any way to give me a suggestion.
 
@@ -464,6 +470,8 @@ See [../src/binary-search.ts](../src/binary-search.ts)
 
 ## Bug
 
+**Fixed!**
+
 I found an old bug that I thought had already been fixed.
 I documented it because I didn't want to get off track.
 This is just frustrating.
@@ -471,6 +479,8 @@ This is just frustrating.
 The start and end are both messed up for some chapters of the showcase
 
 ## I still don't have a way to save just one scene!
+
+**Fixed!**
 
 These little silly things are getting in the way.
 It was a minor improvement I've been meaning to add for a while.
@@ -757,6 +767,9 @@ See createTextComponent() in slide-components.ts.
 
 ## In Series Control
 
+First version is **done** and works well.
+See "Slide Deck" in slide-components.ts.
+
 What does the editor look like?
 We don't have a graphical way to set a duration for each item, only to set its start time.
 If the user changes a duration, that should change all durations after it.
@@ -774,3 +787,86 @@ The GUI should prevent someone from adding an easing function.
 Same for anything with strings.
 
 All children are slides, our generic container for stuff.
+
+## Bug: Empty Saves
+
+Sometimes I see an empty window when I was expecting a window full of stuff.
+Fortunately the auto save finds the last good version.
+And there is only one empty version saved, I used to have to look through a bunch of those to find the last good one.
+I.e. we're doing mitigating the situation.
+But can we remove it completely?
+
+I'm looking at "Slide 1: Shape Gallery".
+It's nothing but a host for components.
+
+I'm not 100% sure how to reproduce this.
+I was making lots of big changes to the code.
+I was saving a lot, mostly out of habit.
+The code was in all different states of disrepair at different saves.
+
+Most recently I was dealing with slide-components.ts and visually-editable-base.ts when this happened.
+Possibly this happened when I was changing the registry.
+So we tried to load an old layout, and it failed because the code was temporarily broken, and went ahead and autosaved the broken, empty version.
+If that's the case, **I don't think we can do much better that we are already doing!**
+
+Here's another approach:
+Maybe we need better descriptions in the select list.
+Like "empty" or "10 components" or ("autosave" vs "manual save").
+Better yet, we need to change the input so we can preview the items just by going down the list.
+(\<select> does not support preview events, only commit events.)
+Actually, do both!
+
+Not exactly a bug, but worth a closer look.
+
+## Named Properties in the Code
+
+I want our components to be like Delphi controls.
+
+We already have a nice GUI that can dynamically adjust to work with any component.
+But I also want it to be easy to access one of these object directly from code.
+When I type the name of a component followed by a dot, VS Code should recommend all of the names of the properties.
+These are the same schedules that are available in `Showable.schedules`, used by the Visual Editor.
+But here they have meaningful names (instead of index numbers).
+And they each have specific types and relevant JSDoc comments.
+
+See `class TraditionalTextComponent` in slide-components.ts and `class SelectScheduleInfo` currently in visually-editable-base.ts.
+This is the idea that I was searching for in my brainstorms above.
+I thought that we'd have to look at the properties (a.k.a. schedules) saved to the database and try to recreate a typescript wrapper around it.
+But that was the wrong approach.
+A lot of what's in the database is components.
+So now I'm attacking the problem there.
+Any time you create a component, you create a class with properties and JSDoc.
+This works immediately and directly if you create the component yourself.
+If you get a component and you're not sure about it, ask `component instanceof TraditionalTextComponent` and the language server will do the right thing.
+No part of the solution is specific to the database or even knows about the database.
+
+### Current Status 5/23/2026
+
+This works well for `TraditionalTextComponent`.
+Now I need to repeat the design pattern for the other components.
+Some with need small changes, like getting rid of the optional arguments in the component creation functions.
+I'm pretty sure that no one uses those and they are getting in the way.
+
+### Scope
+
+Note that the bulk of the code doesn't have to know or care about this solution.
+These new classes implement `Showable` or `ScheduleInfo`, the old interfaces.
+These new classes are more specific, so the language server and VS Code can give you more information.
+
+### Milestone
+
+This shows how we complete the loop.
+I don't think we need to save any special files.
+The user can already dump to JSON.
+The user can make changes, see them instantly, keep an automatic history, and copy back into the code for defaults and GitHub at his leisure.
+
+See buildComponents(), demonstrated in "Slide 1: Shape Gallery" in shadow-test.ts, for an example of reading back from the database.
+
+Note that the JSON could come from anywhere.
+It could be hand edited in a text editor.
+It could be modified by a different program which understands JSON for input and output.
+
+## What is `registryKey`?
+
+Stored in the database.
+Copied into shadow-test.ts.
