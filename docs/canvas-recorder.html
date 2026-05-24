@@ -4,201 +4,289 @@
     <link rel="icon" href="icon.png" type="image/png" />
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>📽️ Canvas Recorder Development Environment</title>
-    <script type="module" crossorigin src="./assets/canvas-recorder-Cjqik0Da.js"></script>
+    <title>📽️ Canvas Recorder</title>
+    <script type="module" crossorigin src="./assets/canvas-recorder-Di8UGgry.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="./assets/lib-BvQI4WGr.js">
-    <link rel="stylesheet" crossorigin href="./assets/canvas-recorder-Bag8jt4K.css">
+    <link rel="modulepreload" crossorigin href="./assets/lib-C7U5cqPw.js">
+    <link rel="stylesheet" crossorigin href="./assets/canvas-recorder-Bimr1OwQ.css">
   </head>
   <body>
-    <h1>Canvas Recorder Development Environment</h1>
-    <div id="zoomControls">
-      <label
-        >Zoom:
-        <select id="zoomSelect">
-          <option value="fit" selected>Fit</option>
-          <option value="0.25">25%</option>
-          <option value="0.50">50%</option>
-          <option value="1.00">100%</option>
-          <option value="2.00">200%</option>
-        </select>
-      </label>
-    </div>
-    <div id="canvasViewport">
-      <canvas id="main" width="3840" height="2160"></canvas>
-    </div>
-    <div>
-      <label><input type="checkbox" id="showEditor" /> Show Editor</label>
-      <button id="reloadBtn" type="button">↺ Reload</button>
-      <span id="scheduleHistoryControls" hidden>
-        &nbsp;
-        <button id="saveScheduleNowBtn" type="button">💾 Save</button>
-        <select id="scheduleHistorySelect" style="max-width: 18em"></select>
-        <button id="loadScheduleBtn" type="button">Load</button>
-      </span>
-      <fieldset id="componentsEditor" hidden style="margin-bottom: 0.5em">
-        <legend>Components</legend>
-        <!-- dynamically populated by canvas-recorder.ts -->
-      </fieldset>
-      <fieldset id="scheduleEditor" style="margin-bottom: 0.5em">
-        <p>Coming soon! Edit fields here. TODO.</p>
-      </fieldset>
-    </div>
-    <fieldset id="liveControls">
-      <fieldset id="play-controls">
-        <div class="range-container">
-          <label><input type="checkbox" id="play" />Play</label>
-          <button id="back5s" type="button">⏮5s</button>
-          <span style="background-color: lightcyan"
-            >&nbsp;(At end
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="pause"
-                checked
-              />Pause</label
-            >
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="repeat"
-              />Repeat</label
-            >
-            <label
-              ><input
-                type="radio"
-                name="onSectionEnd"
-                value="continue"
-              />Continue</label
-            >)&nbsp;</span
-          >
-          <input type="number" id="playPositionSeconds" value="0" />
-          <input type="range" id="playPositionRange" value="0" step="any" />
+    <!-- ── Left column ─────────────────────────────────────────────── -->
+    <div id="left-col">
+      <div id="top-left">
+        <div id="zoomControls">
+          <label
+            >Zoom:
+            <select id="zoomSelect">
+              <option value="fit" selected>Fit</option>
+              <option value="0.25">25%</option>
+              <option value="0.50">50%</option>
+              <option value="1.00">100%</option>
+              <option value="2.00">200%</option>
+            </select>
+          </label>
         </div>
-      </fieldset>
-      <div>
-        <select id="chapterSelector"></select
-        ><button id="previousButton">Previous</button
-        ><button id="nextButton">Next</button>
+        <div id="canvasViewport">
+          <canvas id="main" width="3840" height="2160"></canvas>
+        </div>
       </div>
-      <table id="relevantRows">
-        <tr>
-          <th></th>
-          <th></th>
-          <th>Start</th>
-          <th>End</th>
-        </tr>
-        <tr id="parentRow">
-          <td><button>Parent</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="previousSiblingRow">
-          <td>&emsp;<button>Previous Sibling</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="thisRow">
-          <td>&emsp;This</td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="firstChildRow">
-          <td>&emsp;&emsp;<button>First Child</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-        <tr id="nextSiblingRow">
-          <td>&emsp;<button>Next Sibling</button></td>
-          <td></td>
-          <td></td>
-          <td></td>
-        </tr>
-      </table>
-      <div
-        id="autoplayFallbackMsg"
-        hidden
-        style="
-          background: #ffe0b2;
-          border: 1px solid #e65100;
-          border-radius: 4px;
-          padding: 0.4em 0.75em;
-          margin-bottom: 0.4em;
-        "
-      >
-        ⚠️ Unexpected problem playing audio. Falling back to silent mode.
+      <div class="hresize" id="hresize-left"></div>
+      <div id="bottom-left">
+        <fieldset id="liveControls">
+          <fieldset id="play-controls">
+            <div class="range-container">
+              <label><input type="checkbox" id="play" />Play</label>
+              <button id="back5s" type="button">⏮5s</button>
+              <span style="background-color: lightcyan"
+                >&nbsp;(At end
+                <label
+                  ><input
+                    type="radio"
+                    name="onSectionEnd"
+                    value="pause"
+                    checked
+                  />Pause</label
+                >
+                <label
+                  ><input
+                    type="radio"
+                    name="onSectionEnd"
+                    value="repeat"
+                  />Repeat</label
+                >
+                <label
+                  ><input
+                    type="radio"
+                    name="onSectionEnd"
+                    value="continue"
+                  />Continue</label
+                >)&nbsp;</span
+              >
+              <input type="number" id="playPositionSeconds" value="0" />
+              <input type="range" id="playPositionRange" value="0" step="any" />
+            </div>
+          </fieldset>
+          <div>
+            <select id="chapterSelector"></select
+            ><button id="previousButton">Previous</button
+            ><button id="nextButton">Next</button>
+          </div>
+          <table id="relevantRows">
+            <tr>
+              <th></th>
+              <th></th>
+              <th>Start</th>
+              <th>End</th>
+            </tr>
+            <tr id="parentRow">
+              <td><button>Parent</button></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr id="previousSiblingRow">
+              <td>&emsp;<button>Previous Sibling</button></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr id="thisRow">
+              <td>&emsp;This</td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr id="firstChildRow">
+              <td>&emsp;&emsp;<button>First Child</button></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+            <tr id="nextSiblingRow">
+              <td>&emsp;<button>Next Sibling</button></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </table>
+          <div
+            id="autoplayFallbackMsg"
+            hidden
+            style="
+              background: #ffe0b2;
+              border: 1px solid #e65100;
+              border-radius: 4px;
+              padding: 0.4em 0.75em;
+              margin-bottom: 0.4em;
+            "
+          >
+            ⚠️ Unexpected problem playing audio. Falling back to silent mode.
+          </div>
+          <div
+            style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap"
+          >
+            <label><input type="checkbox" id="muteAudio" /> Mute</label>
+            <label
+              >Vol
+              <input
+                type="range"
+                id="volumeAudio"
+                min="0"
+                max="1"
+                step="0.05"
+                value="1"
+                style="width: 5em"
+            /></label>
+            <label
+              >Speed
+              <select id="speedAudio">
+                <option value="0.5">0.5×</option>
+                <option value="0.75">0.75×</option>
+                <option value="1" selected>1×</option>
+                <option value="1.25">1.25×</option>
+                <option value="1.5">1.5×</option>
+                <option value="2">2×</option>
+              </select>
+            </label>
+          </div>
+        </fieldset>
+        <div
+          style="
+            border: 0.3em inset rgb(178, 178, 178);
+            padding: 0.5em;
+            margin-top: 0.5em;
+          "
+        >
+          <button id="startRecording">Record and Save Video</button>
+          <button id="cancelRecording" disabled>Stop Recording</button>
+          <button id="recordJustSound">Record Just Sound</button>
+          <div id="info"><i>status goes here</i>...</div>
+        </div>
+        <p>
+          Hot keys: ⌥Space to play/pause. ⌥B to go back 5 seconds and play.
+          ⌥0 to jump to the start of the current section. Alt instead of ⌥ on
+          a PC.
+        </p>
+        <br />
+        <h1>Assets</h1>
+        <img
+          id="Peano"
+          src="./Giuseppe_Peano.jpg"
+          style="width: 10em"
+          title="Giuseppe Peano"
+        />
+        <img
+          id="Fourier"
+          src="./Fourier2_-_restoration1.jpg"
+          style="width: 10em"
+          title="Joseph Fourier"
+        />
+        <br />
+        <h1>Database Dump</h1>
+        <button id="dumpDbBtn" type="button">🗄 Dump All DB State</button>
+        <pre
+          id="dbDump"
+          style="
+            background: #f5f5f5;
+            border: 1px solid #ccc;
+            padding: 1em;
+            overflow: auto;
+            max-height: 40em;
+            white-space: pre-wrap;
+            word-break: break-all;
+            font-size: 0.85em;
+          "
+        ></pre>
       </div>
-      <div
-        style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap"
-      >
-        <label><input type="checkbox" id="muteAudio" /> Mute</label>
-        <label
-          >Vol
-          <input
-            type="range"
-            id="volumeAudio"
-            min="0"
-            max="1"
-            step="0.05"
-            value="1"
-            style="width: 5em"
-        /></label>
-        <label
-          >Speed
-          <select id="speedAudio">
-            <option value="0.5">0.5×</option>
-            <option value="0.75">0.75×</option>
-            <option value="1" selected>1×</option>
-            <option value="1.25">1.25×</option>
-            <option value="1.5">1.5×</option>
-            <option value="2">2×</option>
-          </select>
-        </label>
-      </div>
-    </fieldset>
-    <div
-      style="
-        border: 0.3em inset rgb(178, 178, 178);
-        padding: 0.5em;
-        margin-top: 0.5em;
-      "
-    >
-      <button id="startRecording">Record and Save Video</button>
-      <button id="cancelRecording" disabled>Stop Recording</button>
-      <button id="recordJustSound">Record Just Sound</button>
-      <div id="info"><i>status goes here</i>...</div>
     </div>
 
-    <dialog id="saveDialog" style="min-width:28em">
-      <h2 style="margin-top:0">Save Video</h2>
-      <div style="margin-bottom:0.6em">
-        <label>Chapter:
-          <select id="saveChapterSelect" style="max-width:28em"></select>
+    <!-- ── Right column ────────────────────────────────────────────── -->
+    <div id="right-col">
+      <div id="top-right">
+        <div id="tr-header">
+          <button id="reloadBtn" type="button">↺ Reload</button>
+          <span id="scheduleHistoryControls" hidden>
+            &nbsp;
+            <button id="saveScheduleNowBtn" type="button">💾 Save</button>
+            <select id="scheduleHistorySelect" style="max-width: 18em"></select>
+            <button id="loadScheduleBtn" type="button">Load</button>
+          </span>
+        </div>
+        <fieldset id="componentsEditor" hidden>
+          <!-- dynamically populated by canvas-recorder.ts -->
+        </fieldset>
+      </div>
+      <div class="hresize" id="hresize-right"></div>
+      <div id="bottom-right">
+        <fieldset id="scheduleEditor">
+          <p>Coming soon! Edit fields here. TODO.</p>
+        </fieldset>
+      </div>
+    </div>
+
+    <dialog id="saveDialog" style="min-width: 28em">
+      <h2 style="margin-top: 0">Save Video</h2>
+      <div style="margin-bottom: 0.6em">
+        <label
+          >Chapter:
+          <select id="saveChapterSelect" style="max-width: 28em"></select>
         </label>
         &nbsp;
         <button type="button" id="saveCopyChapterBtn">Copy from viewer</button>
         &nbsp;
         <button type="button" id="saveAllBtn">Save All</button>
       </div>
-      <div style="margin-bottom:0.6em;display:flex;gap:1.5em">
-        <label>Start (s):
-          <input type="number" id="saveStartSeconds" step="0.001" min="0" style="width:8em" />
+      <div style="margin-bottom: 0.6em; display: flex; gap: 1.5em">
+        <label
+          >Start (s):
+          <input
+            type="number"
+            id="saveStartSeconds"
+            step="0.001"
+            min="0"
+            style="width: 8em"
+          />
         </label>
-        <label>End (s):
-          <input type="number" id="saveEndSeconds" step="0.001" min="0" style="width:8em" />
+        <label
+          >End (s):
+          <input
+            type="number"
+            id="saveEndSeconds"
+            step="0.001"
+            min="0"
+            style="width: 8em"
+          />
         </label>
       </div>
-      <table style="margin-bottom:0.75em;border-collapse:collapse">
-        <tr><td>Start:</td><td id="saveInfoStart" style="padding-left:1em;font-family:monospace"></td></tr>
-        <tr><td>End:</td><td id="saveInfoEnd" style="padding-left:1em;font-family:monospace"></td></tr>
-        <tr><td>Duration:</td><td id="saveInfoDuration" style="padding-left:1em;font-family:monospace"></td></tr>
-        <tr><td>Frames:</td><td id="saveInfoFrames" style="padding-left:1em;font-family:monospace"></td></tr>
+      <table style="margin-bottom: 0.75em; border-collapse: collapse">
+        <tr>
+          <td>Start:</td>
+          <td
+            id="saveInfoStart"
+            style="padding-left: 1em; font-family: monospace"
+          ></td>
+        </tr>
+        <tr>
+          <td>End:</td>
+          <td
+            id="saveInfoEnd"
+            style="padding-left: 1em; font-family: monospace"
+          ></td>
+        </tr>
+        <tr>
+          <td>Duration:</td>
+          <td
+            id="saveInfoDuration"
+            style="padding-left: 1em; font-family: monospace"
+          ></td>
+        </tr>
+        <tr>
+          <td>Frames:</td>
+          <td
+            id="saveInfoFrames"
+            style="padding-left: 1em; font-family: monospace"
+          ></td>
+        </tr>
       </table>
       <div>
         <button type="button" id="saveOkBtn">OK — Choose File</button>
@@ -206,27 +294,5 @@
         <button type="button" id="saveDialogCancelBtn">Cancel</button>
       </div>
     </dialog>
-    <p>
-      Hot keys: ⌥Space to play/pause. ⌥B to go back 5 seconds and play. ⌥0 to
-      jump to the start of the current section. Alt instead of ⌥ on a PC.
-    </p>
-    <br />
-    <h1>Assets</h1>
-    <img
-      id="Peano"
-      src="./Giuseppe_Peano.jpg"
-      style="width: 10em"
-      title="Giuseppe Peano"
-    />
-    <img
-      id="Fourier"
-      src="./Fourier2_-_restoration1.jpg"
-      style="width: 10em"
-      title="Joseph Fourier"
-    />
-    <br />
-    <h1>Database Dump</h1>
-    <button id="dumpDbBtn" type="button">🗄 Dump All DB State</button>
-    <pre id="dbDump" style="background:#f5f5f5;border:1px solid #ccc;padding:1em;overflow:auto;max-height:40em;white-space:pre-wrap;word-break:break-all;font-size:0.85em"></pre>
   </body>
 </html>

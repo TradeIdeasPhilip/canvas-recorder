@@ -152,6 +152,9 @@ class TraditionalTextComponent implements Showable {
     "alphabetic",
     ["top", "hanging", "middle", "alphabetic", "ideographic", "bottom"],
   );
+  /**
+   * Notice that this is a tuple, not just an array.
+   */
   readonly schedules = [
     this.textSchedule,
     this.positionSchedule,
@@ -199,6 +202,7 @@ class TraditionalTextComponent implements Showable {
 // This works whether you recently created a TraditionalTextComponent:
 //     const sample = new TraditionalTextComponent();
 //     const fontFamily = sample.fontFamilySchedule.at(0 /* timeInMs*/);
+//     const x = sample.schedules[1].at(0).x;
 // or you asked
 //     if (fromDatabase instanceof TraditionalTextComponent) { … }
 // because TraditionalTextComponent is a class.
@@ -337,7 +341,6 @@ export function createSlideComponent(): Showable {
         // Report problem interpreting transform string but keep going.
         showError(context, "Invalid Transform String:\n" + transformString);
       }
-      const matrix = context.getTransform();
     },
   };
 }

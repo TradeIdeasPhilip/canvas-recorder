@@ -143,8 +143,8 @@ function clampPan(scale: number, px: number, py: number): [number, number] {
   const scaledW = CANVAS_W * scale;
   const scaledH = CANVAS_H * scale;
   // lower bound is negative (or 0); upper bound is always 0
-  const minX = Math.min(0, window.innerWidth - scaledW);
-  const minY = Math.min(0, window.innerHeight - scaledH);
+  const minX = Math.min(0, viewport.clientWidth - scaledW);
+  const minY = Math.min(0, viewport.clientHeight - scaledH);
   return [Math.max(minX, Math.min(0, px)), Math.max(minY, Math.min(0, py))];
 }
 
@@ -152,12 +152,13 @@ function applyZoom(scale: number, px = panX, py = panY) {
   currentScale = scale;
   [panX, panY] = clampPan(scale, px, py);
   canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-  viewport.style.width = `${Math.round(CANVAS_W * scale)}px`;
-  viewport.style.height = `${Math.round(CANVAS_H * scale)}px`;
 }
 
 function zoomToFit() {
-  const scale = (window.innerWidth * 0.95) / CANVAS_W;
+  const w = viewport.clientWidth;
+  const h = viewport.clientHeight;
+  if (w === 0 || h === 0) return; // not yet laid out
+  const scale = Math.min(w / CANVAS_W, h / CANVAS_H);
   applyZoom(scale, 0, 0);
 }
 
@@ -1067,7 +1068,6 @@ const componentsEditorFieldset = getById(
   HTMLFieldSetElement,
 );
 const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
-const showEditorCheckbox = getById("showEditor", HTMLInputElement);
 
 /**
  * The slide child currently being edited in the schedule editor.
@@ -1630,9 +1630,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") saveOnUnload();
 });
 
-showEditorCheckbox.addEventListener("change", () => {
-  scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
-});
+
 
 /** Convert any CSS color string to #rrggbb for <input type="color">. */
 const _colorCanvas = document.createElement("canvas");
@@ -2215,8 +2213,8 @@ function updateComponentEditor(selectable: Selectable) {
   componentsEditorFieldset.replaceChildren();
 
   const list = document.createElement("div");
-  list.style.cssText =
-    "display:flex;flex-direction:column;gap:0.25em;margin-bottom:0.5em";
+  list.className = "components-list";
+  list.style.cssText = "display:flex;flex-direction:column;gap:0.25em";
 
   function renderComponentTree(container: Showable, depth: number) {
     const siblings = container.components ?? [];
@@ -2232,7 +2230,6 @@ function updateComponentEditor(selectable: Selectable) {
       if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
       editBtn.addEventListener("click", () => {
         selectedSlideChild = child;
-        showEditorCheckbox.checked = true;
         updateComponentEditor(selectable);
         updateScheduleEditor(child);
       });
@@ -2338,8 +2335,8 @@ function updateComponentEditor(selectable: Selectable) {
       : (selectable as Showable);
 
   const toolbar = document.createElement("div");
-  toolbar.style.cssText =
-    "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
+  toolbar.className = "components-toolbar";
+  toolbar.style.cssText = "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
 
   const addSelect = addName(document.createElement("select"));
   for (const [key] of componentRegistry) {
@@ -2363,7 +2360,6 @@ function updateComponentEditor(selectable: Selectable) {
     componentRegistryKey.set(newChild, addSelect.value);
     addTarget.components!.push(newChild);
     selectedSlideChild = newChild;
-    showEditorCheckbox.checked = true;
     updateComponentEditor(selectable);
     updateScheduleEditor(newChild);
   });
@@ -2413,13 +2409,10 @@ function updateScheduleEditor(
   }
   const schedules = selectable.schedules;
   if (!schedules?.length) {
-    showEditorCheckbox.disabled = true;
-    showEditorCheckbox.checked = false;
     scheduleEditorFieldset.hidden = true;
     return;
   }
-  showEditorCheckbox.disabled = false;
-  scheduleEditorFieldset.hidden = !showEditorCheckbox.checked;
+  scheduleEditorFieldset.hidden = false;
   for (const info of schedules) {
     scheduleEditorFieldset.append(
       buildScheduleSection(info, selectable.description),
@@ -2836,6 +2829,53 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
   }
   pre.textContent = lines.join("\n");
 });
+
+// MARK: Resizable pane dividers
+
+/**
+ * Wire up a horizontal drag handle that resizes the top pane within its column.
+ * The bottom pane automatically fills whatever space remains (flex: 1).
+ */
+function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
+  handle.addEventListener("mousedown", (startEvent) => {
+    startEvent.preventDefault();
+    handle.classList.add("dragging");
+
+    const col = handle.parentElement!;
+    const colH = col.getBoundingClientRect().height;
+    const handleH = handle.getBoundingClientRect().height;
+    const startClientY = startEvent.clientY;
+    const startPaneH = topPane.getBoundingClientRect().height;
+    const MIN_PANE = 50;
+
+    const onMove = (e: MouseEvent) => {
+      const newH = Math.max(
+        MIN_PANE,
+        Math.min(colH - handleH - MIN_PANE, startPaneH + (e.clientY - startClientY)),
+      );
+      topPane.style.height = `${newH}px`;
+      if (zoomSelect.value === "fit") zoomToFit();
+    };
+
+    const onUp = () => {
+      handle.classList.remove("dragging");
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
+initResizeHandle(
+  getById("hresize-left", HTMLDivElement),
+  getById("top-left", HTMLDivElement),
+);
+initResizeHandle(
+  getById("hresize-right", HTMLDivElement),
+  getById("top-right", HTMLDivElement),
+);
 
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.

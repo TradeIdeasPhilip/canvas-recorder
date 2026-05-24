@@ -1,6 +1,61 @@
 @import url(./style.css);
 
+/* ── Full-screen app shell ──────────────────────────────────────────── */
+
+body {
+  margin: 0;
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ── Two equal columns ──────────────────────────────────────────────── */
+
+#left-col,
+#right-col {
+  display: flex;
+  flex-direction: column;
+  width: 50%;
+  min-width: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+/* ── Horizontal resize handle between top/bottom of each column ─────── */
+
+.hresize {
+  height: 5px;
+  background: #999;
+  cursor: ns-resize;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.hresize:hover,
+.hresize.dragging {
+  background: #444;
+}
+
+/* ── Top-left: zoom strip + canvas viewport ─────────────────────────── */
+
+#top-left {
+  flex-shrink: 0;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#zoomControls {
+  flex-shrink: 0;
+  padding: 0.25em 0.4em;
+}
+
 #canvasViewport {
+  flex: 1;
+  min-height: 0;
   position: relative;
   overflow: hidden;
 }
@@ -18,6 +73,75 @@
 #main:active {
   cursor: grabbing;
 }
+
+/* ── Bottom-left: live controls + recording + misc ──────────────────── */
+
+#bottom-left {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.4em;
+}
+
+/* ── Top-right: reload header + components list ─────────────────────── */
+
+#top-right {
+  flex-shrink: 0;
+  height: 50%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#tr-header {
+  flex-shrink: 0;
+  padding: 0.25em 0.4em;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4em;
+}
+
+#componentsEditor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin: 0;
+  border-top: none;
+  border-radius: 0;
+}
+
+/* List div injected by updateComponentEditor() */
+#componentsEditor .components-list {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0.25em 0.4em;
+}
+
+/* Toolbar div ("+Add to root") injected by updateComponentEditor() */
+#componentsEditor .components-toolbar {
+  flex-shrink: 0;
+  padding: 0.25em 0.4em;
+  border-top: 1px solid #ccc;
+}
+
+/* ── Bottom-right: schedule editor ──────────────────────────────────── */
+
+#bottom-right {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0.4em;
+}
+
+#scheduleEditor {
+  margin: 0;
+}
+
+/* ── Misc retained rules ─────────────────────────────────────────────── */
 
 #relevantRows td:nth-child(3) {
   text-align: right;
