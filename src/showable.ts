@@ -55,6 +55,11 @@ export type Selectable = {
     readonly lengthMs?: number;
   }[];
 
+  /**
+   * These will be displayed in the Visual Editor.
+   * Note most "properties" can change over time so I call them "schedules".
+   * Consider importing from schedule-helper.ts to create the schedules.
+   */
   readonly schedules?: readonly ScheduleInfo[];
 
   /**

@@ -1,10 +1,8 @@
 import { ReadOnlyRect } from "phil-lib/misc";
 import {
   discreteKeyframes,
-  durationKeyframes,
   interpolateColors,
   interpolateNumbers,
-  interpolatePoints,
   interpolateRects,
   Keyframe,
 } from "./interpolate";
@@ -23,11 +21,12 @@ import { applyTransform } from "./glib/transforms";
 import { myRainbow } from "./glib/my-rainbow";
 import {
   ColorScheduleInfo,
+  NumberDurationScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
   SelectScheduleInfo,
   StringScheduleInfo,
-} from "./visually-editable-base";
+} from "./schedule-helper";
 
 const errorFont = makeLineFont(1);
 
@@ -247,39 +246,29 @@ class TraditionalTextComponent implements Showable {
  * Also, what happens if you delete a slide?
  * This can get complicated.
  * For now let's focus on the durations and just use a number for the value.
- * @returns
  */
-export function createSlideDeckComponent(): Showable {
-  const whichSlideSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
-  return {
-    description: "Slide Deck",
-    duration: 0,
-    components: [],
-    schedules: [
-      {
-        type: "number",
-        description: "Which Slide",
-        editDurations: true,
-        schedule: whichSlideSchedule,
-      },
-    ],
-    show(options) {
-      const { timeInMs, context } = options;
-      const { progress, value } = durationKeyframes(
-        timeInMs,
-        whichSlideSchedule,
-      );
-      const slideProgress = progress;
-      const whichSlide = value;
-      const component = this.components![whichSlide];
-      if (!component) {
-        showError(context, `${whichSlide} ${slideProgress.toFixed(3)}`);
-      } else {
-        const slideOptions = { ...options, slideProgress };
-        component.show(slideOptions);
-      }
-    },
-  };
+class SlideDeckComponent implements Showable {
+  readonly whichSlideSchedule = new NumberDurationScheduleInfo(
+    "Which Slide",
+    0,
+  );
+  readonly description = "Slide Deck";
+  readonly duration = 0;
+  readonly components = new Array<Showable>();
+  readonly schedules = [this.whichSlideSchedule] as const;
+  show(options: ShowOptions): void {
+    const { timeInMs, context } = options;
+    const { progress, value } = this.whichSlideSchedule.at(timeInMs);
+    const slideProgress = progress;
+    const whichSlide = value;
+    const component = this.components![whichSlide];
+    if (!component) {
+      showError(context, `${whichSlide} ${slideProgress.toFixed(3)}`);
+    } else {
+      const slideOptions = { ...options, slideProgress };
+      component.show(slideOptions);
+    }
+  }
 }
 
 /**
@@ -707,7 +696,7 @@ export function createFunctionGraphComponent(
 
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
-  ["Slide Deck", () => createSlideDeckComponent()],
+  ["Slide Deck", () => new SlideDeckComponent()],
   ["Slide", () => createSlideComponent()],
   ["Text", () => createTextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],

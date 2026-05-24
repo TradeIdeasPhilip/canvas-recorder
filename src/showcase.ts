@@ -58,7 +58,7 @@ import { createSingleImageComponent } from "./slide-components";
 import {
   NumberScheduleInfo,
   RectangleScheduleInfo,
-} from "./visually-editable-base";
+} from "./schedule-helper";
 import { makeCornerRounder } from "./sierpiński";
 
 // Some of my examples constantly change as I try new things.
