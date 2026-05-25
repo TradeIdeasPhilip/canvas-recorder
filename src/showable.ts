@@ -196,6 +196,16 @@ export type ShowOptions = {
    * and you freeze or repeat a section, you might want the colors to keep cycling.
    */
   readonly globalTime: number;
+  /**
+   * Optional callback supplied by the visual editor during live rendering.
+   * A component that renders child components should call this once per child,
+   * passing the child and the canvas transform in effect when the child renders.
+   * The editor uses the stored transforms to correctly position and hit-test
+   * drag handles for components inside transformed slides.
+   *
+   * Only present during live (interactive) rendering — never during recording.
+   */
+  readonly registerTransform?: (component: Showable, transform: DOMMatrix) => void;
 };
 
 /**

@@ -266,6 +266,7 @@ class SlideDeckComponent implements Showable {
       showError(context, `${whichSlide} ${slideProgress.toFixed(3)}`);
     } else {
       const slideOptions = { ...options, slideProgress };
+      options.registerTransform?.(component, context.getTransform());
       component.show(slideOptions);
     }
   }
@@ -317,7 +318,9 @@ export function createSlideComponent(): Showable {
         const color = interpolateColors(timeInMs, borderColorSchedule);
         context.strokeStyle = color;
         context.strokeRect(0, 0, 16, 9);
+        const tf = context.getTransform();
         this.components!.forEach((component) => {
+          options.registerTransform?.(component, tf);
           component.show(options);
         });
         context.setTransform(originalTransform);

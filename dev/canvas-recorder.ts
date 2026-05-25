@@ -202,9 +202,16 @@ window.addEventListener("resize", () => {
 function showFrame(timeInMs: number, live: boolean) {
   context.reset();
   context.setTransform(mainTransform());
-  toShow.show({ timeInMs, context, globalTime: timeInMs });
   if (live) {
+    toShow.show({
+      timeInMs,
+      context,
+      globalTime: timeInMs,
+      registerTransform: (c, t) => componentTransforms.set(c, t),
+    });
     drawScheduleMarkers(context);
+  } else {
+    toShow.show({ timeInMs, context, globalTime: timeInMs });
   }
 }
 // Exposed so the browser console can call showFrame() directly for debugging.
@@ -1098,8 +1105,8 @@ const markerSyncCallbacks = new Map<RectKf, (rect: ReadOnlyRect) => void>();
 let draggingMarker: {
   kf: RectKf;
   handle: RectHandle;
-  startLogicalX: number;
-  startLogicalY: number;
+  startLocalX: number;
+  startLocalY: number;
   startRect: ReadOnlyRect;
 } | null = null;
 
@@ -1125,6 +1132,15 @@ let draggingPoint: PointKf | null = null;
 
 /** Maps dynamically-added component instances back to their registry key for serialization. */
 const componentRegistryKey = new WeakMap<Showable, string>();
+
+/**
+ * Populated during each live showFrame() call via the registerTransform callback.
+ * Maps a component Showable to the absolute canvas DOMMatrix that was in effect
+ * when the component was last rendered.  Used by drawScheduleMarkers() to draw
+ * handles in the correct transformed position, and by hit-testing to convert
+ * logical mouse coordinates to component-local coordinates.
+ */
+const componentTransforms = new WeakMap<Showable, DOMMatrix>();
 
 /**
  * Change the GUI to match the current section.
@@ -2451,6 +2467,47 @@ function rectHandlePositions(
   };
 }
 
+/**
+ * Returns the transform that maps from the active marker component's local
+ * coordinate space to the logical 16×9 drawing space.
+ *
+ * `compTf` (from componentTransforms) maps local → canvas pixels.
+ * `mainTransform()` maps logical → canvas pixels.
+ * Therefore: local → logical  =  mainTransform()⁻¹ · compTf
+ *
+ * Returns null when no stored transform exists (component is at the root
+ * level, so local == logical and no conversion is needed).
+ */
+function getMarkerRelTf(): DOMMatrix | null {
+  const component =
+    selectedSlideChild ??
+    (debug[select.selectedIndex]?.selectable as Showable | undefined);
+  if (!component) return null;
+  const compTf = componentTransforms.get(component);
+  if (!compTf) return null;
+  return mainTransform().inverse().multiply(compTf);
+}
+
+/** Map a component-local point to logical (16×9) coordinates. */
+function localToLogical(
+  localX: number,
+  localY: number,
+  relTf: DOMMatrix,
+): { x: number; y: number } {
+  const pt = new DOMPoint(localX, localY).matrixTransform(relTf);
+  return { x: pt.x, y: pt.y };
+}
+
+/** Map a logical (16×9) point to component-local coordinates. */
+function logicalToLocal(
+  logX: number,
+  logY: number,
+  relTf: DOMMatrix,
+): { x: number; y: number } {
+  const pt = new DOMPoint(logX, logY).matrixTransform(relTf.inverse());
+  return { x: pt.x, y: pt.y };
+}
+
 function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
   if (
     !editingRectKf &&
@@ -2459,9 +2516,18 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     viewingPointKfs.size === 0
   )
     return;
-  ctx.save();
 
-  // View-mode rects: semi-transparent fill + stroke, drawn first (behind handles)
+  const relTf = getMarkerRelTf();
+
+  // --- Pass 1: rect and point OUTLINES drawn in component-local space ---
+  // Applying relTf to the context lets us use local coordinates directly,
+  // so the outlines align exactly with the rendered content.
+  ctx.save();
+  if (relTf) {
+    ctx.transform(relTf.a, relTf.b, relTf.c, relTf.d, relTf.e, relTf.f);
+  }
+
+  // View-mode rects: semi-transparent fill + stroke
   ctx.strokeStyle = "#3498db";
   ctx.lineWidth = 0.05;
   for (const kf of viewingRectKfs) {
@@ -2472,12 +2538,29 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     ctx.strokeRect(x, y, width, height);
   }
 
-  // View-mode points: small blue circle
+  // Edit-mode rect outline
+  if (editingRectKf) {
+    const { x, y, width, height } = editingRectKf.value;
+    ctx.strokeStyle = "#e74c3c";
+    ctx.lineWidth = 0.05;
+    ctx.strokeRect(x, y, width, height);
+  }
+
+  ctx.restore();
+
+  // --- Pass 2: circles and crosshairs at PROJECTED logical positions ---
+  // Positions are projected from local → logical so the markers have a
+  // consistent screen size regardless of the slide's scale factor.
+  ctx.save();
+
+  // View-mode points
   for (const kf of viewingPointKfs) {
     if (kf === editingPointKf) continue;
-    const { x, y } = kf.value;
+    const pos = relTf
+      ? localToLogical(kf.value.x, kf.value.y, relTf)
+      : kf.value;
     ctx.beginPath();
-    ctx.arc(x, y, 0.15, 0, 2 * Math.PI);
+    ctx.arc(pos.x, pos.y, 0.15, 0, 2 * Math.PI);
     ctx.fillStyle = "rgba(52, 152, 219, 0.5)";
     ctx.fill();
     ctx.strokeStyle = "#3498db";
@@ -2485,17 +2568,15 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     ctx.stroke();
   }
 
-  // Edit-mode: rect outline + drag handles on top
+  // Edit-mode rect handles
   if (editingRectKf) {
-    const { x, y, width, height } = editingRectKf.value;
-    ctx.strokeStyle = "#e74c3c";
-    ctx.lineWidth = 0.05;
-    ctx.strokeRect(x, y, width, height);
-
     const RADIUS = 0.18;
     const positions = rectHandlePositions(editingRectKf.value);
     for (const handle of ["tl", "tr", "bl", "br", "center"] as RectHandle[]) {
-      const pos = positions[handle];
+      const localPos = positions[handle];
+      const pos = relTf
+        ? localToLogical(localPos.x, localPos.y, relTf)
+        : localPos;
       const active = draggingMarker?.handle === handle;
       const r = active ? RADIUS * 1.4 : RADIUS;
       ctx.beginPath();
@@ -2510,11 +2591,14 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
 
   // Edit-mode point: red circle with crosshair
   if (editingPointKf) {
-    const { x, y } = editingPointKf.value;
+    const localPt = editingPointKf.value;
+    const pos = relTf
+      ? localToLogical(localPt.x, localPt.y, relTf)
+      : localPt;
     const active = draggingPoint === editingPointKf;
     const RADIUS = active ? 0.25 : 0.2;
     ctx.beginPath();
-    ctx.arc(x, y, RADIUS, 0, 2 * Math.PI);
+    ctx.arc(pos.x, pos.y, RADIUS, 0, 2 * Math.PI);
     ctx.fillStyle = active ? "white" : "#e74c3c";
     ctx.fill();
     ctx.strokeStyle = "#e74c3c";
@@ -2523,10 +2607,10 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     // crosshair
     const ARM = RADIUS * 0.8;
     ctx.beginPath();
-    ctx.moveTo(x - ARM, y);
-    ctx.lineTo(x + ARM, y);
-    ctx.moveTo(x, y - ARM);
-    ctx.lineTo(x, y + ARM);
+    ctx.moveTo(pos.x - ARM, pos.y);
+    ctx.lineTo(pos.x + ARM, pos.y);
+    ctx.moveTo(pos.x, pos.y - ARM);
+    ctx.lineTo(pos.x, pos.y + ARM);
     ctx.strokeStyle = active ? "#e74c3c" : "white";
     ctx.lineWidth = 0.035;
     ctx.stroke();
@@ -2537,12 +2621,14 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
 
 function hitTestMarker(logX: number, logY: number) {
   if (!editingRectKf) return null;
+  const relTf = getMarkerRelTf();
+  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
   const HIT_RADIUS = 0.3;
   const positions = rectHandlePositions(editingRectKf.value);
   for (const handle of ["tl", "tr", "bl", "br", "center"] as RectHandle[]) {
     const pos = positions[handle];
-    const dx = logX - pos.x;
-    const dy = logY - pos.y;
+    const dx = local.x - pos.x;
+    const dy = local.y - pos.y;
     if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) {
       return { kf: editingRectKf, handle };
     }
@@ -2552,25 +2638,27 @@ function hitTestMarker(logX: number, logY: number) {
 
 function hitTestPointMarker(logX: number, logY: number): PointKf | null {
   if (!editingPointKf) return null;
+  const relTf = getMarkerRelTf();
+  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
   const HIT_RADIUS = 0.3;
   const { x, y } = editingPointKf.value;
-  const dx = logX - x;
-  const dy = logY - y;
+  const dx = local.x - x;
+  const dy = local.y - y;
   return dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS ? editingPointKf : null;
 }
 
-function applyPointDrag(logX: number, logY: number) {
+function applyPointDrag(localX: number, localY: number) {
   if (!draggingPoint) return;
-  draggingPoint.value = { x: logX, y: logY };
+  draggingPoint.value = { x: localX, y: localY };
   pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
 }
 
-function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
+function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   if (!draggingMarker) return;
-  const { kf, handle, startLogicalX, startLogicalY, startRect } =
+  const { kf, handle, startLocalX, startLocalY, startRect } =
     draggingMarker;
-  const dx = logX - startLogicalX;
-  const dy = logY - startLogicalY;
+  const dx = localX - startLocalX;
+  const dy = localY - startLocalY;
   let newRect: ReadOnlyRect;
 
   if (shiftKey && handle !== "center" && startRect.height !== 0) {
@@ -2599,8 +2687,8 @@ function applyMarkerDrag(logX: number, logY: number, shiftKey = false) {
         anchorY = startRect.y;
         break; // br
     }
-    let vx = logX - anchorX;
-    let vy = logY - anchorY;
+    let vx = localX - anchorX;
+    let vy = localY - anchorY;
     const sf = sameSign ? 1 : -1;
     // Drive by whichever dimension changed proportionally more.
     if (Math.abs(vx / ar) >= Math.abs(vy)) {
@@ -2737,11 +2825,13 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
   const hit = hitTestMarker(logical.x, logical.y);
   if (hit) {
     canvas.setPointerCapture(pointerEvent.pointerId);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
     draggingMarker = {
       kf: hit.kf,
       handle: hit.handle,
-      startLogicalX: logical.x,
-      startLogicalY: logical.y,
+      startLocalX: local.x,
+      startLocalY: local.y,
       startRect: { ...hit.kf.value },
     };
     return;
@@ -2768,12 +2858,16 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   }
   if (draggingMarker) {
     const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
-    applyMarkerDrag(logical.x, logical.y, pointerEvent.shiftKey);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    applyMarkerDrag(local.x, local.y, pointerEvent.shiftKey);
     return;
   }
   if (draggingPoint) {
     const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
-    applyPointDrag(logical.x, logical.y);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    applyPointDrag(local.x, local.y);
     return;
   }
   if (isDragging) {
