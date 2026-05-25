@@ -565,7 +565,7 @@ export function makeLineFontMap(
       add("≈", doubleShape, advance);
     }
     {
-      // MARK: +
+      // MARK: + Plus
       const advance = digitWidth * 0.75;
       const center = advance / 2;
       const shape = PathBuilder.M(center, capitalMiddle - center)
@@ -575,7 +575,7 @@ export function makeLineFontMap(
       add("+", shape, advance);
     }
     {
-      // MARK: -
+      // MARK: - - Minus
       const advance = digitWidth * 0.75;
       const shape = PathBuilder.M(left, capitalMiddle).H(advance).pathShape;
       add("-", shape, advance);
@@ -898,6 +898,7 @@ export function makeLineFontMap(
     addSuperscript("7", "⁷");
     addSuperscript("8", "⁸");
     addSuperscript("9", "⁹");
+    addSuperscript("-", "⁻");
   }
 
   {

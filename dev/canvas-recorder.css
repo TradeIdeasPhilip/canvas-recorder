@@ -11,16 +11,34 @@ body {
   box-sizing: border-box;
 }
 
-/* ── Two equal columns ──────────────────────────────────────────────── */
+/* ── Two columns + vertical resize handle ───────────────────────────── */
 
 #left-col,
 #right-col {
   display: flex;
   flex-direction: column;
-  width: 50%;
   min-width: 0;
   overflow: hidden;
   height: 100%;
+}
+
+#left-col  { flex: 0 0 50%; }
+#right-col { flex: 1; }
+
+/* ── Vertical resize handle between left/right columns ──────────────── */
+
+#vresize {
+  width: 5px;
+  background: #999;
+  cursor: ew-resize;
+  flex-shrink: 0;
+  height: 100%;
+  user-select: none;
+}
+
+#vresize:hover,
+#vresize.dragging {
+  background: #444;
 }
 
 /* ── Horizontal resize handle between top/bottom of each column ─────── */

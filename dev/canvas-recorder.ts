@@ -2971,6 +2971,39 @@ initResizeHandle(
   getById("top-right", HTMLDivElement),
 );
 
+{
+  const vhandle = getById("vresize", HTMLDivElement);
+  const leftCol = getById("left-col", HTMLDivElement);
+  const MIN_COL = 80;
+
+  vhandle.addEventListener("mousedown", (startEvent) => {
+    startEvent.preventDefault();
+    vhandle.classList.add("dragging");
+    const totalW = document.body.getBoundingClientRect().width;
+    const handleW = vhandle.getBoundingClientRect().width;
+    const startClientX = startEvent.clientX;
+    const startColW = leftCol.getBoundingClientRect().width;
+
+    const onMove = (e: MouseEvent) => {
+      const newW = Math.max(
+        MIN_COL,
+        Math.min(totalW - handleW - MIN_COL, startColW + (e.clientX - startClientX)),
+      );
+      leftCol.style.flex = `0 0 ${newW}px`;
+      if (zoomSelect.value === "fit") zoomToFit();
+    };
+
+    const onUp = () => {
+      vhandle.classList.remove("dragging");
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
+}
+
 // TODO when saving video, only save the currently selected section.
 //  * That button should make it obvious if we are saving everything or just part.
 //  * Add a way to record any range you want.
