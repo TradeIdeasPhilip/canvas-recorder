@@ -24,9 +24,11 @@ import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
+  RectangleScheduleInfo,
   SelectScheduleInfo,
   StringScheduleInfo,
 } from "./schedule-helper";
+import { PathShape } from "./glib/path-shape";
 
 const errorFont = makeLineFont(1);
 
@@ -337,6 +339,189 @@ export function createSlideComponent(): Showable {
   };
 }
 
+/**
+ * This is needed as a default in some places but should never actually be used.
+ */
+const baseFont = Font.cursive(1);
+
+/**
+ * Use this to combine multiple formats into one paragraph.
+ *
+ * This contains a sequence of TextSpanComponent objects with the text to display.
+ * And a sequence of TextFormatComponent objects with formatting instructions.
+ * Each TextSpanComponent object points to a TextFormatComponent object using an index number.
+ * Presumably a lot of formatting will be reused, like "normal" and bold.
+ *
+ * This is a prototype.
+ * The basic functionality is there and works.
+ * But the GUI needs some cleanup.
+ * If nothing else it needs instructions.
+ * Ideally it would be impossible to add a TextSpanComponent or a TextFormatComponent to anything but one of these components.
+ * And these components should only be able to have two types of children:  TextSpanComponent or TextFormatComponent.
+ *
+ * Currently we print a warning on the screen for any errors.
+ */
+export class MultiTextComponent implements Showable {
+  readonly positionSchedule = new PointScheduleInfo("Position", {
+    x: 8,
+    y: 0.25,
+  });
+  readonly alignmentSchedule = new SelectScheduleInfo("Alignment", "center", [
+    "left",
+    "center",
+    "right",
+    "justify",
+  ]);
+  readonly widthSchedule = new NumberScheduleInfo("Width", 7.5);
+  readonly additionalLineHeightSchedule = new NumberScheduleInfo(
+    "Additional Line Height",
+    0,
+  );
+  readonly schedules = [
+    this.positionSchedule,
+    this.alignmentSchedule,
+    this.widthSchedule,
+    this.additionalLineHeightSchedule,
+  ] as const;
+  readonly description = "Multi Text";
+  readonly duration = 0;
+  readonly components: Showable[] = [];
+  show(options: ShowOptions): void {
+    const { context, timeInMs } = options;
+    const sources = new Array<TextSpanComponent>();
+    const formatters = new Array<TextFormatComponent>();
+    this.components.forEach((child) => {
+      if (child instanceof TextSpanComponent) {
+        sources.push(child);
+      } else if (child instanceof TextFormatComponent) {
+        formatters.push(child);
+      } else {
+        showError(context, "Unexpected child!");
+      }
+    });
+    const paragraphLayout = new ParagraphLayout(baseFont);
+    const initializedFormatters = new Array<
+      ReturnType<TextFormatComponent["freeze"]>
+    >();
+    sources.forEach((source) => {
+      const { content, style } = source.get(timeInMs);
+      let initializedFormatter = initializedFormatters[style];
+      if (!initializedFormatter) {
+        const formatter = formatters[style];
+        if (formatter) {
+          initializedFormatter = formatter.freeze(timeInMs);
+        }
+      }
+      if (!initializedFormatter) {
+        // Maybe someone asked for -1 or 0.5 or there were only 3 to chose from and someone asked for #10.
+        // Throwing an exception seems extreme or even a warning to the console,
+        // as this happens in the animation frame handler.
+        showError(context, `Unknown style index: ${style}`);
+      } else {
+        initializedFormatter(content, paragraphLayout);
+      }
+    });
+    const position = this.positionSchedule.at(timeInMs);
+    const alignment = this.alignmentSchedule.at(timeInMs);
+    const width = this.widthSchedule.at(timeInMs);
+    const additionalLineHeight = this.additionalLineHeightSchedule.at(timeInMs);
+    const aligned = paragraphLayout.align(
+      width,
+      alignment,
+      additionalLineHeight,
+    );
+    const x =
+      position.x -
+      (alignment == "right" ? width : alignment == "center" ? width / 2 : 0);
+    const y = position.y;
+    aligned.pathShapeByTag().forEach((pathShape, callback) => {
+      pathShape = pathShape.translate(x, y);
+      (callback as (options: ShowOptions, pathShape: PathShape) => void)(
+        options,
+        pathShape,
+      );
+    });
+  }
+}
+
+export class TextSpanComponent implements Showable {
+  public contentSchedule = new StringScheduleInfo("Content", "");
+  // TODO do not allow easing in styleSchedule.
+  public styleSchedule = new NumberScheduleInfo("Style", 0);
+  readonly schedules = [this.contentSchedule, this.styleSchedule] as const;
+  readonly description = "Text Span";
+  readonly duration = 0;
+  show(options: ShowOptions): void {
+    // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?
+    showError(
+      options.context,
+      "TextSpanComponent\nshould be a child of\nMultiTextComponent",
+    );
+  }
+  get(timeInMs: number) {
+    const content = this.contentSchedule.at(timeInMs);
+    const style = this.styleSchedule.at(timeInMs);
+    return { content, style };
+  }
+}
+
+type CachedFont = {
+  readonly font: Font;
+  readonly size: number;
+  readonly boldness: number;
+  readonly obliqueness: number;
+};
+
+export class TextFormatComponent implements Showable {
+  readonly colorSchedule = new ColorScheduleInfo("Color", "#666");
+  readonly sizeSchedule = new NumberScheduleInfo("Font Size", 1);
+  readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
+  readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
+  readonly schedules = [
+    this.colorSchedule,
+    this.sizeSchedule,
+    this.boldnessSchedule,
+    this.obliquenessSchedule,
+  ] as const;
+  readonly description = "Text Format";
+  readonly duration = 0;
+  show(options: ShowOptions): void {
+    // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?
+    showError(
+      options.context,
+      "TextFormatComponent\nshould be a child of\nMultiTextComponent",
+    );
+  }
+  #cachedFont: undefined | CachedFont;
+  freeze(timeInMs: number) {
+    const color = this.colorSchedule.at(timeInMs);
+    const size = this.sizeSchedule.at(timeInMs);
+    const boldness = this.boldnessSchedule.at(timeInMs);
+    const obliqueness = this.obliquenessSchedule.at(timeInMs);
+    if (
+      !this.#cachedFont ||
+      this.#cachedFont.size != size ||
+      this.#cachedFont.boldness != boldness ||
+      this.#cachedFont.obliqueness != obliqueness
+    ) {
+      const font = makeLineFontRatio(size, boldness).oblique(obliqueness);
+      this.#cachedFont = { font, size, boldness, obliqueness };
+    }
+    const font = this.#cachedFont.font;
+    function drawText({ context }: ShowOptions, pathShape: PathShape): void {
+      context.strokeStyle = color;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = font.strokeWidth;
+      context.stroke(pathShape.canvasPath);
+    }
+    function addText(content: string, paragraphLayout: ParagraphLayout): void {
+      paragraphLayout.addText(content, font, drawText);
+    }
+    return addText;
+  }
+}
+
 export function createTextComponent(
   initialColorSchedule?: Keyframe<string>[],
   initialRectSchedule?: Keyframe<ReadOnlyRect>[],
@@ -357,12 +542,6 @@ export function createTextComponent(
   const alignmentChoices = ["left", "center", "right", "justify"] as const;
   type Alignment = (typeof alignmentChoices)[number];
   const alignmentSchedule: Keyframe<Alignment>[] = [{ time: 0, value: "left" }];
-  type CachedFont = {
-    readonly font: Font;
-    readonly size: number;
-    readonly boldness: number;
-    readonly obliqueness: number;
-  };
   let cachedFont: undefined | CachedFont;
   let cachedPath:
     | undefined
@@ -707,6 +886,9 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
   ["Static Image", () => createSingleImageComponent()],
+  ["Multi Text", () => new MultiTextComponent()],
+  ["Text Span", () => new TextSpanComponent()],
+  ["Text Format", () => new TextFormatComponent()],
 ]);
 
 export type SerializedChild = {

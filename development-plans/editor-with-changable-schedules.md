@@ -3,6 +3,10 @@
 The current Visual Editor is very powerful, but it has a very strict structure.
 Here are some changes that we need to add more interesting components.
 
+Normally you can change the contents of a schedule at any time.
+But the Visual Editor currently expects the number and types of schedules for a component to be fixed.
+When I say "changeable schedules" I mean I want to add the ability to add and delete schedules from within the Visual Editor.
+
 ## Scalar Fields
 
 A component should have a way to store fields that are not on a schedule.
@@ -98,6 +102,8 @@ I'll have to try it out and see what I think.
 
 ## Use Case: Text Component
 
+**Update:** A decent first prototype is working and available as "Multi Text".
+
 This one is more complicated, but maybe we can start with a subset of this.
 
 The current text component offers a lot of options, but they apply to all of the text.
@@ -134,7 +140,39 @@ How do we make it easy for someone just entering one blob of text.
 Even if the eventual plan is more complicated, it is common to start with the unformatted text.
 
 "Formatting Pieces of Text" in showcase.ts would be a good place to start.
+Two types of children, both components.
+
+- A block of text.
+  - A schedule sets the text.
+  - A schedule sets the style.
+  - The style is a number, chosen discretely.
+  - The number is an index into the list of styles.
+- A style.
+  - Copy most of the fields from the current Text component.
+  - And another version that works with strokeColors(), as described above.
+
+The top level will keep some properties from the original text component.
+In particular, any inputs to ParagraphLayout.align().
+Currently:
+
+- `width = Infinity`
+- `alignment: "left" | "center" | "right" | "justify" = "left"`
+- `additionalLineHeight = 0`
+
+### TODO: Discrete only schedules
+
+Some schedules should disallow any easing functions in the Visual Editor because they will be ignored when rendering.
+This should be the default for strings (but not for colors).
+The default for all other fields is a to allow easing.
+A "duration" is a third option; a schedule can work in exactly one of these three capacities.
+Or duration implies discrete, if that's a more convenient way to think about it.
+(In that last case I might say "non-ease-able" instead of discrete, as that would be more accurate.)
 
 ## Use Case: Slide Deck
 
 I don't know exactly what I want, but the integration could be a lot tighter than it is.
+
+It seems like the text component is facing similar issues.
+You have schedules pointing to components.
+If you delete a component, should the computer automatically renumber the components?
+Maybe names would be better than numbers?!

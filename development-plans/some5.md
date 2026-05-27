@@ -6,47 +6,48 @@ The good news, the computer will help you create matrices.
 And the computer will multiply the matrices for you.
 All you have to do is put them in order.
 
-I've got a question.
+I've got a math question.
 Any math people out there?
 How do I put my matrices in the wrong order almost every time!
-There are only two choices, I should be right half time just by luck.
+There are only two choices, I should be right half the time just by luck.
 
 Let me show you how I stopped guessing and really learned to understand what's going on.
 
 ## Affine Transforms
 
 The focus of this video is matrix multiplication.
-My examples will focus on affine transforms.
+My examples will all be affine transforms.
 I'm using these because I know them well, and because they they show off well.
 
 Let me give you the short version.
 Affine transforms are very popular for 2d graphics on modern computers.
-They describe things like rotations and translations.
-Scaling and skewing.
+They describe things like rotations and translations...
+...scaling and skewing.
 
 Each point is represented by a column vector.
 That's a matrix that's only one column wide.
-Shapes are, of course, just a collection of control points.
+Shapes are, of course, just a collection of points.
 
 Each operation is represented by a square matrix.
-There is an affine matrix that will double the size of you image.
-And a different one will quadruple the size of your matrix.
-Another one will slide it or rotate it.
+There is an affine matrix that will double the size of your image.
+And a different matrix will quadruple the size of your image.
+Others will slide it or rotate it.
 
-You apply a transform to a point, by multiplying the two matrices.
-You apply a transform to an image by applying it to each of its points individually.
+You apply a transform to a point by multiplying the two matrices.
+You apply a transform to an image by applying the transform to each of the image's points individually.
 
 There are a few more details.
 If you've studied matrix transforms, but not affine transforms, you might notice that affine matrices are bigger.
 And sometimes people don't bother to list all of the terms.
 Affine matrices are really cool, and worthy of further study.
-But all you need to know for today is that points are represented by 3×1 matrices, and transforms are represented by 3×3 matrices, and the computer will take care of the rest for you.
+But all you need to know for today is that points are represented by 3×1 matrices, and transforms are represented by 3×3 matrices.
+The computer will take care of the rest for you.
 
 ## What could possibly go wrong?
 
 "Computer, move that 5 units to the left, and make it twice as big."
 
-Seems simple enough at first.
+Seems simple enough.
 But am I moving it 5 units _first_, _then_ making everything bigger?
 Or am I measuring the 5 units _after_ I make everything bigger?
 
@@ -124,11 +125,11 @@ Yeah, right, and if you get all the way to the rainbow you can keep the leprecha
 
 Seriously, my favorite part of affine matrices is that they can change your coordinate system to anything you want.
 In my normal operations my screen is 16 by 9 because I find 16 and 9 to be convenient and easy to remember.
-By default one "pixel" is 16th the width of the output.
+By default one "pixel" is 16th the total width of the output.
 
 If there were such a thing as a pixel, it would be banished to the bottom of my tool stack.
 And that's where it belongs, far from me.
-I'm willing to pretend pixels are real when I decide to upload YouTube in 4k.
+I'm willing to pretend pixels are real when I decide to upload to YouTube in 4k.
 
 Two of my pet peeves:
 
@@ -152,7 +153,7 @@ Let me put this all on one line, so it's more clear.
 ## Matrix Multiplication is Associative but not Commutative.
 
 What does that mean?
-It means that if my request gets things in the wrong order, I will get the wrong result.
+It means that if my request has things in the wrong order, I will get the wrong result.
 But it also means we can we move these parenthesis around any way we like.
 
 We often regroup the matrix multiply operations for a variety of reasons.
@@ -185,7 +186,7 @@ You apply the last transform to the image first.
 Then you apply the second to last transform to the first result.
 The same process we've been doing.
 
-Again, this function centered view is the best way to understand the transform, and to make sure we got everything in order.
+Again, this function centered view is the best way to _understand_ the transform, and to make sure we got everything in order.
 But lets take a look at what the canvas is actually doing.
 
 The canvas **always** applies a transformation to all drawing operations.
@@ -197,19 +198,19 @@ Then it multiplies the current matrix with the newly requested matrix, and it st
 The canvas doesn't have to store a whole list of instructions because they are all compressed into a single matrix.
 And we can use that matrix immediately; we don't need to recompute it every time we draw something.
 
-But the result is the same.
+The result is the same either way.
 The canvas is computing the transform by doing the multiplications left to right.
 We are thinking about the multiplications going right to left, like function applications, when we try to understand the effect.
 But in both cases the result is the identical.
-When you look at the canvas's transform property you can think about a the actual matrix, or you can image a list of transforms waiting to be applied from right to left the way we like to do it.
+When you look at the canvas's transform property you can think about a the actual matrix, or you can image a list of transforms waiting to be applied from right to left _the way we like to do it_.
 
 Here's how I usually set up my software.
 The _last_ thing I'm going to do is to scale each image.
-The rest of the image is built to fit in a screen that is 16 × 9.
+The bulk of the image is built to fit in a screen that is 16 × 9.
 And that's how I want it.
 Most of the program doesn't know or care what resolution I use to upload to YouTube.
 But at the last minute I scale up by 240× in both dimensions.
-And like magic my video fits perfectly into 4k.
+And like magic my video fits perfectly into the 4k resolution.
 I implement that by requesting the scaling operation _first_.
 
 ## Do we lose anything in the Matrix?
@@ -217,23 +218,23 @@ I implement that by requesting the scaling operation _first_.
 When we convert a string like "scale(20, 30)" or a method call like `.scale(20, 30)` into a matrix, and when we combine multiple steps into a single matrix, do we lose anything?
 
 We cannot completely reconstruct the original instructions.
-The following instruction will all lead to identical matrices:
+The following instructions will all lead to identical matrices:
 
 - `context.scale(5); context.scale(2);`
 - `context.scale(2); context.scale(5);`
 - `context.scale(10);`
 
-But the end user won't care if we multiplied by 5 first, then by 2, or the other way around, or did it all in one step.
+But the end user won't care if we multiplied by 5 first, then by 2, or the other way around, or if we did it all in one step.
 
-So, are they any cases where we lose something important when we put everything into a matrix?
+So, are there any cases where we lose something _important_ when we put everything into a matrix?
 
 Why don't you pause and ponder on that one and I'll give you the answer in a moment.
 
 Do you lose any important information when you convert from words to a matrix?
 
-For a fixed image, no, I don't see any problems converting to a matrix and abandoning the string.
+For a fixed image, no, I don't see any problems converting to a matrix and abandoning the original instructions.
 When I rotate by 180 degrees or I rotate by -180 degrees, the result is the same.
-But watch what happens when I animate the rotation from 0 to 180 or -180.
+But watch what happens when I **animate** the rotation from 0 to ±180.
 
 ## Strings with multiple transforms in them
 
@@ -268,12 +269,12 @@ Three simple steps.
 Now let's see if we can get these in the right order.
 
 The rule is simple:
-We imagine moving the image on top of the origin first, so let's write that transform last.
+We imagine moving the image on top of the origin _first_, so let's write that transform _last_.
 If we want to spin around (x,y), then we "translate(-x, -y)" to move that part of the image to the origin.
-Then the rotate.
+Then we rotate.
 A skew or scale would also go here.
-The last thing we want to do is move the rotated image back to (x,y).
-So we add "translate(x, y)" to the beginning of our instructions.
+The _last_ thing we want to do is move the rotated image back to (x,y).
+So we add "translate(x, y)" to the _beginning_ of our instructions.
 
 I've shown code for this four different ways.
 (Stack of svg elements, canvas JavaScript, single CSS string, explicit matrix multiply)
@@ -297,7 +298,7 @@ We are surrounded by such powerful tools.
 But it's so easy to make a simple mistake and get confused.
 
 Any time you have a series of transforms, and you want to know what they do, think about them as functions.
-You apply them in the opposite order as you would normally read them.
+You _apply_ them in the opposite order as you would normally _read_ them.
 You apply them from right to left, or bottom to top.
-You might actually compute this in a different order.
-But when you want to understand you do it this way.
+You might actually _compute_ this in a different order.
+But when you want to _understand_, you do it this way.

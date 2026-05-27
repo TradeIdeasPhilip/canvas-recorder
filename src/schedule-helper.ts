@@ -16,6 +16,7 @@ import { Point } from "./glib/path-shape";
 
 export class StringScheduleInfo {
   readonly type = "string";
+  readonly schedule: Keyframe<string>[];
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }
@@ -28,8 +29,14 @@ export class StringScheduleInfo {
    */
   constructor(
     readonly description: string,
-    readonly schedule: Keyframe<string>[],
-  ) {}
+    schedule: Keyframe<string>[] | string,
+  ) {
+    if (typeof schedule == "string") {
+      this.schedule = [{ time: 0, value: schedule }];
+    } else {
+      this.schedule = schedule.slice();
+    }
+  }
 }
 
 /**
@@ -90,6 +97,7 @@ export class SelectScheduleInfo<T extends string, U extends T> {
 
 export class ColorScheduleInfo {
   readonly type = "color";
+  readonly schedule: Keyframe<string>[];
   at(timeInMs: number): string {
     return interpolateColors(timeInMs, this.schedule);
   }
@@ -102,8 +110,14 @@ export class ColorScheduleInfo {
    */
   constructor(
     readonly description: string,
-    readonly schedule: Keyframe<string>[],
-  ) {}
+    schedule: Keyframe<string>[] | string,
+  ) {
+    if (typeof schedule === "string") {
+      this.schedule = [{ time: 0, value: schedule }];
+    } else {
+      this.schedule = schedule.slice();
+    }
+  }
 }
 
 export class NumberScheduleInfo {
@@ -133,7 +147,7 @@ export class NumberScheduleInfo {
 
 export class NumberDurationScheduleInfo {
   readonly type = "number";
-  readonly editDurations=true;
+  readonly editDurations = true;
   readonly schedule: Keyframe<number>[];
   at(timeInMs: number) {
     return durationKeyframes(timeInMs, this.schedule);
@@ -177,6 +191,7 @@ export class RectangleScheduleInfo {
 
 export class PointScheduleInfo {
   readonly type = "point";
+  readonly schedule: Keyframe<Point>[];
   at(timeInMs: number): Point {
     return interpolatePoints(timeInMs, this.schedule);
   }
@@ -186,9 +201,17 @@ export class PointScheduleInfo {
    * parent {@link VisuallyEditable}'s database record.
    * @param schedule Initial keyframes. The array is explicitly mutable and
    * will be modified by the Visual Editor at runtime.
+   * This constructor always creates a new array.
+   * If this value is a single point, a schedule will be created with that point as the only value.
    */
   constructor(
     readonly description: string,
-    readonly schedule: Keyframe<Point>[],
-  ) {}
+    schedule: Keyframe<Point>[] | Point,
+  ) {
+    if (schedule instanceof Array) {
+      this.schedule = schedule.slice();
+    } else {
+      this.schedule = [{ time: 0, value: schedule }];
+    }
+  }
 }
