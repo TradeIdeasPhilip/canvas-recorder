@@ -1,6 +1,6 @@
 # Internals
 
-This file was automatically generated on 5/12/2026, 5:07:28 PM.
+This file was automatically generated on 5/27/2026, 11:22:35 AM.
 
 ## Fonts
 
@@ -138,6 +138,7 @@ The following characters are currently available via `makeLineFont()`, the most 
 | U+2077 | ⁷ |
 | U+2078 | ⁸ |
 | U+2079 | ⁹ |
+| U+207B | ⁻ |
 | U+2102 | ℂ |
 | U+210D | ℍ |
 | U+2115 | ℕ |
