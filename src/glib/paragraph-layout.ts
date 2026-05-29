@@ -154,6 +154,13 @@ export class ParagraphLayout {
     lines.forEach((line) => {
       if (line.length == 0) {
         const top = y;
+        // TODO Hmm.  Why are we using this.font?
+        // The rest of the code looks at all of the fonts actually used.
+        // this.font is just a default that can be override on each call to add text.
+        // slide-components.ts, for example, calls `new ParagraphLayout(baseFont)` with a completely arbitrary baseFont because we don't know the font until we add the text.
+        // What does this affect?
+        // Maybe it only matters if code uses allRowMetrics.
+        // But it should be fixed.
         const baseline = top - this.font.top;
         const bottom = baseline + this.font.bottom;
         const minWidth = 0;

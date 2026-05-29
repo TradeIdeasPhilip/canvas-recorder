@@ -7,7 +7,9 @@ import {
   Keyframe,
 } from "./interpolate";
 import {
+  applyScalarSnapshot,
   applySnapshot,
+  SerializedScalar,
   SerializedSchedule,
   Showable,
   ShowOptions,
@@ -26,6 +28,7 @@ import {
   PointScheduleInfo,
   RectangleScheduleInfo,
   SelectScheduleInfo,
+  StringScalarInfo,
   StringScheduleInfo,
 } from "./schedule-helper";
 import { PathShape } from "./glib/path-shape";
@@ -344,6 +347,31 @@ export function createSlideComponent(): Showable {
  */
 const baseFont = Font.cursive(1);
 
+const TEXT_FORMAT_LIST = Symbol("Text Format List");
+function getFormat(
+  name: string,
+  available: readonly TextFormatComponent[],
+): TextFormatComponent | undefined {
+  return available.findLast((component) => component.nameScalar.value == name);
+}
+function extractTextFormatList(
+  options: ShowOptions & {
+    [TEXT_FORMAT_LIST]?: readonly TextFormatComponent[];
+  },
+  current: readonly TextFormatComponent[],
+) {
+  if (options[TEXT_FORMAT_LIST]) {
+    return [...options[TEXT_FORMAT_LIST], ...current];
+  } else {
+    return current;
+  }
+}
+function setTextFormatList(
+  options: ShowOptions,
+  textFormatList: readonly TextFormatComponent[],
+) {
+  return { ...options, [TEXT_FORMAT_LIST]: textFormatList };
+}
 /**
  * Use this to combine multiple formats into one paragraph.
  *
@@ -360,6 +388,13 @@ const baseFont = Font.cursive(1);
  * And these components should only be able to have two types of children:  TextSpanComponent or TextFormatComponent.
  *
  * Currently we print a warning on the screen for any errors.
+ *
+ * We can now have other children.
+ * TextSpanComponent and TextFormatComponent have special meanings.
+ * Any other children are drawn like normal.
+ * These children are drawn before the TextSpanComponents are drawn.
+ * Currently that doesn't do much.
+ * But the plan is for descendants to have access to this component's formatters.
  */
 export class MultiTextComponent implements Showable {
   readonly positionSchedule = new PointScheduleInfo("Position", {
@@ -389,34 +424,40 @@ export class MultiTextComponent implements Showable {
   show(options: ShowOptions): void {
     const { context, timeInMs } = options;
     const sources = new Array<TextSpanComponent>();
-    const formatters = new Array<TextFormatComponent>();
+    const newFormatters = new Array<TextFormatComponent>();
+    const otherChildren = new Array<Showable>();
     this.components.forEach((child) => {
       if (child instanceof TextSpanComponent) {
         sources.push(child);
       } else if (child instanceof TextFormatComponent) {
-        formatters.push(child);
+        newFormatters.push(child);
       } else {
-        showError(context, "Unexpected child!");
+        otherChildren.push(child);
       }
     });
+    const allFormatters = extractTextFormatList(options, newFormatters);
+    const childOptions = setTextFormatList(options, allFormatters);
+    otherChildren.forEach((child) => {
+      child.show(childOptions);
+    });
     const paragraphLayout = new ParagraphLayout(baseFont);
-    const initializedFormatters = new Array<
-      ReturnType<TextFormatComponent["freeze"]>
+    const initializedFormatters = new Map<
+      string,
+      ReturnType<TextFormatComponent["freeze"]> | undefined
     >();
     sources.forEach((source) => {
       const { content, style } = source.get(timeInMs);
-      let initializedFormatter = initializedFormatters[style];
+      const initializedFormatter = initializedFormatters.getOrInsertComputed(
+        style,
+        (style) => {
+          const formatter = getFormat(style, allFormatters);
+          return formatter?.freeze(timeInMs);
+        },
+      );
       if (!initializedFormatter) {
-        const formatter = formatters[style];
-        if (formatter) {
-          initializedFormatter = formatter.freeze(timeInMs);
-        }
-      }
-      if (!initializedFormatter) {
-        // Maybe someone asked for -1 or 0.5 or there were only 3 to chose from and someone asked for #10.
         // Throwing an exception seems extreme or even a warning to the console,
         // as this happens in the animation frame handler.
-        showError(context, `Unknown style index: ${style}`);
+        showError(context, `Unknown style:\n“${style}”`);
       } else {
         initializedFormatter(content, paragraphLayout);
       }
@@ -447,7 +488,7 @@ export class MultiTextComponent implements Showable {
 export class TextSpanComponent implements Showable {
   public contentSchedule = new StringScheduleInfo("Content", "");
   // TODO do not allow easing in styleSchedule.
-  public styleSchedule = new NumberScheduleInfo("Style", 0);
+  public styleSchedule = new StringScheduleInfo("Style", "");
   readonly schedules = [this.contentSchedule, this.styleSchedule] as const;
   readonly description = "Text Span";
   readonly duration = 0;
@@ -473,6 +514,8 @@ type CachedFont = {
 };
 
 export class TextFormatComponent implements Showable {
+  readonly nameScalar = new StringScalarInfo("Name", "");
+  readonly scalars = [this.nameScalar] as const;
   readonly colorSchedule = new ColorScheduleInfo("Color", "#666");
   readonly sizeSchedule = new NumberScheduleInfo("Font Size", 1);
   readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
@@ -894,6 +937,7 @@ export const componentRegistry = new Map<string, () => Showable>([
 export type SerializedChild = {
   registryKey: string;
   schedules: SerializedSchedule[];
+  scalars?: SerializedScalar[];
   components?: SerializedChild[];
 };
 
@@ -910,6 +954,9 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     if (!factory) return [];
     const child = factory();
     child.registryKey = sc.registryKey;
+    if (child.scalars?.length && sc.scalars?.length) {
+      applyScalarSnapshot(child.scalars, sc.scalars);
+    }
     if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
     if (child.components !== undefined && sc.components?.length) {
       child.components.push(...buildComponents(sc.components));

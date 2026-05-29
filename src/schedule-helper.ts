@@ -1,4 +1,4 @@
-import { ScheduleInfo } from "./showable";
+import { ScalarInfo } from "./showable";
 import {
   discreteKeyframes,
   durationKeyframes,
@@ -213,5 +213,21 @@ export class PointScheduleInfo {
     } else {
       this.schedule = [{ time: 0, value: schedule }];
     }
+  }
+}
+
+// ── Scalar field helpers ────────────────────────────────────────────────────
+// These are like the *ScheduleInfo classes above but hold a single mutable
+// value instead of a keyframe array.  They satisfy the ScalarInfo union type.
+
+/** A string scalar field. */
+export class StringScalarInfo implements Extract<ScalarInfo, { type: "string" }> {
+  readonly type = "string" as const;
+  value: string;
+  constructor(
+    readonly description: string,
+    initialValue: string,
+  ) {
+    this.value = initialValue;
   }
 }

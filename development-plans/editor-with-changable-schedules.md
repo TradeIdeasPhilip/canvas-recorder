@@ -159,6 +159,65 @@ Currently:
 - `alignment: "left" | "center" | "right" | "justify" = "left"`
 - `additionalLineHeight = 0`
 
+(Width cannot be infinity.
+We do not support that in our current editor.
+For now I'm just using a big number.)
+
+### Named Text Styles
+
+The current prototype expects each block of text to pick a style from a list.
+The text component looks at all of its direct descendants and it puts all of the style components into that array, in order.
+Each block of text provides an integer, and that is used as an array index.
+
+That works, but it seems like a pain.
+Named children would avoid lots of problems.
+Like if I delete one item, I don't want to find all of the references to the following items and subtract 1 from each index.
+
+Also, we already have support for selecting a string from a list without interpolating.
+(I.e. a discrete selection.)
+
+We already have a constrained string input.
+We could give that input a list of valid names.
+But that list might change as people edit things in the Visual Editor.
+The current code might already be good enough because you can't change the list of valid things while the list is visible.
+You'd have to switch to a different tab and when you switch back the Visual Editor will reread the options.
+
+Finally, names give us more ability to share styles.
+When a block of text requests "bold", first we look for a style named "bold" in the current multi text component.
+If it does not contain a definition of "bold", then we go up the hierarchy.
+If there is a conflict, the closest entry wins, the one furthest down the tree from the root.
+
+Here's a crude prototype:
+
+```
+type MoreStyles = {
+  here: ReadonlyMap<string, TextFormatComponent>;
+  moreStyles?: MoreStyles;
+};
+
+function getStyles(
+  name: string,
+  search: { moreStyles?: MoreStyles },
+): TextFormatComponent | undefined {
+  if (!search.moreStyles) {
+    return undefined;
+  }
+  const current = search.moreStyles.here.get(name);
+  return current ?? getStyles(name, search.moreStyles);
+}
+```
+
+Each Multi Text control will build a list of styles.
+But other controls can be created for the sole purpose of adding more config options.
+
+I was thinking about adding `moreStyles?` to showable.
+So on the way down, as we recursively call Showable.show(), most code will just copy moreStyles as is, if it exists.
+But some components will add to it using our LISP style, cons cell style, scope object.
+But that isn't sufficient for the editor, is it?
+The editor wants to know all the options even when we aren't displaying anything.
+Look at how the Visual Editor solved this for transform matrices.
+Same problem, the Visual Editor needs access to the entire path from the root of the tree to accumulate all the info it needs.
+
 ### TODO: Discrete only schedules
 
 Some schedules should disallow any easing functions in the Visual Editor because they will be ignored when rendering.
@@ -176,3 +235,33 @@ It seems like the text component is facing similar issues.
 You have schedules pointing to components.
 If you delete a component, should the computer automatically renumber the components?
 Maybe names would be better than numbers?!
+
+## Use Case: Transform editor
+
+Currently we use strings as transforms.
+And we can only animate them in discrete steps.
+
+The final version of the transform editor will have a lot in common with the path editor I described.
+
+We will have a list of numbers or points that we can control separately.
+And we have a transform string template like `scale([0] [1]) translate(3px, [2]px)`.
+The main part of the Visual Editor needs to know about the schedules, and the exact number and type of the schedules can change.
+
+The simplest user interface would be to let the Visual Editor give you a normal string input for the template.
+That's a scaler.
+The component would have a callback that would check the string as the user types and would create or destroy schedules as needed.
+And the component would have a simple custom "editor" panel that displays help and the current status including any error messages.
+_This part is exactly like the proposed first version of the path editor._
+
+The difference, of course is how we display markers on the screen.
+Initially you will see the content update in real time.
+But the draggable markers will come later.
+This will be very powerful if we do it right.
+
+## Big question: What does the changing number of schedules code look like?
+
+Is this easy or hard?
+Is this simple or messy?
+
+What happens when we save things?
+Do we need to restore the first part of the component, to know how many schedules we should create, then copy those schedules from the saved json object after we know what we're looking for?

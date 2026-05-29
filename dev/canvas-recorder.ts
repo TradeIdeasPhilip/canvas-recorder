@@ -22,9 +22,12 @@ import {
   QUALITY_HIGH,
 } from "mediabunny";
 import {
+  applyScalarSnapshot,
   applySnapshot,
+  ScalarInfo,
   Selectable,
   SerializedKf,
+  SerializedScalar,
   SerializedSchedule,
   Showable,
 } from "../src/showable.ts";
@@ -1241,6 +1244,7 @@ const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
 type HistoryEntry = {
   timestamp: number;
   schedules: SerializedSchedule[];
+  scalars?: SerializedScalar[];
   components?: SerializedChild[];
 };
 type HistoryRecord = { selectableKey: string; entries: HistoryEntry[] };
@@ -1314,15 +1318,15 @@ function captureDefaults(): void {
     if (seen.has(key)) continue;
     seen.add(key);
     const hasSchedules = !!sel.schedules?.length;
+    const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
-    if (!hasSchedules && !hasChildren) continue;
+    if (!hasSchedules && !hasScalars && !hasChildren) continue;
     const entry: HistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
-    if (hasChildren) {
-      entry.components = serializeComponents(sel.components!);
-    }
+    if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
+    if (hasChildren) entry.components = serializeComponents(sel.components!);
     tsDefaults.set(key, entry);
   }
 }
@@ -1341,11 +1345,19 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
     seen.add(key);
-    if (!sel.schedules?.length && !Array.isArray(sel.components)) continue;
+    if (
+      !sel.schedules?.length &&
+      !sel.scalars?.length &&
+      !Array.isArray(sel.components)
+    )
+      continue;
     restores.push(
       readHistory(key).then((record) => {
         const last = record?.entries.at(-1);
         if (!last) return;
+        if (sel.scalars?.length && last.scalars?.length) {
+          applyScalarSnapshot(sel.scalars, last.scalars);
+        }
         if (sel.schedules?.length && last.schedules.length) {
           applySnapshot(sel.schedules, last.schedules);
         }
@@ -1375,16 +1387,21 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         const last = entries.at(-1);
         const lastTs = last?.timestamp ?? 0;
         if (entry.timestamp > lastTs) {
+          if (sel.scalars?.length && entry.scalars?.length) {
+            applyScalarSnapshot(sel.scalars, entry.scalars);
+          }
           if (sel.schedules?.length && entry.schedules.length) {
             applySnapshot(sel.schedules, entry.schedules);
           }
           const entryJson = JSON.stringify({
             schedules: entry.schedules,
+            scalars: entry.scalars,
             components: entry.components,
           });
           const lastJson = last
             ? JSON.stringify({
                 schedules: last.schedules,
+                scalars: last.scalars,
                 components: last.components,
               })
             : null;
@@ -1430,6 +1447,14 @@ function serializeSchedules(
   }));
 }
 
+function serializeScalars(scalars: readonly ScalarInfo[]): SerializedScalar[] {
+  return scalars.map((info) => ({
+    description: info.description,
+    type: info.type,
+    value: info.value,
+  }));
+}
+
 function serializeComponents(components: Showable[]): SerializedChild[] {
   return components.flatMap((child) => {
     const rk = child.registryKey ?? componentRegistryKey.get(child);
@@ -1440,6 +1465,9 @@ function serializeComponents(components: Showable[]): SerializedChild[] {
         ? serializeSchedules(child.schedules)
         : [],
     };
+    if (child.scalars?.length) {
+      entry.scalars = serializeScalars(child.scalars);
+    }
     if (child.components !== undefined) {
       entry.components = serializeComponents(child.components);
     }
@@ -1493,19 +1521,24 @@ async function refreshHistoryUI(selectable: Selectable, selectValue?: string) {
 /** Saves current schedule state to IndexedDB. */
 async function saveScheduleState(selectable: Selectable, updateUI = true) {
   const hasSchedules = !!selectable.schedules?.length;
+  const hasScalars = !!selectable.scalars?.length;
   const hasChildren = Array.isArray(selectable.components);
-  if (!hasSchedules && !hasChildren) return;
+  if (!hasSchedules && !hasScalars && !hasChildren) return;
   const key = selectableKey(selectable);
   const record = await readHistory(key);
   const entries = record?.entries ?? [];
   const newSchedules = hasSchedules
     ? serializeSchedules(selectable.schedules!)
     : [];
+  const newScalars = hasScalars
+    ? serializeScalars(selectable.scalars!)
+    : undefined;
   const newComponents = hasChildren
     ? serializeComponents(selectable.components!)
     : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
+    scalars: newScalars,
     components: newComponents,
   });
   // Skip saving if nothing changed since the last entry (e.g. Vite hot-reload
@@ -1514,6 +1547,7 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
   if (last) {
     const prevJson = JSON.stringify({
       schedules: last.schedules,
+      scalars: last.scalars,
       components: last.components,
     });
     if (prevJson === newJson) return;
@@ -1526,6 +1560,7 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
   if (tsDefault) {
     const defaultJson = JSON.stringify({
       schedules: tsDefault.schedules,
+      scalars: tsDefault.scalars,
       components: tsDefault.components,
     });
     if (defaultJson === newJson) return;
@@ -1534,6 +1569,7 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     timestamp: Date.now(),
     schedules: newSchedules,
   };
+  if (newScalars !== undefined) entry.scalars = newScalars;
   if (newComponents !== undefined) entry.components = newComponents;
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
@@ -1565,6 +1601,9 @@ loadScheduleBtn.addEventListener("click", () => {
   if (loadedValue === "ts-defaults") {
     const defaults = tsDefaults.get(selectableKey(target));
     if (!defaults) return;
+    if (target.scalars?.length && defaults.scalars?.length) {
+      applyScalarSnapshot(target.scalars, defaults.scalars);
+    }
     if (target.schedules?.length && defaults.schedules.length) {
       applySnapshot(target.schedules, defaults.schedules);
     }
@@ -1581,6 +1620,9 @@ loadScheduleBtn.addEventListener("click", () => {
   readHistory(selectableKey(target)).then((record) => {
     const entry = record?.entries[index];
     if (!entry) return;
+    if (target.scalars?.length && entry.scalars?.length) {
+      applyScalarSnapshot(target.scalars, entry.scalars);
+    }
     if (target.schedules?.length && entry.schedules.length) {
       applySnapshot(target.schedules, entry.schedules);
     }
@@ -1608,18 +1650,21 @@ function saveOnUnload() {
     seen.add(key);
 
     const hasSchedules = !!sel.schedules?.length;
+    const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
-    if (!hasSchedules && !hasChildren) continue;
+    if (!hasSchedules && !hasScalars && !hasChildren) continue;
 
     const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
+    const scalars = hasScalars ? serializeScalars(sel.scalars!) : undefined;
     const components = hasChildren
       ? serializeComponents(sel.components!)
       : undefined;
     const tsDefault = tsDefaults.get(key);
-    const newJson = JSON.stringify({ schedules, components });
+    const newJson = JSON.stringify({ schedules, scalars, components });
     const defaultJson = tsDefault
       ? JSON.stringify({
           schedules: tsDefault.schedules,
+          scalars: tsDefault.scalars,
           components: tsDefault.components,
         })
       : null;
@@ -1629,6 +1674,7 @@ function saveOnUnload() {
         entry: {
           timestamp: Date.now(),
           schedules,
+          ...(scalars !== undefined && { scalars }),
           ...(components !== undefined && { components }),
         },
       });
@@ -1645,8 +1691,6 @@ window.addEventListener("beforeunload", saveOnUnload);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") saveOnUnload();
 });
-
-
 
 /** Convert any CSS color string to #rrggbb for <input type="color">. */
 const _colorCanvas = document.createElement("canvas");
@@ -1760,6 +1804,86 @@ function scheduleToTypeScript(
     `// Schedule name: ${JSON.stringify(info.description)}`,
   ].join("\n");
   return `${header}\n[\n${rows.join("\n")}\n]`;
+}
+
+function buildScalarSection(info: ScalarInfo): HTMLElement {
+  const section = document.createElement("fieldset");
+  section.style.cssText = "margin-bottom:0.4em";
+  const legend = document.createElement("legend");
+  legend.textContent = info.description;
+  section.append(legend);
+
+  if (info.type === "string") {
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = info.value;
+    input.style.cssText = "width:100%;box-sizing:border-box";
+    input.addEventListener("input", () => {
+      info.value = input.value;
+    });
+    section.append(input);
+  } else if (info.type === "color") {
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = cssColorToHex(info.value);
+    input.addEventListener("input", () => {
+      info.value = input.value;
+    });
+    section.append(input);
+  } else if (info.type === "number") {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.value = String(info.value);
+    input.addEventListener("input", () => {
+      const v = parseFloat(input.value);
+      if (isFinite(v)) info.value = v;
+    });
+    section.append(input);
+  } else if (info.type === "select") {
+    const sel = document.createElement("select");
+    for (const choice of info.choices) {
+      const opt = document.createElement("option");
+      opt.value = opt.textContent = choice;
+      if (choice === info.value) opt.selected = true;
+      sel.append(opt);
+    }
+    sel.addEventListener("change", () => {
+      info.value = sel.value;
+    });
+    section.append(sel);
+  } else if (info.type === "point") {
+    for (const axis of ["x", "y"] as const) {
+      const label = document.createElement("label");
+      label.textContent = `${axis}: `;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = String(info.value[axis]);
+      input.style.width = "6em";
+      input.addEventListener("input", () => {
+        const v = parseFloat(input.value);
+        if (isFinite(v)) info.value = { ...info.value, [axis]: v };
+      });
+      label.append(input);
+      section.append(label, " ");
+    }
+  } else {
+    // rectangle
+    for (const field of ["x", "y", "width", "height"] as const) {
+      const label = document.createElement("label");
+      label.textContent = `${field}: `;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.value = String((info.value as Record<string, number>)[field]);
+      input.style.width = "5em";
+      input.addEventListener("input", () => {
+        const v = parseFloat(input.value);
+        if (isFinite(v)) info.value = { ...info.value, [field]: v };
+      });
+      label.append(input);
+      section.append(label, " ");
+    }
+  }
+  return section;
 }
 
 function buildScheduleSection(
@@ -2226,6 +2350,17 @@ function updateComponentEditor(selectable: Selectable) {
   componentsEditorFieldset.hidden = rootComponents === undefined;
   if (rootComponents === undefined) return;
 
+  // Preserve scroll position so clicking a component doesn't jump to the top.
+  // If the list was scrolled to the bottom, stick to the bottom even if content
+  // height changes slightly (e.g. because one item gains/loses bold text).
+  const oldList = componentsEditorFieldset.querySelector(
+    ".components-list",
+  ) as HTMLElement | null;
+  const savedScrollTop = oldList?.scrollTop ?? 0;
+  const wasAtBottom = oldList
+    ? oldList.scrollTop + oldList.clientHeight >= oldList.scrollHeight - 2
+    : false;
+
   componentsEditorFieldset.replaceChildren();
 
   const list = document.createElement("div");
@@ -2352,7 +2487,8 @@ function updateComponentEditor(selectable: Selectable) {
 
   const toolbar = document.createElement("div");
   toolbar.className = "components-toolbar";
-  toolbar.style.cssText = "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
+  toolbar.style.cssText =
+    "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
 
   const addSelect = addName(document.createElement("select"));
   for (const [key] of componentRegistry) {
@@ -2400,6 +2536,9 @@ function updateComponentEditor(selectable: Selectable) {
 
   toolbar.append(addSelect, addBtn, copyAllBtn, pasteRootBtn);
   componentsEditorFieldset.append(toolbar);
+  // Restore scroll now that both list and toolbar are in the DOM, so
+  // list.clientHeight reflects its final height and browser clamping is correct.
+  list.scrollTop = wasAtBottom ? list.scrollHeight : savedScrollTop;
 }
 
 function updateScheduleEditor(
@@ -2423,13 +2562,17 @@ function updateScheduleEditor(
   } else {
     scheduleHistoryControls.hidden = true;
   }
+  const scalars = selectable.scalars;
   const schedules = selectable.schedules;
-  if (!schedules?.length) {
+  if (!scalars?.length && !schedules?.length) {
     scheduleEditorFieldset.hidden = true;
     return;
   }
   scheduleEditorFieldset.hidden = false;
-  for (const info of schedules) {
+  for (const info of scalars ?? []) {
+    scheduleEditorFieldset.append(buildScalarSection(info));
+  }
+  for (const info of schedules ?? []) {
     scheduleEditorFieldset.append(
       buildScheduleSection(info, selectable.description),
     );
@@ -2592,9 +2735,7 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
   // Edit-mode point: red circle with crosshair
   if (editingPointKf) {
     const localPt = editingPointKf.value;
-    const pos = relTf
-      ? localToLogical(localPt.x, localPt.y, relTf)
-      : localPt;
+    const pos = relTf ? localToLogical(localPt.x, localPt.y, relTf) : localPt;
     const active = draggingPoint === editingPointKf;
     const RADIUS = active ? 0.25 : 0.2;
     ctx.beginPath();
@@ -2622,7 +2763,9 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
 function hitTestMarker(logX: number, logY: number) {
   if (!editingRectKf) return null;
   const relTf = getMarkerRelTf();
-  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
+  const local = relTf
+    ? logicalToLocal(logX, logY, relTf)
+    : { x: logX, y: logY };
   const HIT_RADIUS = 0.3;
   const positions = rectHandlePositions(editingRectKf.value);
   for (const handle of ["tl", "tr", "bl", "br", "center"] as RectHandle[]) {
@@ -2639,7 +2782,9 @@ function hitTestMarker(logX: number, logY: number) {
 function hitTestPointMarker(logX: number, logY: number): PointKf | null {
   if (!editingPointKf) return null;
   const relTf = getMarkerRelTf();
-  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
+  const local = relTf
+    ? logicalToLocal(logX, logY, relTf)
+    : { x: logX, y: logY };
   const HIT_RADIUS = 0.3;
   const { x, y } = editingPointKf.value;
   const dx = local.x - x;
@@ -2655,8 +2800,7 @@ function applyPointDrag(localX: number, localY: number) {
 
 function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   if (!draggingMarker) return;
-  const { kf, handle, startLocalX, startLocalY, startRect } =
-    draggingMarker;
+  const { kf, handle, startLocalX, startLocalY, startRect } = draggingMarker;
   const dx = localX - startLocalX;
   const dy = localY - startLocalY;
   let newRect: ReadOnlyRect;
@@ -2945,7 +3089,10 @@ function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
     const onMove = (e: MouseEvent) => {
       const newH = Math.max(
         MIN_PANE,
-        Math.min(colH - handleH - MIN_PANE, startPaneH + (e.clientY - startClientY)),
+        Math.min(
+          colH - handleH - MIN_PANE,
+          startPaneH + (e.clientY - startClientY),
+        ),
       );
       topPane.style.height = `${newH}px`;
       if (zoomSelect.value === "fit") zoomToFit();
@@ -2987,7 +3134,10 @@ initResizeHandle(
     const onMove = (e: MouseEvent) => {
       const newW = Math.max(
         MIN_COL,
-        Math.min(totalW - handleW - MIN_COL, startColW + (e.clientX - startClientX)),
+        Math.min(
+          totalW - handleW - MIN_COL,
+          startColW + (e.clientX - startClientX),
+        ),
       );
       leftCol.style.flex = `0 0 ${newW}px`;
       if (zoomSelect.value === "fit") zoomToFit();

@@ -189,7 +189,7 @@ The same process we've been doing.
 Again, this function centered view is the best way to _understand_ the transform, and to make sure we got everything in order.
 But lets take a look at what the canvas is actually doing.
 
-The canvas **always** applies a transformation to all drawing operations.
+The canvas **always** applies a transform to all drawing operations.
 But it starts with the identity matrix, so nothing actually changes.
 Welcome to modern computer graphics where matrix multiplication can be faster than an "if" statement!
 

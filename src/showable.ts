@@ -56,6 +56,14 @@ export type Selectable = {
   }[];
 
   /**
+   * Scalar (non-time-varying) fields displayed and edited in the Visual Editor,
+   * rendered above {@link schedules}.  Unlike schedules, each field holds a
+   * single mutable `value`.  Consider importing from `schedule-helper.ts` to
+   * create scalar infos.
+   */
+  readonly scalars?: readonly ScalarInfo[];
+
+  /**
    * These will be displayed in the Visual Editor.
    * Note most "properties" can change over time so I call them "schedules".
    * Consider importing from schedule-helper.ts to create the schedules.
@@ -89,7 +97,7 @@ export type ScheduleInfo = {
    * If false, the default, the user edits the start times of the schedule.
    * Either way, we store start times in the schedule.
    */
-  readonly editDurations?:boolean;
+  readonly editDurations?: boolean;
 } & (
   | {
       readonly type: "string";
@@ -111,6 +119,34 @@ export type ScheduleInfo = {
   | { readonly type: "rectangle"; readonly schedule: Keyframe<ReadOnlyRect>[] }
   | { readonly type: "point"; readonly schedule: Keyframe<Point>[] }
 );
+
+/**
+ * A scalar field holds a single value (not time-varying) that belongs to a
+ * component.  It is editable in the Visual Editor and round-trips through
+ * save/restore just like a schedule.
+ *
+ * `value` is intentionally mutable so the Visual Editor can write to it.
+ */
+export type ScalarInfo = {
+  readonly description: string;
+} & (
+  | { readonly type: "string"; value: string }
+  | {
+      readonly type: "select";
+      readonly choices: readonly string[];
+      value: string;
+    }
+  | { readonly type: "color"; value: string }
+  | { readonly type: "number"; value: number }
+  | { readonly type: "rectangle"; value: ReadOnlyRect }
+  | { readonly type: "point"; value: Point }
+);
+
+export type SerializedScalar = {
+  description: string;
+  type: string;
+  value: unknown;
+};
 
 export type SerializedKf = { time: number; value: unknown; easeAfter?: string };
 export type SerializedSchedule = {
@@ -153,6 +189,24 @@ export function applySnapshot(
       if (fn) kf.easeAfter = fn;
       liveArr.push(kf);
     }
+  }
+}
+
+/**
+ * Mutates scalar values in-place from serialized data.
+ * Counterpart to {@link applySnapshot} for scalar fields.
+ */
+export function applyScalarSnapshot(
+  scalars: readonly ScalarInfo[],
+  snapshot: SerializedScalar[],
+): void {
+  for (const serialized of snapshot) {
+    const live = scalars.find(
+      (s) =>
+        s.description === serialized.description && s.type === serialized.type,
+    );
+    if (!live) continue;
+    (live as { value: unknown }).value = serialized.value;
   }
 }
 
@@ -205,7 +259,10 @@ export type ShowOptions = {
    *
    * Only present during live (interactive) rendering — never during recording.
    */
-  readonly registerTransform?: (component: Showable, transform: DOMMatrix) => void;
+  readonly registerTransform?: (
+    component: Showable,
+    transform: DOMMatrix,
+  ) => void;
 };
 
 /**
