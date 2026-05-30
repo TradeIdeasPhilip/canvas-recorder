@@ -1097,6 +1097,21 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 }
 
 // ---------------------------------------------------------------------------
+// MARK: Slide 1b — Generic Container
+// ---------------------------------------------------------------------------
+{
+  const slide: Showable = {
+    description: "Slide 1b: Generic Container",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    components: [],
+    show(options) {
+      for (const child of this.components!) child.show(options);
+    },
+  };
+  slideList.add(slide);
+}
+
+// ---------------------------------------------------------------------------
 // MARK: Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
 {

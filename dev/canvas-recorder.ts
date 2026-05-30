@@ -1814,10 +1814,10 @@ function buildScalarSection(info: ScalarInfo): HTMLElement {
   section.append(legend);
 
   if (info.type === "string") {
-    const input = document.createElement("input");
-    input.type = "text";
+    const input = document.createElement("textarea");
+    input.rows = 1;
     input.value = info.value;
-    input.style.cssText = "width:100%;box-sizing:border-box";
+    input.style.cssText = "width:100%;box-sizing:border-box;resize:vertical";
     input.addEventListener("input", () => {
       info.value = input.value;
     });
@@ -2117,9 +2117,10 @@ function buildScheduleSection(
     } else if (info.type === "string") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      const input = addName(document.createElement("input"));
-      input.type = "text";
+      const input = addName(document.createElement("textarea"));
+      input.rows = 1;
       input.value = strKf.value;
+      input.style.cssText = "width:100%;box-sizing:border-box;resize:vertical";
       input.addEventListener("input", () => {
         strKf.value = input.value;
       });
@@ -2361,6 +2362,13 @@ function updateComponentEditor(selectable: Selectable) {
     ? oldList.scrollTop + oldList.clientHeight >= oldList.scrollHeight - 2
     : false;
 
+  const oldToolbar = componentsEditorFieldset.querySelector(
+    ".components-toolbar",
+  );
+  const savedAddSelectValue =
+    (oldToolbar?.querySelector("select") as HTMLSelectElement | null)?.value ??
+    "";
+
   componentsEditorFieldset.replaceChildren();
 
   const list = document.createElement("div");
@@ -2496,6 +2504,12 @@ function updateComponentEditor(selectable: Selectable) {
     opt.value = key;
     opt.textContent = key;
     addSelect.append(opt);
+  }
+  if (
+    savedAddSelectValue &&
+    [...addSelect.options].some((o) => o.value === savedAddSelectValue)
+  ) {
+    addSelect.value = savedAddSelectValue;
   }
 
   const addBtn = document.createElement("button");
