@@ -1102,7 +1102,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 {
   const slide: Showable = {
     description: "Slide 1b: Generic Container",
-    duration: DEFAULT_SLIDE_DURATION_MS,
+    duration: 6_000,
     components: [],
     show(options) {
       for (const child of this.components!) child.show(options);

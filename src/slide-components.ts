@@ -407,6 +407,15 @@ export class MultiTextComponent implements Showable {
     "right",
     "justify",
   ]);
+  /**
+   * How does the text align with {@link positionSchedule} vertically?
+   *
+   */
+  readonly textBaselineSchedule = new SelectScheduleInfo("Baseline", "top", [
+    "top",
+    "middle",
+    "bottom",
+  ]);
   readonly widthSchedule = new NumberScheduleInfo("Width", 7.5);
   readonly additionalLineHeightSchedule = new NumberScheduleInfo(
     "Additional Line Height",
@@ -415,6 +424,7 @@ export class MultiTextComponent implements Showable {
   readonly schedules = [
     this.positionSchedule,
     this.alignmentSchedule,
+    this.textBaselineSchedule,
     this.widthSchedule,
     this.additionalLineHeightSchedule,
   ] as const;
@@ -464,6 +474,11 @@ export class MultiTextComponent implements Showable {
     });
     const position = this.positionSchedule.at(timeInMs);
     const alignment = this.alignmentSchedule.at(timeInMs);
+    // Note:  paragraphLayout.align() has partial support for more.
+    // Things like capital top or (normal text) baseline.
+    // But that code seems to be in a state of flux at the moment.
+    // TODO fix it.
+    const baseline = this.textBaselineSchedule.at(timeInMs);
     const width = this.widthSchedule.at(timeInMs);
     const additionalLineHeight = this.additionalLineHeightSchedule.at(timeInMs);
     const aligned = paragraphLayout.align(
@@ -474,7 +489,10 @@ export class MultiTextComponent implements Showable {
     const x =
       position.x -
       (alignment == "right" ? width : alignment == "center" ? width / 2 : 0);
-    const y = position.y;
+    const height = aligned.height;
+    const y =
+      position.y -
+      (baseline == "bottom" ? height : baseline == "middle" ? height / 2 : 0);
     aligned.pathShapeByTag().forEach((pathShape, callback) => {
       pathShape = pathShape.translate(x, y);
       (callback as (options: ShowOptions, pathShape: PathShape) => void)(
