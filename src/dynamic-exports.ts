@@ -32,7 +32,7 @@ showableOptions.add([
     "sierpiński",
     {
       async create() {
-        return (await import("../src/sierpiński.ts")).sierpińskiTop;
+        return (await import("../src/sierpiński.ts")).sierpinskiTop;
       },
       description:
         "Beautiful math, as seen here:  https://youtu.be/rEP1VevV3WI",

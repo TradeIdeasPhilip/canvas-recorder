@@ -59,7 +59,7 @@ import {
   NumberScheduleInfo,
   RectangleScheduleInfo,
 } from "./schedule-helper";
-import { makeCornerRounder } from "./sierpiński";
+import { makeCornerRounder } from "./corner-rounder";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.

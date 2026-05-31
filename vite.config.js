@@ -50,6 +50,7 @@ export default defineConfig({
             "/src/utility.",
             "/src/stroke-colors.",
             "/src/binary-search.",
+            "/src/corner-rounder.",
             "/src/glib/",
           ];
           if (libPaths.some((p) => id.includes(p))) {

@@ -20,11 +20,10 @@ import { ParagraphLayout } from "./glib/paragraph-layout";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import {
   Command,
-  fromBezier,
   LCommand,
   PathShape,
-  QCommand,
 } from "./glib/path-shape";
+import { makeCornerRounder } from "./corner-rounder";
 import { fixCorners, matchShapes } from "./morph-animation";
 import {
   ease,
@@ -33,7 +32,6 @@ import {
   interpolateNumbers,
   Keyframe,
   Keyframes,
-  makePathShapeInterpolator,
 } from "./interpolate";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
@@ -44,7 +42,6 @@ import {
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
 import { distribute, only, philDebug } from "./utility";
-import { Bezier } from "bezier-js";
 import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
 import { zipper } from "./zipper";
@@ -848,116 +845,10 @@ const recursiveTriangles = (() => {
   return { scene };
 })();
 
-/**
- *
- * @param originalPathShape Add corners to this.
- * @param amountOfCurve What portion of each segment to replace with a curve.
- * Each end will get this, so it must be less than 0.5.
- * 0.5 would mean there's nothing but a curve with no straight part.
- * 0 would mean no change, still a sharp corner.
- * @returns A function that will take in a progress value and return a PathShape.
- * If the input is 0 or less, the function will return the original PathShape.
- * If the input is 1 or more, the function will return a version of the PathShape with completely rounded corners.
- * If the input is in between, the result will be interpolated.
- */
-export function makeCornerRounder(
-  originalPathShape: PathShape,
-  amountOfCurve = 1 / 3,
-) {
-  if (amountOfCurve <= 0 || amountOfCurve >= 0.5) {
-    throw new Error("wtf");
-  }
-  /**
-   * Each of the original line segments will get broken into three parts.
-   * `smallerCommands` will contain the middle third of each line segment.
-   */
-  const smallerCommands = originalPathShape.commands.map((command) => {
-    const splitter = command.makeSplitter();
-    const smallerCommand = splitter.split(
-      splitter.length * amountOfCurve,
-      splitter.length * (1 - amountOfCurve),
-    );
-    return smallerCommand;
-  });
-  /**
-   * These commands retain the sharp corners of the original input.
-   * The `smallerCommands` are connected with additional line segments.
-   * These show off the mitered nature of the triangles.
-   */
-  const mitered = new Array<Command>();
-  /**
-   * These commands follow the same basic path, but with no sharp corners.
-   * Each adjacent pair of `smallerCommands` are connected with a parabola.
-   * I break each of those parabolas into two equal pieces.
-   * I do this to match the two line segments in `mitered` that this curve will be replacing.
-   */
-  const rounded = new Array<Command>();
-  smallerCommands.forEach((smallerCommand, index) => {
-    const previousSmallerCommand = smallerCommands.at(index - 1)!;
-    const originalCommand = originalPathShape.commands[index];
-    /**
-     * Connect the two `smallerCommands` with a parabola so there are no corners.
-     */
-    const fullCurve = new Bezier(
-      previousSmallerCommand.x,
-      previousSmallerCommand.y,
-      originalCommand.x0,
-      originalCommand.y0,
-      smallerCommand.x0,
-      smallerCommand.y0,
-    );
-    const halves = fullCurve.split(0.5);
-    /**
-     * To match the line segment immediately before the corner.
-     */
-    const firstRoundCommand = fromBezier(halves.left);
-    /**
-     * To match the line segment immediately after the corner.
-     */
-    const secondRoundCommand = fromBezier(halves.right);
-    if (
-      !(
-        firstRoundCommand instanceof QCommand &&
-        secondRoundCommand instanceof QCommand
-      )
-    ) {
-      throw new Error("wtf");
-    }
-    const firstMiteredCommand = QCommand.controlPoints(
-      firstRoundCommand.x0,
-      firstRoundCommand.y0,
-      firstRoundCommand.x1,
-      firstRoundCommand.y1,
-      originalCommand.x0,
-      originalCommand.y0,
-    );
-    const secondMiteredCommand = QCommand.controlPoints(
-      originalCommand.x0,
-      originalCommand.y0,
-      secondRoundCommand.x1,
-      secondRoundCommand.y1,
-      secondRoundCommand.x,
-      secondRoundCommand.y,
-    );
-    mitered.push(firstMiteredCommand, secondMiteredCommand, smallerCommand);
-    rounded.push(firstRoundCommand, secondRoundCommand, smallerCommand);
-  });
-  /**
-   * Start at the top of the triangle, just like the original.
-   * The previous scene shows the original paths, and we don't want the colors to jump when we switch scenes.
-   */
-  mitered.push(mitered.shift()!);
-  rounded.push(rounded.shift()!);
-  /**
-   * 0 for the mitered version, 1 for the rounded version.
-   * Interpolate in between.
-   */
-  const interpolator = makePathShapeInterpolator(
-    new PathShape(mitered),
-    new PathShape(rounded),
-  );
-  return interpolator;
-}
+// makeCornerRounder is imported from ./corner-rounder (see top of file).
+// It was extracted there so showcase.ts can import it without creating a static
+// dependency on this module, which would prevent Rollup from exporting
+// sierpińskiTop from this chunk.
 
 function scaleProgressWithinSegment(progress: number) {
   return ease(Math.min(1, Math.max(0, progress)));
@@ -2447,4 +2338,10 @@ const mainBuilder = new MakeShowableInParallel("Sierpiński");
 mainBuilder.add(halftoneBackground);
 mainBuilder.add(sceneList.build());
 
-export const sierpińskiTop = mainBuilder.build();
+// "sierpinski" is intentionally spelled without the Polish ń.
+// Rollup truncates non-Latin-1 characters (U+0100+) when analyzing dynamic-import
+// namespace destructuring, which caused this export to be silently dropped from
+// the chunk and toShow to be undefined at runtime.  ASCII export names are safe.
+// The user-visible name ("Sierpiński") is still spelled correctly everywhere it
+// appears as a string.
+export const sierpinskiTop = mainBuilder.build();
