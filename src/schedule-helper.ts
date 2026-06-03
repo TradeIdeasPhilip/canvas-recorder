@@ -27,6 +27,11 @@ export class StringScheduleInfo {
    * example, font family names loaded from `document.fonts.ready`.
    */
   choices?: readonly string[];
+  /**
+   * When true, the Visual Editor opens a font-picker dialog instead of a
+   * combo box.  See `useDialog` on the `"string"` ScheduleInfo variant.
+   */
+  useDialog?: boolean;
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }

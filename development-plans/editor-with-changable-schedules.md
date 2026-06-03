@@ -317,43 +317,124 @@ The font weight is complicated.
 Some fonts offer discrete values.
 Others offer ranges.
 I think we can make some simple assumptions:
-* A font will have discrete values or ranges, not both.
-* If it uses ranges, we assume the ranges are continuous (even if delivered in separate FontFace objects) and just care about the min and max.
-* If a font has different font styles, etc, we can merge all of the ranges or discrete values together.
-  * They are probably all the same.
-  * We have one set of font weight ranges per font family
 
+- A font will have discrete values or ranges, not both.
+- If it uses ranges, we assume the ranges are continuous (even if delivered in separate FontFace objects) and just care about the min and max.
+- If a font has different font styles, etc, we can merge all of the ranges or discrete values together.
+  - They are probably all the same.
+  - We have one set of font weight ranges per font family
 
-We can show *numbers* in the new panel as as *names*.
+We can show _numbers_ in the new panel as as _names_.
 Something like "300 (Light), 350, 400 (Normal)" or "300 - 450 (Includes Light and Normal)".
 The editable part will just be our normal number editor.
 
-Note:  You can switch between different families over time.
+Note: You can switch between different families over time.
 So I don't know how complicated we need our warnings to be.
 This is just a first prototype, don't go overboard, but some simple warning when one or more weights in the schedule is out of range for one or more of the font families in the schedule.
 
 ### Font Family
 
-Note:  You can switch between different families over time.
+Note: You can switch between different families over time.
 So the new panel should list information (font style font weight, etc) for all font faces currently in the schedule.
 
 This should be a constrained string input.
 We know all of the fonts in advance.
 
-Problem:  I currently have 317 font families installed on my computer, and most of those came standard.
-I have 6 additional fonts currently loaded from the web via my *.css files.
+Problem: I currently have 317 font families installed on my computer, and most of those came standard.
+I have 6 additional fonts currently loaded from the web via my \*.css files.
 That's a lot for a standard `<select>`.
 Maybe we need something more like a combo box, where you can type to search, but can we still keep it constrained.
 
-Problem:  `<select>` does *not* give you instant feedback.
+Problem: `<select>` does _not_ give you instant feedback.
 For an `<input>` you can switch between "input" and "change" events.
 For a `<select>`, both fire only on commit.
 It sure would be nice to view updates immediately, like we do with our other controls.
 It would be nice for all constrained inputs, but especially for this long list, especially when we are displaying interesting info in the new status panel as well as on the preview.
 
-### font-feature-settings: "tnum";
+## Path Component, revisited
 
-Is this a thing in the canvas?
-Can I turn on "tabular numbers"?
+I like the general style of the Multi Text component.
+It uses sub-components to customize different parts of the rendering process.
 
-It's very frustrating that this is not the default for most fonts.
+A path component will cant have 1 or more sources of a path.
+It cant have multiple components that draw the path.
+This works well with my past experience.
+E.g. a shadow or glow under the main path.
+
+Source of path:
+
+- A simple string. A valid [path string](https://developer.mozilla.org/en-US/docs/Web/SVG/Reference/Attribute/d).
+- An editor that allows for named points. The master string will look up values in a series of schedules. Points can be reused! Sometimes I need two points to be _identical_, and I worry about round off error unless I use an exact copy of a number.
+- If a MultiText control is a direct descendant of a path component then it exports its path instead of rendering it.
+- Maybe others.
+
+Path renderers:
+
+- Standard fill.
+- Standard stroke.
+- strokeColors()
+
+Renderers do not have to be direct descendants of the path.
+This allows you to use a slide component, optionally, to transform it.
+In practice I sometimes want to make paths available at the top level, then they appear in multiple slides, each with its own transform.
+This also allows for a filter. This will read a path from its ancestors, modify the path, then reexport a modified version of the path. "Handwriting Effect" is the archetypical example.
+
+**Only one path** per Path component?
+I'm not so sure about that.
+That would make sense if only direct descendants could be renderers.
+But I could see this exporting a lot of sources, each with their own name, at the top of some big subtree.
+Renders can pick sources by name, by analogy to text segments selecting text formatters by name.
+Path sources must come directly under a Path Component, just a text formatters must come directly under a multi text component.
+
+## Font Family Editor
+
+**Status: Complete!**
+Looks amazing!
+
+Used by the Traditional Text Component.
+
+Currently it is unusable.
+While adding the ability to type any font family name, it is now very hard to select a font.
+You have to hit backspace because it is trying to _search_ for a string that is initialized to the current font name.
+We need to separate the idea of the current font and the current search string.
+
+We need a different editor for the font-family type.
+The data will still be stored in a StringScheduleInfo.
+We display the value as a string, but...
+you can click on the string it brings up a dialog box.
+
+The dialog box will cover the entire bottom right section.
+You will see immediately updates as you change things.
+
+There will be a fixed list of fonts.
+These will be populated from document.fonts _and_ window.queryLocalFonts().
+Currently we only use document.fonts.
+Remove the option to type a custom font name.
+
+The top row has an \<edit> with a search string.
+Split that string on whitespace.
+Display a font if its family name contains each substring from the search string, case insensitive.
+(Therefore the empty string means to display everything.)
+
+The top row also has an edit with the sample text, defaulting to "ABC def 0123456789".
+
+The "client" / expandable part of the dialog box is a table.
+Use the standard css scrollbars.
+The top row is the initial font, from when we opened the dialog box.
+The remaining rows are the fonts that matched the search criteria, in alphabetical order.
+The left column is the sample string, rendered in the the row's font.
+The right column is the name of the font family, rendered in the default font, for readability.
+
+The currently selected font will be displayed with a different background color.
+When you click on a row, that row's font is selected.
+That change will be made to the schedule immediately so the main display will immediately update.
+
+If you change the search criteria and the currently selected font is not already listed, i.e. not the initial font _and_ doesn't match the search criteria, then add the font as the second line, right under the initial font.
+
+The bottom row is an "OK" button.
+There's no need for an explicit cancel button.
+The initial value is always at the top of the list.
+
+It's possible that we will read an invalid font name from a schedule.
+(Maybe I uninstalled a font, whatever.)
+The important thing is not to crash.

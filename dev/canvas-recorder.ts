@@ -262,13 +262,6 @@ const playPositionRange = getById("playPositionRange", HTMLInputElement);
  */
 const playPositionSeconds = getById("playPositionSeconds", HTMLInputElement);
 /**
- * When we get to the end of the section, pause.
- */
-const pauseRadioButton = querySelector(
-  'input[name="onSectionEnd"][value="pause"]',
-  HTMLInputElement,
-);
-/**
  * When we get to the end of the section, automatically jump back to the
  * beginning of the section.
  */
@@ -1225,12 +1218,12 @@ function saveState() {
 if (import.meta.hot) {
   // Changing a typescript file invokes this.
   // Changing a css file would cause vite:beforeUpdate, instead.
-  import.meta.hot.on("vite:beforeFullReload", (data) => {
+  import.meta.hot.on("vite:beforeFullReload", (_data) => {
     saveState();
   });
 }
 
-addEventListener("pagehide", (event) => {
+addEventListener("pagehide", (_event) => {
   saveState();
 });
 
@@ -1942,7 +1935,7 @@ function parseFontWeight(
 /**
  * Collect style and weight information for a font family from `document.fonts`.
  * Family name comparison is case-insensitive; quoted names (e.g. `"Times New Roman"`)
- * are normalised before comparison.
+ * are normalized before comparison.
  */
 function getFontFamilyData(familyName: string): FontFamilyData {
   const data: FontFamilyData = {
@@ -1958,7 +1951,7 @@ function getFontFamilyData(familyName: string): FontFamilyData {
     const faceName = face.family.replace(/^["']|["']$/g, "").trim();
     if (faceName.toLowerCase() !== needle) continue;
 
-    // Normalise style
+    // Normalize style
     const style = face.style.toLowerCase();
     data.styles.add(style.startsWith("oblique") ? "oblique" : style);
 
@@ -2021,7 +2014,9 @@ function buildTraditionalTextPanel(
 
   const scheduledFamilies = [
     ...new Set(
-      component.fontFamilySchedule.schedule.map((kf) => kf.value).filter(Boolean),
+      component.fontFamilySchedule.schedule
+        .map((kf) => kf.value)
+        .filter(Boolean),
     ),
   ];
   const scheduledWeights = [
@@ -2053,7 +2048,8 @@ function buildTraditionalTextPanel(
     if (notFound) {
       const note = document.createElement("div");
       note.style.cssText = "padding-left:1em;color:#888";
-      note.textContent = "(not found in loaded fonts — may still render if installed)";
+      note.textContent =
+        "(not found in loaded fonts — may still render if installed)";
       block.append(note);
     } else {
       const stylesEl = document.createElement("div");
@@ -2092,6 +2088,226 @@ function buildTraditionalTextPanel(
   }
 
   return panel;
+}
+
+// MARK: Font picker dialog
+
+/**
+ * Opens a full-screen font picker dialog.
+ *
+ * Merges families from the schedule's pre-built `choices` list (document.fonts)
+ * with any additional families returned by window.queryLocalFonts() (experimental,
+ * permission-gated).  Rows are filtered live as the user types a search string.
+ *
+ * Clicking a row immediately writes to `strKf.value` and dispatches a bubbling
+ * "input" event from `cell` so the schedule editor's Font Info panel refreshes.
+ *
+ * The initial value (before the dialog opened) is always pinned as the first row
+ * so the user can revert by clicking it.  There is no explicit cancel button.
+ */
+async function openFontPickerDialog(
+  strKf: Keyframe<string>,
+  choices: readonly string[],
+  cell: HTMLElement,
+): Promise<void> {
+  const allFamilies = new Set<string>(choices);
+  if ("queryLocalFonts" in window) {
+    try {
+      const localFonts = (await (
+        window as unknown as {
+          queryLocalFonts: () => Promise<Array<{ family: string }>>;
+        }
+      ).queryLocalFonts()) as Array<{ family: string }>;
+      for (const f of localFonts) allFamilies.add(f.family);
+    } catch (e) {
+      console.warn("queryLocalFonts():", e);
+    }
+  }
+  const sortedFamilies = [...allFamilies].sort((a, b) =>
+    a.localeCompare(b, undefined, { sensitivity: "base" }),
+  );
+
+  const initialFont = strKf.value;
+  let currentFont = strKf.value;
+
+  // Cover the right column so the canvas stays fully visible.
+  const rightCol = document.getElementById("right-col");
+  const rect = rightCol?.getBoundingClientRect();
+
+  const dialog = document.createElement("dialog");
+  if (rect) {
+    dialog.style.cssText = [
+      `position:fixed`,
+      `margin:0`,
+      `padding:0`,
+      `left:${rect.left}px`,
+      `top:${rect.top}px`,
+      `width:${rect.width}px`,
+      `height:${rect.height}px`,
+      `max-width:none`,
+      `max-height:none`,
+      `border:none`,
+      `border-left:2px solid #999`,
+      `display:flex`,
+      `flex-direction:column`,
+      `box-shadow:-4px 0 16px rgba(0,0,0,0.2)`,
+      `z-index:9999`,
+      `overflow:hidden`,
+    ].join(";");
+  } else {
+    dialog.style.cssText =
+      "width:min(60em,90vw);height:80vh;display:flex;flex-direction:column;padding:0;border:1px solid #999;overflow:hidden;z-index:9999";
+  }
+
+  // ── Top controls ────────────────────────────────────────────────────────────
+  const controls = document.createElement("div");
+  controls.style.cssText =
+    "display:flex;gap:0.5em;padding:0.5em;background:#f4f4f4;border-bottom:1px solid #ccc;flex-shrink:0;align-items:center";
+
+  const searchInput = document.createElement("input");
+  searchInput.type = "text";
+  searchInput.placeholder = "Search fonts…";
+  searchInput.style.cssText = "flex:1;min-width:0";
+  const searchLabel = document.createElement("label");
+  searchLabel.textContent = "Search: ";
+  searchLabel.append(searchInput);
+
+  const sampleInput = document.createElement("input");
+  sampleInput.type = "text";
+  sampleInput.value = "Clean Simple Design 1234567890";
+  sampleInput.style.cssText = "flex:2;min-width:0";
+  const sampleLabel = document.createElement("label");
+  sampleLabel.textContent = "Sample: ";
+  sampleLabel.append(sampleInput);
+
+  controls.append(searchLabel, " ", sampleLabel);
+
+  // ── Font list table ──────────────────────────────────────────────────────────
+  const tableContainer = document.createElement("div");
+  tableContainer.style.cssText =
+    "overflow-y:auto;flex:1;border-bottom:1px solid #ccc";
+
+  const table = document.createElement("table");
+  table.style.cssText = "width:100%;border-collapse:collapse";
+  const tbody = table.createTBody();
+  tableContainer.append(table);
+
+  // ── Bottom bar ───────────────────────────────────────────────────────────────
+  const bottom = document.createElement("div");
+  bottom.style.cssText =
+    "padding:0.4em 0.6em;background:#f4f4f4;flex-shrink:0;text-align:right";
+  const okBtn = document.createElement("button");
+  okBtn.type = "button";
+  okBtn.textContent = "OK";
+  okBtn.addEventListener("click", () => dialog.close());
+  bottom.append(okBtn);
+
+  dialog.append(controls, tableContainer, bottom);
+  document.body.append(dialog);
+
+  function pickFont(family: string) {
+    currentFont = family;
+    strKf.value = family;
+    cell.dispatchEvent(new Event("input", { bubbles: true }));
+    buildRows();
+  }
+
+  function addRow(family: string, sampleText: string, badge?: string) {
+    const tr = document.createElement("tr");
+    tr.dataset.family = family;
+    const isSelected = family === currentFont;
+    tr.style.cssText = `cursor:pointer;border-bottom:1px solid #eee;background:${isSelected ? "#bee6ff" : badge ? "#f5f5f5" : ""}`;
+    tr.addEventListener("mouseover", () => {
+      if (family !== currentFont) tr.style.background = "#e8f4ff";
+    });
+    tr.addEventListener("mouseout", () => {
+      tr.style.background =
+        family === currentFont ? "#bee6ff" : badge ? "#f5f5f5" : "";
+    });
+    tr.addEventListener("click", () => pickFont(family));
+    if (isSelected) tr.dataset.selected = "";
+
+    const sampleCell = tr.insertCell();
+    sampleCell.style.cssText = "padding:0.25em 0.6em;font-size:1.3em";
+    sampleCell.style.fontFamily = family;
+    sampleCell.textContent = sampleText;
+
+    const nameCell = tr.insertCell();
+    nameCell.style.cssText =
+      "padding:0.25em 0.6em;font-size:0.85em;white-space:nowrap;color:#444";
+    nameCell.textContent = family;
+    if (badge) {
+      const b = document.createElement("span");
+      b.style.cssText = "margin-left:0.4em;color:#999;font-size:0.8em";
+      b.textContent = badge;
+      nameCell.append(b);
+    }
+
+    tbody.append(tr);
+  }
+
+  function buildRows() {
+    const sampleText = sampleInput.value || "ABC def 0123456789";
+    const terms = searchInput.value
+      .trim()
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    const matched =
+      terms.length === 0
+        ? sortedFamilies
+        : sortedFamilies.filter((f) =>
+            terms.every((t) => f.toLowerCase().includes(t)),
+          );
+
+    tbody.replaceChildren();
+
+    // Row 0: initial (pinned)
+    addRow(initialFont, sampleText, "(initial)");
+
+    // Row 1: current selection if not initial and not in search results
+    if (currentFont !== initialFont && !matched.includes(currentFont)) {
+      addRow(currentFont, sampleText, "(current)");
+    }
+
+    for (const family of matched) {
+      addRow(family, sampleText);
+    }
+
+    tbody
+      .querySelector<HTMLTableRowElement>("[data-selected]")
+      ?.scrollIntoView({
+        block: "nearest",
+      });
+  }
+
+  searchInput.addEventListener("input", buildRows);
+  sampleInput.addEventListener("input", buildRows);
+
+  dialog.addEventListener("keydown", (e) => {
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    const rows = [...tbody.rows];
+    const selectedIndex = rows.findIndex((r) => "selected" in r.dataset);
+    const next = rows[selectedIndex + (e.key === "ArrowDown" ? 1 : -1)];
+    if (next?.dataset.family) pickFont(next.dataset.family);
+  });
+
+  // Escape closes the non-modal dialog (showModal() handles this automatically;
+  // show() does not, so we wire it up manually).
+  function onEscape(e: KeyboardEvent) {
+    if (e.key === "Escape") dialog.close();
+  }
+  document.addEventListener("keydown", onEscape);
+
+  buildRows();
+  dialog.showModal();
+  searchInput.focus();
+
+  dialog.addEventListener("close", () => {
+    document.removeEventListener("keydown", onEscape);
+    dialog.remove();
+  });
 }
 
 // MARK: Schedule section builder
@@ -2327,7 +2543,25 @@ function buildScheduleSection(
     } else if (info.type === "string") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      if (info.choices?.length) {
+      if (info.useDialog) {
+        // Font picker: read-only display + button that opens the dialog.
+        const span = document.createElement("span");
+        span.style.cssText =
+          "display:inline-block;min-width:6em;padding:0.1em 0.3em;border:1px solid #ccc;border-radius:2px;background:#fff;font-size:0.9em";
+        span.textContent = strKf.value;
+        const chooseBtn = document.createElement("button");
+        chooseBtn.type = "button";
+        chooseBtn.textContent = "Choose…";
+        chooseBtn.style.marginLeft = "0.4em";
+        chooseBtn.addEventListener("click", () => {
+          openFontPickerDialog(strKf, info.choices ?? [], cell);
+        });
+        // Refresh the display label whenever the dialog changes strKf.value.
+        cell.addEventListener("input", () => {
+          span.textContent = strKf.value;
+        });
+        cell.append(span, chooseBtn);
+      } else if (info.choices?.length) {
         // Combo box: free-text <input> backed by a <datalist> of suggestions.
         // Fires "input" on every keystroke for instant canvas feedback.
         const listId = `dl-${_datalistIdCounter++}`;

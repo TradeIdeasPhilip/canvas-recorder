@@ -115,6 +115,12 @@ export type ScheduleInfo = {
        * font family names loaded from `document.fonts.ready`.
        */
       choices?: readonly string[];
+      /**
+       * When true, the Visual Editor shows a read-only display and a "Choose…"
+       * button that opens a full font-picker dialog instead of a combo box.
+       * Only meaningful when `choices` is also populated.
+       */
+      useDialog?: boolean;
     }
   | {
       readonly type: "select";

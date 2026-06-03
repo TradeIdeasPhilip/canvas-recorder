@@ -180,6 +180,7 @@ export class TraditionalTextComponent implements Showable {
         );
       });
     }
+    info.useDialog = true;
     return info;
   })();
   /**
