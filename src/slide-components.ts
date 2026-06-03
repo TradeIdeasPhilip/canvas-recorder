@@ -77,10 +77,16 @@ function showError(context: CanvasRenderingContext2D, text: string) {
  * In fact, I'm removing start and end from the list of options.
  * Note that שָׁלוֹם is drawn correctly, right-to-left, regardless of this setting.
  *
- * TODO:  The following can be specified before font-style:
- * font-variant, font-weight, font-stretch, and line-height
+ * TODO: font-feature-settings (e.g. "tnum" for tabular numbers) is NOT
+ * supported in the Canvas 2D API.  The canvas ctx.font property only accepts
+ * the CSS2-level font shorthand; OpenType feature settings have no canvas
+ * equivalent.  A potential workaround for tabular numbers is drawing each
+ * digit individually at a fixed advance width.
+ *
+ * Exported so that dev/canvas-recorder.ts can do instanceof checks to build
+ * the component-specific Font Info panel.
  */
-class TraditionalTextComponent implements Showable {
+export class TraditionalTextComponent implements Showable {
   /**
    * What to display.
    */
@@ -131,13 +137,51 @@ class TraditionalTextComponent implements Showable {
     { time: 0, value: 0.5 },
   ]);
   /**
-   * TODO make this a drop down.  (Constrained.)
-   * We can read what is available at https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts
-   * That includes the family names, and the bold and italic options for the family.
+   * "normal" or "italic".
+   * Oblique is omitted: the Canvas 2D API essentially treats it as a synonym
+   * for italic and ignores any angle specification, so there is no practical
+   * difference for our purposes.
    */
-  readonly fontFamilySchedule = new StringScheduleInfo("Font Family", [
-    { time: 0, value: "Life Savers" },
-  ]);
+  readonly fontStyleSchedule = new SelectScheduleInfo("Font Style", "normal", [
+    "normal",
+    "italic",
+  ] as const);
+  /**
+   * CSS font-weight (100–900).  400 = Normal, 700 = Bold.
+   * The Visual Editor shows a warning in the Font Info panel if the selected
+   * weight is not available for the current font family.
+   */
+  readonly fontWeightSchedule = new NumberScheduleInfo("Font Weight", 400);
+  /**
+   * The font family name (e.g. "Life Savers", "Times New Roman").
+   *
+   * The {@link choices} array is populated asynchronously from
+   * `document.fonts` once fonts have loaded, enabling the Visual Editor to
+   * offer an autocomplete combo box.  Until then the field accepts free text.
+   *
+   * Note: `window.queryLocalFonts()` (an experimental API requiring a
+   * permission grant) can expose additional installed fonts not in
+   * `document.fonts`.  Merging the two lists is a future enhancement.
+   */
+  readonly fontFamilySchedule = (() => {
+    const info = new StringScheduleInfo("Font Family", [
+      { time: 0, value: "Life Savers" },
+    ]);
+    // `document` is unavailable in Node.js (record/cli-record.ts).
+    if (typeof document !== "undefined") {
+      document.fonts.ready.then(() => {
+        const families = new Set<string>();
+        for (const face of document.fonts) {
+          // FontFace.family may be wrapped in quotes; strip them.
+          families.add(face.family.replace(/^["']|["']$/g, "").trim());
+        }
+        info.choices = [...families].sort((a, b) =>
+          a.localeCompare(b, undefined, { sensitivity: "base" }),
+        );
+      });
+    }
+    return info;
+  })();
   /**
    * The {@link positionSchedule} names a point.
    * Should that point refer to the left, center or right side of the text?
@@ -166,6 +210,8 @@ class TraditionalTextComponent implements Showable {
     this.outlineColorSchedule,
     this.outlineWidthSchedule,
     this.fontSizeSchedule,
+    this.fontStyleSchedule,
+    this.fontWeightSchedule,
     this.fontFamilySchedule,
     this.textAlignSchedule,
     this.textBaselineSchedule,
@@ -178,8 +224,11 @@ class TraditionalTextComponent implements Showable {
     const fillColor = this.fillColorSchedule.at(timeInMs);
     const outlineWidth = this.outlineWidthSchedule.at(timeInMs);
     const fontSize = this.fontSizeSchedule.at(timeInMs);
+    const fontStyle = this.fontStyleSchedule.at(timeInMs);
+    const fontWeight = this.fontWeightSchedule.at(timeInMs);
     const fontFamily = this.fontFamilySchedule.at(timeInMs);
-    const fontString = `${fontSize}px ${fontFamily}`;
+    // CSS font shorthand: [style] [weight] [size] [family]
+    const fontString = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
     context.font = fontString;
     context.textAlign = this.textAlignSchedule.at(timeInMs);
     context.textBaseline = this.textBaselineSchedule.at(timeInMs);

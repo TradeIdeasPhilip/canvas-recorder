@@ -105,6 +105,16 @@ export type ScheduleInfo = {
       // That might be helpful here and it might help in other places.
       // BinaryInserter isn't necessary here, but it might be useful.
       readonly schedule: Keyframe<string>[];
+      /**
+       * When set, the Visual Editor renders each keyframe value as a combo box
+       * (`<input list="…">`) instead of a plain textarea, offering these strings
+       * as autocomplete suggestions.  The user can still type any value; the list
+       * is not strictly enforced.
+       *
+       * Mutable so it can be populated asynchronously after construction — e.g.
+       * font family names loaded from `document.fonts.ready`.
+       */
+      choices?: readonly string[];
     }
   | {
       readonly type: "select";

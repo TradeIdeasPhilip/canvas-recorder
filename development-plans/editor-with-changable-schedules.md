@@ -265,3 +265,95 @@ Is this simple or messy?
 
 What happens when we save things?
 Do we need to restore the first part of the component, to know how many schedules we should create, then copy those schedules from the saved json object after we know what we're looking for?
+
+## Font Family, Weight and Style
+
+This is a small, self contained step forward.
+I want to add a few specific things to TraditionalText.
+
+### Sources of Font Data
+
+I'm currently looking at document.fonts and window.queryLocalFonts().
+These seem to have very similar information, but in different formats.
+I think we need them both, merged together.
+
+It seems like window.queryLocalFonts() groups weight and style together into one field called style.
+And it sometimes uses "book", a non-css name for a font weight.
+
+Unknown or unexpected content should be written to the console.
+I.e. anything that doesn't fit neatly into the requirements below.
+
+### Font Style
+
+After some research I found that the canvas has little if any support for oblique fonts.
+So we can make this choice very simple for the user.
+A constrained string input labeled "style" with options "normal" and "italic".
+
+We will show the user information about what is available.
+We will not give any type of warning if the user tries to use italic and it doesn't exist for that font.
+The canvas always synthesizes italics if it needs to.
+But it would be good to see a list of supported styles, "normal", "italic", and "oblique".
+I've never seen that last one, but let's just record whatever information is there and report it to the user.
+
+This will require a new panel in the Visual Editor dedicated to this component.
+That's required to display information about the currently selected font.
+This will require the Visual Editor to ask that component to refresh the panel any time the user changes font family.
+I've discussed these features above, and this component is a good place to start.
+
+### Font Weight
+
+This should be a standard numerical input.
+
+We should collect information about the weights available for each font.
+We should display information about the weights of the currently selected font.
+Just like the font style, we will display this in a new panel in the editor specific to this component, and we will automatically update when the user changes font families.
+
+What if the user picks an invalid weight for this font?
+We might show a warning, but we won't show an error.
+Warnings make sense because lots of things keep changing.
+If I change a font family and my font weight is not supported any more, some red ink on the screen would be appreciated, a beep or dialog box would **not** be appreciated.
+
+The font weight is complicated.
+Some fonts offer discrete values.
+Others offer ranges.
+I think we can make some simple assumptions:
+* A font will have discrete values or ranges, not both.
+* If it uses ranges, we assume the ranges are continuous (even if delivered in separate FontFace objects) and just care about the min and max.
+* If a font has different font styles, etc, we can merge all of the ranges or discrete values together.
+  * They are probably all the same.
+  * We have one set of font weight ranges per font family
+
+
+We can show *numbers* in the new panel as as *names*.
+Something like "300 (Light), 350, 400 (Normal)" or "300 - 450 (Includes Light and Normal)".
+The editable part will just be our normal number editor.
+
+Note:  You can switch between different families over time.
+So I don't know how complicated we need our warnings to be.
+This is just a first prototype, don't go overboard, but some simple warning when one or more weights in the schedule is out of range for one or more of the font families in the schedule.
+
+### Font Family
+
+Note:  You can switch between different families over time.
+So the new panel should list information (font style font weight, etc) for all font faces currently in the schedule.
+
+This should be a constrained string input.
+We know all of the fonts in advance.
+
+Problem:  I currently have 317 font families installed on my computer, and most of those came standard.
+I have 6 additional fonts currently loaded from the web via my *.css files.
+That's a lot for a standard `<select>`.
+Maybe we need something more like a combo box, where you can type to search, but can we still keep it constrained.
+
+Problem:  `<select>` does *not* give you instant feedback.
+For an `<input>` you can switch between "input" and "change" events.
+For a `<select>`, both fire only on commit.
+It sure would be nice to view updates immediately, like we do with our other controls.
+It would be nice for all constrained inputs, but especially for this long list, especially when we are displaying interesting info in the new status panel as well as on the preview.
+
+### font-feature-settings: "tnum";
+
+Is this a thing in the canvas?
+Can I turn on "tabular numbers"?
+
+It's very frustrating that this is not the default for most fonts.

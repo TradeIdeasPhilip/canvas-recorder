@@ -48,6 +48,7 @@ import {
   buildComponents,
   componentRegistry,
   SerializedChild,
+  TraditionalTextComponent,
 } from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
@@ -1886,6 +1887,215 @@ function buildScalarSection(info: ScalarInfo): HTMLElement {
   return section;
 }
 
+// MARK: Font info panel (TraditionalTextComponent)
+
+/** Counter for unique <datalist> IDs within the schedule editor. */
+let _datalistIdCounter = 0;
+
+const FONT_WEIGHT_NAMES = new Map<number, string>([
+  [100, "Thin"],
+  [200, "Extra Light"],
+  [300, "Light"],
+  [400, "Normal"],
+  [500, "Medium"],
+  [600, "Semi Bold"],
+  [700, "Bold"],
+  [800, "Extra Bold"],
+  [900, "Black"],
+]);
+
+interface FontFamilyData {
+  /** "normal", "italic", "oblique" — whatever document.fonts reports. */
+  styles: Set<string>;
+  /** Sorted discrete weight values (only populated when no range is present). */
+  discreteWeights: number[];
+  /** Continuous weight range, if the font uses one. */
+  weightRange: { min: number; max: number } | null;
+}
+
+/**
+ * Parse a FontFace.weight string into a discrete number or [min,max] range.
+ * Returns null and logs a console warning for unexpected formats.
+ */
+function parseFontWeight(
+  str: string,
+  familyName: string,
+): number | [number, number] | null {
+  str = str.trim();
+  if (str === "normal") return 400;
+  if (str === "bold") return 700;
+  const parts = str.split(/\s+/);
+  if (parts.length === 1) {
+    const n = parseFloat(parts[0]);
+    if (isFinite(n)) return n;
+  } else if (parts.length === 2) {
+    const lo = parseFloat(parts[0]);
+    const hi = parseFloat(parts[1]);
+    if (isFinite(lo) && isFinite(hi)) return [lo, hi];
+  }
+  console.warn(
+    `TraditionalTextComponent: unexpected font-weight "${str}" for family "${familyName}"`,
+  );
+  return null;
+}
+
+/**
+ * Collect style and weight information for a font family from `document.fonts`.
+ * Family name comparison is case-insensitive; quoted names (e.g. `"Times New Roman"`)
+ * are normalised before comparison.
+ */
+function getFontFamilyData(familyName: string): FontFamilyData {
+  const data: FontFamilyData = {
+    styles: new Set(),
+    discreteWeights: [],
+    weightRange: null,
+  };
+  const weightSet = new Set<number>();
+  let hasRange = false;
+
+  const needle = familyName.toLowerCase();
+  for (const face of document.fonts) {
+    const faceName = face.family.replace(/^["']|["']$/g, "").trim();
+    if (faceName.toLowerCase() !== needle) continue;
+
+    // Normalise style
+    const style = face.style.toLowerCase();
+    data.styles.add(style.startsWith("oblique") ? "oblique" : style);
+
+    // Parse weight
+    const w = parseFontWeight(face.weight, familyName);
+    if (w === null) continue;
+    if (Array.isArray(w)) {
+      hasRange = true;
+      if (!data.weightRange) {
+        data.weightRange = { min: w[0], max: w[1] };
+      } else {
+        data.weightRange.min = Math.min(data.weightRange.min, w[0]);
+        data.weightRange.max = Math.max(data.weightRange.max, w[1]);
+      }
+    } else {
+      weightSet.add(w);
+    }
+  }
+
+  if (!hasRange) {
+    data.discreteWeights = [...weightSet].sort((a, b) => a - b);
+  }
+  return data;
+}
+
+function formatWeightLabel(w: number): string {
+  const name = FONT_WEIGHT_NAMES.get(w);
+  return name ? `${w} (${name})` : String(w);
+}
+
+function formatWeightSummary(data: FontFamilyData): string {
+  if (data.weightRange) {
+    const { min, max } = data.weightRange;
+    const named = [...FONT_WEIGHT_NAMES.entries()]
+      .filter(([w]) => w >= min && w <= max)
+      .map(([, name]) => name);
+    const range = `${min}–${max}`;
+    return named.length ? `${range} (includes ${named.join(", ")})` : range;
+  }
+  if (data.discreteWeights.length) {
+    return data.discreteWeights.map(formatWeightLabel).join(", ");
+  }
+  return "(not found in loaded fonts)";
+}
+
+/**
+ * Build the Font Info panel shown at the top of the schedule editor when a
+ * {@link TraditionalTextComponent} is selected.  Displays available styles and
+ * weights for every family mentioned in the schedule, and warns when a
+ * scheduled weight is not available for a given family.
+ */
+function buildTraditionalTextPanel(
+  component: TraditionalTextComponent,
+): HTMLElement {
+  const panel = document.createElement("fieldset");
+  panel.style.cssText = "border-color:#4488cc;margin-bottom:0.4em";
+  const legend = document.createElement("legend");
+  legend.textContent = "Font Info";
+  panel.append(legend);
+
+  const scheduledFamilies = [
+    ...new Set(
+      component.fontFamilySchedule.schedule.map((kf) => kf.value).filter(Boolean),
+    ),
+  ];
+  const scheduledWeights = [
+    ...new Set(component.fontWeightSchedule.schedule.map((kf) => kf.value)),
+  ];
+  const warnings: string[] = [];
+
+  if (scheduledFamilies.length === 0) {
+    const p = document.createElement("p");
+    p.textContent = "No font family set.";
+    panel.append(p);
+    return panel;
+  }
+
+  for (const family of scheduledFamilies) {
+    const block = document.createElement("div");
+    block.style.cssText = "margin-bottom:0.4em";
+
+    const nameEl = document.createElement("strong");
+    nameEl.textContent = family;
+    block.append(nameEl);
+
+    const data = getFontFamilyData(family);
+    const notFound =
+      data.styles.size === 0 &&
+      data.discreteWeights.length === 0 &&
+      !data.weightRange;
+
+    if (notFound) {
+      const note = document.createElement("div");
+      note.style.cssText = "padding-left:1em;color:#888";
+      note.textContent = "(not found in loaded fonts — may still render if installed)";
+      block.append(note);
+    } else {
+      const stylesEl = document.createElement("div");
+      stylesEl.style.cssText = "padding-left:1em";
+      stylesEl.textContent = `Styles: ${[...data.styles].sort().join(", ")}`;
+      block.append(stylesEl);
+
+      const weightsEl = document.createElement("div");
+      weightsEl.style.cssText = "padding-left:1em";
+      weightsEl.textContent = `Weights: ${formatWeightSummary(data)}`;
+      block.append(weightsEl);
+
+      // Warn when a scheduled weight is clearly out of range / not in the set.
+      for (const w of scheduledWeights) {
+        let unavailable = false;
+        if (data.weightRange) {
+          unavailable = w < data.weightRange.min || w > data.weightRange.max;
+        } else if (data.discreteWeights.length) {
+          unavailable = !data.discreteWeights.includes(w);
+        }
+        if (unavailable) {
+          warnings.push(
+            `Weight ${formatWeightLabel(w)} may not be available for "${family}" (${formatWeightSummary(data)})`,
+          );
+        }
+      }
+    }
+    panel.append(block);
+  }
+
+  for (const msg of warnings) {
+    const warnEl = document.createElement("div");
+    warnEl.style.cssText = "color:#cc8800";
+    warnEl.textContent = `⚠ ${msg}`;
+    panel.append(warnEl);
+  }
+
+  return panel;
+}
+
+// MARK: Schedule section builder
+
 function buildScheduleSection(
   info: ScheduleInfo,
   showableDescription: string,
@@ -2117,14 +2327,37 @@ function buildScheduleSection(
     } else if (info.type === "string") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      const input = addName(document.createElement("textarea"));
-      input.rows = 1;
-      input.value = strKf.value;
-      input.style.cssText = "width:100%;box-sizing:border-box;resize:vertical";
-      input.addEventListener("input", () => {
-        strKf.value = input.value;
-      });
-      cell.append(input);
+      if (info.choices?.length) {
+        // Combo box: free-text <input> backed by a <datalist> of suggestions.
+        // Fires "input" on every keystroke for instant canvas feedback.
+        const listId = `dl-${_datalistIdCounter++}`;
+        const input = addName(document.createElement("input"));
+        input.type = "text";
+        input.setAttribute("list", listId);
+        input.value = strKf.value;
+        input.style.cssText = "width:100%;box-sizing:border-box";
+        input.addEventListener("input", () => {
+          strKf.value = input.value;
+        });
+        const datalist = document.createElement("datalist");
+        datalist.id = listId;
+        for (const choice of info.choices) {
+          const opt = document.createElement("option");
+          opt.value = choice;
+          datalist.append(opt);
+        }
+        cell.append(input, datalist);
+      } else {
+        const input = addName(document.createElement("textarea"));
+        input.rows = 1;
+        input.value = strKf.value;
+        input.style.cssText =
+          "width:100%;box-sizing:border-box;resize:vertical";
+        input.addEventListener("input", () => {
+          strKf.value = input.value;
+        });
+        cell.append(input);
+      }
     } else if (info.type === "select") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
@@ -2578,18 +2811,42 @@ function updateScheduleEditor(
   }
   const scalars = selectable.scalars;
   const schedules = selectable.schedules;
-  if (!scalars?.length && !schedules?.length) {
+  const isTraditionalText = selectable instanceof TraditionalTextComponent;
+
+  if (!scalars?.length && !schedules?.length && !isTraditionalText) {
     scheduleEditorFieldset.hidden = true;
     return;
   }
   scheduleEditorFieldset.hidden = false;
+
+  // Custom panel at the top of the editor, specific to this component type.
+  // Currently only TraditionalTextComponent has one (Font Info).
+  let customPanel: HTMLElement | null = null;
+  if (isTraditionalText) {
+    customPanel = buildTraditionalTextPanel(selectable);
+    scheduleEditorFieldset.append(customPanel);
+  }
+
   for (const info of scalars ?? []) {
     scheduleEditorFieldset.append(buildScalarSection(info));
   }
   for (const info of schedules ?? []) {
-    scheduleEditorFieldset.append(
-      buildScheduleSection(info, selectable.description),
-    );
+    const section = buildScheduleSection(info, selectable.description);
+    // Rebuild the Font Info panel when the font family or weight changes so
+    // warnings stay current as the user edits either schedule.
+    if (
+      isTraditionalText &&
+      (info === selectable.fontFamilySchedule ||
+        info === selectable.fontWeightSchedule) &&
+      customPanel
+    ) {
+      section.addEventListener("input", () => {
+        const newPanel = buildTraditionalTextPanel(selectable);
+        customPanel!.replaceWith(newPanel);
+        customPanel = newPanel;
+      });
+    }
+    scheduleEditorFieldset.append(section);
   }
 }
 

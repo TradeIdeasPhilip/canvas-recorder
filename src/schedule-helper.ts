@@ -17,6 +17,16 @@ import { Point } from "./glib/path-shape";
 export class StringScheduleInfo {
   readonly type = "string";
   readonly schedule: Keyframe<string>[];
+  /**
+   * When set, the Visual Editor renders each keyframe value as a combo box
+   * (`<input list="…">`) instead of a plain textarea, offering these strings as
+   * autocomplete suggestions.  The user can still type any value; the list is
+   * not strictly enforced.
+   *
+   * Mutable so it can be populated asynchronously after construction — for
+   * example, font family names loaded from `document.fonts.ready`.
+   */
+  choices?: readonly string[];
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }
