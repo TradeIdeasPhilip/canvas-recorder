@@ -441,7 +441,7 @@ The important thing is not to crash.
 
 ## Editing Transforms, second attempt.
 
-**Status:  Working!**
+**Status: Working!**
 
 The transform editor only lives in the Slide Component.
 I plan to keep it that way.
@@ -488,10 +488,12 @@ Include "By default the video is 16px wide and 9px tall. Other length units are 
 And a link to https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/transform.
 Maybe more.
 
-## Custom Color Editor.
+## Custom Color Editor
+
+**Status: Working!**
 
 The built in html color input control was a good start, but it's missing some things.
-And our recent addition of the font family *dialog* worked very well.
+And our recent addition of the font family _dialog_ worked very well.
 So let's make a custom color editor.
 
 Try to keep this out of the way of the canvas.
@@ -530,7 +532,7 @@ Again, four sliders each, one per channel.
 HWB always saves as "hwb(50deg 30% 40%)" or "hwb(50deg 30% 40% / 20%)".
 (Always degrees and %.)
 Similar for hsl().
-Display these three ways:  #, rgb() and the native format that we are using for saving.
+Display these three ways: #, rgb() and the native format that we are using for saving.
 
 The RGB, HWB and HSL panels do not need numeric inputs.
 You can go back and forth between those panels and the string input panel, if you really want to set a number precisely.
@@ -594,5 +596,6 @@ It should only draw its children.
 When you create a slide from the button, it gives you one child.
 That child is a rectangle.
 Similar to what we have now but:
-* Easy to delete the rectangle.
-* Lots of config options for the rectangle.
+
+- Easy to delete the rectangle.
+- Lots of config options for the rectangle.

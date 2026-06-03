@@ -43,6 +43,7 @@ import {
   Keyframe,
 } from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
+import { myRainbow } from "../src/glib/my-rainbow.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import {
   buildComponents,
@@ -1688,16 +1689,135 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") saveOnUnload();
 });
 
-/** Convert any CSS color string to #rrggbb for <input type="color">. */
-const _colorCanvas = document.createElement("canvas");
-_colorCanvas.width = _colorCanvas.height = 1;
-const _colorCtx = _colorCanvas.getContext("2d", { willReadFrequently: true })!;
-function cssColorToHex(color: string): string {
-  _colorCtx.clearRect(0, 0, 1, 1);
-  _colorCtx.fillStyle = color;
-  _colorCtx.fillRect(0, 0, 1, 1);
-  const [r, g, b] = _colorCtx.getImageData(0, 0, 1, 1).data;
-  return `#${r.toString(16).padStart(2, "0")}${g.toString(16).padStart(2, "0")}${b.toString(16).padStart(2, "0")}`;
+// MARK: Color editor utilities
+
+type RGBA = { r: number; g: number; b: number; a: number };
+
+// Hidden div for CSS color validation / parsing via getComputedStyle.
+const _parseColorDiv = document.createElement("div");
+_parseColorDiv.style.cssText =
+  "position:fixed;top:-100px;left:-100px;width:1px;height:1px;visibility:hidden";
+document.documentElement.append(_parseColorDiv);
+
+function parseCssColorToRgba(css: string): RGBA | null {
+  _parseColorDiv.style.backgroundColor = "";
+  _parseColorDiv.style.backgroundColor = css;
+  if (!_parseColorDiv.style.backgroundColor) return null;
+  const c = getComputedStyle(_parseColorDiv).backgroundColor;
+  const m = c.match(
+    /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/,
+  );
+  if (!m) return null;
+  return { r: +m[1], g: +m[2], b: +m[3], a: m[4] != null ? +m[4] : 1 };
+}
+
+function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
+  r /= 255;
+  g /= 255;
+  b /= 255;
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, Math.round(l * 100)];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h = 0;
+  if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+  else if (max === g) h = ((b - r) / d + 2) / 6;
+  else h = ((r - g) / d + 4) / 6;
+  return [Math.round(h * 360), Math.round(s * 100), Math.round(l * 100)];
+}
+
+function hslToRgb(h: number, s: number, l: number): [number, number, number] {
+  h /= 360;
+  s /= 100;
+  l /= 100;
+  if (s === 0) {
+    const v = Math.round(l * 255);
+    return [v, v, v];
+  }
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const h2r = (t: number) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  return [
+    Math.round(h2r(h + 1 / 3) * 255),
+    Math.round(h2r(h) * 255),
+    Math.round(h2r(h - 1 / 3) * 255),
+  ];
+}
+
+function rgbToHwb(r: number, g: number, b: number): [number, number, number] {
+  const [h] = rgbToHsl(r, g, b);
+  return [
+    h,
+    Math.round((Math.min(r, g, b) / 255) * 100),
+    Math.round((1 - Math.max(r, g, b) / 255) * 100),
+  ];
+}
+
+function hwbToRgb(h: number, w: number, bk: number): [number, number, number] {
+  const w1 = w / 100,
+    bk1 = bk / 100;
+  if (w1 + bk1 >= 1) {
+    const g = Math.round((w1 / (w1 + bk1)) * 255);
+    return [g, g, g];
+  }
+  const [pr, pg, pb] = hslToRgb(h, 100, 50);
+  const f = 1 - w1 - bk1;
+  return [
+    Math.round(pr * f + w1 * 255),
+    Math.round(pg * f + w1 * 255),
+    Math.round(pb * f + w1 * 255),
+  ];
+}
+
+function _p01(v: number) {
+  return parseFloat((v * 100).toFixed(2)) + "%";
+}
+function _deg(h: number) {
+  return Math.round(h) + "deg";
+}
+
+function fmtHex(r: number, g: number, b: number, a: number): string {
+  const h = (v: number) =>
+    Math.round(Math.min(255, Math.max(0, v)))
+      .toString(16)
+      .padStart(2, "0");
+  return a >= 1 - 0.5 / 255
+    ? `#${h(r)}${h(g)}${h(b)}`
+    : `#${h(r)}${h(g)}${h(b)}${h(a * 255)}`;
+}
+
+function fmtRgb(r: number, g: number, b: number, a: number): string {
+  const body = `${_p01(r / 255)} ${_p01(g / 255)} ${_p01(b / 255)}`;
+  return a >= 1 ? `rgb(${body})` : `rgb(${body} / ${_p01(a)})`;
+}
+
+function fmtHwb(h: number, w: number, bk: number, a: number): string {
+  const body = `${_deg(h)} ${w}% ${bk}%`;
+  return a >= 1 ? `hwb(${body})` : `hwb(${body} / ${_p01(a)})`;
+}
+
+function fmtHsl(h: number, s: number, l: number, a: number): string {
+  const body = `${_deg(h)} ${s}% ${l}%`;
+  return a >= 1 ? `hsl(${body})` : `hsl(${body} / ${_p01(a)})`;
+}
+
+const MAX_RECENT_COLORS = 20;
+const recentColors: string[] = [];
+
+function addToRecentColors(css: string) {
+  const i = recentColors.indexOf(css);
+  if (i !== -1) recentColors.splice(i, 1);
+  recentColors.unshift(css);
+  while (recentColors.length > MAX_RECENT_COLORS) recentColors.pop();
 }
 
 function addName<T extends { name: string }>(element: T) {
@@ -1819,13 +1939,20 @@ function buildScalarSection(info: ScalarInfo): HTMLElement {
     });
     section.append(input);
   } else if (info.type === "color") {
-    const input = document.createElement("input");
-    input.type = "color";
-    input.value = cssColorToHex(info.value);
-    input.addEventListener("input", () => {
-      info.value = input.value;
+    const swatchBtn = document.createElement("button");
+    swatchBtn.type = "button";
+    swatchBtn.title = info.value;
+    swatchBtn.style.cssText =
+      "width:2.5em;height:1.8em;border:1px solid #999;cursor:pointer;border-radius:2px";
+    swatchBtn.style.backgroundColor = info.value;
+    swatchBtn.addEventListener("click", () =>
+      openColorPickerDialog(info, section),
+    );
+    section.addEventListener("input", () => {
+      swatchBtn.style.backgroundColor = info.value;
+      swatchBtn.title = info.value;
     });
-    section.append(input);
+    section.append(swatchBtn);
   } else if (info.type === "number") {
     const input = document.createElement("input");
     input.type = "number";
@@ -2364,6 +2491,386 @@ async function openFontPickerDialog(
   });
 }
 
+// MARK: Color picker dialog
+
+async function openColorPickerDialog(
+  colorRef: { value: string },
+  cell: HTMLElement,
+): Promise<void> {
+  const initialCss = colorRef.value;
+  const initialRgba: RGBA = parseCssColorToRgba(initialCss) ?? {
+    r: 128,
+    g: 128,
+    b: 128,
+    a: 1,
+  };
+  let currentRgba: RGBA = { ...initialRgba };
+
+  const rightCol = document.getElementById("right-col");
+  const rcRect = rightCol?.getBoundingClientRect();
+  const dialog = document.createElement("dialog");
+  if (rcRect) {
+    dialog.style.cssText = [
+      `position:fixed`,
+      `margin:0`,
+      `padding:0`,
+      `left:${rcRect.left}px`,
+      `top:${rcRect.top}px`,
+      `width:${rcRect.width}px`,
+      `height:${rcRect.height}px`,
+      `max-width:none`,
+      `max-height:none`,
+      `border:none`,
+      `border-left:2px solid #999`,
+      `display:flex`,
+      `flex-direction:column`,
+      `box-shadow:-4px 0 16px rgba(0,0,0,0.2)`,
+      `z-index:9999`,
+      `overflow:hidden`,
+      `background:#fff`,
+    ].join(";");
+  } else {
+    dialog.style.cssText =
+      "width:30em;max-height:80vh;display:flex;flex-direction:column;padding:0;overflow:hidden;z-index:9999;background:#fff";
+  }
+
+  // ── Swatch + display ────────────────────────────────────────────────────────
+  const swatchRow = document.createElement("div");
+  swatchRow.style.cssText =
+    "display:flex;align-items:stretch;flex-shrink:0;border-bottom:1px solid #ddd";
+
+  const swatchEl = document.createElement("div");
+  swatchEl.style.cssText = "width:5em;flex-shrink:0";
+
+  const displayDiv = document.createElement("div");
+  displayDiv.style.cssText =
+    "flex:1;padding:0.3em 0.6em;font-size:0.82em;font-family:monospace;" +
+    "display:flex;flex-direction:column;justify-content:center;gap:0.1em;background:#f8f8f8";
+
+  const hexDisplay = document.createElement("span");
+  const rgbDisplay = document.createElement("span");
+  displayDiv.append(hexDisplay, rgbDisplay);
+  swatchRow.append(swatchEl, displayDiv);
+
+  // ── Tab bar ─────────────────────────────────────────────────────────────────
+  const tabBar = document.createElement("div");
+  tabBar.style.cssText =
+    "display:flex;flex-wrap:wrap;background:#eee;border-bottom:1px solid #ccc;flex-shrink:0";
+
+  // ── Tab content ─────────────────────────────────────────────────────────────
+  const tabContent = document.createElement("div");
+  tabContent.style.cssText = "flex:1;overflow-y:auto;padding:0.6em";
+
+  // ── Bottom bar ──────────────────────────────────────────────────────────────
+  const bottomBar = document.createElement("div");
+  bottomBar.style.cssText =
+    "display:flex;justify-content:space-between;padding:0.4em 0.6em;" +
+    "background:#f4f4f4;flex-shrink:0;border-top:1px solid #ccc";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  const okBtn = document.createElement("button");
+  okBtn.type = "button";
+  okBtn.textContent = "OK";
+  bottomBar.append(cancelBtn, okBtn);
+
+  dialog.append(swatchRow, tabBar, tabContent, bottomBar);
+  document.body.append(dialog);
+
+  // ── Apply ───────────────────────────────────────────────────────────────────
+  function applyColor(rgba: RGBA, css: string) {
+    currentRgba = rgba;
+    colorRef.value = css;
+    cell.dispatchEvent(new Event("input", { bubbles: true }));
+    swatchEl.style.backgroundColor = css;
+    hexDisplay.textContent = fmtHex(rgba.r, rgba.g, rgba.b, rgba.a);
+    rgbDisplay.textContent = fmtRgb(rgba.r, rgba.g, rgba.b, rgba.a);
+  }
+
+  // Seed display without dispatching
+  swatchEl.style.backgroundColor = initialCss;
+  hexDisplay.textContent = fmtHex(
+    initialRgba.r,
+    initialRgba.g,
+    initialRgba.b,
+    initialRgba.a,
+  );
+  rgbDisplay.textContent = fmtRgb(
+    initialRgba.r,
+    initialRgba.g,
+    initialRgba.b,
+    initialRgba.a,
+  );
+
+  // ── Slider helper ───────────────────────────────────────────────────────────
+  function makeSliderRow(
+    label: string,
+    min: number,
+    max: number,
+    initial: number,
+    onChange: (v: number) => void,
+  ): HTMLElement {
+    const row = document.createElement("div");
+    row.style.cssText =
+      "display:grid;grid-template-columns:5.5em 1fr 3em;align-items:center;" +
+      "gap:0.4em;margin-bottom:0.5em";
+    const lbl = document.createElement("span");
+    lbl.textContent = label;
+    lbl.style.cssText = "font-size:0.85em;text-align:right";
+    const slider = addName(document.createElement("input"));
+    slider.type = "range";
+    slider.min = String(min);
+    slider.max = String(max);
+    slider.step = "1";
+    slider.value = String(Math.round(initial));
+    slider.style.width = "100%";
+    const valLbl = document.createElement("span");
+    valLbl.textContent = String(Math.round(initial));
+    valLbl.style.cssText =
+      "font-size:0.8em;font-family:monospace;text-align:right";
+    slider.addEventListener("input", () => {
+      valLbl.textContent = slider.value;
+      onChange(slider.valueAsNumber);
+    });
+    row.append(lbl, slider, valLbl);
+    return row;
+  }
+
+  // ── Tab builders ────────────────────────────────────────────────────────────
+  function buildStringTab(): HTMLElement {
+    const div = document.createElement("div");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.value = colorRef.value;
+    input.style.cssText =
+      "width:100%;box-sizing:border-box;font-family:monospace;font-size:0.9em;margin-bottom:0.4em";
+    const status = document.createElement("div");
+    status.style.cssText = "font-size:0.85em;margin-bottom:0.4em";
+    const preview = document.createElement("div");
+    preview.style.cssText =
+      "height:2em;border:1px solid #ccc;border-radius:2px";
+    function validate() {
+      const rgba = parseCssColorToRgba(input.value);
+      if (rgba) {
+        status.textContent = "✓ Valid";
+        status.style.color = "green";
+        preview.style.backgroundColor = input.value;
+        applyColor(rgba, input.value);
+      } else {
+        status.textContent = "✗ Invalid color";
+        status.style.color = "red";
+      }
+    }
+    input.addEventListener("input", validate);
+    validate();
+    div.append(input, status, preview);
+    return div;
+  }
+
+  function buildSwatchGrid(colors: readonly string[]): HTMLElement {
+    if (colors.length === 0) {
+      const msg = document.createElement("p");
+      msg.style.color = "#888";
+      msg.textContent = "None yet.";
+      return msg;
+    }
+    const grid = document.createElement("div");
+    grid.style.cssText = "display:flex;flex-wrap:wrap;gap:0.35em";
+    for (const css of colors) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.title = css;
+      btn.style.cssText =
+        "width:2.4em;height:2.4em;border-radius:3px;cursor:pointer;" +
+        "border:2px solid transparent;flex-shrink:0";
+      btn.style.backgroundColor = css;
+      if (css === colorRef.value) btn.style.borderColor = "#333";
+      btn.addEventListener("click", () => {
+        const rgba = parseCssColorToRgba(css) ?? currentRgba;
+        applyColor(rgba, css);
+        grid
+          .querySelectorAll<HTMLButtonElement>("button")
+          .forEach((b) => (b.style.borderColor = "transparent"));
+        btn.style.borderColor = "#333";
+      });
+      grid.append(btn);
+    }
+    return grid;
+  }
+
+  function buildRgbTab(): HTMLElement {
+    const div = document.createElement("div");
+    let { r, g, b } = currentRgba;
+    let ca = Math.round(currentRgba.a * 100);
+    const extraDisplay = document.createElement("div");
+    extraDisplay.style.cssText =
+      "font-family:monospace;font-size:0.8em;color:#555;margin-top:0.4em";
+    function update() {
+      applyColor({ r, g, b, a: ca / 100 }, fmtRgb(r, g, b, ca / 100));
+      extraDisplay.textContent = fmtHex(r, g, b, ca / 100);
+    }
+    div.append(
+      makeSliderRow("Red", 0, 255, r, (v) => {
+        r = v;
+        update();
+      }),
+      makeSliderRow("Green", 0, 255, g, (v) => {
+        g = v;
+        update();
+      }),
+      makeSliderRow("Blue", 0, 255, b, (v) => {
+        b = v;
+        update();
+      }),
+      makeSliderRow("Alpha %", 0, 100, ca, (v) => {
+        ca = v;
+        update();
+      }),
+      extraDisplay,
+    );
+    extraDisplay.textContent = fmtHex(r, g, b, currentRgba.a);
+    return div;
+  }
+
+  function buildHwbTab(): HTMLElement {
+    const div = document.createElement("div");
+    let [h, w, bk] = rgbToHwb(currentRgba.r, currentRgba.g, currentRgba.b);
+    let ca = Math.round(currentRgba.a * 100);
+    const extraDisplay = document.createElement("div");
+    extraDisplay.style.cssText =
+      "font-family:monospace;font-size:0.8em;color:#555;margin-top:0.4em";
+    function update() {
+      const [r, g, b] = hwbToRgb(h, w, bk);
+      const a = ca / 100;
+      applyColor({ r, g, b, a }, fmtHwb(h, w, bk, a));
+      extraDisplay.textContent = fmtHex(r, g, b, a) + "  " + fmtRgb(r, g, b, a);
+    }
+    div.append(
+      makeSliderRow("Hue°", 0, 360, h, (v) => {
+        h = v;
+        update();
+      }),
+      makeSliderRow("White %", 0, 100, w, (v) => {
+        w = v;
+        update();
+      }),
+      makeSliderRow("Black %", 0, 100, bk, (v) => {
+        bk = v;
+        update();
+      }),
+      makeSliderRow("Alpha %", 0, 100, ca, (v) => {
+        ca = v;
+        update();
+      }),
+      extraDisplay,
+    );
+    const [r0, g0, b0] = hwbToRgb(h, w, bk);
+    extraDisplay.textContent =
+      fmtHex(r0, g0, b0, currentRgba.a) +
+      "  " +
+      fmtRgb(r0, g0, b0, currentRgba.a);
+    return div;
+  }
+
+  function buildHslTab(): HTMLElement {
+    const div = document.createElement("div");
+    let [h, s, l] = rgbToHsl(currentRgba.r, currentRgba.g, currentRgba.b);
+    let ca = Math.round(currentRgba.a * 100);
+    const extraDisplay = document.createElement("div");
+    extraDisplay.style.cssText =
+      "font-family:monospace;font-size:0.8em;color:#555;margin-top:0.4em";
+    function update() {
+      const [r, g, b] = hslToRgb(h, s, l);
+      const a = ca / 100;
+      applyColor({ r, g, b, a }, fmtHsl(h, s, l, a));
+      extraDisplay.textContent = fmtHex(r, g, b, a) + "  " + fmtRgb(r, g, b, a);
+    }
+    div.append(
+      makeSliderRow("Hue°", 0, 360, h, (v) => {
+        h = v;
+        update();
+      }),
+      makeSliderRow("Sat %", 0, 100, s, (v) => {
+        s = v;
+        update();
+      }),
+      makeSliderRow("Light %", 0, 100, l, (v) => {
+        l = v;
+        update();
+      }),
+      makeSliderRow("Alpha %", 0, 100, ca, (v) => {
+        ca = v;
+        update();
+      }),
+      extraDisplay,
+    );
+    const [r0, g0, b0] = hslToRgb(h, s, l);
+    extraDisplay.textContent =
+      fmtHex(r0, g0, b0, currentRgba.a) +
+      "  " +
+      fmtRgb(r0, g0, b0, currentRgba.a);
+    return div;
+  }
+
+  // ── Tab switching ───────────────────────────────────────────────────────────
+  type TabName = "String" | "Recent" | "Rainbow" | "RGB" | "HWB" | "HSL";
+  const TAB_BUILDERS: Record<TabName, () => HTMLElement> = {
+    String: buildStringTab,
+    Recent: buildRecentTab,
+    Rainbow: () => buildSwatchGrid([...myRainbow]),
+    RGB: buildRgbTab,
+    HWB: buildHwbTab,
+    HSL: buildHslTab,
+  };
+
+  function buildRecentTab() {
+    return buildSwatchGrid(recentColors);
+  }
+
+  const tabBtns = new Map<TabName, HTMLButtonElement>();
+  for (const name of Object.keys(TAB_BUILDERS) as TabName[]) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = name;
+    btn.style.cssText =
+      "padding:0.3em 0.6em;border:none;background:transparent;cursor:pointer;" +
+      "border-bottom:2px solid transparent";
+    btn.addEventListener("click", () => showTab(name));
+    tabBar.append(btn);
+    tabBtns.set(name, btn);
+  }
+
+  function showTab(name: TabName) {
+    tabContent.replaceChildren(TAB_BUILDERS[name]());
+    tabBtns.forEach((btn, n) => {
+      btn.style.fontWeight = n === name ? "bold" : "";
+      btn.style.borderBottomColor = n === name ? "#333" : "transparent";
+    });
+  }
+
+  showTab("RGB");
+
+  // ── Close logic ─────────────────────────────────────────────────────────────
+  let committed = false;
+
+  okBtn.addEventListener("click", () => {
+    committed = true;
+    dialog.close();
+  });
+  cancelBtn.addEventListener("click", () => dialog.close());
+
+  dialog.addEventListener("close", () => {
+    addToRecentColors(colorRef.value);
+    if (!committed) {
+      colorRef.value = initialCss;
+      cell.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    dialog.remove();
+  });
+
+  dialog.showModal();
+}
+
 // MARK: Schedule section builder
 
 function buildScheduleSection(
@@ -2576,17 +3083,20 @@ function buildScheduleSection(
     if (info.type === "color") {
       const colorKf = kf as Keyframe<string>;
       const cell = row.insertCell();
-      const input = addName(document.createElement("input"));
-      input.type = "color";
-      try {
-        input.value = cssColorToHex(colorKf.value);
-      } catch {
-        /**/
-      }
-      input.addEventListener("input", () => {
-        colorKf.value = input.value;
+      const swatchBtn = document.createElement("button");
+      swatchBtn.type = "button";
+      swatchBtn.title = colorKf.value;
+      swatchBtn.style.cssText =
+        "width:2.5em;height:1.8em;border:1px solid #999;cursor:pointer;border-radius:2px";
+      swatchBtn.style.backgroundColor = colorKf.value;
+      swatchBtn.addEventListener("click", () =>
+        openColorPickerDialog(colorKf, cell),
+      );
+      cell.addEventListener("input", () => {
+        swatchBtn.style.backgroundColor = colorKf.value;
+        swatchBtn.title = colorKf.value;
       });
-      cell.append(input);
+      cell.append(swatchBtn);
     } else if (info.type === "number") {
       const numKf = kf as Keyframe<number>;
       row.insertCell().append(
@@ -3103,7 +3613,12 @@ function updateScheduleEditor(
   const slideComponent =
     selectable instanceof SlideComponent ? selectable : null;
 
-  if (!scalars?.length && !schedules?.length && !isTraditionalText && !slideComponent) {
+  if (
+    !scalars?.length &&
+    !schedules?.length &&
+    !isTraditionalText &&
+    !slideComponent
+  ) {
     scheduleEditorFieldset.hidden = true;
     return;
   }
@@ -3121,7 +3636,11 @@ function updateScheduleEditor(
   for (const info of scalars ?? []) {
     const section = buildScalarSection(info);
     // Rebuild the Transform Info panel whenever the template string changes.
-    if (slideComponent && info === slideComponent.transformTemplate && customPanel) {
+    if (
+      slideComponent &&
+      info === slideComponent.transformTemplate &&
+      customPanel
+    ) {
       section.addEventListener("input", () => {
         const newPanel = buildSlideComponentPanel(slideComponent);
         customPanel!.replaceWith(newPanel);
