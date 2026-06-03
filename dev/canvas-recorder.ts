@@ -48,7 +48,9 @@ import {
   buildComponents,
   componentRegistry,
   SerializedChild,
+  SlideComponent,
   TraditionalTextComponent,
+  TRANSFORM_PLACEHOLDERS,
 } from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
@@ -2090,6 +2092,58 @@ function buildTraditionalTextPanel(
   return panel;
 }
 
+// MARK: Slide component panel
+
+/**
+ * Build the Transform Info panel shown at the top of the schedule editor
+ * when a {@link SlideComponent} is selected.  Lists active placeholders,
+ * validates the template syntax, and links to the CSS transform reference.
+ */
+function buildSlideComponentPanel(component: SlideComponent): HTMLElement {
+  const panel = document.createElement("fieldset");
+  panel.style.cssText = "border-color:#6a9e6a;margin-bottom:0.4em";
+  const legend = document.createElement("legend");
+  legend.textContent = "Transform Info";
+  panel.append(legend);
+
+  const template = component.transformTemplate.value;
+
+  const usedEl = document.createElement("div");
+  usedEl.textContent = "Placeholders: " + TRANSFORM_PLACEHOLDERS.join("  ");
+  usedEl.style.cssText = "margin-bottom:0.3em;letter-spacing:0.1em";
+  panel.append(usedEl);
+
+  const testString = TRANSFORM_PLACEHOLDERS.reduce(
+    (s, p) => s.replaceAll(p, "0"),
+    template,
+  );
+  const statusEl = document.createElement("div");
+  try {
+    new DOMMatrixReadOnly(testString || "none");
+    statusEl.textContent = "✓ Valid";
+    statusEl.style.color = "green";
+  } catch {
+    statusEl.textContent = "✗ Syntax error";
+    statusEl.style.color = "red";
+  }
+  panel.append(statusEl);
+
+  const helpEl = document.createElement("div");
+  helpEl.style.cssText = "font-size:0.85em;color:#666;margin-top:0.5em";
+  helpEl.textContent =
+    "By default the video is 16px wide and 9px tall. Other length units are not well defined.";
+  const linkEl = document.createElement("a");
+  linkEl.href =
+    "https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/transform";
+  linkEl.textContent = "CSS transform reference ↗";
+  linkEl.target = "_blank";
+  linkEl.rel = "noopener";
+  linkEl.style.cssText = "font-size:0.85em;display:block;margin-top:0.2em";
+  panel.append(helpEl, linkEl);
+
+  return panel;
+}
+
 // MARK: Font picker dialog
 
 /**
@@ -3046,28 +3100,39 @@ function updateScheduleEditor(
   const scalars = selectable.scalars;
   const schedules = selectable.schedules;
   const isTraditionalText = selectable instanceof TraditionalTextComponent;
+  const slideComponent =
+    selectable instanceof SlideComponent ? selectable : null;
 
-  if (!scalars?.length && !schedules?.length && !isTraditionalText) {
+  if (!scalars?.length && !schedules?.length && !isTraditionalText && !slideComponent) {
     scheduleEditorFieldset.hidden = true;
     return;
   }
   scheduleEditorFieldset.hidden = false;
 
-  // Custom panel at the top of the editor, specific to this component type.
-  // Currently only TraditionalTextComponent has one (Font Info).
   let customPanel: HTMLElement | null = null;
   if (isTraditionalText) {
     customPanel = buildTraditionalTextPanel(selectable);
     scheduleEditorFieldset.append(customPanel);
+  } else if (slideComponent) {
+    customPanel = buildSlideComponentPanel(slideComponent);
+    scheduleEditorFieldset.append(customPanel);
   }
 
   for (const info of scalars ?? []) {
-    scheduleEditorFieldset.append(buildScalarSection(info));
+    const section = buildScalarSection(info);
+    // Rebuild the Transform Info panel whenever the template string changes.
+    if (slideComponent && info === slideComponent.transformTemplate && customPanel) {
+      section.addEventListener("input", () => {
+        const newPanel = buildSlideComponentPanel(slideComponent);
+        customPanel!.replaceWith(newPanel);
+        customPanel = newPanel;
+      });
+    }
+    scheduleEditorFieldset.append(section);
   }
   for (const info of schedules ?? []) {
     const section = buildScheduleSection(info, selectable.description);
-    // Rebuild the Font Info panel when the font family or weight changes so
-    // warnings stay current as the user edits either schedule.
+    // Rebuild the Font Info panel when the font family or weight changes.
     if (
       isTraditionalText &&
       (info === selectable.fontFamilySchedule ||

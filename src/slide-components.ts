@@ -328,68 +328,103 @@ class SlideDeckComponent implements Showable {
 }
 
 /**
+ * Mathematical Bold Script capital letters A–J, used as placeholders in
+ * {@link SlideComponent} transform templates.  String values only — ASCII
+ * export name to avoid Rollup's non-Latin-1 truncation bug.
+ */
+export const TRANSFORM_PLACEHOLDERS = [
+  "𝓐", "𝓑", "𝓒", "𝓓", "𝓔", "𝓕", "𝓖", "𝓗", "𝓘", "𝓙",
+] as const;
+
+/**
  * A slide is a generic container, like `<g>` or `<div>`.
  *
- * See "## Miscellaneous Generic Component" in visual-editor.md for long term plans for this.
- * For now I support a very minimal transform property, and a border to help show off that transform.
+ * The transform is specified as a CSS transform string template.
+ * Write placeholders like 𝓐 𝓑 𝓒 … in the template; each maps to an
+ * animatable numeric schedule of the same name.  Example:
+ *   "scale(𝓐) translate(𝓑px, 𝓒px)"
  *
- * You should be able to add one of these anywhere.
- * A slide deck might require each direct child to be one of these.
+ * Up to 10 placeholders (𝓐–𝓙) are available.  Unused schedules default
+ * to 1 and can be ignored.
+ *
+ * Exported so dev/canvas-recorder.ts can use instanceof for the custom panel.
  */
-export function createSlideComponent(): Showable {
-  const transformStringSchedule: Keyframe<string>[] = [
-    { time: 0, value: "translate(1px, 1px) scale(0.5)" },
-  ];
-  const borderColorSchedule: Keyframe<string>[] = [{ time: 0, value: "blue" }];
-  return {
-    description: "Slide",
-    duration: 0,
-    components: [],
-    schedules: [
-      {
-        type: "string",
-        description: "Transform",
-        schedule: transformStringSchedule,
-      },
-      {
-        type: "color",
-        description: "Border Color",
-        schedule: borderColorSchedule,
-      },
-    ],
-    show(options) {
-      const { context, timeInMs } = options;
-      const transformString = discreteKeyframes(
-        timeInMs,
-        transformStringSchedule,
-      );
-      let transform: DOMMatrixReadOnly | undefined;
-      try {
-        const originalTransform = context.getTransform();
-        const transform = new DOMMatrixReadOnly(transformString);
-        applyTransform(context, transform);
-        context.lineJoin = "miter";
-        context.lineWidth = errorFont.strokeWidth;
-        const color = interpolateColors(timeInMs, borderColorSchedule);
-        context.strokeStyle = color;
-        context.strokeRect(0, 0, 16, 9);
-        const tf = context.getTransform();
-        this.components!.forEach((component) => {
-          options.registerTransform?.(component, tf);
-          component.show(options);
-        });
-        context.setTransform(originalTransform);
-      } catch (ex) {
-        if (transform) {
-          // Unknown problem.
-          // We might be in a weird state.
-          throw ex;
-        }
-        // Report problem interpreting transform string but keep going.
-        showError(context, "Invalid Transform String:\n" + transformString);
+export class SlideComponent implements Showable {
+  readonly transformTemplate = new StringScalarInfo(
+    "Transform Template",
+    "scale(1)",
+  );
+  readonly scalars = [this.transformTemplate] as const;
+
+  readonly placeA = new NumberScheduleInfo("𝓐", 1);
+  readonly placeB = new NumberScheduleInfo("𝓑", 1);
+  readonly placeC = new NumberScheduleInfo("𝓒", 1);
+  readonly placeD = new NumberScheduleInfo("𝓓", 1);
+  readonly placeE = new NumberScheduleInfo("𝓔", 1);
+  readonly placeF = new NumberScheduleInfo("𝓕", 1);
+  readonly placeG = new NumberScheduleInfo("𝓖", 1);
+  readonly placeH = new NumberScheduleInfo("𝓗", 1);
+  readonly placeI = new NumberScheduleInfo("𝓘", 1);
+  readonly placeJ = new NumberScheduleInfo("𝓙", 1);
+  readonly borderColorSchedule = new ColorScheduleInfo("Border Color", "blue");
+
+  readonly schedules = [
+    this.placeA, this.placeB, this.placeC, this.placeD, this.placeE,
+    this.placeF, this.placeG, this.placeH, this.placeI, this.placeJ,
+    this.borderColorSchedule,
+  ] as const;
+
+  readonly description = "Slide";
+  readonly duration = 0;
+  readonly components: Showable[] = [];
+
+  transformStringAt(timeInMs: number): string {
+    const values = [
+      this.placeA.at(timeInMs), this.placeB.at(timeInMs),
+      this.placeC.at(timeInMs), this.placeD.at(timeInMs),
+      this.placeE.at(timeInMs), this.placeF.at(timeInMs),
+      this.placeG.at(timeInMs), this.placeH.at(timeInMs),
+      this.placeI.at(timeInMs), this.placeJ.at(timeInMs),
+    ];
+    let result = this.transformTemplate.value;
+    TRANSFORM_PLACEHOLDERS.forEach((ph, i) => {
+      result = result.replaceAll(ph, String(values[i]));
+    });
+    return result;
+  }
+
+  show(options: ShowOptions): void {
+    const { context, timeInMs } = options;
+    const transformString = this.transformStringAt(timeInMs);
+    const originalTransform = context.getTransform();
+    let applied = false;
+    try {
+      const tf = new DOMMatrixReadOnly(transformString);
+      applyTransform(context, tf);
+      applied = true;
+      context.lineJoin = "miter";
+      context.lineWidth = errorFont.strokeWidth;
+      context.strokeStyle = this.borderColorSchedule.at(timeInMs);
+      context.strokeRect(0, 0, 16, 9);
+      const currentTf = context.getTransform();
+      this.components.forEach((component) => {
+        options.registerTransform?.(component, currentTf);
+        component.show(options);
+      });
+    } catch (ex) {
+      if (!applied) {
+        showError(context, "Invalid Transform:\n" + transformString);
+      } else {
+        throw ex;
       }
-    },
-  };
+    } finally {
+      context.setTransform(originalTransform);
+    }
+  }
+}
+
+export function createSlideComponent(): Showable {
+  return new SlideComponent();
 }
 
 /**
@@ -990,7 +1025,7 @@ export function createFunctionGraphComponent(
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
   ["Slide Deck", () => new SlideDeckComponent()],
-  ["Slide", () => createSlideComponent()],
+  ["Slide", () => new SlideComponent()],
   ["Text", () => createTextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
   ["Rectangle", () => createRectangleComponent()],

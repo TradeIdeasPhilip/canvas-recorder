@@ -438,3 +438,161 @@ The initial value is always at the top of the list.
 It's possible that we will read an invalid font name from a schedule.
 (Maybe I uninstalled a font, whatever.)
 The important thing is not to crash.
+
+## Editing Transforms, second attempt.
+
+**Status:  Working!**
+
+The transform editor only lives in the Slide Component.
+I plan to keep it that way.
+
+Currently we have a list of transform strings.
+These can be animated but they are all discrete values.
+
+Eventually I can imagine tools with markers on the canvas, like the point editor, but for various transform primitives.
+
+For now I want something simple that I think we can do quickly.
+It's a little bit ugly but it's a good start and it will give us 100% of the runtime functionality that we need.
+
+We will have a fixed number of numeric inputs.
+Initially lets say 10.
+If you only need to animate one value, just ignore the other 9.
+If you ever need 11, you have to go in and change the source code.
+
+We have one scalar string for the template for the transform.
+It will be something like
+
+- `"scale(5) translate(1px, 3px)"`
+- `"scale(𝓐) translate(1px, 3px)"`
+- `"scale(𝓐) translate(𝓑px, 𝓐px)"` or
+- `"scale(𝓑) translate(1px, 3px)"`
+
+Those special letters are the placeholders.
+Each will have a corresponding numeric schedule with the same name.
+I chose Mathematical Bold Script because it was the most readable and the most consistent of the [similar alternatives](http://xahlee.info/comp/unicode_math_font.html), upper and lower case.
+
+There will be a special editor panel for the slide component.
+Among other things it will list the names of all of these placeholders.
+Something like "Placeholders: 𝓐 𝓑", etc.
+Add a space between each one so they are _easy to copy and paste_.
+
+The editor panel will also give you the status of your template string.
+A simple test should suffice.
+Try replacing all of the placeholders with "0".
+Try to create a new DOMMatrix with that string.
+If that throws, report an error.
+The exception does not contain any helpful details about the problem, so just report "syntax error".
+
+And the editor panel will offer simple help.
+Include "By default the video is 16px wide and 9px tall. Other length units are not well defined."
+And a link to https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/transform.
+Maybe more.
+
+## Custom Color Editor.
+
+The built in html color input control was a good start, but it's missing some things.
+And our recent addition of the font family *dialog* worked very well.
+So let's make a custom color editor.
+
+Try to keep this out of the way of the canvas.
+Maybe it has a fixed size for simplicity, but we always draw it in the bottom right side of the window.
+
+Something like a tabbed design, like a lot of color editors.
+
+One tab lets you type any string.
+We'll have a function to check if it is valid.
+Maybe use getComputedStyle() on a control to see if the color is good.
+This can be a visible \<div> that we use to display the resulting color.
+
+We can also getComputedStyle() to convert anything back to RGB.
+
+We can use the colorizr npm package if we need to do any interesting conversions.
+That worked well for me in https://github.com/TradeIdeasPhilip/random-svg-tests.
+We can also export complicated css strings; interpolateColor() for example uses the css color-mix function.
+We really only need this to populate the sliders of some of the panels.
+
+One tab has recent colors.
+
+One tab lists the colors of [my rainbow](../src/glib/my-rainbow.ts).
+
+One tab has four sliders: red, green, blue and alpha.
+Display the resulting color two ways:
+"#xxxxxxxx", but only "#xxxxxx" if alpha is at FF (100%).
+And "rgb(30% 20% 50% / 80%)", or "rgb(30% 20% 50%)" if alpha is 100%.
+Draw the current color in a small square.
+And constantly update the schedule or scalar value so the new value is visible in the canvas.
+I don't see any need for any more graphics showing off the color wheel or anything like that.
+Save the color as "rgb(30% 20% 50% / 80%)", not "#xxxxxxxx", and include an appropriate number of digits after the decimal point.
+
+I haven't had much luck with the newer color spaces, so let's skip those.
+Let's add panels for HWB and and HSL.
+Again, four sliders each, one per channel.
+HWB always saves as "hwb(50deg 30% 40%)" or "hwb(50deg 30% 40% / 20%)".
+(Always degrees and %.)
+Similar for hsl().
+Display these three ways:  #, rgb() and the native format that we are using for saving.
+
+The RGB, HWB and HSL panels do not need numeric inputs.
+You can go back and forth between those panels and the string input panel, if you really want to set a number precisely.
+
+The sample square can be above or below the tabs, always visible.
+
+Presumably cancel works in the normal way.
+Hit the cancel button or the ESC key.
+The currently selected color gets added to the recent color list.
+The currently selected color is restored to the color when we opened the dialog.
+
+## Better Samples
+
+Currently we use the same list for restoring saved components as we do when hitting the "+ Add to root" button.
+That was a good start but we can do better.
+
+By default, keep all of the existing controls as is.
+
+There should be a convenient list of possible values for the "+" button hard coded.
+These can be a mix of the existing style and restoring json files.
+
+The user could have a personal favorites list, saved to the database.
+Not urgent, as I'm the user and a programmer.
+
+The list could include recent activity.
+Like the last 10 items that I've deleted.
+Deleting is closer to cutting.
+But we save at least 10 of these.
+These should probably go to the IndexedDB database to be safe.
+I'm afraid that it will be too easy to or delete something by mistake and lose it.
+This seems like it will make life better and more secure, just like what we are currently saving to the database.
+
+Ideally we would filter out duplicates.
+We remember the most recent N addition to the list.
+If an existing item is re-added, it gets moved to the most recent spot.
+If we add a new item, and the list is full, we delete as many items as we need to get back down to N.
+
+I did this all the time in MySQL.
+I used two keys.
+The date and time sorted the list before deleting anything.
+And the value was a unique key and I used the REPLACE command.
+The implementation will have to change, but I want to repeat this result.
+
+There is just one namespace for all of these cut items.
+I.e. you can cut from one project and paste to another.
+As long as you are running on the same port number.
+
+### Multi Text
+
+When you create a new Multi Text button from the button you should get two children.
+One text segment and one style.
+You can always delete these or add more, but this is a good starting place.
+
+### Slide
+
+Currently we display a rectangle for debug reasons.
+That should change.
+The Slide Component should not draw anything itself.
+It should only draw its children.
+
+When you create a slide from the button, it gives you one child.
+That child is a rectangle.
+Similar to what we have now but:
+* Easy to delete the rectangle.
+* Lots of config options for the rectangle.
