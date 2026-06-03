@@ -391,9 +391,11 @@ Path sources must come directly under a Path Component, just a text formatters m
 **Status: Complete!**
 Looks amazing!
 
+See [./local-font-notes.md](./local-font-notes.md) for some bug reports.
+
 Used by the Traditional Text Component.
 
-Currently it is unusable.
+~~Currently it is~~ For a while it was unusable.
 While adding the ability to type any font family name, it is now very hard to select a font.
 You have to hit backspace because it is trying to _search_ for a string that is initialized to the current font name.
 We need to separate the idea of the current font and the current search string.

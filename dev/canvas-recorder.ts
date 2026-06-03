@@ -2126,6 +2126,54 @@ function formatWeightSummary(data: FontFamilyData): string {
   return "(not found in loaded fonts)";
 }
 
+// Family name → comma-separated unique style words from window.queryLocalFonts().
+// Populated once at startup; used by buildTraditionalTextPanel to display info
+// for local fonts that are not in document.fonts.
+const localFontStylesMap = new Map<string, string>();
+
+function _fetchLocalFonts() {
+  if (!("queryLocalFonts" in window)) {
+    console.log(
+      "Warning: Local fonts are not available. Try using Chrome to fix this.",
+    );
+    return;
+  }
+  // queryLocalFonts() requires the page to be visible.  Calling it while hidden
+  // (e.g. during a Vite HMR reload) throws SecurityError — defer if needed.
+  if (document.visibilityState !== "visible") {
+    document.addEventListener(
+      "visibilitychange",
+      () => {
+        if (document.visibilityState === "visible") _fetchLocalFonts();
+      },
+      { once: true },
+    );
+    return;
+  }
+  (
+    window as unknown as {
+      queryLocalFonts: () => Promise<Array<{ family: string; style: string }>>;
+    }
+  )
+    .queryLocalFonts()
+    .then((fonts) => {
+      const byFamily = new Map<string, Set<string>>();
+      for (const f of fonts) {
+        let s = byFamily.get(f.family);
+        if (!s) {
+          s = new Set();
+          byFamily.set(f.family, s);
+        }
+        for (const w of f.style.split(/\s+/)) if (w) s.add(w);
+      }
+      for (const [fam, styles] of byFamily) {
+        localFontStylesMap.set(fam, [...styles].join(", "));
+      }
+    })
+    .catch((e: unknown) => console.warn("queryLocalFonts():", e));
+}
+_fetchLocalFonts();
+
 /**
  * Build the Font Info panel shown at the top of the schedule editor when a
  * {@link TraditionalTextComponent} is selected.  Displays available styles and
@@ -2175,11 +2223,21 @@ function buildTraditionalTextPanel(
       !data.weightRange;
 
     if (notFound) {
-      const note = document.createElement("div");
-      note.style.cssText = "padding-left:1em;color:#888";
-      note.textContent =
-        "(not found in loaded fonts — may still render if installed)";
-      block.append(note);
+      const localStyles = localFontStylesMap.get(family);
+      if (localStyles !== undefined) {
+        // Local system font (from queryLocalFonts) — show raw style words,
+        // skip weight warning (weights can't be inferred from style strings).
+        const stylesEl = document.createElement("div");
+        stylesEl.style.cssText = "padding-left:1em";
+        stylesEl.textContent = `Styles: ${localStyles}`;
+        block.append(stylesEl);
+      } else {
+        const note = document.createElement("div");
+        note.style.cssText = "padding-left:1em;color:#888";
+        note.textContent =
+          "(not found in loaded fonts — may still render if installed)";
+        block.append(note);
+      }
     } else {
       const stylesEl = document.createElement("div");
       stylesEl.style.cssText = "padding-left:1em";
