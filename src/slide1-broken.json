@@ -576,21 +576,13 @@
             "value": 1
           },
           {
-            "time": 1000,
+            "time": 500,
             "value": 1,
-            "easeAfter": "easeIn"
+            "easeAfter": "easeOut"
           },
           {
-            "time": 1500,
+            "time": 1000,
             "value": 2.5
-          },
-          {
-            "time": 3200,
-            "value": 2.5
-          },
-          {
-            "time": 3700,
-            "value": 1
           }
         ]
       },
@@ -603,11 +595,11 @@
             "value": 0
           },
           {
-            "time": 1600,
+            "time": 1000,
             "value": 0
           },
           {
-            "time": 3100,
+            "time": 2500,
             "value": 360
           }
         ]
@@ -707,7 +699,7 @@
       {
         "description": "Transform Template",
         "type": "string",
-        "value": "translateY(-0.225px) translate(2px, 𝓐px) rotate(𝓑deg) translateY(0.225px)"
+        "value": "translate(2px, 𝓐px) rotate(𝓑deg)"
       }
     ],
     "components": [
@@ -841,22 +833,6 @@
           {
             "time": 0,
             "value": 1
-          },
-          {
-            "time": 4000,
-            "value": 1
-          },
-          {
-            "time": 5000,
-            "value": 1.5
-          },
-          {
-            "time": 6000,
-            "value": 1.5
-          },
-          {
-            "time": 7000,
-            "value": 1
           }
         ]
       },
@@ -866,22 +842,6 @@
         "keyframes": [
           {
             "time": 0,
-            "value": 1
-          },
-          {
-            "time": 6000,
-            "value": 1
-          },
-          {
-            "time": 7000,
-            "value": 3
-          },
-          {
-            "time": 8000,
-            "value": 3
-          },
-          {
-            "time": 9000,
             "value": 1
           }
         ]
@@ -981,7 +941,7 @@
       {
         "description": "Transform Template",
         "type": "string",
-        "value": "translate(15.5px, 8.5px) scale(𝓐, 𝓑)"
+        "value": "scale(1)"
       }
     ],
     "components": [
@@ -1005,8 +965,8 @@
               {
                 "time": 0,
                 "value": {
-                  "x": 0,
-                  "y": 0
+                  "x": 12.32468313697959,
+                  "y": 8.416294203913194
                 }
               }
             ]
@@ -1087,7 +1047,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "right"
+                "value": "center"
               }
             ]
           },
@@ -1114,41 +1074,7 @@
         "keyframes": [
           {
             "time": 0,
-            "value": 0
-          },
-          {
-            "time": 4750,
-            "value": 0,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 5250,
-            "value": -30,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 5750,
-            "value": 0,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 6250,
-            "value": -30,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 6750,
-            "value": 0,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 7250,
-            "value": -30,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 7750,
-            "value": 0
+            "value": 1
           }
         ]
       },
@@ -1257,7 +1183,7 @@
       {
         "description": "Transform Template",
         "type": "string",
-        "value": "translateY(8.5px) skewX(𝓐deg)"
+        "value": ""
       }
     ],
     "components": [
@@ -1282,7 +1208,7 @@
                 "time": 0,
                 "value": {
                   "x": 2.3509938126960908,
-                  "y": 0
+                  "y": 8.332462503433609
                 }
               }
             ]
@@ -1354,6 +1280,265 @@
               {
                 "time": 0,
                 "value": "AppleMyungjo"
+              }
+            ]
+          },
+          {
+            "description": "Align",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "description": "Baseline",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "alphabetic"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "registryKey": "Slide",
+    "schedules": [
+      {
+        "description": "𝓐",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          },
+          {
+            "time": 500,
+            "value": 1,
+            "easeAfter": "easeOut"
+          },
+          {
+            "time": 1000,
+            "value": 2.5
+          }
+        ]
+      },
+      {
+        "description": "𝓑",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 0
+          },
+          {
+            "time": 1000,
+            "value": 0
+          },
+          {
+            "time": 2500,
+            "value": 360
+          }
+        ]
+      },
+      {
+        "description": "𝓒",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓓",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓔",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓕",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓖",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓗",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓘",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "𝓙",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1
+          }
+        ]
+      },
+      {
+        "description": "Border Color",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(0% 0% 100% / 0%)"
+          }
+        ]
+      }
+    ],
+    "scalars": [
+      {
+        "description": "Transform Template",
+        "type": "string",
+        "value": "scale(1)"
+      }
+    ],
+    "components": [
+      {
+        "registryKey": "Traditional Text",
+        "schedules": [
+          {
+            "description": "Text",
+            "type": "string",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "你好世界"
+              }
+            ]
+          },
+          {
+            "description": "Position",
+            "type": "point",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "x": 0,
+                  "y": 0
+                }
+              }
+            ]
+          },
+          {
+            "description": "Fill Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "rgb(255, 0, 0)"
+              }
+            ]
+          },
+          {
+            "description": "Outline Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "rgb(255, 128, 0)"
+              }
+            ]
+          },
+          {
+            "description": "Outline Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "Font Size",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.75
+              }
+            ]
+          },
+          {
+            "description": "Font Style",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "normal"
+              }
+            ]
+          },
+          {
+            "description": "Font Weight",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 800
+              }
+            ]
+          },
+          {
+            "description": "Font Family",
+            "type": "string",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "American Typewriter"
               }
             ]
           },

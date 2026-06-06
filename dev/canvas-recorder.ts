@@ -3539,6 +3539,9 @@ function serializeComponent(child: Showable): SerializedChild {
       ? serializeSchedules(child.schedules)
       : [],
   };
+  if (child.scalars?.length) {
+    entry.scalars = serializeScalars(child.scalars);
+  }
   if (child.components !== undefined) {
     entry.components = serializeComponents(child.components);
   }
