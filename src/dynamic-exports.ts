@@ -80,6 +80,15 @@ showableOptions.add([
     },
   ],
   [
+    "some5",
+    {
+      async create() {
+        return (await import("../src/some5.ts")).some5;
+      },
+      description: "SoME5 — matrix multiplication video.",
+    },
+  ],
+  [
     "shadow-test",
     {
       async create() {

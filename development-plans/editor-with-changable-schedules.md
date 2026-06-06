@@ -601,3 +601,29 @@ Similar to what we have now but:
 
 - Easy to delete the rectangle.
 - Lots of config options for the rectangle.
+
+### Another Window!
+
+I just realized the best way to work with samples and temporary objects.
+I have one window open with scratch space and samples at http://localhost:5173/canvas-recorder.html?toShow=shadow-test.
+And I have another window where I'm trying to build stuff to keep at http://localhost:5173/canvas-recorder.html?toShow=some5.
+
+The program doesn't need a fancy way to offer a lot of samples.
+We already have the code!
+We just need to build up samples in a different project.
+Something like showcase.ts, but all as components.
+
+That said, a list of recently copied or cut or deleted items would still be nice to prevent accidents.
+Be careful saving to the MRU list, as multiple windows might be saving at the same time.
+Is there a good way to load from the other window?
+You would need a way to notify the other window of a change.
+That's not a huge use case and just hitting refresh should be good enough.
+
+Just thinking, how long does a simple indexeddb query take?
+We're purposely keeping this list trimmed.
+I can't make the request right in the animation frame handler because it requires a callback.
+But if I make a database request as soon as the user clicks, and I don't display the window until I get a result, what kind of times am I expecting?
+I hate it when my mac screen recording (shift-command-5) menu has a delay!
+Maybe I need a window with a temporary loading screen.
+Even if most of the time it's really fast, do I know how bad the worst case could be?
+Especially if a different user with a different setup has worse delays.
