@@ -3178,7 +3178,7 @@ function buildScheduleSection(
 
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
-  copyBtn.textContent = "📋";
+  copyBtn.textContent = "🖥️ → 📋";
   copyBtn.title = "Copy schedule as TypeScript";
   copyBtn.addEventListener("click", () => {
     navigator.clipboard.writeText(
@@ -3660,7 +3660,7 @@ function updateComponentEditor(selectable: Selectable) {
 
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
-      copyBtn.textContent = "⎘";
+      copyBtn.textContent = "🖥️ → 📋";
       copyBtn.title = "Copy component";
       copyBtn.addEventListener("click", () => {
         const json = JSON.stringify([serializeComponent(child)], null, 2);
@@ -3696,7 +3696,7 @@ function updateComponentEditor(selectable: Selectable) {
       if (child.components !== undefined) {
         const pasteIntoBtn = document.createElement("button");
         pasteIntoBtn.type = "button";
-        pasteIntoBtn.textContent = "⎘→";
+        pasteIntoBtn.textContent = "📋 → 🖥️";
         pasteIntoBtn.title = `Paste into "${child.description}"`;
         pasteIntoBtn.addEventListener("click", () =>
           pasteInto(child, selectable),
@@ -3760,7 +3760,7 @@ function updateComponentEditor(selectable: Selectable) {
 
   const copyAllBtn = document.createElement("button");
   copyAllBtn.type = "button";
-  copyAllBtn.textContent = "⎘ Copy all";
+  copyAllBtn.textContent = "🖥️ → 📋 Copy all";
   copyAllBtn.title = "Copy all root components as JSON";
   copyAllBtn.addEventListener("click", () => {
     const json = JSON.stringify(serializeComponents(rootComponents!), null, 2);
@@ -3771,7 +3771,7 @@ function updateComponentEditor(selectable: Selectable) {
 
   const pasteRootBtn = document.createElement("button");
   pasteRootBtn.type = "button";
-  pasteRootBtn.textContent = "⎘→ Paste to root";
+  pasteRootBtn.textContent = "📋 → 🖥️ Paste to root";
   pasteRootBtn.addEventListener("click", () =>
     pasteInto(selectable as Showable, selectable),
   );
