@@ -627,3 +627,33 @@ I hate it when my mac screen recording (shift-command-5) menu has a delay!
 Maybe I need a window with a temporary loading screen.
 Even if most of the time it's really fast, do I know how bad the worst case could be?
 Especially if a different user with a different setup has worse delays.
+
+### First Step
+
+Add a "cut" option to the list of components.
+Save the recently cut items in the IndexedDB.
+
+As described above, each 🗑️ icon should be replaced with the ✂ icon.
+Add a tooltip: "Cut component".
+Copy the item into the clipboard, like with the copy button.
+Remove the item from its parent, like it does now.
+Save the item in the database.
+Keep the 10 most recently cut items.
+They should be available from the same \<select> as where we create new components.
+
+#### Multiple Pages
+
+It is possible that I will be flipping between two or more copies of this program.
+Any time we trim the list, make sure to load the current state of the database.
+Do not use a cached value as you might overwrite things from the other window.
+
+Do not worry about a transaction.
+This is a user operation.
+I'm not going to hit the "cut" button in two different windows so quickly that the second one will start before the first one completes.
+
+#### Index
+
+Don't worry about multiple indices.
+That was a nice feature of MySQL, but we only have a small number of items.
+Keep them in order.
+Each save, just iterate through the existing list to see if we are adding a new item or promoting an existing one.

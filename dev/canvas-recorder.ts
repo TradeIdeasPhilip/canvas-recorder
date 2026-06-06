@@ -1698,6 +1698,23 @@ document.addEventListener("visibilitychange", () => {
 
 type RGBA = { r: number; g: number; b: number; a: number };
 
+/**
+ * Paints `el` as a color swatch.  A checkerboard background sits behind the
+ * color so that any alpha transparency is clearly visible.
+ */
+function setSwatchColor(el: HTMLElement, css: string): void {
+  el.style.backgroundImage = [
+    `linear-gradient(${css},${css})`,
+    "linear-gradient(45deg,#bbb 25%,transparent 25%)",
+    "linear-gradient(-45deg,#bbb 25%,transparent 25%)",
+    "linear-gradient(45deg,transparent 75%,#bbb 75%)",
+    "linear-gradient(-45deg,transparent 75%,#bbb 75%)",
+  ].join(",");
+  el.style.backgroundSize = "auto,8px 8px,8px 8px,8px 8px,8px 8px";
+  el.style.backgroundPosition = "0 0,0 0,0 4px,4px -4px,-4px 0";
+  el.style.backgroundColor = "#fff";
+}
+
 // Hidden div for CSS color validation / parsing via getComputedStyle.
 const _parseColorDiv = document.createElement("div");
 _parseColorDiv.style.cssText =
@@ -1949,12 +1966,12 @@ function buildScalarSection(info: ScalarInfo): HTMLElement {
     swatchBtn.title = info.value;
     swatchBtn.style.cssText =
       "width:2.5em;height:1.8em;border:1px solid #999;cursor:pointer;border-radius:2px";
-    swatchBtn.style.backgroundColor = info.value;
+    setSwatchColor(swatchBtn, info.value);
     swatchBtn.addEventListener("click", () =>
       openColorPickerDialog(info, section),
     );
     section.addEventListener("input", () => {
-      swatchBtn.style.backgroundColor = info.value;
+      setSwatchColor(swatchBtn, info.value);
       swatchBtn.title = info.value;
     });
     section.append(swatchBtn);
@@ -2761,13 +2778,13 @@ async function openColorPickerDialog(
     currentRgba = rgba;
     colorRef.value = css;
     cell.dispatchEvent(new Event("input", { bubbles: true }));
-    swatchEl.style.backgroundColor = css;
+    setSwatchColor(swatchEl, css);
     hexDisplay.textContent = fmtHex(rgba.r, rgba.g, rgba.b, rgba.a);
     rgbDisplay.textContent = fmtRgb(rgba.r, rgba.g, rgba.b, rgba.a);
   }
 
   // Seed display without dispatching
-  swatchEl.style.backgroundColor = initialCss;
+  setSwatchColor(swatchEl, initialCss);
   hexDisplay.textContent = fmtHex(
     initialRgba.r,
     initialRgba.g,
@@ -3267,12 +3284,12 @@ function buildScheduleSection(
       swatchBtn.title = colorKf.value;
       swatchBtn.style.cssText =
         "width:2.5em;height:1.8em;border:1px solid #999;cursor:pointer;border-radius:2px";
-      swatchBtn.style.backgroundColor = colorKf.value;
+      setSwatchColor(swatchBtn, colorKf.value);
       swatchBtn.addEventListener("click", () =>
         openColorPickerDialog(colorKf, cell),
       );
       cell.addEventListener("input", () => {
-        swatchBtn.style.backgroundColor = colorKf.value;
+        setSwatchColor(swatchBtn, colorKf.value);
         swatchBtn.title = colorKf.value;
       });
       cell.append(swatchBtn);
