@@ -619,7 +619,7 @@ Is there a good way to load from the other window?
 You would need a way to notify the other window of a change.
 That's not a huge use case and just hitting refresh should be good enough.
 
-Just thinking, how long does a simple indexeddb query take?
+Just thinking, how long does a simple IndexedDB query take?
 We're purposely keeping this list trimmed.
 I can't make the request right in the animation frame handler because it requires a callback.
 But if I make a database request as soon as the user clicks, and I don't display the window until I get a result, what kind of times am I expecting?
@@ -630,16 +630,15 @@ Especially if a different user with a different setup has worse delays.
 
 ### First Step
 
+Leave the 🗑️ in place, but also save the deleted item to the database.
 Add a "cut" option to the list of components.
-Save the recently cut items in the IndexedDB.
+Save the recently cut items in the IndexedDB, like 🗑️, but also copy to the clipboard at the same time.
 
-As described above, each 🗑️ icon should be replaced with the ✂ icon.
-Add a tooltip: "Cut component".
-Copy the item into the clipboard, like with the copy button.
-Remove the item from its parent, like it does now.
-Save the item in the database.
+(We're supporting standard operations: cut, copy, paste and delete.)
+
 Keep the 10 most recently cut items.
 They should be available from the same \<select> as where we create new components.
+The \<option> text should include the time and date of the cut or delete, and the description of the top level item.
 
 #### Multiple Pages
 

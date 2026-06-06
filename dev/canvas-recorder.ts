@@ -2436,13 +2436,14 @@ function buildSlideComponentPanel(component: SlideComponent): HTMLElement {
   usedEl.style.cssText = "margin-bottom:0.3em;letter-spacing:0.1em";
   panel.append(usedEl);
 
-  const testString = TRANSFORM_PLACEHOLDERS.reduce(
-    (s, p) => s.replaceAll(p, "0"),
-    template,
-  );
+  const testWith = (v: string) =>
+    TRANSFORM_PLACEHOLDERS.reduce((s, p) => s.replaceAll(p, v), template);
   const statusEl = document.createElement("div");
   try {
-    new DOMMatrixReadOnly(testString || "none");
+    // Test with both 0 and 1: rotate(0) is valid but rotate(1) is not,
+    // catching templates like "rotate(𝓐)" that are missing the "deg" unit.
+    new DOMMatrixReadOnly(testWith("0") || "none");
+    new DOMMatrixReadOnly(testWith("1") || "none");
     statusEl.textContent = "✓ Valid";
     statusEl.style.color = "green";
   } catch {
