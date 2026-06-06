@@ -48,12 +48,17 @@ import { AudioBuilder } from "./audio-builder.ts";
 import {
   buildComponents,
   componentRegistry,
+  fontsAreAvailable,
   SerializedChild,
   SlideComponent,
   TraditionalTextComponent,
   TRANSFORM_PLACEHOLDERS,
 } from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
+
+// Expose for manual testing from the browser devtools console.
+(window as unknown as Record<string, unknown>).fontsAreAvailable =
+  fontsAreAvailable;
 
 /**
  * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.

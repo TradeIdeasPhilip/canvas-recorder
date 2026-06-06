@@ -333,7 +333,16 @@ class SlideDeckComponent implements Showable {
  * export name to avoid Rollup's non-Latin-1 truncation bug.
  */
 export const TRANSFORM_PLACEHOLDERS = [
-  "𝓐", "𝓑", "𝓒", "𝓓", "𝓔", "𝓕", "𝓖", "𝓗", "𝓘", "𝓙",
+  "𝓐",
+  "𝓑",
+  "𝓒",
+  "𝓓",
+  "𝓔",
+  "𝓕",
+  "𝓖",
+  "𝓗",
+  "𝓘",
+  "𝓙",
 ] as const;
 
 /**
@@ -369,8 +378,16 @@ export class SlideComponent implements Showable {
   readonly borderColorSchedule = new ColorScheduleInfo("Border Color", "blue");
 
   readonly schedules = [
-    this.placeA, this.placeB, this.placeC, this.placeD, this.placeE,
-    this.placeF, this.placeG, this.placeH, this.placeI, this.placeJ,
+    this.placeA,
+    this.placeB,
+    this.placeC,
+    this.placeD,
+    this.placeE,
+    this.placeF,
+    this.placeG,
+    this.placeH,
+    this.placeI,
+    this.placeJ,
     this.borderColorSchedule,
   ] as const;
 
@@ -380,11 +397,16 @@ export class SlideComponent implements Showable {
 
   transformStringAt(timeInMs: number): string {
     const values = [
-      this.placeA.at(timeInMs), this.placeB.at(timeInMs),
-      this.placeC.at(timeInMs), this.placeD.at(timeInMs),
-      this.placeE.at(timeInMs), this.placeF.at(timeInMs),
-      this.placeG.at(timeInMs), this.placeH.at(timeInMs),
-      this.placeI.at(timeInMs), this.placeJ.at(timeInMs),
+      this.placeA.at(timeInMs),
+      this.placeB.at(timeInMs),
+      this.placeC.at(timeInMs),
+      this.placeD.at(timeInMs),
+      this.placeE.at(timeInMs),
+      this.placeF.at(timeInMs),
+      this.placeG.at(timeInMs),
+      this.placeH.at(timeInMs),
+      this.placeI.at(timeInMs),
+      this.placeJ.at(timeInMs),
     ];
     let result = this.transformTemplate.value;
     TRANSFORM_PLACEHOLDERS.forEach((ph, i) => {
@@ -1066,4 +1088,61 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     }
     return [child];
   });
+}
+
+/**
+ * Resolves when every family in `familyNames` is confirmed available — either
+ * as a loaded web font in `document.fonts` or as a local system font from
+ * `queryLocalFonts()`.
+ *
+ * Rejects with a user-readable message listing any missing families.
+ *
+ * Intended for the recording pipeline: await this before encoding a frame so
+ * that text is never rendered with a silent fallback font.
+ *
+ * In a Node.js / CLI context (where `document` is absent) the promise
+ * resolves immediately without checking anything.
+ *
+ * If `queryLocalFonts()` is unavailable or the user denies permission, the
+ * check falls back to web fonts only — local fonts are simply not verified.
+ */
+export async function fontsAreAvailable(
+  familyNames: readonly string[],
+): Promise<void> {
+  if (typeof document === "undefined") return;
+
+  await document.fonts.ready;
+
+  const known = new Set<string>();
+  for (const face of document.fonts) {
+    known.add(
+      face.family
+        .replace(/^["']|["']$/g, "")
+        .trim()
+        .toLowerCase(),
+    );
+  }
+
+  if ("queryLocalFonts" in globalThis) {
+    try {
+      const local = await (
+        globalThis as unknown as {
+          queryLocalFonts: () => Promise<Array<{ family: string }>>;
+        }
+      ).queryLocalFonts();
+      for (const f of local) known.add(f.family.trim().toLowerCase());
+    } catch {
+      // Permission denied or API unavailable — proceed with web fonts only.
+    }
+  }
+
+  const missing = familyNames.filter(
+    (name) => !known.has(name.trim().toLowerCase()),
+  );
+  if (missing.length > 0) {
+    const list = missing.map((n) => `"${n}"`).join(", ");
+    throw new Error(
+      `Font${missing.length === 1 ? "" : "s"} not found: ${list}`,
+    );
+  }
 }
