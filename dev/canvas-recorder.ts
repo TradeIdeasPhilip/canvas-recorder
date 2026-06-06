@@ -2174,6 +2174,99 @@ function _fetchLocalFonts() {
 }
 _fetchLocalFonts();
 
+// MARK: Font coverage utilities
+
+/**
+ * Code-point ranges that virtually every local (system) font supports.
+ * Used as a whitelist when a font is not in document.fonts (i.e. a local font)
+ * so we only warn when the user's text ventures outside these safe ranges.
+ */
+const LOCAL_FONT_SAFE_RANGES: [number, number][] = [
+  [0x0020, 0x007e], // printable ASCII
+  [0x00a0, 0x00ff], // Latin-1 Supplement (é ñ ü ß …)
+  [0x2013, 0x2014], // en / em dash
+  [0x2018, 0x2019], // curly single quotes
+  [0x201c, 0x201d], // curly double quotes
+  [0x2026, 0x2026], // ellipsis
+  [0x20ac, 0x20ac], // €
+];
+
+/** Matches graphemes that are rendered by the OS emoji font, not the text font. */
+const _emojiRe = /\p{Emoji_Presentation}/u;
+
+/** Parse a CSS `unicode-range` descriptor string into [lo, hi] code-point pairs. */
+function _parseUnicodeRange(unicodeRange: string): [number, number][] {
+  return unicodeRange.split(",").flatMap((part) => {
+    part = part.trim().toUpperCase();
+    if (!part.startsWith("U+")) return [];
+    const raw = part.slice(2);
+    const dash = raw.indexOf("-");
+    if (dash >= 0) {
+      const lo = parseInt(raw.slice(0, dash), 16);
+      const hi = parseInt(raw.slice(dash + 1), 16);
+      if (isFinite(lo) && isFinite(hi)) return [[lo, hi] as [number, number]];
+    } else {
+      const v = parseInt(raw, 16);
+      if (isFinite(v)) return [[v, v] as [number, number]];
+    }
+    return [];
+  });
+}
+
+function _cpInRanges(cp: number, ranges: [number, number][]): boolean {
+  return ranges.some(([lo, hi]) => cp >= lo && cp <= hi);
+}
+
+/**
+ * Returns unique grapheme clusters from `text` that are NOT covered by `family`.
+ *
+ * - Web fonts (families present in document.fonts) are checked against their
+ *   declared `unicodeRange`.
+ * - Local / system fonts fall back to {@link LOCAL_FONT_SAFE_RANGES}.
+ * - Whitespace and emoji are always excluded from the result.
+ */
+function _uncoveredGraphemes(family: string, text: string): string[] {
+  const needle = family.toLowerCase();
+  const webRanges: [number, number][] = [];
+  for (const face of document.fonts) {
+    const faceName = face.family.replace(/^["']|["']$/g, "").trim();
+    if (faceName.toLowerCase() === needle)
+      webRanges.push(..._parseUnicodeRange(face.unicodeRange));
+  }
+  const ranges = webRanges.length > 0 ? webRanges : LOCAL_FONT_SAFE_RANGES;
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const { segment } of new Intl.Segmenter().segment(text)) {
+    if (!segment.trim() || _emojiRe.test(segment) || seen.has(segment))
+      continue;
+    seen.add(segment);
+    if (!_cpInRanges(segment.codePointAt(0)!, ranges)) result.push(segment);
+  }
+  return result;
+}
+
+/**
+ * Returns web font family names from document.fonts that cover every code
+ * point in `graphemes`, sorted alphabetically, up to `maxResults`.
+ */
+function _findAlternativeFonts(graphemes: string[], maxResults = 6): string[] {
+  if (!graphemes.length) return [];
+  const cps = graphemes.map((g) => g.codePointAt(0)!);
+
+  const familyRanges = new Map<string, [number, number][]>();
+  for (const face of document.fonts) {
+    const name = face.family.replace(/^["']|["']$/g, "").trim();
+    if (!familyRanges.has(name)) familyRanges.set(name, []);
+    familyRanges.get(name)!.push(..._parseUnicodeRange(face.unicodeRange));
+  }
+
+  return [...familyRanges]
+    .filter(([, ranges]) => cps.every((cp) => _cpInRanges(cp, ranges)))
+    .map(([name]) => name)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }))
+    .slice(0, maxResults);
+}
+
 /**
  * Build the Font Info panel shown at the top of the schedule editor when a
  * {@link TraditionalTextComponent} is selected.  Displays available styles and
@@ -2200,6 +2293,10 @@ function buildTraditionalTextPanel(
     ...new Set(component.fontWeightSchedule.schedule.map((kf) => kf.value)),
   ];
   const warnings: string[] = [];
+  const allText = component.textSchedule.schedule
+    .map((kf) => kf.value)
+    .join("");
+  const allUncovered = new Set<string>();
 
   if (scheduledFamilies.length === 0) {
     const p = document.createElement("p");
@@ -2264,6 +2361,14 @@ function buildTraditionalTextPanel(
         }
       }
     }
+    const uncovered = _uncoveredGraphemes(family, allText);
+    for (const g of uncovered) allUncovered.add(g);
+    if (uncovered.length > 0) {
+      const coverEl = document.createElement("div");
+      coverEl.style.cssText = "padding-left:1em;color:#cc8800";
+      coverEl.textContent = `⚠ May use fallback for: ${uncovered.join(" ")}`;
+      block.append(coverEl);
+    }
     panel.append(block);
   }
 
@@ -2272,6 +2377,17 @@ function buildTraditionalTextPanel(
     warnEl.style.cssText = "color:#cc8800";
     warnEl.textContent = `⚠ ${msg}`;
     panel.append(warnEl);
+  }
+
+  if (allUncovered.size > 0) {
+    const alts = _findAlternativeFonts([...allUncovered]);
+    if (alts.length > 0) {
+      const altEl = document.createElement("div");
+      altEl.style.cssText = "margin-top:0.4em;color:#666;font-size:0.9em";
+      altEl.textContent =
+        "Web fonts covering all characters: " + alts.join(", ");
+      panel.append(altEl);
+    }
   }
 
   return panel;
