@@ -3009,12 +3009,95 @@ async function openColorPickerDialog(
     return div;
   }
 
+  function buildRainbowTab(): HTMLElement {
+    const container = document.createElement("div");
+    container.append(buildSwatchGrid([...myRainbow]));
+
+    const header = document.createElement("p");
+    header.style.cssText =
+      "margin:0.7em 0 0.4em;font-size:0.82em;color:#444;font-style:italic";
+    header.textContent =
+      "These colors are all bright and distinct and all look good against a black or white background.";
+    container.append(header);
+
+    const ENTRIES: { name: string; color: string; desc: string }[] = [
+      {
+        name: "red",
+        color: myRainbow.red,
+        desc: "Standard CSS red. Full intensity.",
+      },
+      {
+        name: "orange",
+        color: myRainbow.orange,
+        desc: "Full intensity. Slightly different from CSS orange.",
+      },
+      {
+        name: "yellow",
+        color: myRainbow.yellow,
+        desc: "Slightly darkened from CSS yellow. Easier to read on a white background.",
+      },
+      {
+        name: "green",
+        color: myRainbow.green,
+        desc: "Slightly darkened from CSS green. Looks about the same brightness as the other rainbow colors.",
+      },
+      {
+        name: "cyan",
+        color: myRainbow.cyan,
+        desc: "Slightly darkened from CSS cyan. Looks about the same brightness as the other rainbow colors.",
+      },
+      {
+        name: "myBlue",
+        color: myRainbow.myBlue,
+        desc: "My favorite shade of blue — a little green-leaning, full intensity. CSS blue (#0000FF) is too dark; this is much brighter. Looks good with red and white.",
+      },
+      {
+        name: "cssBlue",
+        color: myRainbow.cssBlue,
+        desc: "Similar to standard CSS blue, slightly brighter. Distinctly darker than myBlue, which keeps the two colors separate.",
+      },
+      {
+        name: "violet",
+        color: myRainbow.violet,
+        desc: "A dark, bluish shade of purple. Full intensity. CSS violet is in the same general family.",
+      },
+      {
+        name: "magenta",
+        color: myRainbow.magenta,
+        desc: "Standard CSS magenta. Full intensity.",
+      },
+    ];
+
+    for (const { name, color, desc } of ENTRIES) {
+      const row = document.createElement("div");
+      row.style.cssText =
+        "display:flex;align-items:baseline;gap:0.35em;margin-bottom:0.2em;font-size:0.82em";
+
+      const dot = document.createElement("span");
+      dot.style.cssText =
+        `width:0.85em;height:0.85em;border-radius:2px;` +
+        `background:${color};flex-shrink:0;display:inline-block;position:relative;top:0.1em`;
+
+      const nameEl = document.createElement("strong");
+      nameEl.style.cssText = "white-space:nowrap";
+      nameEl.textContent = name + " —";
+
+      const descEl = document.createElement("span");
+      descEl.style.cssText = "color:#555;flex:1;min-width:0";
+      descEl.textContent = desc;
+
+      row.append(dot, nameEl, descEl);
+      container.append(row);
+    }
+    return container;
+  }
+
   // ── Tab switching ───────────────────────────────────────────────────────────
   type TabName = "String" | "Recent" | "Rainbow" | "RGB" | "HWB" | "HSL";
   const TAB_BUILDERS: Record<TabName, () => HTMLElement> = {
     String: buildStringTab,
     Recent: buildRecentTab,
-    Rainbow: () => buildSwatchGrid([...myRainbow]),
+    Rainbow: buildRainbowTab,
     RGB: buildRgbTab,
     HWB: buildHwbTab,
     HSL: buildHslTab,
