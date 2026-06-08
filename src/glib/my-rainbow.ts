@@ -104,3 +104,54 @@ export const myRainbow = (function () {
   result.magenta = result[8];
   return result as MyRainbow;
 })();
+
+/**
+ * Same colors as myRainbow, different format.
+ */
+export const myRainbowInfo: { name: string; color: string; desc: string }[] = [
+  {
+    name: "red",
+    color: myRainbow.red,
+    desc: "Standard CSS red. Full intensity.",
+  },
+  {
+    name: "orange",
+    color: myRainbow.orange,
+    desc: "Full intensity. Slightly different from CSS orange.",
+  },
+  {
+    name: "yellow",
+    color: myRainbow.yellow,
+    desc: "Slightly darkened from CSS yellow. Easier to read on a white background.",
+  },
+  {
+    name: "green",
+    color: myRainbow.green,
+    desc: "Slightly darkened from CSS green. Looks about the same brightness as the other rainbow colors.",
+  },
+  {
+    name: "cyan",
+    color: myRainbow.cyan,
+    desc: "Slightly darkened from CSS cyan. Looks about the same brightness as the other rainbow colors.",
+  },
+  {
+    name: "myBlue",
+    color: myRainbow.myBlue,
+    desc: "My favorite shade of blue — a little green-leaning, full intensity. CSS blue (#0000FF) is too dark; this is much brighter. Looks good with red and white.",
+  },
+  {
+    name: "cssBlue",
+    color: myRainbow.cssBlue,
+    desc: "Similar to standard CSS blue, slightly brighter. Distinctly darker than myBlue, which keeps the two colors separate.",
+  },
+  {
+    name: "violet",
+    color: myRainbow.violet,
+    desc: "A dark, bluish shade of purple. Full intensity. CSS violet is in the same general family.",
+  },
+  {
+    name: "magenta",
+    color: myRainbow.magenta,
+    desc: "Standard CSS magenta. Full intensity.",
+  },
+];

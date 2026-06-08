@@ -43,7 +43,7 @@ import {
   Keyframe,
 } from "../src/interpolate.ts";
 import { downloadBlob } from "../src/utility.ts";
-import { myRainbow } from "../src/glib/my-rainbow.ts";
+import { myRainbow, myRainbowInfo } from "../src/glib/my-rainbow.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import {
   buildComponents,
@@ -3020,55 +3020,7 @@ async function openColorPickerDialog(
       "These colors are all bright and distinct and all look good against a black or white background.";
     container.append(header);
 
-    const ENTRIES: { name: string; color: string; desc: string }[] = [
-      {
-        name: "red",
-        color: myRainbow.red,
-        desc: "Standard CSS red. Full intensity.",
-      },
-      {
-        name: "orange",
-        color: myRainbow.orange,
-        desc: "Full intensity. Slightly different from CSS orange.",
-      },
-      {
-        name: "yellow",
-        color: myRainbow.yellow,
-        desc: "Slightly darkened from CSS yellow. Easier to read on a white background.",
-      },
-      {
-        name: "green",
-        color: myRainbow.green,
-        desc: "Slightly darkened from CSS green. Looks about the same brightness as the other rainbow colors.",
-      },
-      {
-        name: "cyan",
-        color: myRainbow.cyan,
-        desc: "Slightly darkened from CSS cyan. Looks about the same brightness as the other rainbow colors.",
-      },
-      {
-        name: "myBlue",
-        color: myRainbow.myBlue,
-        desc: "My favorite shade of blue — a little green-leaning, full intensity. CSS blue (#0000FF) is too dark; this is much brighter. Looks good with red and white.",
-      },
-      {
-        name: "cssBlue",
-        color: myRainbow.cssBlue,
-        desc: "Similar to standard CSS blue, slightly brighter. Distinctly darker than myBlue, which keeps the two colors separate.",
-      },
-      {
-        name: "violet",
-        color: myRainbow.violet,
-        desc: "A dark, bluish shade of purple. Full intensity. CSS violet is in the same general family.",
-      },
-      {
-        name: "magenta",
-        color: myRainbow.magenta,
-        desc: "Standard CSS magenta. Full intensity.",
-      },
-    ];
-
-    for (const { name, color, desc } of ENTRIES) {
+    for (const { name, color, desc } of myRainbowInfo) {
       const row = document.createElement("div");
       row.style.cssText =
         "display:flex;align-items:baseline;gap:0.35em;margin-bottom:0.2em;font-size:0.82em";

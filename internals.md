@@ -1,6 +1,6 @@
 # Internals
 
-This file was automatically generated on 5/27/2026, 11:22:35 AM.
+This file was automatically generated on 6/8/2026, 3:33:45 PM.
 
 ## Fonts
 
@@ -402,3 +402,38 @@ The following characters are currently available via `Font.cursive()`:
 | U+007D | } |
 | U+007E | ~ |
 | U+25AE | ▮ |
+
+
+## Colors
+
+### Evenly Spaced
+
+| At | Color | Name |
+|---|---|---|
+| 0.0000 | rgb(255, 0, 0) | red |
+| 0.0837 | rgb(255, 128, 0) | orange |
+| 0.1996 | #d8d800 | yellow |
+| 0.2871 | #0e0 | green |
+| 0.4087 | #00d8d8 | cyan |
+| 0.5505 | rgb(0, 128, 255) | myBlue |
+| 0.6229 | rgb(32, 64, 255) | cssBlue |
+| 0.6981 | rgb(128, 0, 255) | violet |
+| 0.8338 | rgb(255, 0, 255) | magenta |
+| 1.0000 | rgb(255, 0, 0) | red |
+
+
+### Dark to Light
+
+| Lightness | Color | Name |
+|---|---|---|
+|  0.5063 | rgb(32, 64, 255) | cssBlue |
+|  0.5305 | rgb(128, 0, 255) | violet |
+|  0.6152 | rgb(0, 128, 255) | myBlue |
+|  0.6280 | rgb(255, 0, 0) | red |
+|  0.7017 | rgb(255, 0, 255) | magenta |
+|  0.7319 | rgb(255, 128, 0) | orange |
+|  0.7988 | #00d8d8 | cyan |
+|  0.8224 | #0e0 | green |
+|  0.8540 | #d8d800 | yellow |
+
+

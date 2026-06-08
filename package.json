@@ -26,6 +26,7 @@
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",
     "bezier-js": "^6.1.4",
+    "colorizr": "^5.0.1",
     "fft-js": "^0.0.12",
     "mediabunny": "^1.27.1",
     "phil-lib": "^1.7.0"
