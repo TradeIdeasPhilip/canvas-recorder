@@ -26,7 +26,6 @@ import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
-  RectangleScheduleInfo,
   SelectScheduleInfo,
   StringScalarInfo,
   StringScheduleInfo,
@@ -375,7 +374,6 @@ export class SlideComponent implements Showable {
   readonly placeH = new NumberScheduleInfo("𝓗", 1);
   readonly placeI = new NumberScheduleInfo("𝓘", 1);
   readonly placeJ = new NumberScheduleInfo("𝓙", 1);
-  readonly borderColorSchedule = new ColorScheduleInfo("Border Color", "blue");
 
   readonly schedules = [
     this.placeA,
@@ -388,7 +386,6 @@ export class SlideComponent implements Showable {
     this.placeH,
     this.placeI,
     this.placeJ,
-    this.borderColorSchedule,
   ] as const;
 
   readonly description = "Slide";
@@ -424,10 +421,6 @@ export class SlideComponent implements Showable {
       const tf = new DOMMatrixReadOnly(transformString);
       applyTransform(context, tf);
       applied = true;
-      context.lineJoin = "miter";
-      context.lineWidth = errorFont.strokeWidth;
-      context.strokeStyle = this.borderColorSchedule.at(timeInMs);
-      context.strokeRect(0, 0, 16, 9);
       const currentTf = context.getTransform();
       this.components.forEach((component) => {
         options.registerTransform?.(component, currentTf);
