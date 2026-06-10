@@ -5,6 +5,7 @@ import {
   initializedArray,
   lerp,
   makeBoundedLinear,
+  only,
   positiveModulo,
   sum,
 } from "phil-lib/misc";
@@ -41,7 +42,7 @@ import {
   samplesFromPath,
   samplesToFourier,
 } from "./peano-fourier/fourier-shared";
-import { distribute, only, philDebug } from "./utility";
+import { distribute, philDebug } from "./utility";
 import { fadeOut, slideLeft } from "./transitions";
 import "./binary-search";
 import { zipper } from "./zipper";

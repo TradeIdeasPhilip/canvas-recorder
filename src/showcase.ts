@@ -4,6 +4,7 @@ import {
   lerp,
   makeBoundedLinear,
   makeLinear,
+  only,
   positiveModulo,
   Random,
   ReadOnlyRect,
@@ -52,7 +53,7 @@ import {
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { blackBackground, distribute, only } from "./utility";
+import { blackBackground, distribute } from "./utility";
 import { zipper } from "./zipper";
 import { createSingleImageComponent } from "./slide-components";
 import {

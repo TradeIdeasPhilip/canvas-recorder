@@ -1,18 +1,6 @@
 import { sum, zip } from "phil-lib/misc";
 import { Showable } from "./showable";
 
-/**
- * Assert that `source` has exactly one element and return that element.
- * @returns The element.
- * @throws An exception if source does not have exactly 1 element.
- */
-export function only<T>(source: ArrayLike<T>): T {
-  if (source.length != 1) {
-    throw new Error("wtf");
-  }
-  return source[0];
-}
-
 // TODO copy this to phil-lib/client-misc.ts
 // Right under download() which only works on strings.
 // Or maybe join them.  The last argument could have type string|Blob.
@@ -38,6 +26,12 @@ export const blackBackground: Showable = {
   },
 };
 
+/**
+ * Like SQL's count().
+ * It counts the number of inputs that are not nullable.
+ * @param items Review each of these
+ * @returns The number of `items` that were not nullable.
+ */
 export function countPresent(items: readonly unknown[]) {
   let result = 0;
   items.forEach((item) => {
@@ -347,6 +341,15 @@ export class ArrayMap<Key, Value> {
 export const philDebug: Record<string, any> = {};
 (globalThis as any).philDebug = philDebug;
 
+/**
+ *
+ * @param x1
+ * @param y1
+ * @param x2
+ * @param y2
+ * @param x
+ * @returns
+ */
 export function lerp5(
   x1: number,
   y1: number,
