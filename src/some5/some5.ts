@@ -7,6 +7,7 @@ import { Font } from "../glib/letters-base";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { makeLineFontRatio } from "../glib/line-font";
 import { Point } from "../glib/path-shape";
+import {  transform } from "../glib/transforms";
 
 const colorfulBox: Showable = {
   description: "Colorful Box",
@@ -335,6 +336,7 @@ class MatrixLayout {
 const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
 
 {
+  const baseTransform = "translate(2px,2px)"
   const slide: Showable = {
     description: "Slide 2",
     duration: DEFAULT_SLIDE_DURATION_MS,
@@ -343,10 +345,18 @@ const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
       for (const child of this.components!) child.show(options);
       // matrixLayout.draw3x3(0.25, 5, new DOMMatrix(), options.context);
       // matrixLayout.draw3x1(5.75, 5, { x: -2, y: -3 }, options.context);
+      const {timeInMs,context}=options;
+      const originalPoint : Point = {x: -1, y:-1};
+      const progress = timeInMs / this.duration;
+      const angle = progress * 360;
+      const transformString = `rotate(${angle.toFixed(2)}deg)`
+      const matrix = new DOMMatrixReadOnly(transformString);
+      const transformedPoint = transform(originalPoint.x, originalPoint.y, matrix)
+      const originalTransform = context.getTransform();
       matrixLayout.show(
         0.25,
         5,
-        [new DOMMatrix(), "×", { x: -2, y: -3 }, "=", { x: -2, y: -3 }],
+        [matrix, "×", originalPoint, "=", transformedPoint],
         options.context,
       );
     },

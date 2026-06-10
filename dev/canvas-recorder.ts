@@ -1260,6 +1260,9 @@ const MAX_HISTORY_ENTRIES = 20;
  * code-defined starting point. Never written to IndexedDB.
  */
 const tsDefaults = new Map<string, HistoryEntry>();
+/** Set to true once initFromDB has finished. After that, saving state that
+ * matches the TS default is legitimate (the user explicitly reset to it). */
+let initFromDBComplete = false;
 
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -1340,6 +1343,22 @@ function captureDefaults(): void {
  * Refreshes the schedule editor for the currently visible chapter when done.
  */
 async function initFromDB(unloadBackup?: string | null): Promise<void> {
+  // Parse the backup map synchronously before any async work, so each per-item
+  // promise can apply the backup in the same async round as the DB read.
+  const backupMap = new Map<string, HistoryEntry>();
+  if (unloadBackup) {
+    try {
+      const parsed = JSON.parse(unloadBackup) as
+        | { key: string; entry: HistoryEntry }
+        | { key: string; entry: HistoryEntry }[];
+      for (const { key, entry } of Array.isArray(parsed) ? parsed : [parsed]) {
+        backupMap.set(key, entry);
+      }
+    } catch {
+      /* malformed backup — ignore */
+    }
+  }
+
   const seen = new Set<string>();
   const restores: Promise<void>[] = [];
   for (const item of debug) {
@@ -1354,51 +1373,29 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
     )
       continue;
     restores.push(
-      readHistory(key).then((record) => {
-        const last = record?.entries.at(-1);
-        if (!last) return;
-        if (sel.scalars?.length && last.scalars?.length) {
-          applyScalarSnapshot(sel.scalars, last.scalars);
-        }
-        if (sel.schedules?.length && last.schedules.length) {
-          applySnapshot(sel.schedules, last.schedules);
-        }
-        if (sel.components !== undefined && last.components) {
-          sel.components.length = 0;
-          sel.components.push(...buildComponents(last.components));
-        }
-      }),
-    );
-  }
-  await Promise.all(restores);
-
-  // Apply the synchronous unload backup if it's newer than what we just restored from DB.
-  // Format is an array of { key, entry } objects (old single-object format also accepted).
-  if (unloadBackup) {
-    try {
-      const parsed = JSON.parse(unloadBackup) as
-        | { key: string; entry: HistoryEntry }
-        | { key: string; entry: HistoryEntry }[];
-      const backups = Array.isArray(parsed) ? parsed : [parsed];
-      for (const { key, entry } of backups) {
-        const item = debug.find((d) => selectableKey(d.selectable) === key);
-        if (!item) continue;
-        const sel = item.selectable;
-        const record = await readHistory(key);
+      readHistory(key).then(async (record) => {
         const entries = record?.entries ?? [];
         const last = entries.at(-1);
-        const lastTs = last?.timestamp ?? 0;
-        if (entry.timestamp > lastTs) {
-          if (sel.scalars?.length && entry.scalars?.length) {
-            applyScalarSnapshot(sel.scalars, entry.scalars);
-          }
-          if (sel.schedules?.length && entry.schedules.length) {
-            applySnapshot(sel.schedules, entry.schedules);
-          }
+        const backup = backupMap.get(key);
+        const useBackup =
+          backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
+        const effective = useBackup ? backup : last;
+        if (!effective) return;
+        if (sel.scalars?.length && effective.scalars?.length) {
+          applyScalarSnapshot(sel.scalars, effective.scalars);
+        }
+        if (sel.schedules?.length && effective.schedules.length) {
+          applySnapshot(sel.schedules, effective.schedules);
+        }
+        if (sel.components !== undefined && effective.components !== undefined) {
+          sel.components.length = 0;
+          sel.components.push(...buildComponents(effective.components));
+        }
+        if (useBackup) {
           const entryJson = JSON.stringify({
-            schedules: entry.schedules,
-            scalars: entry.scalars,
-            components: entry.components,
+            schedules: backup!.schedules,
+            scalars: backup!.scalars,
+            components: backup!.components,
           });
           const lastJson = last
             ? JSON.stringify({
@@ -1408,17 +1405,17 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
               })
             : null;
           if (entryJson !== lastJson) {
-            entries.push(entry);
+            entries.push(backup!);
             while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
             await writeHistory(key, entries);
           }
         }
-      }
-    } catch {
-      /* malformed backup — ignore */
-    }
+      }),
+    );
   }
+  await Promise.all(restores);
 
+  initFromDBComplete = true;
   const currentSel = debug[select.selectedIndex]?.selectable;
   if (currentSel) {
     updateComponentEditor(currentSel);
@@ -1554,18 +1551,20 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     });
     if (prevJson === newJson) return;
   }
-  // Skip saving if the state is still the unmodified TypeScript defaults.
-  // This prevents auto-saves (visibilitychange on tab-hide, Vite hot-reload
-  // beforeunload) from overwriting a good DB entry with the page-load default
-  // before initFromDB has had a chance to restore from the DB.
-  const tsDefault = tsDefaults.get(key);
-  if (tsDefault) {
-    const defaultJson = JSON.stringify({
-      schedules: tsDefault.schedules,
-      scalars: tsDefault.scalars,
-      components: tsDefault.components,
-    });
-    if (defaultJson === newJson) return;
+  // Skip saving if the state is still the unmodified TypeScript defaults,
+  // but only during the early-load window before initFromDB has finished.
+  // After that, the user may have deliberately reset to defaults (e.g. deleted
+  // all components), and we must persist that change.
+  if (!initFromDBComplete) {
+    const tsDefault = tsDefaults.get(key);
+    if (tsDefault) {
+      const defaultJson = JSON.stringify({
+        schedules: tsDefault.schedules,
+        scalars: tsDefault.scalars,
+        components: tsDefault.components,
+      });
+      if (defaultJson === newJson) return;
+    }
   }
   const entry: HistoryEntry = {
     timestamp: Date.now(),
@@ -1663,7 +1662,7 @@ function saveOnUnload() {
       : undefined;
     const tsDefault = tsDefaults.get(key);
     const newJson = JSON.stringify({ schedules, scalars, components });
-    const defaultJson = tsDefault
+    const defaultJson = !initFromDBComplete && tsDefault
       ? JSON.stringify({
           schedules: tsDefault.schedules,
           scalars: tsDefault.scalars,
