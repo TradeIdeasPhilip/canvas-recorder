@@ -6,13 +6,13 @@ import {
   parseFloatX,
   parseIntX,
   ReadOnlyRect,
-} from "phil-lib/misc.ts";
+} from "phil-lib/misc";
 import {
   AnimationLoop,
   getById,
   querySelector,
   querySelectorAll,
-} from "phil-lib/client-misc.ts";
+} from "phil-lib/client-misc";
 import {
   Output,
   StreamTarget,
