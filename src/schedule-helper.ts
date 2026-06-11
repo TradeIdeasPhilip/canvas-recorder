@@ -35,6 +35,10 @@ export class StringScheduleInfo {
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }
+  set(singleValue: string) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
+  }
   /**
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
@@ -60,11 +64,23 @@ export class StringScheduleInfo {
  *
  * This class implements ScheduleInfo.
  * TypeScript isn't cooperating, but it is true.
+ *
+ * `T` contains all of the legal options.
+ * It is usually inferred from the `choices` argument to the constructor.
+ *
+ * `U` is unfortunately required to keep TypeScript happy.
+ * This is the type of the *initial* value or values in the schedule.
+ * This will be a subset of `T`.
+ * Just ignore `U` and focus on `T`.
  */
 export class SelectScheduleInfo<T extends string, U extends T> {
   readonly type = "select";
-  readonly choices: readonly string[];
-  readonly schedule: Keyframe<string>[];
+  readonly choices: readonly T[];
+  readonly schedule: Keyframe<T>[];
+  set(singleValue: T) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
+  }
   /**
    *
    * @param description Displayed to the user and used as a database key.
@@ -116,6 +132,10 @@ export class ColorScheduleInfo {
   at(timeInMs: number): string {
     return interpolateColors(timeInMs, this.schedule);
   }
+  set(singleValue: string) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
+  }
   /**
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
@@ -140,6 +160,10 @@ export class NumberScheduleInfo {
   readonly schedule: Keyframe<number>[];
   at(timeInMs: number): number {
     return interpolateNumbers(timeInMs, this.schedule);
+  }
+  set(singleValue: number) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
   }
   /**
    * @param description Human-readable label shown in the visual editor.
@@ -187,7 +211,12 @@ export class NumberDurationScheduleInfo {
 }
 
 export class RectangleScheduleInfo {
+  set(singleValue: ReadOnlyRect) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
+  }
   readonly type = "rectangle";
+  readonly schedule: Keyframe<ReadOnlyRect>[];
   at(timeInMs: number): ReadOnlyRect {
     return interpolateRects(timeInMs, this.schedule);
   }
@@ -200,8 +229,14 @@ export class RectangleScheduleInfo {
    */
   constructor(
     readonly description: string,
-    readonly schedule: Keyframe<ReadOnlyRect>[],
-  ) {}
+    schedule: readonly Keyframe<ReadOnlyRect>[] | ReadOnlyRect,
+  ) {
+    if (schedule instanceof Array) {
+      this.schedule = schedule.slice();
+    } else {
+      this.schedule = [{ time: 0, value: schedule }];
+    }
+  }
 }
 
 export class PointScheduleInfo {
@@ -221,7 +256,7 @@ export class PointScheduleInfo {
    */
   constructor(
     readonly description: string,
-    schedule: Keyframe<Point>[] | Point,
+    schedule: readonly Keyframe<Point>[] | Point,
   ) {
     if (schedule instanceof Array) {
       this.schedule = schedule.slice();
@@ -236,7 +271,10 @@ export class PointScheduleInfo {
 // value instead of a keyframe array.  They satisfy the ScalarInfo union type.
 
 /** A string scalar field. */
-export class StringScalarInfo implements Extract<ScalarInfo, { type: "string" }> {
+export class StringScalarInfo implements Extract<
+  ScalarInfo,
+  { type: "string" }
+> {
   readonly type = "string" as const;
   value: string;
   constructor(

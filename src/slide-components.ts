@@ -26,6 +26,7 @@ import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
+  RectangleScheduleInfo,
   SelectScheduleInfo,
   StringScalarInfo,
   StringScheduleInfo,
@@ -438,10 +439,6 @@ export class SlideComponent implements Showable {
   }
 }
 
-export function createSlideComponent(): Showable {
-  return new SlideComponent();
-}
-
 /**
  * This is needed as a default in some places but should never actually be used.
  */
@@ -683,99 +680,89 @@ export class TextFormatComponent implements Showable {
   }
 }
 
-export function createTextComponent(
-  initialColorSchedule?: Keyframe<string>[],
-  initialRectSchedule?: Keyframe<ReadOnlyRect>[],
-  initialTextSchedule?: Keyframe<string>[],
-): Showable {
-  const colorSchedule: Keyframe<string>[] = initialColorSchedule ?? [
-    { time: 0, value: "#888" },
-  ];
-  const rectSchedule: Keyframe<ReadOnlyRect>[] = initialRectSchedule ?? [
-    { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
-  ];
-  const textSchedule: Keyframe<string>[] = initialTextSchedule ?? [
-    { time: 0, value: "Type Here" },
-  ];
-  const sizeSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
-  const boldnessSchedule: Keyframe<number>[] = [{ time: 0, value: 1 }];
-  const obliquenessSchedule: Keyframe<number>[] = [{ time: 0, value: 0 }];
-  const alignmentChoices = ["left", "center", "right", "justify"] as const;
-  type Alignment = (typeof alignmentChoices)[number];
-  const alignmentSchedule: Keyframe<Alignment>[] = [{ time: 0, value: "left" }];
-  let cachedFont: undefined | CachedFont;
-  let cachedPath:
+export class TextComponent implements Showable {
+  readonly description = "Text";
+  readonly duration = 0;
+  readonly colorSchedule = new ColorScheduleInfo("Color", "#888");
+  readonly rectSchedule = new RectangleScheduleInfo("Rect", {
+    x: 2,
+    y: 2,
+    width: 6,
+    height: 4,
+  });
+  readonly textSchedule = new StringScheduleInfo("Text", "Type Here");
+  readonly sizeSchedule = new NumberScheduleInfo("Size", 1);
+  readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
+  readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
+  readonly alignmentSchedule = new SelectScheduleInfo("Alignment", "left", [
+    "left",
+    "center",
+    "right",
+    "justify",
+  ]);
+  readonly schedules = [
+    this.colorSchedule,
+    this.rectSchedule,
+    this.textSchedule,
+    this.sizeSchedule,
+    this.boldnessSchedule,
+    this.obliquenessSchedule,
+    this.alignmentSchedule,
+  ] as const;
+  #cachedFont: undefined | CachedFont;
+  #cachedPath:
     | undefined
     | {
         readonly cachedFont: CachedFont;
         readonly width: number;
         readonly text: string;
-        readonly alignment: Alignment;
+        readonly alignment: InstanceType<
+          typeof TextComponent
+        >["alignmentSchedule"]["choices"][0];
         readonly path: Path2D;
       };
-  return {
-    description: "Text",
-    duration: 0,
-    schedules: [
-      { description: "Color", type: "color", schedule: colorSchedule },
-      { description: "Rect", type: "rectangle", schedule: rectSchedule },
-      { description: "Text", type: "string", schedule: textSchedule },
-      { description: "Size", type: "number", schedule: sizeSchedule },
-      { description: "Boldness", type: "number", schedule: boldnessSchedule },
-      {
-        description: "Obliqueness",
-        type: "number",
-        schedule: obliquenessSchedule,
-      },
-      {
-        description: "Alignment",
-        type: "select",
-        choices: alignmentChoices,
-        schedule: alignmentSchedule,
-      },
-    ],
-    show({ context, timeInMs }) {
-      const color = interpolateColors(timeInMs, colorSchedule);
-      const rect = interpolateRects(timeInMs, rectSchedule);
-      const text = discreteKeyframes(timeInMs, textSchedule);
-      const size = interpolateNumbers(timeInMs, sizeSchedule);
-      const boldness = interpolateNumbers(timeInMs, boldnessSchedule);
-      const obliqueness = interpolateNumbers(timeInMs, obliquenessSchedule);
-      const alignment = discreteKeyframes(timeInMs, alignmentSchedule);
-      context.strokeStyle = color;
-      if (
-        !cachedFont ||
-        cachedFont.size != size ||
-        cachedFont.boldness != boldness ||
-        cachedFont.obliqueness != obliqueness
-      ) {
-        const font = makeLineFontRatio(size, boldness).oblique(obliqueness);
-        cachedFont = { font, size, boldness, obliqueness };
-      }
-      if (
-        !cachedPath ||
-        cachedPath.cachedFont != cachedFont ||
-        cachedPath.width != rect.width ||
-        cachedPath.text != text ||
-        cachedPath.alignment != alignment
-      ) {
-        const path = ParagraphLayout.singlePathShape({
-          font: cachedFont.font,
-          text,
-          width: rect.width,
-          alignment,
-        }).canvasPath;
-        cachedPath = { cachedFont, path, text, width: rect.width, alignment };
-      }
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = cachedFont.font.strokeWidth;
-      const matrix = context.getTransform();
-      context.translate(rect.x, rect.y);
-      context.stroke(cachedPath.path);
-      context.setTransform(matrix);
-    },
-  };
+  show({ context, timeInMs }:ShowOptions) {
+    const color =this.colorSchedule.at(timeInMs,);
+    const rect = this.rectSchedule.at  (timeInMs, );
+    const text =this.textSchedule .at(timeInMs, );
+    const size =this.sizeSchedule. at(timeInMs, );
+    const boldness = this.boldnessSchedule.at(timeInMs, );
+    const obliqueness = this.obliquenessSchedule.at(timeInMs, );
+    const alignment =this. alignmentSchedule.at(timeInMs, );
+    context.strokeStyle = color;
+    if (
+      !this.#cachedFont ||
+      this.#cachedFont.size != size ||
+      this.#cachedFont.boldness != boldness ||
+      this.#cachedFont.obliqueness != obliqueness
+    ) {
+      const font = makeLineFontRatio(size, boldness).oblique(obliqueness);
+      this.#cachedFont = { font, size, boldness, obliqueness };
+    }
+    if (
+      !this.#cachedPath ||
+      this.#cachedPath.cachedFont != this.#cachedFont ||
+      this.#cachedPath.width != rect.width ||
+      this.#cachedPath.text != text ||
+      this.#cachedPath.alignment != alignment
+    ) {
+      const path = ParagraphLayout.singlePathShape({
+        font: this.#cachedFont.font,
+        text,
+        width: rect.width,
+        alignment,
+      }).canvasPath;
+      const cachedFont = this.#cachedFont;
+      this.#cachedPath = { cachedFont, path, text, width: rect.width, alignment };
+    }
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = this.#cachedFont.font.strokeWidth;
+    const matrix = context.getTransform();
+    context.translate(rect.x, rect.y);
+    context.stroke(this.#cachedPath.path);
+    context.setTransform(matrix);
+  }
 }
 
 /**
@@ -1041,7 +1028,7 @@ export function createFunctionGraphComponent(
 export const componentRegistry = new Map<string, () => Showable>([
   ["Slide Deck", () => new SlideDeckComponent()],
   ["Slide", () => new SlideComponent()],
-  ["Text", () => createTextComponent()],
+  ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
   ["Rectangle", () => createRectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],

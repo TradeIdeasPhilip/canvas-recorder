@@ -1,19 +1,24 @@
 import { MakeShowableInSeries, Showable } from "../showable";
 import { makeShadowDemo, DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
 import { myRainbow } from "../glib/my-rainbow";
-import { buildComponents, componentRegistry } from "../slide-components";
+import {
+  buildComponents,
+  componentRegistry,
+  TextComponent,
+} from "../slide-components";
 import slide1 from "./slide1.json";
 import { Font } from "../glib/letters-base";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { makeLineFontRatio } from "../glib/line-font";
 import { Point } from "../glib/path-shape";
-import {  transform } from "../glib/transforms";
+import { applyTransform, transform } from "../glib/transforms";
+import { easeIn } from "../interpolate";
 
 const colorfulBox: Showable = {
   description: "Colorful Box",
   duration: 0,
   show({ context }) {
-    context.lineWidth = 0.1;
+    context.lineWidth = 0.25;
     context.lineCap = "square";
     context.strokeStyle = myRainbow.myBlue;
     context.beginPath();
@@ -336,7 +341,13 @@ class MatrixLayout {
 const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
 
 {
-  const baseTransform = "translate(2px,2px)"
+  const baseTransform = "translate(2px,2px)";
+  const textForTransform = new TextComponent();
+  textForTransform.rectSchedule.set({ x: 8, y: 0.5, width: 7.5, height: 0 });
+  textForTransform.alignmentSchedule.set("right");
+  textForTransform.colorSchedule.set("black");
+  textForTransform.sizeSchedule.set(1 / 2);
+  console.log(textForTransform);
   const slide: Showable = {
     description: "Slide 2",
     duration: DEFAULT_SLIDE_DURATION_MS,
@@ -345,20 +356,30 @@ const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
       for (const child of this.components!) child.show(options);
       // matrixLayout.draw3x3(0.25, 5, new DOMMatrix(), options.context);
       // matrixLayout.draw3x1(5.75, 5, { x: -2, y: -3 }, options.context);
-      const {timeInMs,context}=options;
-      const originalPoint : Point = {x: -1, y:-1};
+      const { timeInMs, context } = options;
+      const originalPoint: Point = { x: -1, y: -1 };
       const progress = timeInMs / this.duration;
       const angle = progress * 360;
-      const transformString = `rotate(${angle.toFixed(2)}deg)`
+      const transformString = `rotate(${angle.toFixed(2)}deg)`;
       const matrix = new DOMMatrixReadOnly(transformString);
-      const transformedPoint = transform(originalPoint.x, originalPoint.y, matrix)
-      const originalTransform = context.getTransform();
+      const transformedPoint = transform(
+        originalPoint.x,
+        originalPoint.y,
+        matrix,
+      );
       matrixLayout.show(
         0.25,
         5,
         [matrix, "×", originalPoint, "=", transformedPoint],
         options.context,
       );
+      const originalTransform = context.getTransform();
+      context.translate(4, 2);
+      applyTransform(context, matrix);
+      colorfulBox.show(options);
+      context.setTransform(originalTransform);
+      textForTransform.textSchedule.set(transformString);
+      textForTransform.show(options);
     },
   };
   slideList.add(slide);
