@@ -1,59 +1,49 @@
 import { MakeShowableInSeries, Showable } from "../showable";
 import { makeShadowDemo, DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
 import { myRainbow } from "../glib/my-rainbow";
-import {
-  buildComponents,
-  componentRegistry,
-  TextComponent,
-} from "../slide-components";
+import { buildComponents, TextComponent } from "../slide-components";
 import slide1 from "./slide1.json";
 import { Font } from "../glib/letters-base";
 import { ParagraphLayout } from "../glib/paragraph-layout";
 import { makeLineFontRatio } from "../glib/line-font";
 import { Point } from "../glib/path-shape";
 import { applyTransform, transform } from "../glib/transforms";
-import { easeIn } from "../interpolate";
+import { ReadOnlyRect } from "phil-lib/misc";
 
-const colorfulBox: Showable = {
-  description: "Colorful Box",
-  duration: 0,
-  show({ context }) {
-    context.lineWidth = 0.25;
-    context.lineCap = "square";
-    context.strokeStyle = myRainbow.myBlue;
-    context.beginPath();
-    context.moveTo(-1, -1);
-    context.lineTo(1, -1);
-    context.stroke();
-    context.strokeStyle = myRainbow.cssBlue;
-    context.beginPath();
-    context.moveTo(-1, -1);
-    context.lineTo(-1, 1);
-    context.stroke();
-    context.strokeStyle = myRainbow.orange;
-    context.beginPath();
-    context.moveTo(-1, 1);
-    context.lineTo(1, 1);
-    context.stroke();
-    context.strokeStyle = myRainbow.red;
-    context.beginPath();
-    context.moveTo(1, -1);
-    context.lineTo(1, 1);
-    context.stroke();
-    context.strokeStyle = myRainbow.magenta;
-    context.beginPath();
-    context.moveTo(-1, 0);
-    context.lineTo(1, 0);
-    context.stroke();
-    context.strokeStyle = myRainbow.violet;
-    context.beginPath();
-    context.moveTo(0, -1);
-    context.lineTo(0, 1);
-    context.stroke();
-  },
-};
-
-componentRegistry.set("Colorful Box", () => colorfulBox);
+function showColorfulBox(context: CanvasRenderingContext2D, lineWidth: number) {
+  context.lineWidth = lineWidth;
+  context.lineCap = "square";
+  context.strokeStyle = myRainbow.cssBlue;
+  context.beginPath();
+  context.moveTo(-1, 0);
+  context.lineTo(1, 0);
+  context.stroke();
+  context.strokeStyle = myRainbow.red;
+  context.beginPath();
+  context.moveTo(-1, -1);
+  context.lineTo(-1, 1);
+  context.stroke();
+  context.strokeStyle = myRainbow.yellow;
+  context.beginPath();
+  context.moveTo(1, -1);
+  context.lineTo(1, 1);
+  context.stroke();
+  context.strokeStyle = myRainbow.orange;
+  context.beginPath();
+  context.moveTo(0, -1);
+  context.lineTo(0, 1);
+  context.stroke();
+  context.strokeStyle = myRainbow.violet;
+  context.beginPath();
+  context.moveTo(-1, -1);
+  context.lineTo(1, -1);
+  context.stroke();
+  context.strokeStyle = myRainbow.myBlue;
+  context.beginPath();
+  context.moveTo(-1, 1);
+  context.lineTo(1, 1);
+  context.stroke();
+}
 
 function makeEmptySlide(description: string): Showable {
   return {
@@ -338,24 +328,67 @@ class MatrixLayout {
   }
 }
 
-const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
+const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 4, 1.2));
 
 {
-  const baseTransform = "translate(2px,2px)";
   const textForTransform = new TextComponent();
-  textForTransform.rectSchedule.set({ x: 8, y: 0.5, width: 7.5, height: 0 });
-  textForTransform.alignmentSchedule.set("right");
+  textForTransform.rectSchedule.set({ x: 0.5, y: 0.25, width: 15, height: 0 });
+  textForTransform.alignmentSchedule.set("center");
   textForTransform.colorSchedule.set("black");
-  textForTransform.sizeSchedule.set(1 / 2);
+  textForTransform.sizeSchedule.set(1 / 3);
   console.log(textForTransform);
   const slide: Showable = {
     description: "Slide 2",
     duration: DEFAULT_SLIDE_DURATION_MS,
     components: [],
     show(options) {
+      const GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
+      const GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
+      const GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
+      const drawGrid = (cover: ReadOnlyRect, color: string) => {
+        function values(from: number, distance: number) {
+          const exclusionZone = 0.25;
+          const result: number[] = [];
+          for (
+            let value = Math.ceil((from + exclusionZone) * 2) / 2;
+            value + exclusionZone < from + distance;
+            value += 0.5
+          ) {
+            result.push(value);
+          }
+          return result;
+        }
+        function prepare(value: number) {
+          if (value == Math.floor(value)) {
+            context.setLineDash([]);
+          } else {
+            context.setLineDash([0.02]);
+          }
+          if (value == 0) {
+            context.lineWidth = 0.02;
+          } else {
+            context.lineWidth = 0.01;
+          }
+        }
+        context.strokeStyle = color;
+        context.lineCap = "butt";
+        values(cover.x, cover.width).forEach((x) => {
+          prepare(x);
+          context.beginPath();
+          context.moveTo(x, cover.y);
+          context.lineTo(x, cover.y + cover.height);
+          context.stroke();
+        });
+        values(cover.y, cover.height).forEach((y) => {
+          prepare(y);
+          context.beginPath();
+          context.moveTo(cover.x, y);
+          context.lineTo(cover.x + cover.width, y);
+          context.stroke();
+        });
+        context.setLineDash([]);
+      };
       for (const child of this.components!) child.show(options);
-      // matrixLayout.draw3x3(0.25, 5, new DOMMatrix(), options.context);
-      // matrixLayout.draw3x1(5.75, 5, { x: -2, y: -3 }, options.context);
       const { timeInMs, context } = options;
       const originalPoint: Point = { x: -1, y: -1 };
       const progress = timeInMs / this.duration;
@@ -369,14 +402,21 @@ const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 3, 1.2));
       );
       matrixLayout.show(
         0.25,
-        5,
+        6.75,
         [matrix, "×", originalPoint, "=", transformedPoint],
         options.context,
       );
       const originalTransform = context.getTransform();
-      context.translate(4, 2);
+      context.translate(2, 3.75);
+      drawGrid({ x: -1.5, y: -2.5, width: 3, height: 5 }, GRID_CYAN);
+      context.lineWidth = 0.25;
+      showColorfulBox(context, 0.25);
+      context.setTransform(originalTransform);
+      context.translate(10, 3.75);
+      drawGrid({ x: -5.5, y: -2.5, width: 11, height: 5 }, GRID_GREEN);
+      context.lineWidth = 0.25;
       applyTransform(context, matrix);
-      colorfulBox.show(options);
+      showColorfulBox(context, 0.25);
       context.setTransform(originalTransform);
       textForTransform.textSchedule.set(transformString);
       textForTransform.show(options);
