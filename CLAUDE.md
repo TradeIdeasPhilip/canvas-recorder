@@ -19,6 +19,7 @@ npm run internals  # Regenerate internals.md (font character tables, etc.)
 No test runner. No linter script. TypeScript errors surface in the IDE and on `npm run build`.
 
 Open the app at:
+
 - `http://localhost:5173/canvas-recorder.html?toShow=<key>` — specific video
 - `http://localhost:5173/canvas-recorder.html` — selection menu of all registered videos
 
@@ -39,13 +40,14 @@ Everything renderable is a `Showable` (defined in `src/showable.ts`):
 
 ```ts
 type Showable = {
-  description: string;   // shown in the GUI tree
-  duration: number;      // milliseconds; must be > 0 in a series
+  description: string; // shown in the GUI tree
+  duration: number; // milliseconds; must be > 0 in a series
   show(options: ShowOptions): void;
-}
+};
 ```
 
 `ShowOptions` provides:
+
 - `context` — the `CanvasRenderingContext2D` (16×9 space)
 - `timeInMs` — time within this showable (0 → duration)
 - `globalTime` — wall-clock ms from program start (use for effects that must not reset on loop)
@@ -54,13 +56,13 @@ type Showable = {
 
 ## Composing Showables
 
-| Class | Purpose |
-|---|---|
-| `MakeShowableInSeries` | Plays children one after another. `duration=0` children are hidden in the GUI — give them nonzero duration. |
-| `MakeShowableInParallel` | Plays all children simultaneously; total duration = max of children. `duration=0` children are fine here. |
-| `makeRepeater(showable, count)` | Loops a showable. `count` can be `Infinity`. |
-| `addMargins(base, extra)` | Adds hidden/frozen time before or after a showable. |
-| `reschedule(base, duration, offset)` | Changes duration and/or start time. |
+| Class                                | Purpose                                                                                                     |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `MakeShowableInSeries`               | Plays children one after another. `duration=0` children are hidden in the GUI — give them nonzero duration. |
+| `MakeShowableInParallel`             | Plays all children simultaneously; total duration = max of children. `duration=0` children are fine here.   |
+| `makeRepeater(showable, count)`      | Loops a showable. `count` can be `Infinity`.                                                                |
+| `addMargins(base, extra)`            | Adds hidden/frozen time before or after a showable.                                                         |
+| `reschedule(base, duration, offset)` | Changes duration and/or start time.                                                                         |
 
 ## Seamless Loops
 
@@ -74,6 +76,7 @@ const relativeOffset = (timeInMs / DURATION_MS) * N;
 ## Key Libraries (`src/`)
 
 **`src/interpolate.ts`** — animation math:
+
 - `Keyframe<T>` / `timedKeyframes()` — time-based keyframe lookup with interpolation
 - `interpolateNumbers/Colors/Points/Rects()` — typed interpolators
 - `ease`, `easeIn`, `easeOut`, `easeAndBack` — standard easing curves
@@ -81,6 +84,7 @@ const relativeOffset = (timeInMs / DURATION_MS) * N;
 
 **`src/stroke-colors.ts`** — `strokeColors(options)`:
 Strokes a `PathShape` with multiple colors, cycling through them. Key options:
+
 - `pathShape` — a `PathShape` (not a raw `Path2D`)
 - `relativeOffset` — shift the color pattern along the path (animate for moving colors)
 - `repeatCount` — how many full rainbow cycles appear along the path at once
@@ -88,6 +92,7 @@ Strokes a `PathShape` with multiple colors, cycling through them. Key options:
 - `colors` — defaults to `myRainbow`
 
 **`src/glib/path-shape.ts`** — `PathShape` and friends:
+
 - `LCommand(x0, y0, x, y)` — line segment
 - `QCommand` / `CCommand` — quadratic/cubic Bézier
 - `PathBuilder` — fluent builder for complex paths
@@ -95,11 +100,12 @@ Strokes a `PathShape` with multiple colors, cycling through them. Key options:
 - `PathShape` methods: `.translate()`, `.transform()`, `.reverse()`, `.scale()`, `.canvasPath` (→ `Path2D`)
 
 **`src/glib/transforms.ts`** — coordinate mapping:
+
 - `panAndZoom(srcRect, destRect, mode)` — fits one rect into another (like SVG `preserveAspectRatio`)
 - `applyTransform(context, matrix)` — applies a `DOMMatrix` to a context
 
 **`src/glib/grid.ts`** — `drawGrid(context, { destRect, viewRect, ... })`:
-Draws a labeled Cartesian grid. Uses math y-up convention. Labels render *outside* `destRect`, so inset it from canvas edges to keep them visible.
+Draws a labeled Cartesian grid. Uses math y-up convention. Labels render _outside_ `destRect`, so inset it from canvas edges to keep them visible.
 
 **`src/glib/my-rainbow.ts`** — `myRainbow`: a curated array of colors used as the default palette throughout.
 
@@ -127,3 +133,7 @@ src/interpolate.ts       ← keyframes and easing
 src/stroke-colors.ts     ← multi-color path stroking
 docs/                    ← production build output (served by GitHub Pages)
 ```
+
+## Comments
+
+The user likes JSDoc style comments and VS Code's "MARK:" style comments.

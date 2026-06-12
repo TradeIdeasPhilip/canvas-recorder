@@ -106,6 +106,66 @@ export const myRainbow = (function () {
 })();
 
 /**
+ * Keyframes for cycling through all nine rainbow colors with **equal time**
+ * per color.  Times run 0–1; the last entry loops back to red so animations
+ * are seamless.  Compatible with `interpolateColors()` and
+ * `addRainbowGradientStops()`.
+ */
+export const myRainbowEqualKeyframes: readonly {
+  time: number;
+  value: string;
+}[] = [
+  { time: 0 / 9, value: myRainbow.red },
+  { time: 1 / 9, value: myRainbow.orange },
+  { time: 2 / 9, value: myRainbow.yellow },
+  { time: 3 / 9, value: myRainbow.green },
+  { time: 4 / 9, value: myRainbow.cyan },
+  { time: 5 / 9, value: myRainbow.myBlue },
+  { time: 6 / 9, value: myRainbow.cssBlue },
+  { time: 7 / 9, value: myRainbow.violet },
+  { time: 8 / 9, value: myRainbow.magenta },
+  { time: 1, value: myRainbow.red },
+];
+
+/**
+ * Keyframes for cycling through all nine rainbow colors with time proportional
+ * to **perceptual distance** (ΔE via colorizr).  Colors that look more
+ * different get more time; visually similar neighbors get less.  Times run
+ * 0–1; positions are pre-computed from `internals.md` and baked in here so
+ * there is no runtime colorizr dependency.  Compatible with
+ * `interpolateColors()` and `addRainbowGradientStops()`.
+ */
+export const myRainbowPerceptualKeyframes: readonly {
+  time: number;
+  value: string;
+}[] = [
+  { time: 0.0000, value: myRainbow.red },
+  { time: 0.0837, value: myRainbow.orange },
+  { time: 0.1996, value: myRainbow.yellow },
+  { time: 0.2871, value: myRainbow.green },
+  { time: 0.4087, value: myRainbow.cyan },
+  { time: 0.5505, value: myRainbow.myBlue },
+  { time: 0.6229, value: myRainbow.cssBlue },
+  { time: 0.6981, value: myRainbow.violet },
+  { time: 0.8338, value: myRainbow.magenta },
+  { time: 1.0000, value: myRainbow.red },
+];
+
+/**
+ * Adds gradient color stops from a keyframe array.  The `time` field of each
+ * keyframe is used directly as the gradient offset (must be in [0, 1]).
+ * Works with both `myRainbowEqualKeyframes` and `myRainbowPerceptualKeyframes`.
+ */
+export function addRainbowGradientStops(
+  gradient: { addColorStop(offset: number, color: string): void },
+  keyframes: readonly { time: number; value: string }[],
+): void {
+  for (const { time, value } of keyframes) {
+    gradient.addColorStop(time, value);
+  }
+}
+
+/**
  * Same colors as myRainbow, different format.
  */
 export const myRainbowInfo: { name: string; color: string; desc: string }[] = [
