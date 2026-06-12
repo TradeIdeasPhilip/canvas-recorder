@@ -1,4 +1,4 @@
-import { MakeShowableInSeries, Showable } from "../showable";
+import { MakeShowableInSeries, Showable, ShowOptions } from "../showable";
 import { makeShadowDemo, DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
 import { myRainbow } from "../glib/my-rainbow";
 import { buildComponents, TextComponent } from "../slide-components";
@@ -9,8 +9,15 @@ import { makeLineFontRatio } from "../glib/line-font";
 import { Point } from "../glib/path-shape";
 import { applyTransform, transform } from "../glib/transforms";
 import { ReadOnlyRect } from "phil-lib/misc";
+import { NumberScheduleInfo } from "../schedule-helper";
+import { ease } from "../interpolate";
 
 function showColorfulBox(context: CanvasRenderingContext2D, lineWidth: number) {
+  context.save();
+  context.beginPath();
+  context.rect(-2, -2, 4, 4);
+  context.arc(-1, -1, lineWidth / 2.4, 0, Math.PI * 2);
+  context.clip("evenodd");
   context.lineWidth = lineWidth;
   context.lineCap = "square";
   context.strokeStyle = myRainbow.violet;
@@ -44,6 +51,7 @@ function showColorfulBox(context: CanvasRenderingContext2D, lineWidth: number) {
   context.moveTo(0, -1);
   context.lineTo(0, 1);
   context.stroke();
+  context.restore();
 }
 
 function makeEmptySlide(description: string): Showable {
@@ -59,6 +67,7 @@ function makeEmptySlide(description: string): Showable {
 
 const slideList = new MakeShowableInSeries("SoME5");
 
+// MARK: Slide 1
 {
   const slide: Showable = {
     description: "Slide 1",
@@ -432,104 +441,165 @@ class MatrixLayout {
 
 const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 4, 1.2));
 
-{
-  const textForTransform = new TextComponent();
-  textForTransform.rectSchedule.set({ x: 0.5, y: 0.25, width: 15, height: 0 });
-  textForTransform.alignmentSchedule.set("center");
-  textForTransform.colorSchedule.set(myRainbow.magenta);
-  textForTransform.sizeSchedule.set(1 / 3);
-  console.log(textForTransform);
-  const slide: Showable = {
-    description: "Slide 2",
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    components: [],
-    show(options) {
-      const GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
-      const GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
-      const GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
-      const drawGrid = (cover: ReadOnlyRect, color: string) => {
-        function values(from: number, distance: number) {
-          const exclusionZone = 0.05;
-          const result: number[] = [];
-          for (
-            let value = Math.ceil((from + exclusionZone) * 2) / 2;
-            value + exclusionZone < from + distance;
-            value += 0.5
-          ) {
-            result.push(value);
-          }
-          return result;
-        }
-        function prepare(value: number) {
-          if (value == Math.floor(value)) {
-            context.setLineDash([]);
-          } else {
-            context.setLineDash([0.02]);
-          }
-          if (value == 0) {
-            context.lineWidth = 0.02;
-          } else {
-            context.lineWidth = 0.01;
-          }
-        }
-        context.strokeStyle = color;
-        context.lineCap = "butt";
-        values(cover.x, cover.width).forEach((x) => {
-          prepare(x);
-          context.beginPath();
-          context.moveTo(x, cover.y);
-          context.lineTo(x, cover.y + cover.height);
-          context.stroke();
-        });
-        values(cover.y, cover.height).forEach((y) => {
-          prepare(y);
-          context.beginPath();
-          context.moveTo(cover.x, y);
-          context.lineTo(cover.x + cover.width, y);
-          context.stroke();
-        });
+/**
+ * Top is a string version of the transform.
+ * Left is the untransformed shape.
+ * Right is the transformed shape.
+ * Bottom is an equation with matrices.
+ */
+class BeforeAndAfter implements Showable {
+  static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
+  static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
+  static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
+  readonly duration = DEFAULT_SLIDE_DURATION_MS;
+  readonly components: Showable[] = [];
+  readonly textForTransform = new TextComponent();
+  constructor(public readonly description: string) {
+    this.textForTransform.rectSchedule.set({
+      x: 0.5,
+      y: 0.25,
+      width: 15,
+      height: 0,
+    });
+    this.textForTransform.alignmentSchedule.set("center");
+    this.textForTransform.colorSchedule.set(myRainbow.magenta);
+    this.textForTransform.sizeSchedule.set(1 / 3);
+  }
+  private drawGrid(
+    cover: ReadOnlyRect,
+    color: string,
+    context: CanvasRenderingContext2D,
+  ) {
+    function values(from: number, distance: number) {
+      const exclusionZone = 0.05;
+      const result: number[] = [];
+      for (
+        let value = Math.ceil((from + exclusionZone) * 2) / 2;
+        value + exclusionZone < from + distance;
+        value += 0.5
+      ) {
+        result.push(value);
+      }
+      return result;
+    }
+    function prepare(value: number) {
+      if (value == Math.floor(value)) {
         context.setLineDash([]);
-      };
-      for (const child of this.components!) child.show(options);
-      const { timeInMs, context } = options;
-      const originalPoint: Point = { x: -1, y: -1 };
-      const progress = timeInMs / this.duration;
-      const angle = progress * 360;
-      const transformString = `rotate(${angle.toFixed(2)}deg)`;
-      const matrix = new DOMMatrixReadOnly(transformString);
-      const transformedPoint = transform(
-        originalPoint.x,
-        originalPoint.y,
-        matrix,
-      );
-      matrixLayout.show311(
-        (16 - matrixLayout.layout311.total.width) / 2,
-        8.75 - matrixLayout.layout311.total.height,
-        matrix,
-        originalPoint,
-        transformedPoint,
-        options.context,
-      );
-      const originalTransform = context.getTransform();
-      context.translate(4, 3.75);
-      drawGrid({ x: -3.5, y: -2.5, width: 7, height: 5 }, GRID_CYAN);
-      context.lineWidth = 0.25;
-      showColorfulBox(context, 0.25);
-      context.setTransform(originalTransform);
-      context.translate(12, 3.75);
-      drawGrid({ x: -3.5, y: -2.5, width: 7, height: 5 }, GRID_GREEN);
-      context.lineWidth = 0.25;
-      applyTransform(context, matrix);
-      showColorfulBox(context, 0.25);
-      context.setTransform(originalTransform);
-      textForTransform.textSchedule.set(transformString);
-      textForTransform.show(options);
-    },
+      } else {
+        context.setLineDash([0.02]);
+      }
+      if (value == 0) {
+        context.lineWidth = 0.02;
+      } else {
+        context.lineWidth = 0.01;
+      }
+    }
+    context.strokeStyle = color;
+    context.lineCap = "butt";
+    values(cover.x, cover.width).forEach((x) => {
+      prepare(x);
+      context.beginPath();
+      context.moveTo(x, cover.y);
+      context.lineTo(x, cover.y + cover.height);
+      context.stroke();
+    });
+    values(cover.y, cover.height).forEach((y) => {
+      prepare(y);
+      context.beginPath();
+      context.moveTo(cover.x, y);
+      context.lineTo(cover.x + cover.width, y);
+      context.stroke();
+    });
+    context.setLineDash([]);
+  }
+  makeTransformString(progress: number): string {
+    const angle = progress * 360;
+    return `rotate(${angle.toFixed(2)}deg)`;
+  }
+  show(options: ShowOptions) {
+    for (const child of this.components!) child.show(options);
+    const { timeInMs, context } = options;
+    const originalPoint: Point = { x: -1, y: -1 };
+    const progress = timeInMs / this.duration;
+    const transformString = this.makeTransformString(progress);
+    const matrix = new DOMMatrixReadOnly(transformString);
+    const transformedPoint = transform(
+      originalPoint.x,
+      originalPoint.y,
+      matrix,
+    );
+    matrixLayout.show311(
+      (16 - matrixLayout.layout311.total.width) / 2,
+      8.75 - matrixLayout.layout311.total.height,
+      matrix,
+      originalPoint,
+      transformedPoint,
+      options.context,
+    );
+    const originalTransform = context.getTransform();
+    context.translate(4, 3.75);
+    this.drawGrid(
+      { x: -3.5, y: -2.5, width: 7, height: 5 },
+      BeforeAndAfter.GRID_CYAN,
+      context,
+    );
+    context.lineWidth = 0.25;
+    showColorfulBox(context, 0.25);
+    context.setTransform(originalTransform);
+    context.translate(12, 3.75);
+    this.drawGrid(
+      { x: -3.5, y: -2.5, width: 7, height: 5 },
+      BeforeAndAfter.GRID_GREEN,
+      context,
+    );
+    context.lineWidth = 0.25;
+    applyTransform(context, matrix);
+    showColorfulBox(context, 0.25);
+    context.setTransform(originalTransform);
+    this.textForTransform.textSchedule.set(transformString);
+    this.textForTransform.show(options);
+  }
+}
+
+// MARK: Slide 2
+{
+  const slide = new BeforeAndAfter("Slide 2");
+  slideList.add(slide);
+}
+
+// MARK: Slide 3
+{
+  const angleSchedule = new NumberScheduleInfo("Angle", [
+    { time: 0, value: 0, easeAfter: ease },
+    { time: 0.25, value: 30, easeAfter: ease },
+    { time: 0.75, value: -30, easeAfter: ease },
+    { time: 1, value: 0 },
+  ]);
+  const slide = new BeforeAndAfter("Slide 3");
+  slide.makeTransformString = (progress: number): string => {
+    const angle = angleSchedule.at(progress);
+    return `skewY(${angle.toFixed(2)}deg)`;
   };
   slideList.add(slide);
 }
 
-for (let i = 3; i <= 10; i++) {
+// MARK: Slide 4
+{
+  const scaleSchedule = new NumberScheduleInfo("Scale X", [
+    { time: 0, value: 1, easeAfter: ease },
+    { time: 0.25, value: -2, easeAfter: ease },
+    { time: 0.75, value: 2, easeAfter: ease },
+    { time: 1, value: 1 },
+  ]);
+  const slide = new BeforeAndAfter("Slide 4");
+  slide.makeTransformString = (progress: number): string => {
+    const scale = scaleSchedule.at(progress);
+    return `scaleX(${scale.toFixed(2)})`;
+  };
+  slideList.add(slide);
+}
+
+for (let i = 5; i <= 10; i++) {
   slideList.add(makeEmptySlide(`Slide ${i}`));
 }
 
