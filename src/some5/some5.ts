@@ -13,21 +13,29 @@ import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
 } from "../schedule-helper";
-import {  Keyframes, ease, interpolateNumbers } from "../interpolate";
+import { Keyframes, ease, interpolateNumbers } from "../interpolate";
 
-  const paddedEaseSubSchedule : Keyframes<number>=[{time:0.15, value:0, easeAfter :ease, },{time:0.85, value:1} ];
-  /**
-   * Hold the initial position (0) for a short time (15% of the total).
-   * Then use the normal {@link ease}() to move to the final state.
-   * Hold the final state(1) for a short time (15% of the total).
-   * @param progress A number from 0 to 1
-   * @returns A number from 0 to 1
-   */
-  function paddedEase(progress:number) {
-   return interpolateNumbers(progress, paddedEaseSubSchedule);
-  }
+const paddedEaseSubSchedule: Keyframes<number> = [
+  { time: 0.15, value: 0, easeAfter: ease },
+  { time: 0.85, value: 1 },
+];
+/**
+ * Hold the initial position (0) for a short time (15% of the total).
+ * Then use the normal {@link ease}() to move to the final state.
+ * Hold the final state(1) for a short time (15% of the total).
+ * @param progress A number from 0 to 1
+ * @returns A number from 0 to 1
+ */
+function paddedEase(progress: number) {
+  return interpolateNumbers(progress, paddedEaseSubSchedule);
+}
 
-
+/**
+ * A sample made to demonstrate transforms.
+ * @param context Where to draw
+ * @param lineWidth
+ * @param transform By default the box is centered on (0, 0), with a hole punched in the top left corder, (-1, -1).
+ */
 function showColorfulBox(
   context: CanvasRenderingContext2D,
   lineWidth: number,
@@ -79,6 +87,10 @@ function makeEmptySlide(description: string): Showable {
   return {
     description,
     duration: DEFAULT_SLIDE_DURATION_MS,
+    /**
+     * All of these are configurable, mostly for prototypes.
+     * This tells the Visual Editor that we can add things.
+     */
     components: [],
     show(options) {
       for (const child of this.components!) child.show(options);
@@ -90,6 +102,10 @@ const slideList = new MakeShowableInSeries("SoME5");
 
 // MARK: Slide 1
 {
+  /**
+   * Examples of transforms applied to text.
+   * 5 versions of "hello word" in different languages.
+   */
   const slide: Showable = {
     description: "Slide 1",
     duration: DEFAULT_SLIDE_DURATION_MS,
@@ -101,6 +117,12 @@ const slideList = new MakeShowableInSeries("SoME5");
   slideList.add(slide);
 }
 
+/**
+ * This draws matrices and related symbols.
+ *
+ * The size and shape are predetermined.
+ * As you change the numbers, nothing should jump around.
+ */
 class MatrixLayout {
   /**
    * This matches the results of {@link formatNumber}().
@@ -126,9 +148,10 @@ class MatrixLayout {
    */
   readonly betweenRows: number;
   /**
-   * Extra space between each columns.
+   * Extra space between each column in the matrix.
+   * This is also used between a matrix and a ⨉ or =.
    *
-   * This is relatives to {@link numberWidth}.
+   * This automatically adjusts to {@link numberWidth}.
    * If this were 0, it's possible that things would be touching.
    */
   readonly betweenColumns: number;
@@ -156,9 +179,19 @@ class MatrixLayout {
    * It might look like this: "[ matrix I matrix ]"
    */
   private readonly columnVectorWidth: number;
+  /**
+   * The ⨉ sign.
+   *
+   * Do this up front so we can easily reserve space.
+   */
   private readonly laidOutTimes: ReturnType<
     InstanceType<typeof ParagraphLayout>["align"]
   >;
+  /**
+   * The = sign.
+   *
+   * Do this up front so we can easily reserve space.
+   */
   private readonly laidOutEquals: ReturnType<
     InstanceType<typeof ParagraphLayout>["align"]
   >;
@@ -169,6 +202,9 @@ class MatrixLayout {
    */
   constructor(readonly font: Font) {
     {
+      /**
+       * A sample so that we can reserve space.
+       */
       const layout = new ParagraphLayout(font);
       layout.addWord("-1.00");
       const laidOut = layout.align();
@@ -275,13 +311,6 @@ class MatrixLayout {
       matrixLeft +
       column * (this.betweenColumns + this.numberWidth);
     const entryTop = matrixTop + this.rowTop(row);
-    // context.fillStyle = "pink";
-    // context.fillRect(
-    //   entryLeft,
-    //   entryTop,
-    //   layout.numberWidth,
-    //   layout.numberHeight,
-    // );
     context.stroke(
       ParagraphLayout.singlePathShape({
         font: this.font,
@@ -364,6 +393,15 @@ class MatrixLayout {
     context.strokeStyle = "rgba(0, 0, 0, 0.4)";
     this.strokeEntry(left, top, "1", 0, 2, context);
   }
+  /**
+   * Draw matrices and related symbols.
+   *
+   * See {@link show311}() for an alternative.
+   * @param left
+   * @param top
+   * @param items A list of things to draw all side by side.
+   * @param context
+   */
   show(
     left: number,
     top: number,
@@ -401,7 +439,21 @@ class MatrixLayout {
       left += this.betweenColumns;
     });
   }
+  /**
+   * Very similar to the cyan grid lines in one of the charts.
+   *
+   * This is fully opaque.
+   * The grid lines are not.
+   * The result is similar, but this casts a stronger shadow.
+   */
   static readonly CYAN = "rgb(0%, 75%, 75%)";
+  /**
+   * Very similar to the green grid lines in one of the charts.
+   *
+   * This is fully opaque.
+   * The grid lines are not.
+   * The result is similar, but this casts a stronger shadow.
+   */
   static readonly GREEN = "rgb(0%, 75%, 0%)";
   static readonly MAGENTA = myRainbow.magenta;
   /**
@@ -452,6 +504,11 @@ class MatrixLayout {
     this.draw3x1(left, top, to, MatrixLayout.GREEN, context);
     left += this.columnVectorWidth;
   }
+  /**
+   * This describes the layout associated with {@link show311}().
+   *
+   * `left` here is relative to the `left` parameter of {@link show311}().
+   */
   readonly layout311: {
     readonly total: { readonly width: number; readonly height: number };
     readonly transform: { readonly left: number; readonly width: number };
@@ -476,7 +533,12 @@ class BeforeAndAfter implements Showable {
   readonly components: Showable[] = [];
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
-
+  /**
+   *
+   * @param description This is used when saving to the database and it is display in the menu.
+   * @param rightMostTransform This is applied directly to the sample image.
+   * The default leaves the image centered on the origin with a side length of 2.
+   */
   constructor(
     public readonly description: string,
     private readonly rightMostTransform: DOMMatrixReadOnly = new DOMMatrixReadOnly(),
@@ -492,12 +554,38 @@ class BeforeAndAfter implements Showable {
     this.textForTransform.sizeSchedule.set(1 / 3);
     this.originalPoint = transform(-1, -1, rightMostTransform);
   }
+  /**
+   * Draw a grid.
+   *
+   * This uses the preexisting coordinate system.
+   * Typically the caller will translate the coordinate system before calling this and the things on top of the grid.
+   * @param cover What area to cover.
+   * Draw lines within this rectangle.
+   * The darkest lines are drawn at x=0 and y=0.
+   * Medium lines are drawn at the other integer locations.
+   * Dotted lines are drawn at integer + 1/2 locations.
+   * @param color To match the color of the corresponding matrix.
+   * @param context Where to draw.
+   */
   private drawGrid(
     cover: ReadOnlyRect,
     color: string,
     context: CanvasRenderingContext2D,
   ) {
+    /**
+     * This describes grid lines.
+     * It works for horizontal and vertical lines.
+     * @param from Start the grid here.
+     * @param distance End the grid here.
+     * @returns A list of places to draw the lines.
+     */
     function values(from: number, distance: number) {
+      /**
+       * The result should look like a tic tac toe board, where the outside cells are not closed.
+       * If you try to draw a line right at the edge, it will be removed.
+       * If you try to draw a line too close to the edge, it will be removed.
+       * This says how close we can get to the edge.
+       */
       const exclusionZone = 0.05;
       const result: number[] = [];
       for (
@@ -509,6 +597,10 @@ class BeforeAndAfter implements Showable {
       }
       return result;
     }
+    /**
+     * Set the line width and dash associates with a line.
+     * @param value An output from {@link values}().
+     */
     function prepare(value: number) {
       if (value == Math.floor(value)) {
         context.setLineDash([]);
@@ -542,6 +634,11 @@ class BeforeAndAfter implements Showable {
   /**
    * This runs the animation.
    * This says how the right side (the transformed example) will different from the left side (the original example).
+   *
+   * Everything is rounded to two digits.
+   * Normally I leave all of the digits.
+   * But we are displaying this string on the screen, so it needs to look good.
+   * The animation is close enough, so I use the user friendly string in both places.
    * @param progress 0 to 1
    * @returns A valid CSS transform string.
    */
@@ -618,9 +715,9 @@ class BeforeAndAfter implements Showable {
 // MARK: Slide 4
 {
   const scaleSchedule = new NumberScheduleInfo("Scale X", [
-    { time: 0, value: 1, easeAfter:paddedEase   },
+    { time: 0, value: 1, easeAfter: paddedEase },
     { time: 0.25, value: -2, easeAfter: paddedEase },
-    { time: 0.75, value: 2, easeAfter:  paddedEase },
+    { time: 0.75, value: 2, easeAfter: paddedEase },
     { time: 1, value: 1 },
   ]);
   const slide = new BeforeAndAfter("Slide 4");
