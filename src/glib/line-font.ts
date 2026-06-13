@@ -125,6 +125,43 @@ export function makeLineFont(fontMetrics: number | LineFontMetrics): Font {
   return result;
 }
 
+/**
+ * Create a font whose full height (top margin through descender) equals
+ * `totalHeight`.  The mHeight (cap height) is `totalHeight * 2/3` because
+ * LineFontMetrics always allocates 1.5× mHeight for the full row:
+ * 5/4 mHeight above the baseline (caps + top margin) + 1/4 mHeight below
+ * (descenders).
+ *
+ * If you have a ParagraphLayout with a single line of text, you expect that
+ * line to have a height of `totalHeight`.
+ * If you have multiple lines in the same paragraph,
+ * by default there is no extra space between the lines.
+ * The total height of the paragraph will be `totalHeight` times the number of lines.
+ *
+ * You could use totalHeight to match the size of the container you are drawing text in.
+ * However, that might be a little tight.
+ * Remember that there is usually a little extra space below one line *and* more extra space above the next.
+ * And you would usually add extra space between paragraphs.
+ *
+ * You can check {@link ParagraphLayout.align}().height if you want to know the value.
+ * That will tell you the result for the entire paragraph.
+ *
+ * If you want to center the text vertically within a container, use this size.
+ * @param totalHeight The desired row height in canvas units.
+ * @param boldnessRatio Stroke width multiplier relative to the normal weight.
+ *   Defaults to 1 (normal weight).
+ */
+export function makeLineFontFromTotalHeight(
+  totalHeight: number,
+  boldnessRatio = 1,
+): Font {
+  const mHeight = (totalHeight * 2) / 3;
+  if (boldnessRatio === 1) {
+    return makeLineFont(mHeight);
+  }
+  return makeLineFontRatio(mHeight, boldnessRatio);
+}
+
 export function makeLineFontStrokeWidth(
   mHeight: number,
   strokeWidth: number,
