@@ -245,6 +245,10 @@ export class PointScheduleInfo {
   at(timeInMs: number): Point {
     return interpolatePoints(timeInMs, this.schedule);
   }
+  set(singleValue: Point) {
+    this.schedule.length = 0;
+    this.schedule.push({ time: 0, value: singleValue });
+  }
   /**
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its

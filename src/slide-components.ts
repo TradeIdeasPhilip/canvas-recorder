@@ -494,6 +494,19 @@ function setTextFormatList(
  * But the plan is for descendants to have access to this component's formatters.
  */
 export class MultiTextComponent implements Showable {
+  /**
+   * Create, initialize, and add a TextSpanComponent to this MultiTextComponent.
+   * @param style The name of the style to apply to this text.
+   * @param content The text to display.
+   * @returns `this`, for chaining.
+   */
+  addText(style: string, content: string): this {
+    const span = new TextSpanComponent();
+    span.styleSchedule.set(style);
+    span.contentSchedule.set(content);
+    this.components.push(span);
+    return this;
+  }
   readonly positionSchedule = new PointScheduleInfo("Position", {
     x: 8,
     y: 0.25,
@@ -721,14 +734,14 @@ export class TextComponent implements Showable {
         >["alignmentSchedule"]["choices"][0];
         readonly path: Path2D;
       };
-  show({ context, timeInMs }:ShowOptions) {
-    const color =this.colorSchedule.at(timeInMs,);
-    const rect = this.rectSchedule.at  (timeInMs, );
-    const text =this.textSchedule .at(timeInMs, );
-    const size =this.sizeSchedule. at(timeInMs, );
-    const boldness = this.boldnessSchedule.at(timeInMs, );
-    const obliqueness = this.obliquenessSchedule.at(timeInMs, );
-    const alignment =this. alignmentSchedule.at(timeInMs, );
+  show({ context, timeInMs }: ShowOptions) {
+    const color = this.colorSchedule.at(timeInMs);
+    const rect = this.rectSchedule.at(timeInMs);
+    const text = this.textSchedule.at(timeInMs);
+    const size = this.sizeSchedule.at(timeInMs);
+    const boldness = this.boldnessSchedule.at(timeInMs);
+    const obliqueness = this.obliquenessSchedule.at(timeInMs);
+    const alignment = this.alignmentSchedule.at(timeInMs);
     context.strokeStyle = color;
     if (
       !this.#cachedFont ||
@@ -753,7 +766,13 @@ export class TextComponent implements Showable {
         alignment,
       }).canvasPath;
       const cachedFont = this.#cachedFont;
-      this.#cachedPath = { cachedFont, path, text, width: rect.width, alignment };
+      this.#cachedPath = {
+        cachedFont,
+        path,
+        text,
+        width: rect.width,
+        alignment,
+      };
     }
     context.lineCap = "round";
     context.lineJoin = "round";

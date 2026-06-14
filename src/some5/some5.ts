@@ -1,7 +1,12 @@
 import { MakeShowableInSeries, Showable, ShowOptions } from "../showable";
 import { makeShadowDemo, DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
 import { myRainbow } from "../glib/my-rainbow";
-import { buildComponents, TextComponent } from "../slide-components";
+import {
+  buildComponents,
+  MultiTextComponent,
+  TextComponent,
+  TextFormatComponent,
+} from "../slide-components";
 import slide1 from "./slide1.json";
 import { Font } from "../glib/letters-base";
 import { ParagraphLayout } from "../glib/paragraph-layout";
@@ -38,18 +43,20 @@ function paddedEase(progress: number) {
  */
 function showColorfulBox(
   context: CanvasRenderingContext2D,
-  lineWidth: number,
-  transform: DOMMatrixReadOnly,
+  transform?: DOMMatrixReadOnly,
 ) {
+  const lineWidth = 0.25;
   context.save();
-  applyTransform(context, transform);
+  if (transform) {
+    applyTransform(context, transform);
+  }
   context.beginPath();
   context.rect(-2, -2, 4, 4);
   context.arc(-1, -1, lineWidth / 2.4, 0, Math.PI * 2);
   context.clip("evenodd");
   context.lineWidth = lineWidth;
   context.lineCap = "square";
-  context.strokeStyle = "#5800ff"; //myRainbow.violet;
+  context.strokeStyle = "#5800ff";
   context.beginPath();
   context.moveTo(-1, -1);
   context.lineTo(1, -1);
@@ -195,6 +202,8 @@ class MatrixLayout {
   private readonly laidOutEquals: ReturnType<
     InstanceType<typeof ParagraphLayout>["align"]
   >;
+  private readonly pointContentWidth: number;
+  private readonly pointWidth: number;
   /**
    *
    * @param font Everything resizes to match this font.
@@ -229,6 +238,12 @@ class MatrixLayout {
       this.laidOutEquals = layout.align();
     }
     {
+      const layout = new ParagraphLayout(font);
+      layout.addText("x\ny\n1");
+      this.pointContentWidth = layout.align().width;
+    }
+    this.pointWidth = 2 * this.margin + this.pointContentWidth;
+    {
       const left1 =
         this.squareMatrixWidth +
         this.betweenColumns +
@@ -254,6 +269,21 @@ class MatrixLayout {
         to: { left: left2, width: this.columnVectorWidth },
       };
     }
+    this.layout331 = {
+      total: {
+        height: this.layout311.total.height,
+        width:
+          2 * this.squareMatrixWidth +
+          2 * this.laidOutTimes.width +
+          4 * this.betweenColumns +
+          this.pointWidth,
+      },
+      leftTransform: { left: 0, width: this.squareMatrixWidth },
+      rightTransform: {
+        left: this.layout311.from.left,
+        width: this.squareMatrixWidth,
+      },
+    };
   }
   /**
    * Note:  The examples were chose to make them all fit in the same space.
@@ -361,6 +391,48 @@ class MatrixLayout {
     this.strokeEntry(left, top, "0", 1, 2, context);
     this.strokeEntry(left, top, "1", 2, 2, context);
   }
+  drawPoint(
+    left: number,
+    top: number,
+    color: string,
+    context: CanvasRenderingContext2D,
+  ) {
+    context.lineWidth = this.font.strokeWidth;
+    context.strokeStyle = color;
+    context.lineCap = "square";
+    context.lineJoin = "miter";
+    const boxLeft = left;
+    const boxRight = left + this.pointWidth;
+    const boxTop = top;
+    const boxBottom = top + this.layout311.total.height;
+    context.beginPath();
+    context.moveTo(boxLeft + this.lipWidth, boxTop);
+    context.lineTo(boxLeft, boxTop);
+    context.lineTo(boxLeft, boxBottom);
+    context.lineTo(boxLeft + this.lipWidth, boxBottom);
+    context.moveTo(boxRight - this.lipWidth, boxTop);
+    context.lineTo(boxRight, boxTop);
+    context.lineTo(boxRight, boxBottom);
+    context.lineTo(boxRight - this.lipWidth, boxBottom);
+    context.stroke();
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    const textLeft = left + this.margin;
+    ["x", "y", "1"].forEach((text, rowIndex) => {
+      if (rowIndex == 2) {
+        context.strokeStyle = "rgba(0, 0, 0, 0.4)";
+      }
+      const entryTop = top + this.rowTop(rowIndex);
+      context.stroke(
+        ParagraphLayout.singlePathShape({
+          font: this.font,
+          text,
+          alignment: "center",
+          width: this.pointContentWidth,
+        }).translate(textLeft, entryTop).canvasPath,
+      );
+    });
+  }
   draw3x1(
     left: number,
     top: number,
@@ -394,6 +466,12 @@ class MatrixLayout {
     this.strokeEntry(left, top, "1", 0, 2, context);
   }
   /**
+   * For use with {@link show}().
+   * This will draw a column vector with "x", "y", and "1".
+   * This is thinner than a column vector with actual numbers in it.
+   */
+  static readonly POINT = Symbol("Point");
+  /**
    * Draw matrices and related symbols.
    *
    * See {@link show311}() for an alternative.
@@ -405,7 +483,13 @@ class MatrixLayout {
   show(
     left: number,
     top: number,
-    items: (DOMMatrixReadOnly | Point | "×" | "=")[],
+    items: (
+      | DOMMatrixReadOnly
+      | Point
+      | "×"
+      | "="
+      | typeof MatrixLayout.POINT
+    )[],
     context: CanvasRenderingContext2D,
   ) {
     /**
@@ -432,6 +516,9 @@ class MatrixLayout {
         left += this.squareMatrixWidth;
       } else if (typeof item === "string") {
         strokeText(item);
+      } else if (item === MatrixLayout.POINT) {
+        this.drawPoint(left, top, "black", context);
+        left += this.pointWidth;
       } else {
         this.draw3x1(left, top, item, MatrixLayout.CYAN, context);
         left += this.columnVectorWidth;
@@ -515,9 +602,130 @@ class MatrixLayout {
     readonly from: { readonly left: number; readonly width: number };
     readonly to: { readonly left: number; readonly width: number };
   };
+  show331(
+    left: number,
+    top: number,
+    leftTransform: DOMMatrixReadOnly,
+    leftTransformColor: string,
+    rightTransform: DOMMatrixReadOnly,
+    rightTransformColor: string,
+    pointColor: string,
+    context: CanvasRenderingContext2D,
+  ) {
+    /**
+     * This will start at `left` and it will update `left` based on the width of what we just drew.
+     * This does not add any blank space.
+     * @param text To display
+     */
+    const strokeText = (text: string) => {
+      context.lineWidth = this.font.strokeWidth;
+      context.strokeStyle = "black";
+      // Assume text is one line tall, for simplicity.
+      const textTop = top + this.rowTop(1);
+      const layout = new ParagraphLayout(this.font);
+      layout.addText(text);
+      const laidOut = layout.align();
+      context.stroke(
+        laidOut.singlePathShape().translate(left, textTop).canvasPath,
+      );
+      left += laidOut.width;
+    };
+    this.draw3x3(left, top, leftTransform, leftTransformColor, context);
+    left += this.squareMatrixWidth;
+    left += this.betweenColumns;
+    strokeText("×");
+    left += this.betweenColumns;
+    this.draw3x3(left, top, rightTransform, rightTransformColor, context);
+    left += this.squareMatrixWidth;
+    left += this.betweenColumns;
+    strokeText("×");
+    left += this.betweenColumns;
+    this.drawPoint(left, top, "black", context);
+  }
+  readonly layout331: {
+    readonly total: { readonly width: number; readonly height: number };
+    readonly leftTransform: { readonly left: number; readonly width: number };
+    readonly rightTransform: { readonly left: number; readonly width: number };
+  };
 }
 
-const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 4, 1.2));
+/**
+ * Draw a grid.
+ *
+ * This uses the preexisting coordinate system.
+ * Typically the caller will translate the coordinate system before calling this and the things on top of the grid.
+ * @param cover What area to cover.
+ * Draw lines within this rectangle.
+ * The darkest lines are drawn at x=0 and y=0.
+ * Medium lines are drawn at the other integer locations.
+ * Dotted lines are drawn at integer + 1/2 locations.
+ * @param color To match the color of the corresponding matrix.
+ * @param context Where to draw.
+ */
+function drawGrid(
+  cover: ReadOnlyRect,
+  color: string,
+  context: CanvasRenderingContext2D,
+) {
+  /**
+   * This describes grid lines.
+   * It works for horizontal and vertical lines.
+   * @param from Start the grid here.
+   * @param distance End the grid here.
+   * @returns A list of places to draw the lines.
+   */
+  function values(from: number, distance: number) {
+    /**
+     * The result should look like a tic tac toe board, where the outside cells are not closed.
+     * If you try to draw a line right at the edge, it will be removed.
+     * If you try to draw a line too close to the edge, it will be removed.
+     * This says how close we can get to the edge.
+     */
+    const exclusionZone = 0.05;
+    const result: number[] = [];
+    for (
+      let value = Math.ceil((from + exclusionZone) * 2) / 2;
+      value + exclusionZone < from + distance;
+      value += 0.5
+    ) {
+      result.push(value);
+    }
+    return result;
+  }
+  /**
+   * Set the line width and dash associates with a line.
+   * @param value An output from {@link values}().
+   */
+  function prepare(value: number) {
+    if (value == Math.floor(value)) {
+      context.setLineDash([]);
+    } else {
+      context.setLineDash([0.02]);
+    }
+    if (value == 0) {
+      context.lineWidth = 0.02;
+    } else {
+      context.lineWidth = 0.01;
+    }
+  }
+  context.strokeStyle = color;
+  context.lineCap = "butt";
+  values(cover.x, cover.width).forEach((x) => {
+    prepare(x);
+    context.beginPath();
+    context.moveTo(x, cover.y);
+    context.lineTo(x, cover.y + cover.height);
+    context.stroke();
+  });
+  values(cover.y, cover.height).forEach((y) => {
+    prepare(y);
+    context.beginPath();
+    context.moveTo(cover.x, y);
+    context.lineTo(cover.x + cover.width, y);
+    context.stroke();
+  });
+  context.setLineDash([]);
+}
 
 /**
  * Top is a string version of the transform.
@@ -526,6 +734,9 @@ const matrixLayout = new MatrixLayout(makeLineFontRatio(1 / 4, 1.2));
  * Bottom is an equation with matrices.
  */
 class BeforeAndAfter implements Showable {
+  private static readonly matrixLayout = new MatrixLayout(
+    makeLineFontRatio(1 / 4, 1.2),
+  );
   static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
   static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
@@ -555,83 +766,6 @@ class BeforeAndAfter implements Showable {
     this.originalPoint = transform(-1, -1, rightMostTransform);
   }
   /**
-   * Draw a grid.
-   *
-   * This uses the preexisting coordinate system.
-   * Typically the caller will translate the coordinate system before calling this and the things on top of the grid.
-   * @param cover What area to cover.
-   * Draw lines within this rectangle.
-   * The darkest lines are drawn at x=0 and y=0.
-   * Medium lines are drawn at the other integer locations.
-   * Dotted lines are drawn at integer + 1/2 locations.
-   * @param color To match the color of the corresponding matrix.
-   * @param context Where to draw.
-   */
-  private drawGrid(
-    cover: ReadOnlyRect,
-    color: string,
-    context: CanvasRenderingContext2D,
-  ) {
-    /**
-     * This describes grid lines.
-     * It works for horizontal and vertical lines.
-     * @param from Start the grid here.
-     * @param distance End the grid here.
-     * @returns A list of places to draw the lines.
-     */
-    function values(from: number, distance: number) {
-      /**
-       * The result should look like a tic tac toe board, where the outside cells are not closed.
-       * If you try to draw a line right at the edge, it will be removed.
-       * If you try to draw a line too close to the edge, it will be removed.
-       * This says how close we can get to the edge.
-       */
-      const exclusionZone = 0.05;
-      const result: number[] = [];
-      for (
-        let value = Math.ceil((from + exclusionZone) * 2) / 2;
-        value + exclusionZone < from + distance;
-        value += 0.5
-      ) {
-        result.push(value);
-      }
-      return result;
-    }
-    /**
-     * Set the line width and dash associates with a line.
-     * @param value An output from {@link values}().
-     */
-    function prepare(value: number) {
-      if (value == Math.floor(value)) {
-        context.setLineDash([]);
-      } else {
-        context.setLineDash([0.02]);
-      }
-      if (value == 0) {
-        context.lineWidth = 0.02;
-      } else {
-        context.lineWidth = 0.01;
-      }
-    }
-    context.strokeStyle = color;
-    context.lineCap = "butt";
-    values(cover.x, cover.width).forEach((x) => {
-      prepare(x);
-      context.beginPath();
-      context.moveTo(x, cover.y);
-      context.lineTo(x, cover.y + cover.height);
-      context.stroke();
-    });
-    values(cover.y, cover.height).forEach((y) => {
-      prepare(y);
-      context.beginPath();
-      context.moveTo(cover.x, y);
-      context.lineTo(cover.x + cover.width, y);
-      context.stroke();
-    });
-    context.setLineDash([]);
-  }
-  /**
    * This runs the animation.
    * This says how the right side (the transformed example) will different from the left side (the original example).
    *
@@ -657,9 +791,9 @@ class BeforeAndAfter implements Showable {
       this.originalPoint.y,
       matrix,
     );
-    matrixLayout.show311(
-      (16 - matrixLayout.layout311.total.width) / 2,
-      8.75 - matrixLayout.layout311.total.height,
+    BeforeAndAfter.matrixLayout.show311(
+      (16 - BeforeAndAfter.matrixLayout.layout311.total.width) / 2,
+      8.75 - BeforeAndAfter.matrixLayout.layout311.total.height,
       matrix,
       this.originalPoint,
       transformedPoint,
@@ -667,23 +801,22 @@ class BeforeAndAfter implements Showable {
     );
     const originalTransform = context.getTransform();
     context.translate(4, 3.75);
-    this.drawGrid(
+    drawGrid(
       { x: -3.5, y: -2.5, width: 7, height: 5 },
       BeforeAndAfter.GRID_CYAN,
       context,
     );
     context.lineWidth = 0.25;
-    showColorfulBox(context, 0.25, this.rightMostTransform);
+    showColorfulBox(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     context.translate(12, 3.75);
-    this.drawGrid(
+    drawGrid(
       { x: -3.5, y: -2.5, width: 7, height: 5 },
       BeforeAndAfter.GRID_GREEN,
       context,
     );
-    context.lineWidth = 0.25;
     applyTransform(context, matrix);
-    showColorfulBox(context, 0.25, this.rightMostTransform);
+    showColorfulBox(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     this.textForTransform.textSchedule.set(transformString);
     this.textForTransform.show(options);
@@ -772,7 +905,86 @@ class BeforeAndAfter implements Showable {
   slideList.add(slide);
 }
 
-for (let i = 7; i <= 10; i++) {
+// MARK: Slide 7
+{
+  const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
+  const scaleMatrix = new DOMMatrixReadOnly("scale(2)");
+  const slideMatrix = new DOMMatrixReadOnly("translateX(1px)");
+  const scaleFormat = new TextFormatComponent();
+  scaleFormat.colorSchedule.set(myRainbow.cssBlue);
+  scaleFormat.nameScalar.value = "scale";
+  scaleFormat.sizeSchedule.set(1 / 3);
+  const slideFormat = new TextFormatComponent();
+  slideFormat.colorSchedule.set(myRainbow.red);
+  slideFormat.nameScalar.value = "slide";
+  slideFormat.sizeSchedule.set(1 / 3);
+  const baseFormat = new TextFormatComponent();
+  baseFormat.colorSchedule.set("black");
+  baseFormat.nameScalar.value = "base";
+  baseFormat.sizeSchedule.set(1 / 3);
+  const leftText = new MultiTextComponent();
+  leftText.components.push(scaleFormat, slideFormat, baseFormat);
+  leftText
+    .addText("scale", "scale(2)   ")
+    .addText("slide", "translateX(1px)\n")
+    .addText("scale", "double(")
+    .addText("slide", "slideRightOneUnit(")
+    .addText("base", "x, y")
+    .addText("slide", ")")
+    .addText("scale", ")");
+  leftText.positionSchedule.set({ x: 4, y: 0.25 });
+  leftText.widthSchedule.set(7);
+  leftText.alignmentSchedule.set("center");
+  leftText.additionalLineHeightSchedule.set(0.3);
+  const slide: Showable = {
+    description: "Slide 7",
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    /**
+     * All of these are configurable, mostly for prototypes.
+     * This tells the Visual Editor that we can add things.
+     */
+    components: [],
+    show(options) {
+      for (const child of this.components!) child.show(options);
+      const { context } = options;
+      context.lineWidth = 0.05;
+      context.strokeStyle = "rgb(0 0 0 / 0.25)";
+      context.lineCap = "butt";
+      context.beginPath();
+      context.moveTo(8, 0.25);
+      context.lineTo(8, 8.75);
+      context.stroke();
+      leftText.show(options);
+      matrixLayout.show331(
+        (8 - matrixLayout.layout331.total.width) / 2,
+        8.75 - matrixLayout.layout311.total.height,
+        scaleMatrix,
+        myRainbow.myBlue,
+        slideMatrix,
+        myRainbow.red,
+        "black",
+        context,
+      );
+      const originalTransform = context.getTransform();
+      context.translate(4, 4.5);
+      context.scale(7 / 9, 7 / 9);
+      drawGrid(
+        { x: -4.5, y: -3, width: 9, height: 6 },
+        "rgba(80%, 0%, 80%, 50%)",
+        context,
+      );
+      applyTransform(
+        context,
+        new DOMMatrixReadOnly("scale(2) translateX(1px)"),
+      );
+      showColorfulBox(context);
+      context.setTransform(originalTransform);
+    },
+  };
+  slideList.add(slide);
+}
+
+for (let i = 8; i <= 10; i++) {
   slideList.add(makeEmptySlide(`Slide ${i}`));
 }
 
