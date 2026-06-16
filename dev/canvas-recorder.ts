@@ -137,6 +137,7 @@ function mainTransform() {
 // ---------------------------------------------------------------------------
 
 const viewport = getById("canvasViewport", HTMLDivElement);
+const canvasLoading = getById("canvasLoading", HTMLDivElement);
 const zoomSelect = getById("zoomSelect", HTMLSelectElement);
 
 let currentScale = 1;
@@ -1416,6 +1417,8 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   await Promise.all(restores);
 
   initFromDBComplete = true;
+  canvas.style.visibility = "";
+  canvasLoading.style.display = "none";
   const currentSel = debug[select.selectedIndex]?.selectable;
   if (currentSel) {
     updateComponentEditor(currentSel);
@@ -4231,6 +4234,9 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
 {
   // Read the unload backup BEFORE sessionStorage.clear() wipes it below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
+  // Hide the canvas until DB restoration is complete to prevent the TypeScript-
+  // default state from flashing briefly before the saved state is applied.
+  canvas.style.visibility = "hidden";
   // Capture TypeScript defaults before any DB restoration, so they're available
   // as the "reset" option in the history select throughout this session.
   captureDefaults();
