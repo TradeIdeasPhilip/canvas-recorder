@@ -1456,7 +1456,13 @@ function serializeScalars(scalars: readonly ScalarInfo[]): SerializedScalar[] {
 
 function serializeComponents(components: Showable[]): SerializedChild[] {
   return components.flatMap((child) => {
-    const rk = child.registryKey ?? componentRegistryKey.get(child);
+    // Fall back to description when it exactly matches a registry key — this
+    // handles TypeScript-hardcoded components that were never stamped by
+    // buildComponents or the visual editor's "add component" path.
+    const rk =
+      child.registryKey ??
+      componentRegistryKey.get(child) ??
+      (componentRegistry.has(child.description) ? child.description : undefined);
     if (!rk) return [];
     const entry: SerializedChild = {
       registryKey: rk,
@@ -3566,7 +3572,11 @@ function buildScheduleSection(
 }
 
 function serializeComponent(child: Showable): SerializedChild {
-  const rk = child.registryKey ?? componentRegistryKey.get(child) ?? "";
+  const rk =
+    child.registryKey ??
+    componentRegistryKey.get(child) ??
+    (componentRegistry.has(child.description) ? child.description : undefined) ??
+    "";
   const entry: SerializedChild = {
     registryKey: rk,
     schedules: child.schedules?.length
