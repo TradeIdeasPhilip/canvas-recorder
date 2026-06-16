@@ -14,7 +14,7 @@ import { applyTransform, panAndZoom } from "./glib/transforms";
 import {
   buildComponents,
   componentRegistry,
-  createRectangleComponent,
+  RectangleComponent,
 } from "./slide-components";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
@@ -1119,19 +1119,19 @@ const slideList = new MakeShowableInSeries("Shadow Test");
     description: "Slide 2: Growing Rectangle",
     duration: DEFAULT_SLIDE_DURATION_MS,
     components: [
-      createRectangleComponent(
-        [
+      new RectangleComponent({
+        color: [
           { time: 0, value: myRainbow.red },
           { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
         ],
-        [
+        rect: [
           { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
           {
             time: DEFAULT_SLIDE_DURATION_MS,
             value: { x: 1, y: 1, width: 14, height: 2 },
           },
         ],
-      ),
+      }),
     ],
     show(options) {
       for (const child of this.components!) child.show(options);

@@ -64,7 +64,7 @@ import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, distribute } from "./utility";
 import { zipper } from "./zipper";
-import { createSingleImageComponent } from "./slide-components";
+import { SingleImageComponent } from "./slide-components";
 import {
   NumberScheduleInfo,
   RectangleScheduleInfo,
@@ -3083,17 +3083,17 @@ import imageUrl from "./Philip Smolen.jpeg";
   const path = pathShape.canvasPath;
   const schedules: ScheduleInfo[] = [];
   const components = new Map<string, Showable>();
-  components.set("Peano", createSingleImageComponent("./Giuseppe_Peano.jpg"));
-  components.set("Philip", createSingleImageComponent(imageUrl));
+  components.set("Peano", new SingleImageComponent({ url: "./Giuseppe_Peano.jpg" }));
+  components.set("Philip", new SingleImageComponent({ url: imageUrl }));
   components.set(
     "Pi Creature",
-    createSingleImageComponent(
-      "https://store.dftba.com/cdn/shop/files/3b1b-piplushieplump-site-2.jpg",
-    ),
+    new SingleImageComponent({
+      url: "https://store.dftba.com/cdn/shop/files/3b1b-piplushieplump-site-2.jpg",
+    }),
   );
   components.set(
     "Fourier",
-    createSingleImageComponent("./Fourier2_-_restoration1.jpg"),
+    new SingleImageComponent({ url: "./Fourier2_-_restoration1.jpg" }),
   );
   components.forEach((component, name) => {
     const original = only(

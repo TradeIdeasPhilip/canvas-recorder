@@ -971,48 +971,35 @@ export class TextComponent implements Showable {
 /**
  * Standard registry component: a filled rectangle with an editable color and
  * position/size schedule.
- *
- * Pass pre-populated schedule arrays to seed an existing animation; omit them
- * to get a single-keyframe default suitable for a brand-new rectangle.
  */
-export function createRectangleComponent(
-  initialColorSchedule?: Keyframe<string>[],
-  initialRectSchedule?: Keyframe<ReadOnlyRect>[],
-): Showable {
-  const colorSchedule: Keyframe<string>[] = initialColorSchedule ?? [
-    { time: 0, value: "cyan" },
-  ];
-  const rectSchedule: Keyframe<ReadOnlyRect>[] = initialRectSchedule ?? [
-    { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
-  ];
-
-  return {
-    description: "Rectangle",
-    duration: 0,
-    schedules: [
-      { description: "Color", type: "color", schedule: colorSchedule },
-      { description: "Rect", type: "rectangle", schedule: rectSchedule },
-    ],
-    show({ context, timeInMs }) {
-      const color = interpolateColors(timeInMs, colorSchedule);
-      const rect = interpolateRects(timeInMs, rectSchedule);
-      context.fillStyle = color;
-      context.fillRect(rect.x, rect.y, rect.width, rect.height);
-    },
-  };
+export class RectangleComponent implements Showable {
+  readonly colorSchedule = new ColorScheduleInfo("Color", "cyan");
+  readonly rectSchedule = new RectangleScheduleInfo("Rect", {
+    x: 2,
+    y: 2,
+    width: 6,
+    height: 4,
+  });
+  readonly schedules = [this.colorSchedule, this.rectSchedule] as const;
+  readonly description = "Rectangle";
+  readonly duration = 0;
+  constructor(
+    initialValues: {
+      color?: string | Keyframes<string>;
+      rect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
+    } = {},
+  ) {
+    if (initialValues.color !== undefined) this.colorSchedule.set(initialValues.color);
+    if (initialValues.rect !== undefined) this.rectSchedule.set(initialValues.rect);
+  }
+  show({ context, timeInMs }: ShowOptions) {
+    const color = this.colorSchedule.at(timeInMs);
+    const rect = this.rectSchedule.at(timeInMs);
+    context.fillStyle = color;
+    context.fillRect(rect.x, rect.y, rect.width, rect.height);
+  }
 }
 
-/**
- * Standard registry component: a Cartesian function graph with an editable
- * destination rect and view window.
- *
- * The function `f` is supplied at construction time (code, not data).
- * Everything visual — position, view range, colors, font — is an editable
- * schedule, so you can adjust the graph live in the editor without restarting.
- *
- * The y range is auto-computed from sampling `f` over the default x range
- * and stored as the initial keyframe values, ready to be overridden.
- */
 /**
  * Standard registry component: draws a single image loaded from a URL.
  *
@@ -1023,63 +1010,64 @@ export function createRectangleComponent(
  * The URL schedule is discrete — changing it mid-animation triggers a fresh
  * load.  The dest-rect schedule is interpolated so you can animate placement.
  */
-export function createSingleImageComponent(initialUrl = ""): Showable {
-  const urlSchedule: Keyframe<string>[] = [{ time: 0, value: initialUrl }];
-  const destRectSchedule: Keyframe<ReadOnlyRect>[] = [
-    { time: 0, value: { x: 1, y: 1, width: 14, height: 7 } },
-  ];
+export class SingleImageComponent implements Showable {
+  readonly urlSchedule = new StringScheduleInfo("URL", "");
+  readonly destRectSchedule = new RectangleScheduleInfo("Dest Rect", {
+    x: 1,
+    y: 1,
+    width: 14,
+    height: 7,
+  });
+  readonly schedules = [this.urlSchedule, this.destRectSchedule] as const;
+  readonly description = "Static Image";
+  readonly duration = 0;
+  #trackedUrl = "";
+  #image: SingleImage | null = null;
+  constructor(
+    initialValues: {
+      url?: string | Keyframes<string>;
+      destRect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
+    } = {},
+  ) {
+    if (initialValues.url !== undefined) this.urlSchedule.set(initialValues.url);
+    if (initialValues.destRect !== undefined) this.destRectSchedule.set(initialValues.destRect);
+  }
+  show({ context, timeInMs }: ShowOptions) {
+    const url = this.urlSchedule.at(timeInMs);
+    const dest = this.destRectSchedule.at(timeInMs);
 
-  let trackedUrl = "";
-  let image: SingleImage | null = null;
+    if (url !== this.#trackedUrl) {
+      this.#trackedUrl = url;
+      this.#image = url ? new SingleImage(url) : null;
+    }
 
-  return {
-    description: "Static Image",
-    duration: 0,
-    schedules: [
-      { description: "URL", type: "string", schedule: urlSchedule },
-      {
-        description: "Dest Rect",
-        type: "rectangle",
-        schedule: destRectSchedule,
-      },
-    ],
-    show({ context, timeInMs }) {
-      const url = discreteKeyframes(timeInMs, urlSchedule);
-      const dest = interpolateRects(timeInMs, destRectSchedule);
+    if (!this.#image) return;
+    if (!this.#image.somethingIsAvailable) {
+      SlowImage.showError(context, dest.x, dest.y, dest.width, dest.height);
+      return;
+    }
 
-      if (url !== trackedUrl) {
-        trackedUrl = url;
-        image = url ? new SingleImage(url) : null;
-      }
-
-      if (!image) return; // empty URL — leave the area blank
-      if (!image.somethingIsAvailable) {
-        SlowImage.showError(context, dest.x, dest.y, dest.width, dest.height);
-        return;
-      }
-
-      // Fit the image inside dest, preserving aspect ratio (centered).
-      const imgAspect = image.naturalWidth / image.naturalHeight;
-      const destAspect = dest.width / dest.height;
-      let drawW: number, drawH: number;
-      if (imgAspect > destAspect) {
-        drawW = dest.width;
-        drawH = dest.width / imgAspect;
-      } else {
-        drawH = dest.height;
-        drawW = dest.height * imgAspect;
-      }
-      const drawX = dest.x + (dest.width - drawW) / 2;
-      const drawY = dest.y + (dest.height - drawH) / 2;
-      context.drawImage(
-        image.data as CanvasImageSource,
-        drawX,
-        drawY,
-        drawW,
-        drawH,
-      );
-    },
-  };
+    // Fit the image inside dest, preserving aspect ratio (centered).
+    const imgAspect = this.#image.naturalWidth / this.#image.naturalHeight;
+    const destAspect = dest.width / dest.height;
+    let drawW: number, drawH: number;
+    if (imgAspect > destAspect) {
+      drawW = dest.width;
+      drawH = dest.width / imgAspect;
+    } else {
+      drawH = dest.height;
+      drawW = dest.height * imgAspect;
+    }
+    const drawX = dest.x + (dest.width - drawW) / 2;
+    const drawY = dest.y + (dest.height - drawH) / 2;
+    context.drawImage(
+      this.#image.data as CanvasImageSource,
+      drawX,
+      drawY,
+      drawW,
+      drawH,
+    );
+  }
 }
 
 export function createFunctionGraphComponent(
@@ -1233,10 +1221,10 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Slide", () => new SlideComponent()],
   ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
-  ["Rectangle", () => createRectangleComponent()],
+  ["Rectangle", () => new RectangleComponent()],
   ["Function Graph (sin)", () => createFunctionGraphComponent()],
   ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
-  ["Static Image", () => createSingleImageComponent()],
+  ["Static Image", () => new SingleImageComponent()],
   ["Multi Text", () => new MultiTextComponent()],
   ["Text Span", () => new TextSpanComponent()],
   ["Text Format", () => new TextFormatComponent()],
