@@ -5,6 +5,7 @@ import {
   interpolateNumbers,
   interpolateRects,
   Keyframe,
+  Keyframes,
 } from "./interpolate";
 import {
   applyScalarSnapshot,
@@ -31,7 +32,7 @@ import {
   StringScalarInfo,
   StringScheduleInfo,
 } from "./schedule-helper";
-import { PathShape } from "./glib/path-shape";
+import { PathShape, Point } from "./glib/path-shape";
 
 const errorFont = makeLineFont(1);
 
@@ -219,6 +220,56 @@ export class TraditionalTextComponent implements Showable {
   ] as const;
   readonly description = "Traditional Text";
   readonly duration = 0;
+  constructor(
+    initialValues: {
+      text?: string | Keyframes<string>;
+      position?: Point;
+      fillColor?: string | Keyframes<string>;
+      outlineColor?: string | Keyframes<string>;
+      outlineWidth?: number | Keyframes<number>;
+      fontSize?: number | Keyframes<number>;
+      fontStyle?: Parameters<
+        InstanceType<
+          typeof TraditionalTextComponent
+        >["fontStyleSchedule"]["set"]
+      >[0];
+      fontWeight?: number | Keyframes<number>;
+      fontFamily?: string | Keyframes<string>;
+      textAlign?: Parameters<
+        InstanceType<
+          typeof TraditionalTextComponent
+        >["textAlignSchedule"]["set"]
+      >[0];
+      textBaseline?: Parameters<
+        InstanceType<
+          typeof TraditionalTextComponent
+        >["textBaselineSchedule"]["set"]
+      >[0];
+    } = {},
+  ) {
+    if (initialValues.text !== undefined)
+      this.textSchedule.set(initialValues.text);
+    if (initialValues.position !== undefined)
+      this.positionSchedule.set(initialValues.position);
+    if (initialValues.fillColor !== undefined)
+      this.fillColorSchedule.set(initialValues.fillColor);
+    if (initialValues.outlineColor !== undefined)
+      this.outlineColorSchedule.set(initialValues.outlineColor);
+    if (initialValues.outlineWidth !== undefined)
+      this.outlineWidthSchedule.set(initialValues.outlineWidth);
+    if (initialValues.fontSize !== undefined)
+      this.fontSizeSchedule.set(initialValues.fontSize);
+    if (initialValues.fontStyle !== undefined)
+      this.fontStyleSchedule.set(initialValues.fontStyle);
+    if (initialValues.fontWeight !== undefined)
+      this.fontWeightSchedule.set(initialValues.fontWeight);
+    if (initialValues.fontFamily !== undefined)
+      this.fontFamilySchedule.set(initialValues.fontFamily);
+    if (initialValues.textAlign !== undefined)
+      this.textAlignSchedule.set(initialValues.textAlign);
+    if (initialValues.textBaseline !== undefined)
+      this.textBaselineSchedule.set(initialValues.textBaseline);
+  }
   show({ context, timeInMs }: ShowOptions) {
     const text = this.textSchedule.at(timeInMs);
     const position = this.positionSchedule.at(timeInMs);
@@ -302,7 +353,7 @@ export class TraditionalTextComponent implements Showable {
  * This can get complicated.
  * For now let's focus on the durations and just use a number for the value.
  */
-class SlideDeckComponent implements Showable {
+export class SlideDeckComponent implements Showable {
   readonly whichSlideSchedule = new NumberDurationScheduleInfo(
     "Which Slide",
     0,
@@ -392,6 +443,44 @@ export class SlideComponent implements Showable {
   readonly description = "Slide";
   readonly duration = 0;
   readonly components: Showable[] = [];
+  constructor(
+    initialValues: {
+      transformTemplate?: string;
+      placeA?: number | Keyframes<number>;
+      placeB?: number | Keyframes<number>;
+      placeC?: number | Keyframes<number>;
+      placeD?: number | Keyframes<number>;
+      placeE?: number | Keyframes<number>;
+      placeF?: number | Keyframes<number>;
+      placeG?: number | Keyframes<number>;
+      placeH?: number | Keyframes<number>;
+      placeI?: number | Keyframes<number>;
+      placeJ?: number | Keyframes<number>;
+    } = {},
+  ) {
+    if (initialValues.transformTemplate !== undefined)
+      this.transformTemplate.value = initialValues.transformTemplate;
+    if (initialValues.placeA !== undefined)
+      this.placeA.set(initialValues.placeA);
+    if (initialValues.placeB !== undefined)
+      this.placeB.set(initialValues.placeB);
+    if (initialValues.placeC !== undefined)
+      this.placeC.set(initialValues.placeC);
+    if (initialValues.placeD !== undefined)
+      this.placeD.set(initialValues.placeD);
+    if (initialValues.placeE !== undefined)
+      this.placeE.set(initialValues.placeE);
+    if (initialValues.placeF !== undefined)
+      this.placeF.set(initialValues.placeF);
+    if (initialValues.placeG !== undefined)
+      this.placeG.set(initialValues.placeG);
+    if (initialValues.placeH !== undefined)
+      this.placeH.set(initialValues.placeH);
+    if (initialValues.placeI !== undefined)
+      this.placeI.set(initialValues.placeI);
+    if (initialValues.placeJ !== undefined)
+      this.placeJ.set(initialValues.placeJ);
+  }
 
   transformStringAt(timeInMs: number): string {
     const values = [
@@ -541,6 +630,30 @@ export class MultiTextComponent implements Showable {
   readonly description = "Multi Text";
   readonly duration = 0;
   readonly components: Showable[] = [];
+  constructor(
+    initialValues: {
+      position?: Point;
+      alignment?: Parameters<
+        InstanceType<typeof MultiTextComponent>["alignmentSchedule"]["set"]
+      >[0];
+      textBaseline?: Parameters<
+        InstanceType<typeof MultiTextComponent>["textBaselineSchedule"]["set"]
+      >[0];
+      width?: number | Keyframes<number>;
+      additionalLineHeight?: number | Keyframes<number>;
+    } = {},
+  ) {
+    if (initialValues.position !== undefined)
+      this.positionSchedule.set(initialValues.position);
+    if (initialValues.alignment !== undefined)
+      this.alignmentSchedule.set(initialValues.alignment);
+    if (initialValues.textBaseline !== undefined)
+      this.textBaselineSchedule.set(initialValues.textBaseline);
+    if (initialValues.width !== undefined)
+      this.widthSchedule.set(initialValues.width);
+    if (initialValues.additionalLineHeight !== undefined)
+      this.additionalLineHeightSchedule.set(initialValues.additionalLineHeight);
+  }
   show(options: ShowOptions): void {
     const { context, timeInMs } = options;
     const sources = new Array<TextSpanComponent>();
@@ -620,6 +733,17 @@ export class TextSpanComponent implements Showable {
   readonly schedules = [this.contentSchedule, this.styleSchedule] as const;
   readonly description = "Text Span";
   readonly duration = 0;
+  constructor(
+    initialValues: {
+      content?: string | Keyframes<string>;
+      style?: string | Keyframes<string>;
+    } = {},
+  ) {
+    if (initialValues.content !== undefined)
+      this.contentSchedule.set(initialValues.content);
+    if (initialValues.style !== undefined)
+      this.styleSchedule.set(initialValues.style);
+  }
   show(options: ShowOptions): void {
     // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?
     showError(
@@ -656,6 +780,26 @@ export class TextFormatComponent implements Showable {
   ] as const;
   readonly description = "Text Format";
   readonly duration = 0;
+  constructor(
+    initialValues: {
+      name?: string;
+      color?: string | Keyframes<string>;
+      size?: number | Keyframes<number>;
+      boldness?: number | Keyframes<number>;
+      obliqueness?: number | Keyframes<number>;
+    } = {},
+  ) {
+    if (initialValues.name !== undefined)
+      this.nameScalar.value = initialValues.name;
+    if (initialValues.color !== undefined)
+      this.colorSchedule.set(initialValues.color);
+    if (initialValues.size !== undefined)
+      this.sizeSchedule.set(initialValues.size);
+    if (initialValues.boldness !== undefined)
+      this.boldnessSchedule.set(initialValues.boldness);
+    if (initialValues.obliqueness !== undefined)
+      this.obliquenessSchedule.set(initialValues.obliqueness);
+  }
   show(options: ShowOptions): void {
     // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?
     showError(
@@ -722,6 +866,46 @@ export class TextComponent implements Showable {
     this.obliquenessSchedule,
     this.alignmentSchedule,
   ] as const;
+  constructor(
+    initialValues: {
+      color?: string | Keyframes<string>;
+      rect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
+      text?: string | Keyframes<string>;
+      size?: number | Keyframes<number>;
+      boldness?: number | Keyframes<number>;
+      obliqueness?: number | Keyframes<number>;
+      // I have mixed feelings on the complicated type definition.
+      // It is exactly what it needs to be, and it avoids any duplicated code or namespace pollution.
+      // But it is long and complicated.
+      // Final thoughts:  It was only complicated the first time.
+      // You could clone this any number of times with different classes and properties.
+      alignmentSchedule?: Parameters<
+        InstanceType<typeof TextComponent>["alignmentSchedule"]["set"]
+      >[0];
+    } = {},
+  ) {
+    if (initialValues.color !== undefined) {
+      this.colorSchedule.set(initialValues.color);
+    }
+    if (initialValues.rect !== undefined) {
+      this.rectSchedule.set(initialValues.rect);
+    }
+    if (initialValues.text !== undefined) {
+      this.textSchedule.set(initialValues.text);
+    }
+    if (initialValues.size !== undefined) {
+      this.sizeSchedule.set(initialValues.size);
+    }
+    if (initialValues.boldness !== undefined) {
+      this.boldnessSchedule.set(initialValues.boldness);
+    }
+    if (initialValues.obliqueness !== undefined) {
+      this.obliquenessSchedule.set(initialValues.obliqueness);
+    }
+    if (initialValues.alignmentSchedule !== undefined) {
+      this.alignmentSchedule.set(initialValues.alignmentSchedule);
+    }
+  }
   #cachedFont: undefined | CachedFont;
   #cachedPath:
     | undefined

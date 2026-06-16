@@ -7,6 +7,7 @@ import {
   interpolatePoints,
   interpolateRects,
   Keyframe,
+  Keyframes,
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
@@ -35,9 +36,13 @@ export class StringScheduleInfo {
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }
-  set(singleValue: string) {
+  set(overwriteWith: string | Keyframes<string>) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (typeof overwriteWith === "string") {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    } else {
+      this.schedule.push(...overwriteWith);
+    }
   }
   /**
    * @param description Human-readable label shown in the visual editor.
@@ -77,9 +82,13 @@ export class SelectScheduleInfo<T extends string, U extends T> {
   readonly type = "select";
   readonly choices: readonly T[];
   readonly schedule: Keyframe<T>[];
-  set(singleValue: T) {
+  set(overwriteWith: T | Keyframes<T>) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (typeof overwriteWith === "string") {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    } else {
+      this.schedule.push(...overwriteWith);
+    }
   }
   /**
    *
@@ -132,9 +141,13 @@ export class ColorScheduleInfo {
   at(timeInMs: number): string {
     return interpolateColors(timeInMs, this.schedule);
   }
-  set(singleValue: string) {
+  set(overwriteWith: string | Keyframes<string>) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (typeof overwriteWith === "string") {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    } else {
+      this.schedule.push(...overwriteWith);
+    }
   }
   /**
    * @param description Human-readable label shown in the visual editor.
@@ -161,9 +174,13 @@ export class NumberScheduleInfo {
   at(timeInMs: number): number {
     return interpolateNumbers(timeInMs, this.schedule);
   }
-  set(singleValue: number) {
+  set(overwriteWith: number | Keyframes<number>) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (typeof overwriteWith === "number") {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    } else {
+      this.schedule.push(...overwriteWith);
+    }
   }
   /**
    * @param description Human-readable label shown in the visual editor.
@@ -211,9 +228,13 @@ export class NumberDurationScheduleInfo {
 }
 
 export class RectangleScheduleInfo {
-  set(singleValue: ReadOnlyRect) {
+  set(overwriteWith: ReadOnlyRect | Keyframes<ReadOnlyRect>) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (overwriteWith instanceof Array) {
+      this.schedule.push(...overwriteWith);
+    } else {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    }
   }
   readonly type = "rectangle";
   readonly schedule: Keyframe<ReadOnlyRect>[];
@@ -245,9 +266,13 @@ export class PointScheduleInfo {
   at(timeInMs: number): Point {
     return interpolatePoints(timeInMs, this.schedule);
   }
-  set(singleValue: Point) {
+  set(overwriteWith: Point) {
     this.schedule.length = 0;
-    this.schedule.push({ time: 0, value: singleValue });
+    if (overwriteWith instanceof Array) {
+      this.schedule.push(...overwriteWith);
+    } else {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    }
   }
   /**
    * @param description Human-readable label shown in the visual editor.

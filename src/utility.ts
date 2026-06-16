@@ -13,6 +13,15 @@ export function downloadBlob(filename: string, blob: Blob) {
   URL.revokeObjectURL(blobURL);
 }
 
+/**
+ * Overwrites the destination array with the contents of a compatible source array.
+ * Mutates the destination array in place.
+ */
+export function assign<D, S extends D>(dest: D[], src: readonly S[]): void {
+  dest.length = 0; // Clears the destination array efficiently
+  dest.push(...src); // Copies all elements from the source
+}
+
 export const blackBackground: Showable = {
   description: "background",
   /**
