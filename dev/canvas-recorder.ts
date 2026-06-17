@@ -3862,14 +3862,54 @@ function updateComponentEditor(selectable: Selectable) {
     }
   }
 
+  // Root row — the top-level Showable itself, shown above its children.
+  const rootRow = document.createElement("div");
+  rootRow.style.cssText = "display:flex;align-items:center;gap:0.4em";
+
+  const rootEditBtn = document.createElement("button");
+  rootEditBtn.type = "button";
+  rootEditBtn.textContent = "✎ " + selectable.description;
+  rootEditBtn.style.cssText = "flex:1;text-align:left";
+  if (selectedSlideChild === null) rootEditBtn.style.fontWeight = "bold";
+  rootEditBtn.addEventListener("click", () => {
+    selectedSlideChild = null;
+    updateComponentEditor(selectable);
+    updateScheduleEditor(selectable);
+  });
+
+  const rootCopyBtn = document.createElement("button");
+  rootCopyBtn.type = "button";
+  rootCopyBtn.textContent = "🖥️ → 📋";
+  rootCopyBtn.title = "Copy all components as JSON";
+  rootCopyBtn.addEventListener("click", () => {
+    const json = JSON.stringify(serializeComponents(rootComponents!), null, 2);
+    navigator.clipboard
+      .writeText(json)
+      .catch(() => alert("Could not write to clipboard."));
+  });
+
+  const rootPasteBtn = document.createElement("button");
+  rootPasteBtn.type = "button";
+  rootPasteBtn.textContent = "📋 → 🖥️";
+  rootPasteBtn.title = `Paste into "${selectable.description}"`;
+  rootPasteBtn.addEventListener("click", () =>
+    pasteInto(selectable as Showable, selectable),
+  );
+
+  rootRow.append(rootEditBtn, rootCopyBtn, rootPasteBtn);
+  list.append(rootRow);
+
   renderComponentTree(selectable as Showable, 0);
   componentsEditorFieldset.append(list);
 
-  // Bottom toolbar: add + copy-all + paste-to-root.
-  const addTarget =
-    selectedSlideChild?.components !== undefined
-      ? selectedSlideChild
-      : (selectable as Showable);
+  // Toolbar: add select + add button.
+  // addTarget: where the new component goes (null = add button disabled).
+  const addTarget: Showable | null =
+    selectedSlideChild === null
+      ? (selectable as Showable)
+      : selectedSlideChild.components !== undefined
+        ? selectedSlideChild
+        : null;
 
   const toolbar = document.createElement("div");
   toolbar.className = "components-toolbar";
@@ -3893,10 +3933,12 @@ function updateComponentEditor(selectable: Selectable) {
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.textContent =
-    addTarget === selectable
-      ? "+ Add to root"
-      : `+ Add to "${addTarget.description}"`;
+    addTarget !== null
+      ? `+ Add to "${addTarget.description}"`
+      : "+ Add";
+  addBtn.disabled = addTarget === null;
   addBtn.addEventListener("click", () => {
+    if (!addTarget) return;
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
     const newChild = factory();
@@ -3908,25 +3950,7 @@ function updateComponentEditor(selectable: Selectable) {
     updateScheduleEditor(newChild);
   });
 
-  const copyAllBtn = document.createElement("button");
-  copyAllBtn.type = "button";
-  copyAllBtn.textContent = "🖥️ → 📋 Copy all";
-  copyAllBtn.title = "Copy all root components as JSON";
-  copyAllBtn.addEventListener("click", () => {
-    const json = JSON.stringify(serializeComponents(rootComponents!), null, 2);
-    navigator.clipboard
-      .writeText(json)
-      .catch(() => alert("Could not write to clipboard."));
-  });
-
-  const pasteRootBtn = document.createElement("button");
-  pasteRootBtn.type = "button";
-  pasteRootBtn.textContent = "📋 → 🖥️ Paste to root";
-  pasteRootBtn.addEventListener("click", () =>
-    pasteInto(selectable as Showable, selectable),
-  );
-
-  toolbar.append(addSelect, addBtn, copyAllBtn, pasteRootBtn);
+  toolbar.append(addSelect, addBtn);
   componentsEditorFieldset.append(toolbar);
   // Restore scroll now that both list and toolbar are in the DOM, so
   // list.clientHeight reflects its final height and browser clamping is correct.

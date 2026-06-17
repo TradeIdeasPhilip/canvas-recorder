@@ -870,3 +870,62 @@ It could be modified by a different program which understands JSON for input and
 
 Stored in the database.
 Copied into shadow-test.ts.
+
+# Top Level of the Tree
+
+Proposal:
+Expose the root of the tree just like all of the other nodes.
+
+## Current State
+
+I have a top level `Showable` that is hard coded in TypeScript.
+Currently the Visual Editor has very limited support fo the top level.
+It _only_ exposes the list of components to the user.
+It _should also_ expose all top level schedules and scalar properties.
+
+## Use Case: some5.ts
+
+I use components and the Visual Editor a lot for _prototyping_.
+However, the _production_ code is mostly TypeScript.
+I would like to add schedule and scalar properties directly to the top level code, so they are available in the Visual Editor.
+
+Some properties are completely custom to this code.
+But, also, I often want to expose a specific subset of properties from hard coded subcomponents, rather than exposing the entire subcomponent.
+E.g. Let the user format certain messages, but the content of the message always comes from the code, and the user can't just delete the message.
+
+## Appearance
+
+The top level showable should appear at the top of the tree, with the same GUI as all the other components under it.
+
+If the user selects a component where Showable.components === undefined, the button should be disabled.
+"Add to root" is no longer a special case.
+You can add components to the root, just like any other node in the tree by selecting the root and then hitting the add button.
+Or the root can disable subcomponents in the TypeScript code, just like any other component, and only expose properties through the Visual Editor.
+
+And we don't need special "Copy all" or "paste to root" buttons any more.
+These can be replaced by buttons on the same row as the rest of the root element's things.
+The code behind these buttons will do the same thing that the "Copy all" or "paste to root" buttons do now.
+In particular, if you try to copy the root element, you're actually copying all of its children, not the element itself.
+
+We will display the `description` of the root component just like we do for all the others components.
+The word "root" won't be necessary on the GUI.
+
+## Fully Componentized Workflow
+
+Recently I was discussing a workflow where almost all of the work was done in the Visual Editor.
+In this example I'm focused on more TypeScript code.
+I still want both.
+There should be no clear distinction between a mostly TypeScript video and mostly Visual Editor video.
+The pieces should all work together and the user should be able to switch back and forth to whatever is convenient at the time.
+
+I will return to the fully componentized version at some point.
+For now, let's focus on my current workflow:
+
+- Lots of TypeScript exposing some specific properties to the Visual Editor.
+- Components can be added to any slide at any time for prototyping.
+
+######
+
+What happens if two properties have the same name?
+By accident!
+Seems like it could happen very easily.

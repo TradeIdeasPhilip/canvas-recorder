@@ -42,7 +42,7 @@ const errorFont = makeLineFont(1);
  * @param text What to draw.
  * Can include " " and "\n" for optional and forced line breaks.
  */
-function showError(context: CanvasRenderingContext2D, text: string) {
+export function showError(context: CanvasRenderingContext2D, text: string) {
   const font = errorFont;
   const path = ParagraphLayout.singlePathShape({
     font,

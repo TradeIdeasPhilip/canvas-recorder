@@ -153,11 +153,18 @@ export class ColorScheduleInfo {
    * @param description Human-readable label shown in the visual editor.
    * Also serves as the sub-key that identifies this schedule within its
    * parent {@link VisuallyEditable}'s database record.
+   *
+   * This is mutable for one specific reason.
+   * Often a Showable does not want to expose its subcomponents to the user.
+   * Instead it will export specific schedules from its subcomponents.
+   * If you create two subcomponents of the same type, their schedules will initially have identical descriptions.
+   * You can change this description from "Color" to "Left Color" or "Right Color".
+   * Do this once at initialization time and never change it.
    * @param schedule Initial keyframes. The array is explicitly mutable and
    * will be modified by the Visual Editor at runtime.
    */
   constructor(
-    readonly description: string,
+    public description: string,
     schedule: Keyframe<string>[] | string,
   ) {
     if (typeof schedule === "string") {

@@ -4,6 +4,7 @@ import { myRainbow } from "../glib/my-rainbow";
 import {
   buildComponents,
   MultiTextComponent,
+  showError,
   TextComponent,
   TextFormatComponent,
 } from "../slide-components";
@@ -17,6 +18,7 @@ import { lerp, ReadOnlyRect } from "phil-lib/misc";
 import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
+  StringScalarInfo,
 } from "../schedule-helper";
 import { Keyframes, ease, interpolateNumbers } from "../interpolate";
 
@@ -936,6 +938,21 @@ class BeforeAndAfter implements Showable {
   leftText.widthSchedule.set(7);
   leftText.alignmentSchedule.set("center");
   leftText.additionalLineHeightSchedule.set(0.3);
+  // Rename this schedule in anticipation of adding slideFormat.colorSchedule to the visual editor.
+  scaleFormat.colorSchedule.description =
+    "Scale " + scaleFormat.colorSchedule.description;
+  /**
+   * This is temporary.
+   * TODO: Remove this.
+   *
+   * This is a test that we can edit, save and load scalar properties.
+   * We don't use a lot of scalar properties, so I made something up for this test.
+   * {@link scaleFormat.colorSchedule}, on the other hand, is real and I will add more like it.
+   */
+  const topLevelScalarTest = new StringScalarInfo(
+    "Top Level Scalar Test",
+    "Type Here",
+  );
   const slide: Showable = {
     description: "Slide 7",
     duration: DEFAULT_SLIDE_DURATION_MS,
@@ -944,6 +961,15 @@ class BeforeAndAfter implements Showable {
      * This tells the Visual Editor that we can add things.
      */
     components: [],
+    /**
+     * Instead of exporting the entire component, I'm just exporting selected properties.
+     */
+    schedules: [scaleFormat.colorSchedule],
+    /**
+     * This is just a test and will be removed.
+     * TODO
+     */
+    scalars: [topLevelScalarTest],
     show(options) {
       for (const child of this.components!) child.show(options);
       const { context } = options;
@@ -979,6 +1005,10 @@ class BeforeAndAfter implements Showable {
       );
       showColorfulBox(context);
       context.setTransform(originalTransform);
+      // TODO remove this!  This is a temporary thing for testing scalar values.
+      // The value should be available to the Visual Editor.
+      // And that value should be saved in IndexedDB, just like in a component.
+      showError(context, topLevelScalarTest.value);
     },
   };
   slideList.add(slide);
