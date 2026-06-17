@@ -125,11 +125,8 @@ const context = assertNonNullable(canvas.getContext("2d"));
  * that the drawing code doesn't have to care about.
  * @returns A matrix converting from the 16x9 ideal coordinates to the actual canvas coordinates.
  */
-const CANVAS_W = 3840;
-const CANVAS_H = 2160;
-
 function mainTransform() {
-  return new DOMMatrixReadOnly().scale(CANVAS_W / 16, CANVAS_H / 9);
+  return new DOMMatrixReadOnly().scale(canvas.width / 16, canvas.height / 9);
 }
 
 // ---------------------------------------------------------------------------
@@ -139,55 +136,123 @@ function mainTransform() {
 const viewport = getById("canvasViewport", HTMLDivElement);
 const canvasLoading = getById("canvasLoading", HTMLDivElement);
 const zoomSelect = getById("zoomSelect", HTMLSelectElement);
+const zoomControls = getById("zoomControls", HTMLDivElement);
 
-let currentScale = 1;
+/** Explicit zoom factor: 1.0 = one canvas pixel per device pixel (4K shown at 1920×1080 CSS px on Retina). */
+let currentZoomFactor = 1;
 let panX = 0;
 let panY = 0;
+/** True while the recording loop is running; suppresses all canvas resize operations. */
+let isRecording = false;
 
 /**
- * Clamps a pan value so the canvas always covers the visible window area —
- * no empty space in either dimension.
- *
- * For each axis independently:
- *  - canvas larger than window  → pan ∈ [windowSize - scaledCanvas, 0]
- *  - canvas same size or smaller → pan = 0  (pinned; nothing to reveal)
+ * Clamps pan so the canvas stays on-screen.
+ * When the canvas is smaller than the viewport, centers it instead.
  */
-function clampPan(scale: number, px: number, py: number): [number, number] {
-  const scaledW = CANVAS_W * scale;
-  const scaledH = CANVAS_H * scale;
-  // lower bound is negative (or 0); upper bound is always 0
-  const minX = Math.min(0, viewport.clientWidth - scaledW);
-  const minY = Math.min(0, viewport.clientHeight - scaledH);
-  return [Math.max(minX, Math.min(0, px)), Math.max(minY, Math.min(0, py))];
+function clampPan(
+  canvasCSSW: number,
+  canvasCSSH: number,
+  px: number,
+  py: number,
+): [number, number] {
+  const vpW = viewport.clientWidth;
+  const vpH = viewport.clientHeight;
+  if (canvasCSSW <= vpW) {
+    return [
+      Math.round((vpW - canvasCSSW) / 2),
+      Math.round((vpH - canvasCSSH) / 2),
+    ];
+  }
+  return [
+    Math.max(vpW - canvasCSSW, Math.min(0, px)),
+    Math.max(vpH - canvasCSSH, Math.min(0, py)),
+  ];
 }
 
-function applyZoom(scale: number, px = panX, py = panY) {
-  currentScale = scale;
-  [panX, panY] = clampPan(scale, px, py);
-  canvas.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+/**
+ * Resizes the canvas to match zoom and repositions it via left/top.
+ * zoom = 1.0 → 3840×2160 physical pixels, displayed at 1920×1080 CSS px on Retina.
+ *
+ * Guards canvas.width/height assignment: assigning to those properties always
+ * clears the canvas (browser spec), so skip it when the size hasn't changed
+ * (e.g. during a pan drag where only left/top need updating).
+ */
+function applyZoom(zoom: number, px = panX, py = panY) {
+  if (isRecording) return;
+  currentZoomFactor = zoom;
+  const dpr = devicePixelRatio;
+  const physW = Math.round(3840 * zoom);
+  const physH = Math.round(2160 * zoom);
+  const cssW = physW / dpr;
+  const cssH = physH / dpr;
+  if (canvas.width !== physW || canvas.height !== physH) {
+    canvas.style.transform = "";
+    canvas.style.transformOrigin = "";
+    canvas.style.maxWidth = "";
+    canvas.style.maxHeight = "";
+    canvas.width = physW;
+    canvas.height = physH;
+    canvas.style.width = `${cssW}px`;
+    canvas.style.height = `${cssH}px`;
+    showFrame(playPositionSeconds.valueAsNumber * 1000, true);
+  }
+  [panX, panY] = clampPan(cssW, cssH, px, py);
+  canvas.style.left = `${panX}px`;
+  canvas.style.top = `${panY}px`;
 }
 
+/** Fits the 16:9 canvas into the viewport at pixel-perfect resolution. */
 function zoomToFit() {
-  const w = viewport.clientWidth;
-  const h = viewport.clientHeight;
-  if (w === 0 || h === 0) return; // not yet laid out
-  const scale = Math.min(w / CANVAS_W, h / CANVAS_H);
-  applyZoom(scale, 0, 0);
+  if (isRecording) return;
+  const vpW = viewport.clientWidth;
+  const vpH = viewport.clientHeight;
+  if (vpW === 0 || vpH === 0) return;
+  const dpr = devicePixelRatio;
+  const cssW = Math.min(vpW, (vpH * 16) / 9);
+  const cssH = Math.min(vpH, (vpW * 9) / 16);
+  const newW = Math.round(cssW * dpr);
+  const newH = Math.round(cssH * dpr);
+  canvas.style.transform = "";
+  canvas.style.transformOrigin = "";
+  canvas.style.maxWidth = "";
+  canvas.style.maxHeight = "";
+  canvas.width = newW;
+  canvas.height = newH;
+  canvas.style.width = `${cssW}px`;
+  canvas.style.height = `${cssH}px`;
+  canvas.style.left = `${Math.round((vpW - cssW) / 2)}px`;
+  canvas.style.top = `${Math.round((vpH - cssH) / 2)}px`;
+  // Immediately redraw so the canvas clear doesn't show as a gray flash.
+  showFrame(playPositionSeconds.valueAsNumber * 1000, true);
 }
 
 zoomSelect.addEventListener("change", () => {
   if (zoomSelect.value === "fit") {
     zoomToFit();
   } else {
-    applyZoom(parseFloat(zoomSelect.value) / devicePixelRatio, 0, 0);
+    applyZoom(parseFloat(zoomSelect.value), 0, 0);
   }
 });
 
-window.addEventListener("resize", () => {
+const viewportResizeObserver = new ResizeObserver(() => {
   if (zoomSelect.value === "fit") {
     zoomToFit();
+  } else {
+    applyZoom(currentZoomFactor); // re-clamp pan to new viewport size
   }
 });
+viewportResizeObserver.observe(viewport);
+
+// Pan on trackpad scroll / mouse wheel; prevent browser back/forward navigation.
+viewport.addEventListener(
+  "wheel",
+  (e) => {
+    e.preventDefault();
+    if (zoomSelect.value === "fit") return;
+    applyZoom(currentZoomFactor, panX - e.deltaX, panY - e.deltaY);
+  },
+  { passive: false },
+);
 
 /**
  * @param timeInMs Draw the animation at this time.
@@ -650,6 +715,22 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
 
   animationLoop.cancel();
 
+  // Lock canvas at 4K for the duration of recording.
+  // Disable all size-changing code paths so the encoder sees a constant frame size.
+  isRecording = true;
+  viewportResizeObserver.disconnect();
+  zoomControls.inert = true;
+  canvas.width = 3840;
+  canvas.height = 2160;
+  canvas.style.width = "";
+  canvas.style.height = "";
+  canvas.style.maxWidth = "100%";
+  canvas.style.maxHeight = "100%";
+  canvas.style.left = "50%";
+  canvas.style.top = "50%";
+  canvas.style.transform = "translate(-50%, -50%)";
+  canvas.style.transformOrigin = "";
+
   infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
 
   // User picks file
@@ -761,6 +842,16 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
     Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
     Recording Speed: ${(frameNumber / FPS / elapsedSeconds).toFixed(3)} × realtime
   `;
+
+  // Restore pixel-perfect mode.
+  isRecording = false;
+  zoomControls.inert = false;
+  viewportResizeObserver.observe(viewport);
+  if (zoomSelect.value === "fit") {
+    zoomToFit();
+  } else {
+    applyZoom(currentZoomFactor);
+  }
 }
 
 cancelRecordingButton.addEventListener("click", () => {
@@ -4296,7 +4387,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     if (savedZoom === null || savedZoom === "fit") {
       zoomToFit();
     } else if (savedPanX !== undefined && savedPanY !== undefined) {
-      applyZoom(parseFloat(savedZoom) / devicePixelRatio, savedPanX, savedPanY);
+      applyZoom(parseFloat(savedZoom), savedPanX, savedPanY);
     } else {
       zoomToFit();
     }
@@ -4367,7 +4458,7 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   }
   if (isDragging) {
     applyZoom(
-      currentScale,
+      currentZoomFactor,
       dragStartPanX + (pointerEvent.clientX - dragStartClientX),
       dragStartPanY + (pointerEvent.clientY - dragStartClientY),
     );

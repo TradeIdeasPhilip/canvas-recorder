@@ -71,20 +71,21 @@ body {
   padding: 0.25em 0.4em;
 }
 
+#zoomControls[inert] {
+  opacity: 0.5;
+}
+
 #canvasViewport {
   flex: 1;
   min-height: 0;
   position: relative;
   overflow: hidden;
+  background: #c0c8d0;
 }
 
 #main {
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 3840px;
-  height: 2160px;
-  transform-origin: 0 0;
+  outline: 1px solid rgba(0, 0, 0, 0.3);
   cursor: grab;
 }
 
