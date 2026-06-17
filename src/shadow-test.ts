@@ -200,6 +200,16 @@ export function makeShadowDemo(options: {
     children: [{ start: 0, child: base }],
     show(showOptions: ShowOptions) {
       const { context } = showOptions;
+
+      if (showOptions.quality === "Low Power") {
+        if (background !== undefined) {
+          context.fillStyle = background;
+          context.fillRect(0, 0, 16, 9);
+        }
+        base.show(showOptions);
+        return;
+      }
+
       // Render `base` into the fixed 4K temp canvas.
       const tc = tempCtx;
       tc.save();

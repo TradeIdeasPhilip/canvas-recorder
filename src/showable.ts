@@ -267,6 +267,13 @@ export type ShowOptions = {
    */
   readonly globalTime: number;
   /**
+   * Rendering quality level.
+   * - `"High Quality"`: full effects (halftone shadows, etc.) — always used during recording.
+   * - `"Low Power"`: expensive effects disabled — set via the GUI during live preview to
+   *   reduce CPU heat and battery drain while iterating on animations.
+   */
+  readonly quality: "High Quality" | "Low Power";
+  /**
    * Optional callback supplied by the visual editor during live rendering.
    * A component that renders child components should call this once per child,
    * passing the child and the canvas transform in effect when the child renders.

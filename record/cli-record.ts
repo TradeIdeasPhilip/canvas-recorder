@@ -99,7 +99,7 @@ for (let frame = 0; frame < TOTAL_FRAMES; frame++) {
   ctx.clearRect(0, 0, WIDTH, HEIGHT);
   ctx.setTransform(WIDTH / 16, 0, 0, HEIGHT / 9, 0, 0);
 
-  showable.show({ timeInMs, context, globalTime: timeInMs });
+  showable.show({ timeInMs, context, globalTime: timeInMs, quality: "High Quality" });
 
   // getImageData always operates in canvas (pixel) coordinates.
   const { data } = ctx.getImageData(0, 0, WIDTH, HEIGHT);

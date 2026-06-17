@@ -216,15 +216,20 @@ function showFrame(timeInMs: number, live: boolean) {
   context.reset();
   context.setTransform(mainTransform());
   if (live) {
+    const quality = querySelector(
+      'input[name="quality"]:checked',
+      HTMLInputElement,
+    ).value as "High Quality" | "Low Power";
     toShow.show({
       timeInMs,
       context,
       globalTime: timeInMs,
+      quality,
       registerTransform: (c, t) => componentTransforms.set(c, t),
     });
     drawScheduleMarkers(context);
   } else {
-    toShow.show({ timeInMs, context, globalTime: timeInMs });
+    toShow.show({ timeInMs, context, globalTime: timeInMs, quality: "High Quality" });
   }
 }
 // Exposed so the browser console can call showFrame() directly for debugging.
@@ -1222,6 +1227,10 @@ function saveState() {
   sessionStorage.setItem("zoomSelect", zoomSelect.value);
   sessionStorage.setItem("panX", panX.toString());
   sessionStorage.setItem("panY", panY.toString());
+  sessionStorage.setItem(
+    "quality",
+    querySelector('input[name="quality"]:checked', HTMLInputElement).value,
+  );
 }
 
 if (import.meta.hot) {
@@ -4274,6 +4283,9 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
       if (sessionStorage.getItem("wasPlaying") === "1") {
         playCheckBox.checked = true;
       }
+    }
+    if (sessionStorage.getItem("quality") === "Low Power") {
+      getById("lowPower", HTMLInputElement).checked = true;
     }
     const savedZoom = sessionStorage.getItem("zoomSelect");
     const savedPanX = parseFloatX(sessionStorage.getItem("panX") ?? "");
