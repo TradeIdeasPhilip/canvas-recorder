@@ -190,12 +190,30 @@ export function applySnapshot(
   schedules: readonly ScheduleInfo[],
   snapshot: SerializedSchedule[],
 ): void {
+  // Warn about duplicate (description, type) pairs — only the first will ever be restored.
+  const liveKeys = new Set<string>();
+  for (const s of schedules) {
+    const key = `${s.description}\0${s.type}`;
+    if (liveKeys.has(key)) {
+      console.warn(
+        `applySnapshot: duplicate schedule "${s.description}" (${s.type}) — only the first will be restored from the database.`,
+      );
+    }
+    liveKeys.add(key);
+  }
   for (const serialized of snapshot) {
     const live = schedules.find(
       (s) =>
         s.description === serialized.description && s.type === serialized.type,
     );
-    if (!live) continue;
+    if (!live) {
+      /*
+      console.warn(
+        `applySnapshot: saved schedule "${serialized.description}" (${serialized.type}) no longer exists in code — ignoring.`,
+      );
+      */
+      continue;
+    }
     const liveArr = live.schedule as unknown[];
     liveArr.length = 0;
     for (const skf of serialized.keyframes) {
@@ -216,12 +234,29 @@ export function applyScalarSnapshot(
   scalars: readonly ScalarInfo[],
   snapshot: SerializedScalar[],
 ): void {
+  const liveKeys = new Set<string>();
+  for (const s of scalars) {
+    const key = `${s.description}\0${s.type}`;
+    if (liveKeys.has(key)) {
+      console.warn(
+        `applyScalarSnapshot: duplicate scalar "${s.description}" (${s.type}) — only the first will be restored from the database.`,
+      );
+    }
+    liveKeys.add(key);
+  }
   for (const serialized of snapshot) {
     const live = scalars.find(
       (s) =>
         s.description === serialized.description && s.type === serialized.type,
     );
-    if (!live) continue;
+    if (!live) {
+      /*
+      console.warn(
+        `applyScalarSnapshot: saved scalar "${serialized.description}" (${serialized.type}) no longer exists in code — ignoring.`,
+      );
+      */
+      continue;
+    }
     (live as { value: unknown }).value = serialized.value;
   }
 }

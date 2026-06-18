@@ -929,3 +929,102 @@ For now, let's focus on my current workflow:
 What happens if two properties have the same name?
 By accident!
 Seems like it could happen very easily.
+??? See notes in conversation.
+
+# Closing the Loop
+
+See notes in conversation.
+
+Change:  Don't have two copies of the json file.
+Don't import the json file.
+Read the json file from /public.
+Then saving the file won't cause an automatic restart.
+
+Do we want an automatic restart?
+Would that work correctly?
+Could we ever get restarted when we first start writing the file, before we finish writing?
+
+If it does work correctly, then maybe we always want an automatic restart.
+To test the result.
+And to reset the status.
+
+No.
+If we save to public, then we are in full control.
+After the save finishes, we can do the reload and compare.
+We even go further:
+If the files don't match up after the reload, then we display an error message and maybe help.
+
+## How Many JSON Files?
+
+Do we save just one file with the entire database, or one per video?
+I'm thinking one per video.
+
+The file names can correspond exactly with the database keys.
+The files are all in the same directory, a subdirectory of public.
+
+## What to Save
+
+We need to be saving what's in memory.
+That might include data that hasn't been saved to IndexedDb yet.
+We should save to IndexedDb at the same time, just to keep everything in sync.
+
+## Errors and Special Cases
+
+If the JSON file is corrupted we should display a warning message.
+This could be displayed as part of the save status:
+"Saved", "Save Required", or "Previous Save Corrupted".
+The last two could be fixed by saving.
+"Previous Save Corrupted" is treated like a missing JSON file or an empty JSON file, aside from the warning on the screen.
+A missing JSON file is not an error, it is treated like an empty JSON file.
+However, I think we need a fourth message, "Never Saved".
+Again, this means the same as "Save Required" except seeing "Never Saved" or "Previous Save Corrupted" could help with debugging.
+If I think I saved something, but I put it in the wrong place, or only half of the file got written, it would be good to see that on the screen.
+
+## What to Compare?
+
+We should compare the contents of memory to the contents of the JSON file.
+
+Ignore the database.
+It could have old components and properties.
+Only the relevant data will be read into memory.
+
+The JSON file might also have unused components and properties.
+Is that a problem?
+They would be ignored when we read the file back in, so it would be safe to ignore them in the comparison.
+
+Each time we save the JSON file we are starting from memory.
+So there should be no extra stuff in the JSON file.
+If there is extra stuff, just save again, and the new file will be better.
+
+The compare routine can be naive and do an exact comparison.
+If I really want do I can use git diff to see the specific differences.
+It's probably good to flush the old stuff out of the file before committing to git.
+If we need the old stuff, it will be in git and/or IndexedDB.
+The JSON file can be *clean*.
+
+## ORiginal thoughts
+
+
+I'm brainstorming.  I like our ability to save to indexeddb.  I love our infinite undo.  But it causes problems.  How and when do I synchronize with the TypeScript code?  Does the database ever get back into git?  When I hit the save button, do I even know what I'm producing?  Is there an easy way to see all of the recent changs, the things that we are using that are **not** in git?
+
+Proposal:  We create one button to save all relevant database entries.  I.e. all for this video.  We already have similar functionality.  This will be organized using the same exact keys as in the database.  The typescript code will import that JSON file.  The code that currently reads from the database will also have to check the json file.
+
+Three sources of data: the database, the json file, and the typescript defaults.  Typescript is the ultimate fallback, always available, lowest priority.  Reverting to this should always be an option, as it is now.  The database remains our preferred source, used when available, highest priority.  And this new JSON file.  This is a copy of the database for when the database isn't around, e.g. saving to git.  Reverting to this should also be an option (i.e. put it in the list with the various database saves).  And the JSON file gets medium priority for the initial load.
+
+Notice "## Saving to Disk" starting at line 691 of @development-plans/visual-editor.md .  We've discussed the mechanics of saving in a consistent location before.  That part still applies.
+
+We need some sort of status indicator, very visible, to say if we need to save or not.  That shouldn't be hard.  If the database has no entries for a category, the JSON file can't be out of date.  For each entry in the database, ensure that there is a corresponding entry in the json file and that they are identical.  If so we are up to date, otherwise a save is in order.   When there is a change in the editor we need to immediately mark the project as needing to be saved.  And it would be nice to know what's changed.
+
+We might need a way to cull old entries from the database.  If I delete a property or component I might not want it to live in the JSON file and database forever.  Nothing urgent.  Let's see if and when there is a problem.
+
+As in my previous remarks in that *.md file, we do not automatically save.  We only save when explicitly asked to.  Saving will cause vite to refresh.  (We will `import` the JSON file so vite knows it's part of the source.)  After the refresh hopefully we'll see the status change to "saved".  That's not hard coded, it will just do the test.
+
+As long as the save status is very visible, it seems easy to manually save before committing to git.
+
+Do we need a button to load all from the JSON file?  Usually the database has precidence.  But what if I'm loading from a particular version in git?  Maybe I want to revert my recent changes.  We can do it one slide at a time, but you'd have to know what slides to go to.
+
+This should finally close the loop!  The inital value ("typescript defaults") can easily add programmatic changes into the mix.  The JSON file is the source of truth in git.  The database is a holding area for the most recent changes, because it is not convient to write back to json all the time.
+
+Alternate thought:  What if we saved to json more often, possibly automaticaly?  Could we do that with the saved link thing mentioned in visual-editor.md?  Keep overwriting that file with a newer version whenever things change.  (Maybe a brief delay to group changes.  Maybe the user hits a button to save, but just a single button, and he probably does it more often than we've been discussing because this type of save is less intrusive.)  But here's the rub.  We have two copies of the json file.  One is the output of saving from the gui.  the other is what we `import` into the program.  Ideally they are identical, and they are probably identical each time I commit to git.  But they only become identical when I manually copy the file.  That might be included the build process, since I do both right before a commit.  The best part of this, the file that I'm saving constantly, it will be in git, so I can use git diff (command line or visual tools) to see what's changed **in real time.**
+
+Yes, I really like that version.  There are a lot of unknowns in there.  I've never tried that trick to save a file handle.  But even if we don't get it 100% working, I like that idea of seperating the last saved json from the currently used json.
