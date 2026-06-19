@@ -37,10 +37,72 @@ function paddedEase(progress: number) {
   return interpolateNumbers(progress, paddedEaseSubSchedule);
 }
 
+class WinkingFace {
+  /**
+   * A big circle with a hole where the mouth goes.
+   */
+  readonly #backgroundYellow: Path2D;
+  /**
+   * Stroke in black.
+   */
+  readonly #faceStrokes: Path2D;
+  /**
+   * Fill in black.
+   */
+  readonly #leftEye: Path2D;
+  private constructor() {
+    const transform = new DOMMatrixReadOnly(
+      "translate(-1px, -1px) scale(0.02)",
+    );
+    function fit(initial: string) {
+      const initialPath = new Path2D(initial);
+      const result = new Path2D();
+      result.addPath(initialPath, transform);
+      return result;
+    }
+    this.#backgroundYellow = fit(
+      "M0 49.906A49.8 49.8 0 0 1 49.906 0a49.8 49.8 0 0 1 49.906 49.906 49.8 49.8 0 0 1-49.906 49.906A49.8 49.8 0 0 1 0 49.906z M54.6 81.204l6.298-2.804 2.438-3.006.667-3.333-7.708.094H35.527l2.737 6.267 6.583 2.804z",
+    );
+    this.#faceStrokes = fit(
+      "M17.923 37.406c.844-3.128 2.819-5.832 5.542-7.587 2.538-2.042 5.747-3.063 8.998-2.865m48.679 12.681c-4.708-4.658-11.931-5.652-17.708-2.437m.625 33.021c0 6.119-4.808 10.983-14.446 10.983s-14.508-4.879-14.508-10.983m.092 0s14.681 5.25 28.646.113m8.988-20.75c-1.673-.979-3.683-1.885-5.979-1.923-2.323-.038-4.41.625-6.625 1.615 M2.169 49.871c0-26.447 21.291-47.737 47.738-47.737s47.738 21.291 47.738 47.738-21.291 47.737-47.737 47.737S2.169 76.317 2.169 49.871z",
+    );
+    this.#leftEye = fit(
+      "M28.079 48.431c0-2.95 2.375-5.325 5.325-5.325s5.325 2.375 5.325 5.325-2.375 5.325-5.325 5.325-5.325-2.375-5.325-5.325z",
+    );
+  }
+  static readonly #instance = new WinkingFace();
+  /**
+   * A sample made to demonstrate transforms.
+   * @param context Where to draw
+   * @param transform By default the box is centered on (0, 0), with a hole punched in the top left corder, (-1, -1).
+   */
+  static draw(
+    // Adapted from https://openmoji.org/,
+    // https://vecta.io/symbols/190/smileys-emotion-face-smiling/8/winking-face
+    context: CanvasRenderingContext2D,
+    transform?: DOMMatrixReadOnly,
+  ) {
+    if (transform) {
+      context.save();
+      applyTransform(context, transform);
+    }
+    context.fillStyle = "#fcea2b";
+    context.fill(WinkingFace.#instance.#backgroundYellow, "evenodd");
+    context.lineWidth = 0.08334;
+    context.strokeStyle = "#000";
+    context.lineCap = "round";
+    context.stroke(WinkingFace.#instance.#faceStrokes);
+    context.fillStyle = "#000";
+    context.fill(WinkingFace.#instance.#leftEye);
+    if (transform) {
+      context.restore();
+    }
+  }
+}
+
 /**
  * A sample made to demonstrate transforms.
  * @param context Where to draw
- * @param lineWidth
  * @param transform By default the box is centered on (0, 0), with a hole punched in the top left corder, (-1, -1).
  */
 function showColorfulBox(
@@ -742,7 +804,7 @@ class BeforeAndAfter implements Showable {
   static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
   static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
-  readonly duration = DEFAULT_SLIDE_DURATION_MS;
+  readonly duration = 20_000;
   readonly components: Showable[] = [];
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
@@ -785,7 +847,11 @@ class BeforeAndAfter implements Showable {
   show(options: ShowOptions) {
     for (const child of this.components!) child.show(options);
     const { timeInMs, context } = options;
-    const progress = timeInMs / this.duration;
+    const globalProgress = (timeInMs / this.duration) * 2;
+    const [progress, drawSample] =
+      globalProgress < 1
+        ? [globalProgress, WinkingFace.draw]
+        : [globalProgress - 1, showColorfulBox];
     const transformString = this.makeTransformString(progress);
     const matrix = new DOMMatrixReadOnly(transformString);
     const transformedPoint = transform(
@@ -809,7 +875,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     context.lineWidth = 0.25;
-    showColorfulBox(context, this.rightMostTransform);
+    drawSample(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     context.translate(12, 3.75);
     drawGrid(
@@ -818,7 +884,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     applyTransform(context, matrix);
-    showColorfulBox(context, this.rightMostTransform);
+    drawSample(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     this.textForTransform.textSchedule.set(transformString);
     this.textForTransform.show(options);
@@ -1003,7 +1069,8 @@ class BeforeAndAfter implements Showable {
         context,
         new DOMMatrixReadOnly("scale(2) translateX(1px)"),
       );
-      showColorfulBox(context);
+      //showColorfulBox(context);
+      WinkingFace.draw(context);
       context.setTransform(originalTransform);
       // TODO remove this!  This is a temporary thing for testing scalar values.
       // The value should be available to the Visual Editor.

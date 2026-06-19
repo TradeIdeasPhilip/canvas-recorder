@@ -4534,6 +4534,55 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
   pre.textContent = lines.join("\n");
 });
 
+// MARK: Save JSON file
+
+/** File format: one entry per selectable that has editable state. No timestamps. */
+type JsonFileEntry = {
+  schedules?: SerializedSchedule[];
+  scalars?: SerializedScalar[];
+  components?: SerializedChild[];
+};
+
+async function saveToJsonFile(): Promise<void> {
+  const result: Record<string, JsonFileEntry> = {};
+  const seen = new Set<string>();
+
+  for (const item of debug) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const hasSchedules = !!sel.schedules?.length;
+    const hasScalars = !!sel.scalars?.length;
+    const hasChildren = Array.isArray(sel.components);
+    if (!hasSchedules && !hasScalars && !hasChildren) continue;
+
+    const entry: JsonFileEntry = {};
+    if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
+    if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
+    if (hasChildren) entry.components = serializeComponents(sel.components!);
+    result[key] = entry;
+  }
+
+  let fileHandle: FileSystemFileHandle;
+  try {
+    fileHandle = await window.showSaveFilePicker({
+      suggestedName: `${toShowKey}.json`,
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    throw e;
+  }
+
+  const writable = await fileHandle.createWritable();
+  await writable.write(JSON.stringify(result, null, 2));
+  await writable.close();
+}
+
+getById("saveJsonBtn", HTMLButtonElement).addEventListener("click", saveToJsonFile);
+
 // MARK: Resizable pane dividers
 
 /**
