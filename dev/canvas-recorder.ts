@@ -1322,6 +1322,26 @@ function saveState() {
     "quality",
     querySelector('input[name="quality"]:checked', HTMLInputElement).value,
   );
+
+  // Splitter positions — only persist if an explicit size was set by drag or restore.
+  const topLeft = getById("top-left", HTMLDivElement);
+  const topRight = getById("top-right", HTMLDivElement);
+  const leftCol = getById("left-col", HTMLDivElement);
+  if (topLeft.style.height)
+    sessionStorage.setItem(
+      "pane-height-top-left",
+      topLeft.getBoundingClientRect().height.toString(),
+    );
+  if (topRight.style.height)
+    sessionStorage.setItem(
+      "pane-height-top-right",
+      topRight.getBoundingClientRect().height.toString(),
+    );
+  if (leftCol.style.flex)
+    sessionStorage.setItem(
+      "pane-width-left-col",
+      leftCol.getBoundingClientRect().width.toString(),
+    );
 }
 
 if (import.meta.hot) {
@@ -4415,6 +4435,17 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     } else {
       zoomToFit();
     }
+
+    // Restore splitter positions (must read before sessionStorage.clear() below).
+    const topLeftH = parseFloat(sessionStorage.getItem("pane-height-top-left") ?? "");
+    const topRightH = parseFloat(sessionStorage.getItem("pane-height-top-right") ?? "");
+    const leftColW = parseFloat(sessionStorage.getItem("pane-width-left-col") ?? "");
+    if (isFinite(topLeftH))
+      getById("top-left", HTMLDivElement).style.height = `${topLeftH}px`;
+    if (isFinite(topRightH))
+      getById("top-right", HTMLDivElement).style.height = `${topRightH}px`;
+    if (isFinite(leftColW))
+      getById("left-col", HTMLDivElement).style.flex = `0 0 ${leftColW}px`;
   } finally {
     sessionStorage.clear();
   }
@@ -4590,6 +4621,8 @@ getById("saveJsonBtn", HTMLButtonElement).addEventListener("click", saveToJsonFi
  * The bottom pane automatically fills whatever space remains (flex: 1).
  */
 function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
+  const storageKey = `pane-height-${topPane.id}`;
+
   handle.addEventListener("mousedown", (startEvent) => {
     startEvent.preventDefault();
     handle.classList.add("dragging");
@@ -4617,6 +4650,7 @@ function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
       handle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      sessionStorage.setItem(storageKey, topPane.style.height.replace("px", ""));
     };
 
     document.addEventListener("mousemove", onMove);
@@ -4637,6 +4671,7 @@ initResizeHandle(
   const vhandle = getById("vresize", HTMLDivElement);
   const leftCol = getById("left-col", HTMLDivElement);
   const MIN_COL = 80;
+  const vStorageKey = "pane-width-left-col";
 
   vhandle.addEventListener("mousedown", (startEvent) => {
     startEvent.preventDefault();
@@ -4662,6 +4697,7 @@ initResizeHandle(
       vhandle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      sessionStorage.setItem(vStorageKey, leftCol.getBoundingClientRect().width.toString());
     };
 
     document.addEventListener("mousemove", onMove);
