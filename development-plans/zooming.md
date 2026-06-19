@@ -3,6 +3,20 @@
 discussing Interactive mode only.
 saving a video is still pegged at 4k.
 
+## Status Update 6/18/2026
+
+I recently committed [Higher quality in dev mode](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/f322f731e333554ce311b7f62dcc708e4bab72f5).
+For a while I was only rendering to 4k, then using the default browser stuff to resize it.
+(I.e. I was setting canvas.width and canvas.height to match 4k _internally_, but using canvas.style to set a different _visible_ size.)
+That works well in some cases, but when you reduce by more than 1/2 the basic algorithm doesn't work well.
+The new version renders to the exact size that we are displaying and the result is much easier to read!
+
+This also included nicer panning with the trackpad.
+That was missing.
+
+The bulk of what's below is obsolete.
+The current state of zooming is pretty good.
+
 ## Rationale / User story
 
 When you watch the video, mostly you want the entire video to be visible on the screen.
@@ -30,17 +44,17 @@ For now let's say that the canvas will resize for reasons beyond our control, an
 
 ## Resolution
 
-Currently the canvas updates its internal  [width](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/width) and height to match its external [width](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/width) and height.
+Currently the canvas updates its internal [width](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/width) and height to match its external [width](https://developer.mozilla.org/en-US/docs/Web/CSS/Reference/Properties/width) and height.
 
 This is probably overkill.
-I loved the *idea* of SVG deferring any pixilation until the last possible moment.
+I loved the _idea_ of SVG deferring any pixilation until the last possible moment.
 In practice I notice no difference in performance when the canvas is tiny vs large.
 
 Let's just say that the canvas size is fixed at 4k resolution.
 That simplifies a lot of things.
 
 Hmmm.
-Now canvas.width and canvas.height are *the* source of truth.
+Now canvas.width and canvas.height are _the_ source of truth.
 We can set them once in the \*.html file.
 Anyone else who needs them can read them from here.
 If and when I allow these values to change, this is where I will change them.
@@ -60,8 +74,9 @@ we can letterbox or we can let some parts get cut off, possibly both.
 ## Zoom
 
 Seems like there are two top level options:
-* Try to show everything, automatically changing the zoom level if the window size changes.
-* Show at a specific amount of zoom.  If the window size changes, something might get cut off, or blank space may be exposed.
+
+- Try to show everything, automatically changing the zoom level if the window size changes.
+- Show at a specific amount of zoom. If the window size changes, something might get cut off, or blank space may be exposed.
 
 Simple drop down listing the standard zoom options.
 "Zoom to fit", "100%", "50%", "200%", and "Custom".
@@ -81,8 +96,7 @@ So you should be allowed to pan past the end.
 
 But, that's not the common case.
 When possible, avoid extra space.
-Example, when I hit a hot key I expect the screen to zoom out 2x, normally I'd expect the center to stay centered, *but not* if that adds more unused space to the screen.
-
+Example, when I hit a hot key I expect the screen to zoom out 2x, normally I'd expect the center to stay centered, _but not_ if that adds more unused space to the screen.
 
 ## Panning
 

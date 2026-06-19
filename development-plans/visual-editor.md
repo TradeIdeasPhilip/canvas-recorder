@@ -876,7 +876,9 @@ Copied into shadow-test.ts.
 Proposal:
 Expose the root of the tree just like all of the other nodes.
 
-## Current State
+**Status**: Implemented in https://github.com/TradeIdeasPhilip/canvas-recorder/commit/e7e95ae9f20df53f241182c95e6e41b7c24e7806.
+
+## Previous State
 
 I have a top level `Showable` that is hard coded in TypeScript.
 Currently the Visual Editor has very limited support fo the top level.
@@ -924,61 +926,129 @@ For now, let's focus on my current workflow:
 - Lots of TypeScript exposing some specific properties to the Visual Editor.
 - Components can be added to any slide at any time for prototyping.
 
-######
-
-What happens if two properties have the same name?
-By accident!
-Seems like it could happen very easily.
-??? See notes in conversation.
-
 # Closing the Loop
 
-See notes in conversation.
+I like our ability to save to IndexedDB.
+I love our infinite undo.
+But these features cause problems.
 
-Change:  Don't have two copies of the json file.
-Don't import the json file.
-Read the json file from /public.
-Then saving the file won't cause an automatic restart.
+- How and when do I synchronize with the TypeScript code?
+- Does the database ever get back into git?
+- When I hit the "Record and Save Video" button, do I even know what I'm producing?
+- Is there an easy way to see all of the recent changes, the things that we are using that are **not** in git?
 
-Do we want an automatic restart?
-Would that work correctly?
-Could we ever get restarted when we first start writing the file, before we finish writing?
+## Proposal
 
-If it does work correctly, then maybe we always want an automatic restart.
-To test the result.
-And to reset the status.
+We create one button to save all relevant database entries.
+I.e. all for this video.
+We already have similar functionality.
+This will be organized using the same exact keys as in the database.
+The typescript code will read that JSON file.
+The same code that currently reads from the database will also read the JSON file.
 
-No.
-If we save to public, then we are in full control.
-After the save finishes, we can do the reload and compare.
-We even go further:
-If the files don't match up after the reload, then we display an error message and maybe help.
+## Three Sources of Data
 
-## How Many JSON Files?
+### TypeScript Defaults
 
-Do we save just one file with the entire database, or one per video?
-I'm thinking one per video.
+The TypeScript code is the ultimate fallback.
+It is always available.
+It has the lowest priority.
+Reverting to this should always be an option, as it is now.
 
-The file names can correspond exactly with the database keys.
-The files are all in the same directory, a subdirectory of public.
+### The Database
 
-## What to Save
+The IndexedDB database remains our preferred source, used when available, highest priority.
 
-We need to be saving what's in memory.
-That might include data that hasn't been saved to IndexedDb yet.
-We should save to IndexedDb at the same time, just to keep everything in sync.
+### The JSON File
 
-## Errors and Special Cases
+This proposal creates a new JSON file.
+This is a copy of the database for when the database isn't around.
 
-If the JSON file is corrupted we should display a warning message.
-This could be displayed as part of the save status:
-"Saved", "Save Required", or "Previous Save Corrupted".
-The last two could be fixed by saving.
-"Previous Save Corrupted" is treated like a missing JSON file or an empty JSON file, aside from the warning on the screen.
-A missing JSON file is not an error, it is treated like an empty JSON file.
-However, I think we need a fourth message, "Never Saved".
-Again, this means the same as "Save Required" except seeing "Never Saved" or "Previous Save Corrupted" could help with debugging.
-If I think I saved something, but I put it in the wrong place, or only half of the file got written, it would be good to see that on the screen.
+For example when I commit to git, I have no direct option to save what's in the database.
+So I will save this file from our web application.
+And the file will be committed to git.
+
+A new user can start from git.
+This file will be that user's starting place.
+
+Reverting to this should also be an option.
+The program should put this file in the list with the various database saves and with "TypeScript defaults.
+
+This JSON file gets medium priority for the initial load.
+
+## Making it Easy to Save
+
+The following has been discussed before but I've never tried it.
+
+The big issue is that you want to save the file to the correct place.
+You will typically only change the file name when you switch to a new video.
+And you only need to change the location when you are changing your development setup.
+
+It would be nice if `window.showSaveFilePicker()` could remember the last saved location.
+
+My research says showSaveFilePicker does NOT remember the last location across page loads.
+We'd need to store the FileSystemFileHandle (or at least the path) in our code.
+
+But FileSystemFileHandle can be persisted via IndexedDB (you can serialize it with indexedDB since file handles are serializable in the File System Access API).
+
+So the approach would be to store the file handle in IndexedDB after the user first picks a location, then retrieve and reuse it on subsequent saves—though you might need to request permission again with requestPermission() before writing.
+
+## Status Indicator
+
+We need some sort of status indicator, very visible, to say if we need to save or not.
+
+That shouldn't be hard.
+If the database has no entries for a category, the JSON file can't be out of date.
+For each entry in the database, ensure that there is a corresponding entry in the json file and that they are identical.
+If so we are up to date, otherwise a save is in order.
+
+When there is a change in the editor we need to immediately mark the project as needing to be saved.
+And it would be nice to know what's changed.
+
+As long as the save status is very visible, it seems easy to manually save before committing to git.
+
+### GUI
+
+This should go on the top line, next to the Zoom options.
+
+"High Quality" and "Low Power" should be hidden (css display: none) since we don't currently need that option.
+That will make room for a single row of status.
+If we have more it can be a tooltip.
+
+### Metadata
+
+Do we get any useful metadata when when we fetch the JSON file?
+I'm sure there's a lot of good feedback we could give the user in the status.
+
+On a 200 response, do we get the modification date and time of the file?
+It would be good to know if we are reading the file we think we are reading, and this information could help.
+
+On failures we should also display something.
+A 404 would be a common case as this spec explicitly says that a missing JSON file is not an error.
+It means this video is a work in progress!
+It will get fixed with the first save.
+Unless you think the file should be there.
+Call this "No JSON file found", or maybe something more specific like the exact url that we were looking for.
+
+No response from the server would be another common issue.
+The Vite dev server dies every time I switch projects or upgrade VS Code, close VS Code.
+I often make changes in VS code and I don't see them right away and it's not obvious that the server is down until I check.
+
+A permission error or a CORS error or some unexpected HTTP error would need different troubleshooting.
+Keep this simple and reliable because we don't know all the options.
+
+### What if the user changes something and then changes it back?
+
+The user's first change will cause our software to change the status to dirty.
+
+What if the user changes things back?
+We could check on every change.
+That's probably overkill, and it's not common in a lot of applications.
+We will redo the test on the next refresh.
+And we have git diff for more details.
+
+This is good enough for a first version.
+We can alway add more later.
 
 ## What to Compare?
 
@@ -1000,31 +1070,118 @@ The compare routine can be naive and do an exact comparison.
 If I really want do I can use git diff to see the specific differences.
 It's probably good to flush the old stuff out of the file before committing to git.
 If we need the old stuff, it will be in git and/or IndexedDB.
-The JSON file can be *clean*.
+The JSON file can be _clean_.
 
-## ORiginal thoughts
+Note: This is talking about the status indicator that is always available.
+Immediately after a save we do a simpler comparison, described below.
 
+## When to Save and Load
 
-I'm brainstorming.  I like our ability to save to indexeddb.  I love our infinite undo.  But it causes problems.  How and when do I synchronize with the TypeScript code?  Does the database ever get back into git?  When I hit the save button, do I even know what I'm producing?  Is there an easy way to see all of the recent changs, the things that we are using that are **not** in git?
+These JSON files should live in a subdirectory of public.
+(Each video gets its own section of the database and its own JSON file.)
+Originally I was going to `import` these, but we get more control by putting it in public.
 
-Proposal:  We create one button to save all relevant database entries.  I.e. all for this video.  We already have similar functionality.  This will be organized using the same exact keys as in the database.  The typescript code will import that JSON file.  The code that currently reads from the database will also have to check the json file.
+We need to load this file automatically on restart.
+We are already checking the database on restart.
+(And we use `window.sessionsStorage` to deal with slow database issues.)
+We can load this at the same same time.
 
-Three sources of data: the database, the json file, and the typescript defaults.  Typescript is the ultimate fallback, always available, lowest priority.  Reverting to this should always be an option, as it is now.  The database remains our preferred source, used when available, highest priority.  And this new JSON file.  This is a copy of the database for when the database isn't around, e.g. saving to git.  Reverting to this should also be an option (i.e. put it in the list with the various database saves).  And the JSON file gets medium priority for the initial load.
+### Load from JSON Button
 
-Notice "## Saving to Disk" starting at line 691 of @development-plans/visual-editor.md .  We've discussed the mechanics of saving in a consistent location before.  That part still applies.
+Let's add one button, next to the save button, that reads from the JSON file into memory.
+The next save to the database will include the JSON data, plus any modifications made in the application.
 
-We need some sort of status indicator, very visible, to say if we need to save or not.  That shouldn't be hard.  If the database has no entries for a category, the JSON file can't be out of date.  For each entry in the database, ensure that there is a corresponding entry in the json file and that they are identical.  If so we are up to date, otherwise a save is in order.   When there is a change in the editor we need to immediately mark the project as needing to be saved.  And it would be nice to know what's changed.
+Use cases:
 
-We might need a way to cull old entries from the database.  If I delete a property or component I might not want it to live in the JSON file and database forever.  Nothing urgent.  Let's see if and when there is a problem.
+- You made a lot of changes in the application.
+  You want to go back to the last "official" version.
+- You copied a different JSON file into the right place.
+  Maybe an update or rollback from git.
+  Maybe you edited the file.
 
-As in my previous remarks in that *.md file, we do not automatically save.  We only save when explicitly asked to.  Saving will cause vite to refresh.  (We will `import` the JSON file so vite knows it's part of the source.)  After the refresh hopefully we'll see the status change to "saved".  That's not hard coded, it will just do the test.
+Note that the load is always done from a url like "./saved_state/some4.json".
+I.e. Not a file.
+And the user can't choose where to look, only the programmer.
 
-As long as the save status is very visible, it seems easy to manually save before committing to git.
+### Save Button
 
-Do we need a button to load all from the JSON file?  Usually the database has precidence.  But what if I'm loading from a particular version in git?  Maybe I want to revert my recent changes.  We can do it one slide at a time, but you'd have to know what slides to go to.
+We only save on request.
+The user has to hit the button.
 
-This should finally close the loop!  The inital value ("typescript defaults") can easily add programmatic changes into the mix.  The JSON file is the source of truth in git.  The database is a holding area for the most recent changes, because it is not convient to write back to json all the time.
+The save button should automatically reload the file and compare it to the expected value.
+It should report if there's a problem, maybe a message box.
+This could be a simple byte for byte comparison since we know what we tried to save.
 
-Alternate thought:  What if we saved to json more often, possibly automaticaly?  Could we do that with the saved link thing mentioned in visual-editor.md?  Keep overwriting that file with a newer version whenever things change.  (Maybe a brief delay to group changes.  Maybe the user hits a button to save, but just a single button, and he probably does it more often than we've been discussing because this type of save is less intrusive.)  But here's the rub.  We have two copies of the json file.  One is the output of saving from the gui.  the other is what we `import` into the program.  Ideally they are identical, and they are probably identical each time I commit to git.  But they only become identical when I manually copy the file.  That might be included the build process, since I do both right before a commit.  The best part of this, the file that I'm saving constantly, it will be in git, so I can use git diff (command line or visual tools) to see what's changed **in real time.**
+We need to include instructions on where to place the file.
 
-Yes, I really like that version.  There are a lot of unknowns in there.  I've never tried that trick to save a file handle.  But even if we don't get it 100% working, I like that idea of seperating the last saved json from the currently used json.
+This is clearly aimed at people who have installed the source code and are running a Vite dev server.
+I can imagine more options for non-programmers.
+That's not our _immediate_ concern.
+
+## What to Save
+
+We need to be saving what's in memory.
+That might include data that hasn't been saved to IndexedDb yet.
+We should save to IndexedDB at the same time, just to keep everything in sync.
+
+We should save the file in a git friendly format.
+I.e. something that can be diff'ed easily.
+Our current database dump already puts one item on each line (presumably using the `space` argument of `JSON.stringify()`).
+We should try to be consistent about the order of things and otherwise avoid unnecessary changes.
+
+Using git diff to see what's changed recently will be a huge help.
+This program itself doesn't have any diff capabilities.
+
+## Errors and Special Cases
+
+If the JSON file is corrupted we should display a warning message.
+This could be displayed as part of the save status.
+
+"Saved" is one status.
+If a save is required, we can give additional information, like "Previous Save Corrupted" or "Never Been Saved".
+
+Any error (missing or corrupted) is treated like a missing JSON file or an empty JSON file, aside from the warning on the screen.
+A missing JSON file is not an error, it is treated like an empty JSON file.
+
+If there is a problem after explicitly hitting the save button or load button, then we display a message box.
+When loading automatically we do **not** display a message box.
+In all cases we update the status message.
+
+### Slow Responses
+
+Should we have a timeout for the load from JSON option?
+It seems like the loading process should _probably_ pause until the JSON file loads or fails.
+But we don't want to get stuck waiting forever.
+Instead we should give it a reasonable amount of time (250ms?) before giving up and updating the status accordingly and moving on just like any other JSON failure.
+
+Note: Giving up on the JSON file could cause damage.
+For example, the user might be starting the app from github pages, instead of running it locally.
+The first time he runs, nothing will be in the database, so he should load from the JSON.
+But if the JSON is down then he will load the TypeScript defaults.
+Then, when he hits refresh the TypeScript defaults will be saved to IndexedDB.
+After the app comes back, it will read the TypeScript defaults from the database and it will ignore the JSON file even if it's now available.
+
+There is a button to explicitly reload everything from the JSON file, as described above.
+It will load the JSON file over the IndexedDB file, which is perfect for this situation.
+But the user needs to know to click that!
+
+After the user hits the save button, we immediately change the status to "Verifying Save".
+That may be overkill since we expect to read that from a local web server.
+But we will be doing an await on an HTTP or HTTPS connection, so we might as well display some temporary status while we are waiting.
+
+I don't think this will happen a lot.
+I'm probably overthinking this entire section.
+This is just another failure mode.
+
+## Final Thoughts
+
+I like this this plan.
+
+There are some unknowns in here.
+For example, I've never tried saving a file handle to the database.
+But even if we can't get that working, the basic plan will still be good.
+
+This should finally close the loop!
+The initial value ("typescript defaults") can easily add programmatic changes into the mix.
+The JSON file is the source of truth in git.
+The database is a holding area for the most recent changes, because it is not convenient to write back to JSON all the time.
