@@ -772,11 +772,13 @@ export class TextFormatComponent implements Showable {
   readonly sizeSchedule = new NumberScheduleInfo("Font Size", 1);
   readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
   readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
+  readonly alphaSchedule = new NumberScheduleInfo("Alpha", 1);
   readonly schedules = [
     this.colorSchedule,
     this.sizeSchedule,
     this.boldnessSchedule,
     this.obliquenessSchedule,
+    this.alphaSchedule,
   ] as const;
   readonly description = "Text Format";
   readonly duration = 0;
@@ -787,6 +789,7 @@ export class TextFormatComponent implements Showable {
       size?: number | Keyframes<number>;
       boldness?: number | Keyframes<number>;
       obliqueness?: number | Keyframes<number>;
+      alpha?: number | Keyframes<number>;
     } = {},
   ) {
     if (initialValues.name !== undefined)
@@ -799,6 +802,8 @@ export class TextFormatComponent implements Showable {
       this.boldnessSchedule.set(initialValues.boldness);
     if (initialValues.obliqueness !== undefined)
       this.obliquenessSchedule.set(initialValues.obliqueness);
+    if (initialValues.alpha !== undefined)
+      this.alphaSchedule.set(initialValues.alpha);
   }
   show(options: ShowOptions): void {
     // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?
@@ -813,6 +818,7 @@ export class TextFormatComponent implements Showable {
     const size = this.sizeSchedule.at(timeInMs);
     const boldness = this.boldnessSchedule.at(timeInMs);
     const obliqueness = this.obliquenessSchedule.at(timeInMs);
+    const alpha = this.alphaSchedule.at(timeInMs);
     if (
       !this.#cachedFont ||
       this.#cachedFont.size != size ||
@@ -828,7 +834,9 @@ export class TextFormatComponent implements Showable {
       context.lineCap = "round";
       context.lineJoin = "round";
       context.lineWidth = font.strokeWidth;
+      context.globalAlpha = alpha;
       context.stroke(pathShape.canvasPath);
+      context.globalAlpha = 1;
     }
     function addText(content: string, paragraphLayout: ParagraphLayout): void {
       paragraphLayout.addText(content, font, drawText);
@@ -989,8 +997,10 @@ export class RectangleComponent implements Showable {
       rect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
     } = {},
   ) {
-    if (initialValues.color !== undefined) this.colorSchedule.set(initialValues.color);
-    if (initialValues.rect !== undefined) this.rectSchedule.set(initialValues.rect);
+    if (initialValues.color !== undefined)
+      this.colorSchedule.set(initialValues.color);
+    if (initialValues.rect !== undefined)
+      this.rectSchedule.set(initialValues.rect);
   }
   show({ context, timeInMs }: ShowOptions) {
     const color = this.colorSchedule.at(timeInMs);
@@ -1029,8 +1039,10 @@ export class SingleImageComponent implements Showable {
       destRect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
     } = {},
   ) {
-    if (initialValues.url !== undefined) this.urlSchedule.set(initialValues.url);
-    if (initialValues.destRect !== undefined) this.destRectSchedule.set(initialValues.destRect);
+    if (initialValues.url !== undefined)
+      this.urlSchedule.set(initialValues.url);
+    if (initialValues.destRect !== undefined)
+      this.destRectSchedule.set(initialValues.destRect);
   }
   show({ context, timeInMs }: ShowOptions) {
     const url = this.urlSchedule.at(timeInMs);

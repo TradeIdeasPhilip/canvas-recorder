@@ -671,9 +671,10 @@ class MatrixLayout {
     top: number,
     leftTransform: DOMMatrixReadOnly,
     leftTransformColor: string,
+    leftTransformAlpha: number,
     rightTransform: DOMMatrixReadOnly,
     rightTransformColor: string,
-    pointColor: string,
+    rightTransformAlpha: number,
     context: CanvasRenderingContext2D,
   ) {
     /**
@@ -694,16 +695,19 @@ class MatrixLayout {
       );
       left += laidOut.width;
     };
+    context.globalAlpha = leftTransformAlpha;
     this.draw3x3(left, top, leftTransform, leftTransformColor, context);
     left += this.squareMatrixWidth;
     left += this.betweenColumns;
     strokeText("×");
     left += this.betweenColumns;
+    context.globalAlpha = rightTransformAlpha;
     this.draw3x3(left, top, rightTransform, rightTransformColor, context);
     left += this.squareMatrixWidth;
     left += this.betweenColumns;
     strokeText("×");
     left += this.betweenColumns;
+    context.globalAlpha = 1;
     this.drawPoint(left, top, "black", context);
   }
   readonly layout331: {
@@ -973,51 +977,143 @@ class BeforeAndAfter implements Showable {
   slideList.add(slide);
 }
 
+type SingleTransform = {
+  readonly transformString: string;
+  readonly functionString: string;
+  getTransform(progress: number): DOMMatrixReadOnly;
+  readonly formatter: TextFormatComponent;
+};
+
+class ShowTwoTransforms {
+  constructor(
+    readonly left: SingleTransform,
+    readonly right: SingleTransform,
+    baseFormatter: TextFormatComponent,
+    whereToDraw: "left" | "right",
+    readonly matrixLayout: MatrixLayout,
+  ) {
+    this.xOffset = whereToDraw == "left" ? 0 : 8;
+    this.textTop = new MultiTextComponent({
+      position: { x: 4 + this.xOffset, y: 0.25 },
+      width: 7,
+      alignment: "center",
+      additionalLineHeight: 0.3,
+    });
+    this.textTop.components.push(
+      left.formatter,
+      right.formatter,
+      baseFormatter,
+    );
+    const leftFormatterName = left.formatter.nameScalar.value;
+    const rightFormatterName = right.formatter.nameScalar.value;
+    const baseFormatterName = baseFormatter.nameScalar.value;
+    this.textTop
+      .addText(leftFormatterName, `${left.transformString}   `)
+      .addText(rightFormatterName, `${right.transformString}\n`)
+      .addText(leftFormatterName, `${left.functionString}(`)
+      .addText(rightFormatterName, `${right.functionString}(`)
+      .addText(baseFormatterName, "x, y")
+      .addText(rightFormatterName, ")")
+      .addText(leftFormatterName, ")");
+  }
+  private readonly textTop: MultiTextComponent;
+  private readonly xOffset: number;
+  show(options: ShowOptions) {
+    this.textTop.show(options);
+    const { context, timeInMs } = options;
+    const matrixLayout = this.matrixLayout;
+    matrixLayout.show331(
+      (8 - matrixLayout.layout331.total.width) / 2 + this.xOffset,
+      8.75 - matrixLayout.layout311.total.height,
+      this.left.getTransform(1),
+      this.left.formatter.colorSchedule.at(timeInMs),
+      0.5,
+      this.right.getTransform(1),
+      this.right.formatter.colorSchedule.at(timeInMs),
+      1,
+      context,
+    );
+    const originalTransform = context.getTransform();
+    context.translate(4+this.xOffset, 4.5);
+    context.scale(7 / 9, 7 / 9);
+    drawGrid(
+      { x: -4.5, y: -3, width: 9, height: 6 },
+      "rgba(80%, 0%, 80%, 50%)",
+      context,
+    );
+    applyTransform(
+      context,
+      this.left.getTransform(1).multiply(this.right.getTransform(1)),
+    );
+    //showColorfulBox(context);
+    WinkingFace.draw(context);
+    context.setTransform(originalTransform);
+  }
+}
+
 // MARK: Slide 7
 {
+  // TODO also
+  // rotate(45deg) scale(2, 1)
+  // and
+  // skewX(10deg) translateY(1px)
   const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
-  const scaleMatrix = new DOMMatrixReadOnly("scale(2)");
-  const slideMatrix = new DOMMatrixReadOnly("translateX(1px)");
-  const scaleFormat = new TextFormatComponent();
-  scaleFormat.colorSchedule.set(myRainbow.cssBlue);
-  scaleFormat.nameScalar.value = "scale";
-  scaleFormat.sizeSchedule.set(1 / 3);
-  const slideFormat = new TextFormatComponent();
-  slideFormat.colorSchedule.set(myRainbow.red);
-  slideFormat.nameScalar.value = "slide";
-  slideFormat.sizeSchedule.set(1 / 3);
-  const baseFormat = new TextFormatComponent();
-  baseFormat.colorSchedule.set("black");
-  baseFormat.nameScalar.value = "base";
-  baseFormat.sizeSchedule.set(1 / 3);
-  const leftText = new MultiTextComponent();
-  leftText.components.push(scaleFormat, slideFormat, baseFormat);
-  leftText
-    .addText("scale", "scale(2)   ")
-    .addText("slide", "translateX(1px)\n")
-    .addText("scale", "double(")
-    .addText("slide", "slideRightOneUnit(")
-    .addText("base", "x, y")
-    .addText("slide", ")")
-    .addText("scale", ")");
-  leftText.positionSchedule.set({ x: 4, y: 0.25 });
-  leftText.widthSchedule.set(7);
-  leftText.alignmentSchedule.set("center");
-  leftText.additionalLineHeightSchedule.set(0.3);
-  // Rename this schedule in anticipation of adding slideFormat.colorSchedule to the visual editor.
-  scaleFormat.colorSchedule.description =
-    "Scale " + scaleFormat.colorSchedule.description;
   /**
-   * This is temporary.
-   * TODO: Remove this.
-   *
-   * This is a test that we can edit, save and load scalar properties.
-   * We don't use a lot of scalar properties, so I made something up for this test.
-   * {@link scaleFormat.colorSchedule}, on the other hand, is real and I will add more like it.
+   * The transform on the left in the example on the left.
+   * Also found on the right in the example on the right.
    */
-  const topLevelScalarTest = new StringScalarInfo(
-    "Top Level Scalar Test",
-    "Type Here",
+  const outerFormat = new TextFormatComponent({
+    color: myRainbow.myBlue,
+    name: "outer",
+    size: 1 / 3,
+  });
+  /**
+   * The transform on the right in the example on the left.
+   * Also found on the left in the example on the right.
+   */
+  const innerFormat = new TextFormatComponent({
+    color: myRainbow.red,
+    name: "inner",
+    size: 1 / 3,
+  });
+  const baseFormat = new TextFormatComponent({
+    color: "black",
+    name: "base",
+    size: 1 / 3,
+  });
+  // Rename these before sharing them in the editor.
+  [outerFormat, innerFormat, baseFormat].forEach((formatter) => {
+    formatter.colorSchedule.description = formatter.nameScalar.value;
+  });
+  const outer: SingleTransform = {
+    transformString: "scale(2)",
+    functionString: "double",
+    formatter: outerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().scaleSelf(progress + 1);
+    },
+  };
+  const inner: SingleTransform = {
+    transformString: "translateX(1px)",
+    functionString: "slideRightOneUnit",
+    formatter: innerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().translateSelf(progress, 0);
+    },
+  };
+  const left = new ShowTwoTransforms(
+    outer,
+    inner,
+    baseFormat,
+    "left",
+    matrixLayout,
+  );
+  const right = new ShowTwoTransforms(
+    inner,
+    outer,
+    baseFormat,
+    "right",
+    matrixLayout,
   );
   const slide: Showable = {
     description: "Slide 7",
@@ -1030,15 +1126,15 @@ class BeforeAndAfter implements Showable {
     /**
      * Instead of exporting the entire component, I'm just exporting selected properties.
      */
-    schedules: [scaleFormat.colorSchedule],
-    /**
-     * This is just a test and will be removed.
-     * TODO
-     */
-    scalars: [topLevelScalarTest],
+    schedules: [
+      outerFormat.colorSchedule,
+      innerFormat.colorSchedule,
+      baseFormat.colorSchedule,
+    ],
     show(options) {
       for (const child of this.components!) child.show(options);
       const { context } = options;
+      // Vertical separator:
       context.lineWidth = 0.05;
       context.strokeStyle = "rgb(0 0 0 / 0.25)";
       context.lineCap = "butt";
@@ -1046,36 +1142,8 @@ class BeforeAndAfter implements Showable {
       context.moveTo(8, 0.25);
       context.lineTo(8, 8.75);
       context.stroke();
-      leftText.show(options);
-      matrixLayout.show331(
-        (8 - matrixLayout.layout331.total.width) / 2,
-        8.75 - matrixLayout.layout311.total.height,
-        scaleMatrix,
-        myRainbow.myBlue,
-        slideMatrix,
-        myRainbow.red,
-        "black",
-        context,
-      );
-      const originalTransform = context.getTransform();
-      context.translate(4, 4.5);
-      context.scale(7 / 9, 7 / 9);
-      drawGrid(
-        { x: -4.5, y: -3, width: 9, height: 6 },
-        "rgba(80%, 0%, 80%, 50%)",
-        context,
-      );
-      applyTransform(
-        context,
-        new DOMMatrixReadOnly("scale(2) translateX(1px)"),
-      );
-      //showColorfulBox(context);
-      WinkingFace.draw(context);
-      context.setTransform(originalTransform);
-      // TODO remove this!  This is a temporary thing for testing scalar values.
-      // The value should be available to the Visual Editor.
-      // And that value should be saved in IndexedDB, just like in a component.
-      showError(context, topLevelScalarTest.value);
+      left.show(options);
+      right.show(options);
     },
   };
   slideList.add(slide);

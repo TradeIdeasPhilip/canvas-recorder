@@ -1185,3 +1185,29 @@ This should finally close the loop!
 The initial value ("typescript defaults") can easily add programmatic changes into the mix.
 The JSON file is the source of truth in git.
 The database is a holding area for the most recent changes, because it is not convenient to write back to JSON all the time.
+
+# Feedback 6/20
+
+I keep running into nameScalar
+I know it can change at any time.
+And that's required to make a fully visually edited project work.
+But that makes it hard to do any work in advance if that value could really change.
+
+I'm not exporting those things completely in some5 (slide 7).
+And I've got a class and it does a lot of work in the constructor assuming those names will never change.
+
+That's probably right, maybe?
+Need to check back after I've made some progress.
+
+Maybe this flexibility is important so I can remove one component and add another.
+
+I'm confused because I see something that is mutable and I'm deciding to ignore that.
+And I know it works in this exact place.
+But I'm not sure what the rules should be.
+Will it always be clear when I can or cannot assume that a value is constant.
+
+I'm talking about scalars!
+I always look up values in schedules, just as a habit, even if I don't expect the schedule to change.
+But a scalar is different.
+It won't change in production.
+But it can change in the development environment.
