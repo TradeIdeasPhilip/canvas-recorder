@@ -1034,7 +1034,7 @@ class ShowTwoTransforms {
       context,
     );
     const originalTransform = context.getTransform();
-    context.translate(4+this.xOffset, 4.5);
+    context.translate(4 + this.xOffset, 4.5);
     context.scale(7 / 9, 7 / 9);
     drawGrid(
       { x: -4.5, y: -3, width: 9, height: 6 },

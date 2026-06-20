@@ -1192,13 +1192,14 @@ The database is a holding area for the most recent changes, because it is not co
 
 I was originally very concerned with saving the file name or file handle for the JSON file.
 Two things have changed since thing.
-* Chrome automatically remembers my previous settings.
-  * I need to double check the code, but I think we are only doing the simplest thing, not trying to save the directory name anywhere.
-  * It remembers my last setting, so we don't really have anything else to do.
-  * I read somewhere that Chrome would not remember, which is not true.
-* I was thinking about automatic and constant saves.
-  * Now we've decided user has to hit a button to save.
-  * And it won't happen as often.
+
+- Chrome automatically remembers my previous settings.
+  - I need to double check the code, but I think we are only doing the simplest thing, not trying to save the directory name anywhere.
+  - It remembers my last setting, so we don't really have anything else to do.
+  - I read somewhere that Chrome would not remember, which is not true.
+- I was thinking about automatic and constant saves.
+  - Now we've decided user has to hit a button to save.
+  - And it won't happen as often.
 
 The current solution still isn't perfect.
 I hit one button to request to save, a second to confirm the file name, and then a third to say confirm that I really want to overwrite the existing file.
@@ -1229,3 +1230,31 @@ I always look up values in schedules, just as a habit, even if I don't expect th
 But a scalar is different.
 It won't change in production.
 But it can change in the development environment.
+
+## Loading JSON Files
+
+The latest test code just checks that we can make an HTTP request, then dumps the headers to the console.
+This is what I get from my local Vite dev server:
+
+```json
+[
+  ["cache-control", "no-cache"],
+  ["content-length", "42026"],
+  ["content-type", "application/json"],
+  ["date", "Sat, 20 Jun 2026 21:17:07 GMT"],
+  ["etag", "W/\"42026-1781972350623\""],
+  ["last-modified", "Sat, 20 Jun 2026 16:19:10 GMT"],
+  ["vary", "Origin"]
+]
+```
+
+`new Date("Sat, 20 Jun 2026 16:19:10 GMT")` converted this to local time for me.
+Vite's server does, indeed, provide the modification time.
+
+The time to load this file from the local server varied from 4 to 24 milliseconds, and the mode was between 7 and 8ms.
+This is tiny compared to the one time setup that a lot of the videos do.
+And it's reasonably far from the 250ms I suggested for a timeout.
+
+TODO test the results when running from [github pages](https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html).
+This is an important use case for first impressions and for people who aren't programmers.
+_Committing to GitHub to test that now!_

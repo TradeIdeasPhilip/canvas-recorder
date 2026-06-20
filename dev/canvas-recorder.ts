@@ -4398,6 +4398,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup);
+  void testFetchJson();
 
   // When first loading this page, try to restore the settings from the last session.
   // So when you configure the web page, and you hit refresh, or the page automatically
@@ -4635,6 +4636,31 @@ async function saveToJsonFile(): Promise<void> {
 getById("saveJsonBtn", HTMLButtonElement).addEventListener(
   "click",
   saveToJsonFile,
+);
+
+// MARK: Load JSON file (test/probe)
+
+async function testFetchJson(): Promise<void> {
+  const url = `./saved_state/${toShowKey}.json`;
+  const t0 = performance.now();
+  console.log(`[testFetchJson] fetch → ${url}`);
+  try {
+    const response = await fetch(url);
+    const elapsed = (performance.now() - t0).toFixed(1);
+    console.log(`[testFetchJson] response after ${elapsed}ms:`, response);
+    const text = await response.text();
+    console.log(
+      `[testFetchJson] body (${text.length} chars):`,
+      JSON.parse(text),
+    );
+  } catch (e) {
+    const elapsed = (performance.now() - t0).toFixed(1);
+    console.error(`[testFetchJson] failed after ${elapsed}ms:`, e);
+  }
+}
+
+getById("loadJsonTestBtn", HTMLButtonElement).addEventListener("click", () =>
+  void testFetchJson(),
 );
 
 // MARK: Resizable pane dividers
