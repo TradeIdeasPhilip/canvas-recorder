@@ -294,7 +294,12 @@ function showFrame(timeInMs: number, live: boolean) {
     });
     drawScheduleMarkers(context);
   } else {
-    toShow.show({ timeInMs, context, globalTime: timeInMs, quality: "High Quality" });
+    toShow.show({
+      timeInMs,
+      context,
+      globalTime: timeInMs,
+      quality: "High Quality",
+    });
   }
 }
 // Exposed so the browser console can call showFrame() directly for debugging.
@@ -1508,7 +1513,10 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         if (sel.schedules?.length && effective.schedules.length) {
           applySnapshot(sel.schedules, effective.schedules);
         }
-        if (sel.components !== undefined && effective.components !== undefined) {
+        if (
+          sel.components !== undefined &&
+          effective.components !== undefined
+        ) {
           sel.components.length = 0;
           sel.components.push(...buildComponents(effective.components));
         }
@@ -1585,7 +1593,9 @@ function serializeComponents(components: Showable[]): SerializedChild[] {
     const rk =
       child.registryKey ??
       componentRegistryKey.get(child) ??
-      (componentRegistry.has(child.description) ? child.description : undefined);
+      (componentRegistry.has(child.description)
+        ? child.description
+        : undefined);
     if (!rk) return [];
     const entry: SerializedChild = {
       registryKey: rk,
@@ -1791,13 +1801,14 @@ function saveOnUnload() {
       : undefined;
     const tsDefault = tsDefaults.get(key);
     const newJson = JSON.stringify({ schedules, scalars, components });
-    const defaultJson = !initFromDBComplete && tsDefault
-      ? JSON.stringify({
-          schedules: tsDefault.schedules,
-          scalars: tsDefault.scalars,
-          components: tsDefault.components,
-        })
-      : null;
+    const defaultJson =
+      !initFromDBComplete && tsDefault
+        ? JSON.stringify({
+            schedules: tsDefault.schedules,
+            scalars: tsDefault.scalars,
+            components: tsDefault.components,
+          })
+        : null;
     if (newJson !== defaultJson) {
       backups.push({
         key,
@@ -3698,7 +3709,9 @@ function serializeComponent(child: Showable): SerializedChild {
   const rk =
     child.registryKey ??
     componentRegistryKey.get(child) ??
-    (componentRegistry.has(child.description) ? child.description : undefined) ??
+    (componentRegistry.has(child.description)
+      ? child.description
+      : undefined) ??
     "";
   const entry: SerializedChild = {
     registryKey: rk,
@@ -3953,9 +3966,7 @@ function updateComponentEditor(selectable: Selectable) {
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.textContent =
-    addTarget !== null
-      ? `+ Add to "${addTarget.description}"`
-      : "+ Add";
+    addTarget !== null ? `+ Add to "${addTarget.description}"` : "+ Add";
   addBtn.disabled = addTarget === null;
   addBtn.addEventListener("click", () => {
     if (!addTarget) return;
@@ -4437,9 +4448,15 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     }
 
     // Restore splitter positions (must read before sessionStorage.clear() below).
-    const topLeftH = parseFloat(sessionStorage.getItem("pane-height-top-left") ?? "");
-    const topRightH = parseFloat(sessionStorage.getItem("pane-height-top-right") ?? "");
-    const leftColW = parseFloat(sessionStorage.getItem("pane-width-left-col") ?? "");
+    const topLeftH = parseFloat(
+      sessionStorage.getItem("pane-height-top-left") ?? "",
+    );
+    const topRightH = parseFloat(
+      sessionStorage.getItem("pane-height-top-right") ?? "",
+    );
+    const leftColW = parseFloat(
+      sessionStorage.getItem("pane-width-left-col") ?? "",
+    );
     if (isFinite(topLeftH))
       getById("top-left", HTMLDivElement).style.height = `${topLeftH}px`;
     if (isFinite(topRightH))
@@ -4483,6 +4500,7 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
     draggingPoint = hitPt;
     return;
   }
+  if (zoomSelect.value === "fit") return;
   canvas.setPointerCapture(pointerEvent.pointerId);
   isDragging = true;
   dragStartClientX = pointerEvent.clientX;
@@ -4600,7 +4618,9 @@ async function saveToJsonFile(): Promise<void> {
   try {
     fileHandle = await window.showSaveFilePicker({
       suggestedName: `${toShowKey}.json`,
-      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      types: [
+        { description: "JSON", accept: { "application/json": [".json"] } },
+      ],
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
@@ -4612,7 +4632,10 @@ async function saveToJsonFile(): Promise<void> {
   await writable.close();
 }
 
-getById("saveJsonBtn", HTMLButtonElement).addEventListener("click", saveToJsonFile);
+getById("saveJsonBtn", HTMLButtonElement).addEventListener(
+  "click",
+  saveToJsonFile,
+);
 
 // MARK: Resizable pane dividers
 
@@ -4650,7 +4673,10 @@ function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
       handle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      sessionStorage.setItem(storageKey, topPane.style.height.replace("px", ""));
+      sessionStorage.setItem(
+        storageKey,
+        topPane.style.height.replace("px", ""),
+      );
     };
 
     document.addEventListener("mousemove", onMove);
@@ -4697,7 +4723,10 @@ initResizeHandle(
       vhandle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      sessionStorage.setItem(vStorageKey, leftCol.getBoundingClientRect().width.toString());
+      sessionStorage.setItem(
+        vStorageKey,
+        leftCol.getBoundingClientRect().width.toString(),
+      );
     };
 
     document.addEventListener("mousemove", onMove);

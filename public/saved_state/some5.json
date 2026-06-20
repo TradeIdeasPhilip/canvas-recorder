@@ -1353,21 +1353,34 @@
   "some5|Slide 7": {
     "schedules": [
       {
-        "description": "Scale Color",
+        "description": "outer",
         "type": "color",
         "keyframes": [
           {
             "time": 0,
-            "value": "#0e0"
+            "value": "rgb(0, 128, 255)"
           }
         ]
-      }
-    ],
-    "scalars": [
+      },
       {
-        "description": "Top Level Scalar Test",
-        "type": "string",
-        "value": "boo"
+        "description": "inner",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 0, 0)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
       }
     ],
     "components": []
@@ -1573,6 +1586,153 @@
               {
                 "time": 0,
                 "value": "alphabetic"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "registryKey": "Multi Text",
+        "schedules": [
+          {
+            "description": "Position",
+            "type": "point",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "x": 8,
+                  "y": 0.25
+                }
+              }
+            ]
+          },
+          {
+            "description": "Alignment",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "center"
+              }
+            ]
+          },
+          {
+            "description": "Baseline",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "top"
+              }
+            ]
+          },
+          {
+            "description": "Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 7.5
+              }
+            ]
+          },
+          {
+            "description": "Additional Line Height",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Text Format",
+            "schedules": [
+              {
+                "description": "Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "#666"
+                  }
+                ]
+              },
+              {
+                "description": "Font Size",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "Boldness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "Obliqueness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "description": "Alpha",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.8
+                  }
+                ]
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Name",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          },
+          {
+            "registryKey": "Text Span",
+            "schedules": [
+              {
+                "description": "Content",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "abc"
+                  }
+                ]
+              },
+              {
+                "description": "Style",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": ""
+                  }
+                ]
               }
             ]
           }

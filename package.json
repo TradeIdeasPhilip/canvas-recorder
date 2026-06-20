@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "record": "tsx record/cli-record.ts",
     "internals": "tsx record/cli-internals.ts",
-    "changes": "git status|grep -v ': \\+\\\"\\?docs/'"
+    "changes": "git status|grep -v 'docs/'"
   },
   "devDependencies": {
     "@types/bezier-js": "^4.1.3",

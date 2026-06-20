@@ -1186,7 +1186,25 @@ The initial value ("typescript defaults") can easily add programmatic changes in
 The JSON file is the source of truth in git.
 The database is a holding area for the most recent changes, because it is not convenient to write back to JSON all the time.
 
-# Feedback 6/20
+# Feedback 6/20/2026
+
+## Saving the JSON files.
+
+I was originally very concerned with saving the file name or file handle for the JSON file.
+Two things have changed since thing.
+* Chrome automatically remembers my previous settings.
+  * I need to double check the code, but I think we are only doing the simplest thing, not trying to save the directory name anywhere.
+  * It remembers my last setting, so we don't really have anything else to do.
+  * I read somewhere that Chrome would not remember, which is not true.
+* I was thinking about automatic and constant saves.
+  * Now we've decided user has to hit a button to save.
+  * And it won't happen as often.
+
+The current solution still isn't perfect.
+I hit one button to request to save, a second to confirm the file name, and then a third to say confirm that I really want to overwrite the existing file.
+And there is no help suggesting where to save.
+
+## Confusion Regarding Scalars vs Coding Style
 
 I keep running into nameScalar
 I know it can change at any time.
