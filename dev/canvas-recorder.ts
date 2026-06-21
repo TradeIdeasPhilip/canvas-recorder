@@ -55,6 +55,7 @@ import {
   TRANSFORM_PLACEHOLDERS,
 } from "../src/slide-components.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
+import { convertCSS } from "colorizr";
 
 // Expose for manual testing from the browser devtools console.
 (window as unknown as Record<string, unknown>).fontsAreAvailable =
@@ -1860,16 +1861,105 @@ _parseColorDiv.style.cssText =
   "position:fixed;top:-100px;left:-100px;width:1px;height:1px;visibility:hidden";
 document.documentElement.append(_parseColorDiv);
 
-function parseCssColorToRgba(css: string): RGBA | null {
-  _parseColorDiv.style.backgroundColor = "";
-  _parseColorDiv.style.backgroundColor = css;
-  if (!_parseColorDiv.style.backgroundColor) return null;
-  const c = getComputedStyle(_parseColorDiv).backgroundColor;
-  const m = c.match(
+/**
+ * CIELAB (D50) → RGBA via the CSS Color Level 4 pipeline:
+ * Lab D50 → XYZ D50 → XYZ D65 (Bradford) → linear sRGB → sRGB gamma.
+ */
+function labToRgba(L: number, a: number, b: number, alpha = 1): RGBA {
+  const kappa = 24389 / 27;
+  const epsilon = 216 / 24389;
+  const white = [0.3457 / 0.3585, 1.0, 0.2958 / 0.3585]; // D50 white point
+  const f1 = (L + 16) / 116;
+  const f0 = a / 500 + f1;
+  const f2 = f1 - b / 200;
+  // Lab → XYZ D50
+  const x50 = (f0 ** 3 > epsilon ? f0 ** 3 : (116 * f0 - 16) / kappa) * white[0];
+  const y50 = L > kappa * epsilon ? ((L + 16) / 116) ** 3 : L / kappa;
+  const z50 = (f2 ** 3 > epsilon ? f2 ** 3 : (116 * f2 - 16) / kappa) * white[2];
+  // XYZ D50 → XYZ D65 (Bradford chromatic adaptation, CSS Color 4 spec values)
+  const x65 =  x50 *  0.9554734527 + y50 * -0.0230985369 + z50 *  0.0632593087;
+  const y65 =  x50 * -0.0283697070 + y50 *  1.0099954581 + z50 *  0.0210413990;
+  const z65 =  x50 *  0.0123140017 + y50 * -0.0205076964 + z50 *  1.3303659366;
+  // XYZ D65 → linear sRGB
+  const lr =  x65 *  3.2409699419 + y65 * -1.5373831776 + z65 * -0.4986107603;
+  const lg =  x65 * -0.9692436363 + y65 *  1.8759675015 + z65 *  0.0415550574;
+  const lb =  x65 *  0.0556300798 + y65 * -0.2039769589 + z65 *  1.0569715142;
+  // sRGB gamma
+  const gamma = (v: number) =>
+    Math.abs(v) <= 0.0031308 ? 12.92 * v : 1.055 * Math.abs(v) ** (1 / 2.4) - 0.055;
+  const clamp = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
+  return { r: clamp(gamma(lr)), g: clamp(gamma(lg)), b: clamp(gamma(lb)), a: alpha };
+}
+
+/**
+ * Parse color strings that browsers return from getComputedStyle / inline style.
+ * Returns null for any format not recognized here; {@link parseViaColorizr} is
+ * the fallback for everything else.
+ */
+function parseKnownColorFormats(c: string): RGBA | null {
+  // rgb() / rgba() — standard path for sRGB colors
+  const rgb = c.match(
     /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)(?:\s*,\s*([\d.]+))?\s*\)/,
   );
-  if (!m) return null;
-  return { r: +m[1], g: +m[2], b: +m[3], a: m[4] != null ? +m[4] : 1 };
+  if (rgb)
+    return { r: +rgb[1], g: +rgb[2], b: +rgb[3], a: rgb[4] != null ? +rgb[4] : 1 };
+
+  // color(display-p3 r g b) or color(srgb r g b) — Chrome returns these for
+  // wide-gamut colors (lab / oklch outside sRGB, color-mix, etc.)
+  const p3 = c.match(
+    /^color\((?:display-p3|srgb)\s+([\d.e+-]+)\s+([\d.e+-]+)\s+([\d.e+-]+)(?:\s*\/\s*([\d.e+-]+))?\)/,
+  );
+  if (p3) {
+    const clamp = (v: number) => Math.round(Math.min(1, Math.max(0, v)) * 255);
+    return { r: clamp(+p3[1]), g: clamp(+p3[2]), b: clamp(+p3[3]), a: p3[4] != null ? +p3[4] : 1 };
+  }
+
+  // lab(L a b) or lab(L a b / alpha) — Chrome returns this format as-is from getComputedStyle
+  const lab = c.match(
+    /^lab\(\s*([\d.e+-]+)\s+([\d.e+-]+)\s+([\d.e+-]+)(?:\s*\/\s*([\d.e+-]+%?))?\s*\)/i,
+  );
+  if (lab) {
+    const rawA = lab[4];
+    const alpha = rawA == null ? 1 : rawA.endsWith("%") ? parseFloat(rawA) / 100 : +rawA;
+    return labToRgba(+lab[1], +lab[2], +lab[3], alpha);
+  }
+
+  return null;
+}
+
+/**
+ * Convert any CSS color string to RGBA via colorizr.
+ * Handles lab(), oklch(), lch(), oklab(), and other Color Level 4 formats that
+ * browsers may not serialize back to rgb() in getComputedStyle.
+ */
+function parseViaColorizr(css: string): RGBA | null {
+  try {
+    const hex = convertCSS(css, "hex");
+    const m = hex.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})?$/i);
+    if (!m) return null;
+    return {
+      r: parseInt(m[1], 16),
+      g: parseInt(m[2], 16),
+      b: parseInt(m[3], 16),
+      a: m[4] ? parseInt(m[4], 16) / 255 : 1,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function parseCssColorToRgba(css: string): RGBA | null {
+  // Path 1: inline-style trick — works for anything the browser accepts there.
+  _parseColorDiv.style.backgroundColor = "";
+  _parseColorDiv.style.backgroundColor = css;
+  if (_parseColorDiv.style.backgroundColor) {
+    const computed = getComputedStyle(_parseColorDiv).backgroundColor;
+    const result = parseKnownColorFormats(computed);
+    if (result) return result;
+  }
+  // Path 2: colorizr — handles Color Level 4 formats (lab, oklch, lch, oklab)
+  // that Chrome may not accept in an inline style but are still valid CSS.
+  return parseViaColorizr(css);
 }
 
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
