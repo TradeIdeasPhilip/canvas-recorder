@@ -1173,6 +1173,12 @@ I don't think this will happen a lot.
 I'm probably overthinking this entire section.
 This is just another failure mode.
 
+## Command Line Mode
+
+Don't forget `npm run record`.
+It should read the same settings as the web application.
+It should produce the same images.
+
 ## Final Thoughts
 
 I like this this plan.
@@ -1233,6 +1239,8 @@ But it can change in the development environment.
 
 ## Loading JSON Files
 
+### Local Success
+
 The latest test code just checks that we can make an HTTP request, then dumps the headers to the console.
 This is what I get from my local Vite dev server:
 
@@ -1258,3 +1266,137 @@ And it's reasonably far from the 250ms I suggested for a timeout.
 TODO test the results when running from [github pages](https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html).
 This is an important use case for first impressions and for people who aren't programmers.
 _Committing to GitHub to test that now!_
+
+### Remote Failure
+
+I saw this when loading a project that does not yet have a JSON file.
+We expect to see this a lot.
+By design new projects do not have a JSON file until someone creates one.
+
+This first version is from the automatic load:
+
+```
+Failed to load resource: the server responded with a status of 404 ()
+
+canvas-recorder.ts:4650 [testFetchJson] response after 132.9ms:
+Response
+canvas-recorder.ts:4658 [testFetchJson] failed after 133.0ms: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at Ji (canvas-recorder.ts:4654:12)
+testFetchJson	@	canvas-recorder.ts:4658
+```
+
+And this is what happened when I hit the button to request it again:
+
+```
+[testFetchJson] fetch → ./saved_state/showcase.json
+canvas-recorder.ts:4648  GET https://tradeideasphilip.github.io/canvas-recorder/saved_state/showcase.json 404 (Not Found)
+testFetchJson @ canvas-recorder.ts:4648
+(anonymous) @ canvas-recorder.ts:4663
+canvas-recorder.ts:4650 [testFetchJson] response after 127.2ms: Response {type: 'basic', url: 'https://tradeideasphilip.github.io/canvas-recorder/saved_state/showcase.json', redirected: false, status: 404, ok: false, …}
+canvas-recorder.ts:4658 [testFetchJson] failed after 127.6ms: SyntaxError: Unexpected token '<', "<!DOCTYPE "... is not valid JSON
+    at JSON.parse (<anonymous>)
+    at Ji (canvas-recorder.ts:4654:12)
+testFetchJson @ canvas-recorder.ts:4658
+await in testFetchJson
+(anonymous) @ canvas-recorder.ts:4663
+```
+
+with these headers:
+
+```json
+[
+  ["accept-ranges", "bytes"],
+  ["access-control-allow-origin", "*"],
+  ["age", "0"],
+  ["content-encoding", "gzip"],
+  ["content-length", "5254"],
+  [
+    "content-security-policy",
+    "default-src 'none'; style-src 'unsafe-inline'; img-src data:; connect-src 'self'"
+  ],
+  ["content-type", "text/html; charset=utf-8"],
+  ["date", "Sat, 20 Jun 2026 21:58:11 GMT"],
+  ["etag", "W/\"64d39a40-24a3\""],
+  ["server", "GitHub.com"],
+  ["vary", "Accept-Encoding"],
+  ["via", "1.1 varnish"],
+  ["x-cache", "MISS"],
+  ["x-cache-hits", "0"],
+  ["x-fastly-request-id", "fd897dfd80b6622a3f4a7d2eceabcbf85292a333"],
+  ["x-github-request-id", "AD00:7BC2C:1FC6F6:226B14:6A370CF3"],
+  ["x-proxy-cache", "MISS"],
+  ["x-served-by", "cache-lax-kwhp1940061-LAX"],
+  ["x-timer", "S1781992691.484876,VS0,VE97"]
+]
+```
+
+We have the modification date, if we need it.
+_The requirements should probably change in this case._
+We should probably notice that you are not coming from a Vite dev server and give completely different feedback.
+
+Nothing's really broken, but it might be confusing.
+The user can continue to make changes like normal and roll back to the json file like normal.
+And the user can even save the JSON file, to export their changes.
+
+At the moment he can't load that.
+Maybe we could add that option.
+At the moment lets focus on the Vite dev server.
+
+### Remote Success
+
+Results from https://tradeideasphilip.github.io/canvas-recorder/canvas-recorder.html?toShow=some5
+
+```
+[testFetchJson] response after 132.9ms: Response {type: 'basic', url: 'https://tradeideasphilip.github.io/canvas-recorder/saved_state/some5.json', redirected: false, status: 200, ok: true, …}body: (...)bodyUsed: trueheaders: Headers {}ok: trueredirected: falsestatus: 200statusText: ""type: "basic"url: "https://tradeideasphilip.github.io/canvas-recorder/saved_state/some5.json"[[Prototype]]: Response
+canvas-recorder.ts:4652 [testFetchJson] body (41864 chars): {some5|Slide 1: {…}, some5|Slide 2: {…}, some5|Slide 3: {…}, some5|Slide 4: {…}, some5|Slide 5: {…}, …}
+```
+
+With these headers:
+
+```json
+[
+  ["accept-ranges", "bytes"],
+  ["access-control-allow-origin", "*"],
+  ["age", "0"],
+  ["cache-control", "max-age=600"],
+  ["content-encoding", "gzip"],
+  ["content-length", "2356"],
+  ["content-type", "application/json; charset=utf-8"],
+  ["date", "Sat, 20 Jun 2026 22:06:57 GMT"],
+  ["etag", "W/\"6a370b9c-a42a\""],
+  ["expires", "Sat, 20 Jun 2026 22:16:57 GMT"],
+  ["last-modified", "Sat, 20 Jun 2026 21:52:28 GMT"],
+  ["server", "GitHub.com"],
+  ["vary", "Accept-Encoding"],
+  ["via", "1.1 varnish"],
+  ["x-cache", "MISS"],
+  ["x-cache-hits", "0"],
+  ["x-fastly-request-id", "2951332b0b51aa370791b40b2f9969d7a6f0041a"],
+  ["x-github-request-id", "0FE2:7B0E1:4B93B2:4F0A0D:6A370F00"],
+  ["x-proxy-cache", "MISS"],
+  ["x-served-by", "cache-lax-kwhp1940061-LAX"],
+  ["x-timer", "S1781993218.638933,VS0,VE109"]
+]
+```
+
+### Local Connection Refused
+
+This is what happened when I killed my Vite dev server and hit the button to reload.
+
+This seems like it could be a common problem.
+The Vite dev server goes down for all sorts of reasons.
+I don't have any obvious status.
+This is where our new status display will be helpful.
+The problem is easy to miss and trivial to fix.
+
+```
+[vite] server connection lost. Polling for restart...
+canvas-recorder.ts:4646 [testFetchJson] fetch → ./saved_state/some5.json
+canvas-recorder.ts:4648  GET http://localhost:5173/saved_state/some5.json net::ERR_CONNECTION_REFUSED
+testFetchJson @ canvas-recorder.ts:4648
+(anonymous) @ canvas-recorder.ts:4663
+canvas-recorder.ts:4658 [testFetchJson] failed after 6.9ms: TypeError: Failed to fetch
+    at testFetchJson (canvas-recorder.ts:4648:28)
+    at HTMLButtonElement.<anonymous> (canvas-recorder.ts:4663:8)
+```

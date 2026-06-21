@@ -20,7 +20,12 @@ import {
   NumberScheduleInfo,
   StringScalarInfo,
 } from "../schedule-helper";
-import { Keyframes, ease, interpolateNumbers } from "../interpolate";
+import {
+  Keyframes,
+  durationKeyframes,
+  ease,
+  interpolateNumbers,
+} from "../interpolate";
 
 const paddedEaseSubSchedule: Keyframes<number> = [
   { time: 0.15, value: 0, easeAfter: ease },
@@ -991,6 +996,7 @@ class ShowTwoTransforms {
     baseFormatter: TextFormatComponent,
     whereToDraw: "left" | "right",
     readonly matrixLayout: MatrixLayout,
+    readonly duration: number,
   ) {
     this.xOffset = whereToDraw == "left" ? 0 : 8;
     this.textTop = new MultiTextComponent({
@@ -1018,19 +1024,57 @@ class ShowTwoTransforms {
   }
   private readonly textTop: MultiTextComponent;
   private readonly xOffset: number;
+  static #schedule: Keyframes<{
+    readonly activeMatrix: "left" | "right";
+    readonly sample: (
+      context: CanvasRenderingContext2D,
+      transform?: DOMMatrixReadOnly | undefined,
+    ) => void;
+  }> = [
+    {
+      time: 1 / 4,
+      value: { activeMatrix: "right", sample: WinkingFace.draw },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 4,
+      value: { activeMatrix: "left", sample: WinkingFace.draw },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 4,
+      value: { activeMatrix: "right", sample: showColorfulBox },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 4,
+      value: { activeMatrix: "left", sample: showColorfulBox },
+      easeAfter: ease,
+    },
+  ];
   show(options: ShowOptions) {
-    this.textTop.show(options);
     const { context, timeInMs } = options;
+    const globalProgress = durationKeyframes(
+      timeInMs / this.duration,
+      ShowTwoTransforms.#schedule,
+    );
+    const [leftProgress, rightProgress] =
+      globalProgress.value.activeMatrix == "left"
+        ? [globalProgress.progress, 1]
+        : [0, globalProgress.progress];
+    this.left.formatter.alphaSchedule.set(leftProgress);
+    this.right.formatter.alphaSchedule.set(rightProgress);
+    this.textTop.show(options);
     const matrixLayout = this.matrixLayout;
     matrixLayout.show331(
       (8 - matrixLayout.layout331.total.width) / 2 + this.xOffset,
       8.75 - matrixLayout.layout311.total.height,
       this.left.getTransform(1),
       this.left.formatter.colorSchedule.at(timeInMs),
-      0.5,
+      leftProgress,
       this.right.getTransform(1),
       this.right.formatter.colorSchedule.at(timeInMs),
-      1,
+      rightProgress,
       context,
     );
     const originalTransform = context.getTransform();
@@ -1043,10 +1087,11 @@ class ShowTwoTransforms {
     );
     applyTransform(
       context,
-      this.left.getTransform(1).multiply(this.right.getTransform(1)),
+      this.left
+        .getTransform(leftProgress)
+        .multiply(this.right.getTransform(rightProgress)),
     );
-    //showColorfulBox(context);
-    WinkingFace.draw(context);
+    globalProgress.value.sample(context);
     context.setTransform(originalTransform);
   }
 }
@@ -1101,12 +1146,14 @@ class ShowTwoTransforms {
       return new DOMMatrix().translateSelf(progress, 0);
     },
   };
+  const duration = 20_000;
   const left = new ShowTwoTransforms(
     outer,
     inner,
     baseFormat,
     "left",
     matrixLayout,
+    duration,
   );
   const right = new ShowTwoTransforms(
     inner,
@@ -1114,10 +1161,11 @@ class ShowTwoTransforms {
     baseFormat,
     "right",
     matrixLayout,
+    duration,
   );
   const slide: Showable = {
     description: "Slide 7",
-    duration: DEFAULT_SLIDE_DURATION_MS,
+    duration,
     /**
      * All of these are configurable, mostly for prototypes.
      * This tells the Visual Editor that we can add things.
