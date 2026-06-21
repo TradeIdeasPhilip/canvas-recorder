@@ -1386,358 +1386,73 @@
     "components": []
   },
   "some5|Slide 8": {
-    "components": []
-  },
-  "some5|Slide 9": {
-    "components": []
-  },
-  "some5|Slide 10": {
-    "components": [
+    "schedules": [
       {
-        "registryKey": "Text",
-        "schedules": [
+        "description": "outer",
+        "type": "color",
+        "keyframes": [
           {
-            "description": "Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "#888"
-              }
-            ]
-          },
-          {
-            "description": "Rect",
-            "type": "rectangle",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 7.7818418560606055,
-                  "y": 4.513257575757576,
-                  "width": 6,
-                  "height": 4
-                }
-              }
-            ]
-          },
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Type Here"
-              }
-            ]
-          },
-          {
-            "description": "Size",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "Boldness",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "Obliqueness",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0
-              }
-            ]
-          },
-          {
-            "description": "Alignment",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "left"
-              }
-            ]
+            "time": 0,
+            "value": "rgb(255, 0, 255)"
           }
         ]
       },
       {
-        "registryKey": "Traditional Text",
-        "schedules": [
+        "description": "inner",
+        "type": "color",
+        "keyframes": [
           {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Type Here"
-              }
-            ]
-          },
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 2,
-                  "y": 1
-                }
-              }
-            ]
-          },
-          {
-            "description": "Fill Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(128, 0, 255)"
-              }
-            ]
-          },
-          {
-            "description": "Outline Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(255, 128, 0)"
-              }
-            ]
-          },
-          {
-            "description": "Outline Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0
-              }
-            ]
-          },
-          {
-            "description": "Font Size",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.5
-              }
-            ]
-          },
-          {
-            "description": "Font Style",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "normal"
-              }
-            ]
-          },
-          {
-            "description": "Font Weight",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 400
-              }
-            ]
-          },
-          {
-            "description": "Font Family",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Life Savers"
-              }
-            ]
-          },
-          {
-            "description": "Align",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "alphabetic"
-              }
-            ]
+            "time": 0,
+            "value": "rgb(32, 64, 255)"
           }
         ]
       },
       {
-        "registryKey": "Multi Text",
-        "schedules": [
+        "description": "base",
+        "type": "color",
+        "keyframes": [
           {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 8,
-                  "y": 0.25
-                }
-              }
-            ]
-          },
-          {
-            "description": "Alignment",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "top"
-              }
-            ]
-          },
-          {
-            "description": "Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 7.5
-              }
-            ]
-          },
-          {
-            "description": "Additional Line Height",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0
-              }
-            ]
-          }
-        ],
-        "components": [
-          {
-            "registryKey": "Text Format",
-            "schedules": [
-              {
-                "description": "Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "#666"
-                  }
-                ]
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "Boldness",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "Obliqueness",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0
-                  }
-                ]
-              },
-              {
-                "description": "Alpha",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.8
-                  }
-                ]
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Name",
-                "type": "string",
-                "value": ""
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "abc"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": ""
-                  }
-                ]
-              }
-            ]
+            "time": 0,
+            "value": "black"
           }
         ]
       }
-    ]
+    ],
+    "components": []
+  },
+  "some5|Slide 9": {
+    "schedules": [
+      {
+        "description": "outer",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(128, 0, 255)"
+          }
+        ]
+      },
+      {
+        "description": "inner",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 128, 0)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
+      }
+    ],
+    "components": []
   }
 }

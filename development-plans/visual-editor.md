@@ -1194,6 +1194,24 @@ The database is a holding area for the most recent changes, because it is not co
 
 # Feedback 6/20/2026
 
+## Font Loading Error
+
+This is a known issue.
+I'm raising the priority because it just happened to me.
+I almost missed a problem and uploaded a silly mistake to YouTube.
+
+Slide 1 of some5.ts includes a lot of text using a lot of web fonts.
+Mostly this works.
+But today, when I hit save, just one letter was wrong.
+I almost missed it, but then it was so obvious.
+We had loaded the ASCII part of all of the fonts, but ś was not ready.
+I saw that letter in a completely different font than the rest.
+
+We already have a method to create a promise when the fonts are done.
+And we have similar methods in slow-image-sources.ts.
+And we have a plan to awaiting these things in production.
+We're not currently using any of those promises and we need to.
+
 ## Saving the JSON files.
 
 I was originally very concerned with saving the file name or file handle for the JSON file.
@@ -1210,6 +1228,15 @@ Two things have changed since thing.
 The current solution still isn't perfect.
 I hit one button to request to save, a second to confirm the file name, and then a third to say confirm that I really want to overwrite the existing file.
 And there is no help suggesting where to save.
+
+### Conflict!
+
+I found one problem.
+When you save the JSON file or you save the resulting video, those both share the same directory.
+They should not.
+Each should remember its own history.
+
+This should be fixed.
 
 ## Confusion Regarding Scalars vs Coding Style
 
