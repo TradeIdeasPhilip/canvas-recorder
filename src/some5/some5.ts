@@ -1197,7 +1197,201 @@ class ShowTwoTransforms {
   slideList.add(slide);
 }
 
-for (let i = 8; i <= 10; i++) {
+// MARK: Slide 8
+{
+  const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
+  /**
+   * The transform on the left in the example on the left.
+   * Also found on the right in the example on the right.
+   */
+  const outerFormat = new TextFormatComponent({
+    color: myRainbow.magenta,
+    name: "outer",
+    size: 1 / 3,
+  });
+  /**
+   * The transform on the right in the example on the left.
+   * Also found on the left in the example on the right.
+   */
+  const innerFormat = new TextFormatComponent({
+    color: myRainbow.cssBlue,
+    name: "inner",
+    size: 1 / 3,
+  });
+  const baseFormat = new TextFormatComponent({
+    color: "black",
+    name: "base",
+    size: 1 / 3,
+  });
+  // Rename these before sharing them in the editor.
+  [outerFormat, innerFormat, baseFormat].forEach((formatter) => {
+    formatter.colorSchedule.description = formatter.nameScalar.value;
+  }); //rotate(45deg) scale(2, 1)
+  const outer: SingleTransform = {
+    transformString: "rotate(45deg)",
+    functionString: "rotate",
+    formatter: outerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().rotateSelf(progress * 45);
+    },
+  };
+  const inner: SingleTransform = {
+    transformString: "scale(2, 1)",
+    functionString: "twiceAsWide",
+    formatter: innerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().scaleSelf(progress + 1, 1);
+    },
+  };
+  const duration = 20_000;
+  const left = new ShowTwoTransforms(
+    outer,
+    inner,
+    baseFormat,
+    "left",
+    matrixLayout,
+    duration,
+  );
+  const right = new ShowTwoTransforms(
+    inner,
+    outer,
+    baseFormat,
+    "right",
+    matrixLayout,
+    duration,
+  );
+  const slide: Showable = {
+    description: "Slide 8",
+    duration,
+    /**
+     * All of these are configurable, mostly for prototypes.
+     * This tells the Visual Editor that we can add things.
+     */
+    components: [],
+    /**
+     * Instead of exporting the entire component, I'm just exporting selected properties.
+     */
+    schedules: [
+      outerFormat.colorSchedule,
+      innerFormat.colorSchedule,
+      baseFormat.colorSchedule,
+    ],
+    show(options) {
+      for (const child of this.components!) child.show(options);
+      const { context } = options;
+      // Vertical separator:
+      context.lineWidth = 0.05;
+      context.strokeStyle = "rgb(0 0 0 / 0.25)";
+      context.lineCap = "butt";
+      context.beginPath();
+      context.moveTo(8, 0.25);
+      context.lineTo(8, 8.75);
+      context.stroke();
+      left.show(options);
+      right.show(options);
+    },
+  };
+  slideList.add(slide);
+}
+
+// MARK: Slide 9
+{
+  const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
+  /**
+   * The transform on the left in the example on the left.
+   * Also found on the right in the example on the right.
+   */
+  const outerFormat = new TextFormatComponent({
+    color: myRainbow.violet,
+    name: "outer",
+    size: 1 / 3,
+  });
+  /**
+   * The transform on the right in the example on the left.
+   * Also found on the left in the example on the right.
+   */
+  const innerFormat = new TextFormatComponent({
+    color: myRainbow.orange,
+    name: "inner",
+    size: 1 / 3,
+  });
+  const baseFormat = new TextFormatComponent({
+    color: "black",
+    name: "base",
+    size: 1 / 3,
+  });
+  // Rename these before sharing them in the editor.
+  [outerFormat, innerFormat, baseFormat].forEach((formatter) => {
+    formatter.colorSchedule.description = formatter.nameScalar.value;
+  });
+  const outer: SingleTransform = {
+    transformString: "skewX(30deg)",
+    functionString: "leanRight",
+    formatter: outerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().skewXSelf(progress * 30);
+    },
+  };
+  const inner: SingleTransform = {
+    transformString: "translateY(2px)",
+    functionString: "slideDownTwoUnits",
+    formatter: innerFormat,
+    getTransform(progress) {
+      return new DOMMatrix().translateSelf(0, progress * 2);
+    },
+  };
+  const duration = 20_000;
+  const left = new ShowTwoTransforms(
+    outer,
+    inner,
+    baseFormat,
+    "left",
+    matrixLayout,
+    duration,
+  );
+  const right = new ShowTwoTransforms(
+    inner,
+    outer,
+    baseFormat,
+    "right",
+    matrixLayout,
+    duration,
+  );
+  const slide: Showable = {
+    description: "Slide 9",
+    duration,
+    /**
+     * All of these are configurable, mostly for prototypes.
+     * This tells the Visual Editor that we can add things.
+     */
+    components: [],
+    /**
+     * Instead of exporting the entire component, I'm just exporting selected properties.
+     */
+    schedules: [
+      outerFormat.colorSchedule,
+      innerFormat.colorSchedule,
+      baseFormat.colorSchedule,
+    ],
+    show(options) {
+      for (const child of this.components!) child.show(options);
+      const { context } = options;
+      // Vertical separator:
+      context.lineWidth = 0.05;
+      context.strokeStyle = "rgb(0 0 0 / 0.25)";
+      context.lineCap = "butt";
+      context.beginPath();
+      context.moveTo(8, 0.25);
+      context.lineTo(8, 8.75);
+      context.stroke();
+      left.show(options);
+      right.show(options);
+    },
+  };
+  slideList.add(slide);
+}
+
+for (let i = 10; i <= 10; i++) {
   slideList.add(makeEmptySlide(`Slide ${i}`));
 }
 
