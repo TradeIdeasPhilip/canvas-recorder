@@ -7,6 +7,7 @@ import {
   showError,
   TextComponent,
   TextFormatComponent,
+  TextSpanComponent,
 } from "../slide-components";
 import slide1 from "./slide1.json";
 import { Font } from "../glib/letters-base";
@@ -21,13 +22,13 @@ import {
   StringScalarInfo,
 } from "../schedule-helper";
 import {
-  Keyframes,
+  Keyframe,
   durationKeyframes,
   ease,
   interpolateNumbers,
 } from "../interpolate";
 
-const paddedEaseSubSchedule: Keyframes<number> = [
+const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
   { time: 0.15, value: 0, easeAfter: ease },
   { time: 0.85, value: 1 },
 ];
@@ -141,7 +142,7 @@ function showColorfulBox(
   context.moveTo(-1, -1);
   context.lineTo(-1, 1);
   context.stroke();
-  context.strokeStyle = myRainbow.yellow;
+  context.strokeStyle = myRainbow.orange;
   context.beginPath();
   context.moveTo(1, -1);
   context.lineTo(1, 1);
@@ -151,7 +152,7 @@ function showColorfulBox(
   context.moveTo(-1, 0);
   context.lineTo(1, 0);
   context.stroke();
-  context.strokeStyle = myRainbow.orange;
+  context.strokeStyle = "rgb(255, 85, 0)";
   context.beginPath();
   context.moveTo(0, -1);
   context.lineTo(0, 1);
@@ -985,9 +986,27 @@ class BeforeAndAfter implements Showable {
 // MARK: ShowTwoTransforms
 
 type SingleTransform = {
+  /**
+   * Something like "scale(2, 1)".
+   * Something that could be used in `new Matrix(transformString)`.
+   * A valid value for the CSS `transform` property.
+   */
   readonly transformString: string;
+  /**
+   * My way of looking at the operation.
+   * What does this transform do to an image?
+   * Something like "makeWider" or "rotate".
+   */
   readonly functionString: string;
+  /**
+   * Create a matrix that varies smoothly between the identity and the requested transform.
+   * @param progress At 0 this should return the identity matrix.
+   * At 1 this should return the matrix described in `transformString` and `functionString`.
+   */
   getTransform(progress: number): DOMMatrixReadOnly;
+  /**
+   * Used the display the text.
+   */
   readonly formatter: TextFormatComponent;
 };
 
@@ -1026,13 +1045,13 @@ class ShowTwoTransforms {
   }
   private readonly textTop: MultiTextComponent;
   private readonly xOffset: number;
-  static #schedule: Keyframes<{
+  static #schedule: readonly Keyframe<{
     readonly activeMatrix: "left" | "right";
     readonly sample: (
       context: CanvasRenderingContext2D,
       transform?: DOMMatrixReadOnly | undefined,
     ) => void;
-  }> = [
+  }>[] = [
     {
       time: 1 / 4,
       value: { activeMatrix: "right", sample: WinkingFace.draw },
@@ -1095,6 +1114,13 @@ class ShowTwoTransforms {
     );
     globalProgress.value.sample(context);
     context.setTransform(originalTransform);
+    const sample =
+      globalProgress.value.sample == WinkingFace.draw
+        ? "wink"
+        : globalProgress.value.sample == showColorfulBox
+          ? "box"
+          : ("unknown" as const);
+    return { leftProgress, rightProgress, sample } as const;
   }
 }
 
@@ -1161,8 +1187,22 @@ class SwapTransformOrder implements Showable {
       getTransform: innerSpec.getTransform,
       formatter: innerFormat,
     };
-    this.left = new ShowTwoTransforms(outer, inner, baseFormat, "left", matrixLayout, this.duration);
-    this.right = new ShowTwoTransforms(inner, outer, baseFormat, "right", matrixLayout, this.duration);
+    this.left = new ShowTwoTransforms(
+      outer,
+      inner,
+      baseFormat,
+      "left",
+      matrixLayout,
+      this.duration,
+    );
+    this.right = new ShowTwoTransforms(
+      inner,
+      outer,
+      baseFormat,
+      "right",
+      matrixLayout,
+      this.duration,
+    );
     this.schedules = [
       outerFormat.colorSchedule,
       innerFormat.colorSchedule,
@@ -1254,6 +1294,245 @@ slideList.add(
   ),
 );
 
+// MARK: TextSampleAndTwoMatrices
+
+type CodeSpec = SwapTransformSpec & {
+  /**
+   * This describes the transform as JavaScript code.
+   * Similar to {@link SingleTransform.transformString}.
+   * For example: "translate(1, 0)".
+   * "context." and ";" will be added around this.
+   */
+  readonly javaScriptString: string;
+};
+
+/**
+ * One side looks just like {@link ShowTwoTransforms}.
+ * The other side shows a MultiText control, showing the code that matches the rest of the demo.
+ */
+class CodeSampleAndTwoMatrices implements Showable {
+  readonly duration = 20_000;
+  readonly components: Showable[] = [];
+  readonly schedules: Showable["schedules"];
+  private readonly standardDisplay: ShowTwoTransforms;
+  private readonly textTop = new MultiTextComponent({
+    position: { x: 0.25, y: 0.25 },
+    alignment: "left",
+    textBaseline: "top",
+    additionalLineHeight: 0.15,
+    width: 8.5,
+  });
+  private readonly cssSampleName = new TextSpanComponent();
+  private readonly javaScriptSampleName = new TextSpanComponent();
+  private readonly setCodeLeftAlpha: (alpha: number) => void;
+  private readonly setCodeRightAlpha: (alpha: number) => void;
+
+  constructor(
+    public readonly description: string,
+    leftSpec: CodeSpec,
+    rightSpec: CodeSpec,
+  ) {
+    const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
+    const leftFormat = new TextFormatComponent({
+      color: leftSpec.color,
+      name: "left",
+      size: 1 / 3,
+    });
+    const rightFormat = new TextFormatComponent({
+      color: rightSpec.color,
+      name: "right",
+      size: 1 / 3,
+    });
+    const baseFormat = new TextFormatComponent({
+      color: "black",
+      name: "base",
+      size: 1 / 3,
+    });
+    [leftFormat, rightFormat, baseFormat].forEach((formatter) => {
+      formatter.colorSchedule.description = formatter.nameScalar.value;
+    });
+    const left: SingleTransform = {
+      transformString: leftSpec.transformString,
+      functionString: leftSpec.functionString,
+      getTransform: leftSpec.getTransform,
+      formatter: leftFormat,
+    };
+    const right: SingleTransform = {
+      transformString: rightSpec.transformString,
+      functionString: rightSpec.functionString,
+      getTransform: rightSpec.getTransform,
+      formatter: rightFormat,
+    };
+    this.standardDisplay = new ShowTwoTransforms(
+      left,
+      right,
+      baseFormat,
+      "right",
+      matrixLayout,
+      this.duration,
+    );
+    this.schedules = [
+      this.textTop.positionSchedule,
+      leftFormat.colorSchedule,
+      rightFormat.colorSchedule,
+      baseFormat.colorSchedule,
+    ];
+    // Show code on left side.
+    const baseFormatName = "";
+    this.textTop
+      .addText(baseFormatName, `<svg>\n`)
+      .addText("left", `   <g transform="`)
+      .addText("left colorful", leftSpec.transformString)
+      .addText("left", `">\n`)
+      .addText("right", `      <g transform="`)
+      .addText("right colorful", rightSpec.transformString);
+    this.textTop.addText("right", `">\n`);
+    this.textTop.addText(baseFormatName, `         <use href="`);
+    this.textTop.components.push(this.cssSampleName);
+
+    this.textTop.addText(baseFormatName, `" />\n`);
+    this.textTop.addText("right", `      </g>\n`);
+    this.textTop.addText("left", `   </g>\n`);
+    this.textTop
+      .addText(baseFormatName, `</svg>\n \n \n`)
+      .addText("left", "context.")
+      .addText("left colorful", leftSpec.javaScriptString)
+      .addText("left", ";\n")
+      .addText("right", "context.")
+      .addText("right colorful", rightSpec.javaScriptString);
+    this.textTop.addText("right", ":\n");
+    this.textTop.components.push(this.javaScriptSampleName);
+    const size = 0.3;
+    const boldness = 1.3;
+    const leftColorfulCodeFormat = new TextFormatComponent({
+      color: leftFormat.colorSchedule,
+      name: "left colorful",
+      size,
+      boldness,
+    });
+    leftColorfulCodeFormat.colorSchedule.set;
+    const rightColorfulCodeFormat = new TextFormatComponent({
+      color: rightFormat.colorSchedule,
+      name: "right colorful",
+      size,
+      boldness,
+    });
+    const leftCodeFormat = new TextFormatComponent({
+      color: baseFormat.colorSchedule,
+      name: "left",
+      size,
+      boldness,
+    });
+    const rightCodeFormat = new TextFormatComponent({
+      color: baseFormat.colorSchedule,
+      name: "right",
+      size,
+      boldness,
+    });
+    const baseCodeFormat = new TextFormatComponent({
+      color: baseFormat.colorSchedule,
+      name: "",
+      size,
+      boldness,
+    });
+    this.setCodeLeftAlpha = (alpha: number) => {
+      leftColorfulCodeFormat.alphaSchedule.set(alpha);
+      leftCodeFormat.alphaSchedule.set(alpha);
+    };
+    this.setCodeRightAlpha = (alpha: number) => {
+      rightColorfulCodeFormat.alphaSchedule.set(alpha);
+      rightCodeFormat.alphaSchedule.set(alpha);
+    };
+    this.textTop.components.push(
+      leftColorfulCodeFormat,
+      leftCodeFormat,
+      rightColorfulCodeFormat,
+      rightCodeFormat,
+      baseCodeFormat,
+    );
+  }
+
+  show(options: ShowOptions) {
+    for (const child of this.components!) child.show(options);
+    const status = this.standardDisplay.show(options);
+    switch (status.sample) {
+      case "wink": {
+        this.cssSampleName.contentSchedule.set("#winkingFace");
+        this.javaScriptSampleName.contentSchedule.set("WinkingFace.draw();");
+        break;
+      }
+      case "box": {
+        this.cssSampleName.contentSchedule.set("#colorfulBox");
+        this.javaScriptSampleName.contentSchedule.set("showColorfulBox();");
+        break;
+      }
+      default: {
+        this.cssSampleName.contentSchedule.set("???");
+        this.javaScriptSampleName.contentSchedule.set("???");
+        console.warn("wtf");
+        break;
+      }
+    }
+    this.setCodeLeftAlpha(status.leftProgress);
+    this.setCodeRightAlpha(status.rightProgress);
+    this.textTop.show(options);
+  }
+}
+
+// MARK: Slide 10
+slideList.add(
+  new CodeSampleAndTwoMatrices(
+    "Slide 10",
+    {
+      transformString: "scale(2)",
+      functionString: "double",
+      javaScriptString: "scale(2, 2)",
+      color: myRainbow.myBlue,
+      getTransform(progress) {
+        return new DOMMatrix().scaleSelf(progress + 1);
+      },
+    },
+    {
+      transformString: "translateX(1px)",
+      functionString: "slideRightOneUnit",
+      javaScriptString: "translate(1, 0)",
+      color: myRainbow.red,
+      getTransform(progress) {
+        return new DOMMatrix().translateSelf(progress, 0);
+      },
+    },
+  ),
+);
+
+// MARK: Slide 11
+slideList.add(
+  new CodeSampleAndTwoMatrices(
+    "Slide 11",
+    {
+      transformString: "rotate(45deg)",
+      functionString: "rotate",
+      javaScriptString: "rotate(45)",
+      color: myRainbow.magenta,
+      getTransform(progress) {
+        return new DOMMatrix().rotateSelf(progress * 45);
+      },
+    },
+    {
+      transformString: "scale(2, 1)",
+      functionString: "twiceAsWide",
+      javaScriptString: "scale(2, 1)",
+      color: myRainbow.cssBlue,
+      getTransform(progress) {
+        return new DOMMatrix().scaleSelf(progress + 1, 1);
+      },
+    },
+  ),
+);
+
+// MARK: Blank Sides
+
+// Use this to make blank slides.
+// Fill them in with the Visual Editors.
 for (let i = 11; i <= 10; i++) {
   slideList.add(makeEmptySlide(`Slide ${i}`));
 }

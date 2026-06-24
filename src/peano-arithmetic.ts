@@ -33,7 +33,7 @@ import {
   discreteKeyframes,
   easeOut,
   interpolateNumbers,
-  Keyframes,
+  Keyframe,
   timedKeyframes,
   interpolateColor,
   ease,
@@ -538,17 +538,17 @@ function equals(): PathElement {
     const toX = assertNonNullable(toMatch.pathShape.startX);
     return toX - fromX;
   })();
-  const baseAdjustmentSchedule: Keyframes<number> = [
+  const baseAdjustmentSchedule: readonly Keyframe<number>[] = [
     { time: 40000, value: 0, easeAfter: easeOut },
     { time: 42000, value: slideBaseCaseBy },
   ];
-  const mainSlideSchedule: Keyframes<number> = [
+  const mainSlideSchedule: readonly Keyframe<number>[] = [
     { time: 49000, value: 0, easeAfter: easeOut },
     { time: 54000, value: -1.9 },
     { time: 180000, value: -1.9, easeAfter: easeOut },
     { time: 184000, value: 0 },
   ];
-  const mainZoomSchedule: Keyframes<number> = [
+  const mainZoomSchedule: readonly Keyframe<number>[] = [
     { time: 49000, value: 1, easeAfter: easeOut },
     { time: 54000, value: 2 / 3 },
     { time: 180000, value: 2 / 3, easeAfter: easeOut },
@@ -1055,11 +1055,11 @@ function plus(): PathElement {
     return result;
   })();
 
-  const mainSlideSchedule: Keyframes<number> = [
+  const mainSlideSchedule: readonly Keyframe<number>[] = [
     { time: 28230, value: 0, easeAfter: easeOut },
     { time: 29730, value: -1.9 },
   ];
-  const mainZoomSchedule: Keyframes<number> = [
+  const mainZoomSchedule: readonly Keyframe<number>[] = [
     { time: 28230, value: 1, easeAfter: easeOut },
     { time: 29730, value: 2 / 3 },
   ];

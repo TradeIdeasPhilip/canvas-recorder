@@ -32,7 +32,6 @@ import {
   easeOut,
   interpolateNumbers,
   Keyframe,
-  Keyframes,
 } from "./interpolate";
 import { myRainbow } from "./glib/my-rainbow";
 import { strokeColors } from "./stroke-colors";
@@ -653,7 +652,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       fixCorners(textPathShape),
       fixCorners(MainTriangle.pathShape),
     );
-    const morphSchedule: Keyframes<number> = [
+    const morphSchedule: readonly Keyframe<number>[] = [
       { time: 1_000, value: 0, easeAfter: ease },
       { time: 3_000, value: 1 },
     ];
@@ -1107,32 +1106,32 @@ function scaleProgressWithinSegment(progress: number) {
         return { x, y };
       },
     );
-    const translationSchedule: Keyframes<number> = [
+    const translationSchedule: readonly Keyframe<number>[] = [
       { time: 1000, value: 0, easeAfter: ease },
       { time: 2500, value: 1 },
     ];
-    const topRotationSchedule: Keyframes<number> = [
+    const topRotationSchedule: readonly Keyframe<number>[] = [
       { time: 9000, value: 0, easeAfter: easeIn },
       { time: 10000, value: 1 },
       { time: 14000, value: 1, easeAfter: easeOut },
       { time: 15000, value: 0 },
     ];
     const outgoingAlpha = 0.333;
-    const topAlphaSchedule: Keyframes<number> = [
+    const topAlphaSchedule: readonly Keyframe<number>[] = [
       { time: 15000, value: 1, easeAfter: ease },
       { time: 17000, value: outgoingAlpha },
     ];
-    const bottomRotationSchedule: Keyframes<number> = [
+    const bottomRotationSchedule: readonly Keyframe<number>[] = [
       { time: 17_000, value: 0, easeAfter: easeIn },
       { time: 18_000, value: 1 },
       { time: 20_000, value: 1, easeAfter: easeOut },
       { time: 21_000, value: 0 },
     ];
-    const bottomAlphaSchedule: Keyframes<number> = [
+    const bottomAlphaSchedule: readonly Keyframe<number>[] = [
       { time: 21_000, value: 1, easeAfter: ease },
       { time: 23_000, value: outgoingAlpha },
     ];
-    const leftAlphaSchedule: Keyframes<number> = [
+    const leftAlphaSchedule: readonly Keyframe<number>[] = [
       { time: 27000, value: 1, easeAfter: easeOut },
       { time: 29_000, value: outgoingAlpha },
     ];
@@ -1243,11 +1242,11 @@ function scaleProgressWithinSegment(progress: number) {
         { x: rightColumnX, y: topRowY },
       ];
     })();
-    const alphaSchedule: Keyframes<number> = [
+    const alphaSchedule: readonly Keyframe<number>[] = [
       { time: 500, value: part3.outgoingAlpha },
       { time: 3000, value: 0 },
     ];
-    const movementSchedule: Keyframes<number> = [
+    const movementSchedule: readonly Keyframe<number>[] = [
       { time: 1000, value: 0, easeAfter: easeIn },
       { time: 3000, value: 1 },
     ];
@@ -2037,7 +2036,7 @@ function scaleProgressWithinSegment(progress: number) {
     22, 24, 26, 28, 30, 35, 40, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275,
     300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 4000,
   ];
-  const fourierSchedule: Keyframes<number> = (() => {
+  const fourierSchedule: readonly Keyframe<number>[] = (() => {
     const startTime = 43_907;
     const runTime = 3500;
     const pauseTime = 500;

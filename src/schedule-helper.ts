@@ -7,7 +7,6 @@ import {
   interpolatePoints,
   interpolateRects,
   Keyframe,
-  Keyframes,
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
@@ -36,7 +35,7 @@ export class StringScheduleInfo {
   at(timeInMs: number): string {
     return discreteKeyframes(timeInMs, this.schedule);
   }
-  set(overwriteWith: string | Keyframes<string>) {
+  set(overwriteWith: string | readonly Keyframe<string>[]) {
     this.schedule.length = 0;
     if (typeof overwriteWith === "string") {
       this.schedule.push({ time: 0, value: overwriteWith });
@@ -82,7 +81,7 @@ export class SelectScheduleInfo<T extends string, U extends T> {
   readonly type = "select";
   readonly choices: readonly T[];
   readonly schedule: Keyframe<T>[];
-  set(overwriteWith: T | Keyframes<T>) {
+  set(overwriteWith: T | readonly Keyframe<T>[]) {
     this.schedule.length = 0;
     if (typeof overwriteWith === "string") {
       this.schedule.push({ time: 0, value: overwriteWith });
@@ -141,7 +140,7 @@ export class ColorScheduleInfo {
   at(timeInMs: number): string {
     return interpolateColors(timeInMs, this.schedule);
   }
-  set(overwriteWith: string | Keyframes<string>) {
+  set(overwriteWith: string | readonly Keyframe<string>[]) {
     this.schedule.length = 0;
     if (typeof overwriteWith === "string") {
       this.schedule.push({ time: 0, value: overwriteWith });
@@ -160,17 +159,24 @@ export class ColorScheduleInfo {
    * If you create two subcomponents of the same type, their schedules will initially have identical descriptions.
    * You can change this description from "Color" to "Left Color" or "Right Color".
    * Do this once at initialization time and never change it.
-   * @param schedule Initial keyframes. The array is explicitly mutable and
-   * will be modified by the Visual Editor at runtime.
+   * @param schedule Initial keyframes.
+   * * If you provide a single value, this will create an array with exactly one entry.
+   * * If you provide an array, this will duplicate the array.
+   * This is the *safe* option because the Visual Editor assumes all schedules have their own distinct arrays.
+   * * If you provide another ColorScheduleInfo then these two ColorScheduleInfo objects will share an array.
+   * Use this when you only plan to share one of the schedules with the Visual Editor.
+   * Use this with **caution**.
    */
   constructor(
     public description: string,
-    schedule: Keyframe<string>[] | string,
+    schedule: readonly Keyframe<string>[] | string | ColorScheduleInfo,
   ) {
     if (typeof schedule === "string") {
       this.schedule = [{ time: 0, value: schedule }];
-    } else {
+    } else if (schedule instanceof Array) {
       this.schedule = schedule.slice();
+    } else {
+      this.schedule = schedule.schedule;
     }
   }
 }
@@ -181,7 +187,7 @@ export class NumberScheduleInfo {
   at(timeInMs: number): number {
     return interpolateNumbers(timeInMs, this.schedule);
   }
-  set(overwriteWith: number | Keyframes<number>) {
+  set(overwriteWith: number | readonly Keyframe<number>[]) {
     this.schedule.length = 0;
     if (typeof overwriteWith === "number") {
       this.schedule.push({ time: 0, value: overwriteWith });
@@ -235,7 +241,7 @@ export class NumberDurationScheduleInfo {
 }
 
 export class RectangleScheduleInfo {
-  set(overwriteWith: ReadOnlyRect | Keyframes<ReadOnlyRect>) {
+  set(overwriteWith: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[]) {
     this.schedule.length = 0;
     if (overwriteWith instanceof Array) {
       this.schedule.push(...overwriteWith);

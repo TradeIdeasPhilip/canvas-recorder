@@ -5,7 +5,6 @@ import {
   interpolateNumbers,
   interpolateRects,
   Keyframe,
-  Keyframes,
 } from "./interpolate";
 import {
   applyScalarSnapshot,
@@ -222,19 +221,19 @@ export class TraditionalTextComponent implements Showable {
   readonly duration = 0;
   constructor(
     initialValues: {
-      text?: string | Keyframes<string>;
+      text?: string | readonly Keyframe<string>[];
       position?: Point;
-      fillColor?: string | Keyframes<string>;
-      outlineColor?: string | Keyframes<string>;
-      outlineWidth?: number | Keyframes<number>;
-      fontSize?: number | Keyframes<number>;
+      fillColor?: string | readonly Keyframe<string>[];
+      outlineColor?: string | readonly Keyframe<string>[];
+      outlineWidth?: number | readonly Keyframe<number>[];
+      fontSize?: number | readonly Keyframe<number>[];
       fontStyle?: Parameters<
         InstanceType<
           typeof TraditionalTextComponent
         >["fontStyleSchedule"]["set"]
       >[0];
-      fontWeight?: number | Keyframes<number>;
-      fontFamily?: string | Keyframes<string>;
+      fontWeight?: number | readonly Keyframe<number>[];
+      fontFamily?: string | readonly Keyframe<string>[];
       textAlign?: Parameters<
         InstanceType<
           typeof TraditionalTextComponent
@@ -446,16 +445,16 @@ export class SlideComponent implements Showable {
   constructor(
     initialValues: {
       transformTemplate?: string;
-      placeA?: number | Keyframes<number>;
-      placeB?: number | Keyframes<number>;
-      placeC?: number | Keyframes<number>;
-      placeD?: number | Keyframes<number>;
-      placeE?: number | Keyframes<number>;
-      placeF?: number | Keyframes<number>;
-      placeG?: number | Keyframes<number>;
-      placeH?: number | Keyframes<number>;
-      placeI?: number | Keyframes<number>;
-      placeJ?: number | Keyframes<number>;
+      placeA?: number | readonly Keyframe<number>[];
+      placeB?: number | readonly Keyframe<number>[];
+      placeC?: number | readonly Keyframe<number>[];
+      placeD?: number | readonly Keyframe<number>[];
+      placeE?: number | readonly Keyframe<number>[];
+      placeF?: number | readonly Keyframe<number>[];
+      placeG?: number | readonly Keyframe<number>[];
+      placeH?: number | readonly Keyframe<number>[];
+      placeI?: number | readonly Keyframe<number>[];
+      placeJ?: number | readonly Keyframe<number>[];
     } = {},
   ) {
     if (initialValues.transformTemplate !== undefined)
@@ -639,8 +638,8 @@ export class MultiTextComponent implements Showable {
       textBaseline?: Parameters<
         InstanceType<typeof MultiTextComponent>["textBaselineSchedule"]["set"]
       >[0];
-      width?: number | Keyframes<number>;
-      additionalLineHeight?: number | Keyframes<number>;
+      width?: number | readonly Keyframe<number>[];
+      additionalLineHeight?: number | readonly Keyframe<number>[];
     } = {},
   ) {
     if (initialValues.position !== undefined)
@@ -735,8 +734,8 @@ export class TextSpanComponent implements Showable {
   readonly duration = 0;
   constructor(
     initialValues: {
-      content?: string | Keyframes<string>;
-      style?: string | Keyframes<string>;
+      content?: string | readonly Keyframe<string>[];
+      style?: string | readonly Keyframe<string>[];
     } = {},
   ) {
     if (initialValues.content !== undefined)
@@ -768,34 +767,33 @@ type CachedFont = {
 export class TextFormatComponent implements Showable {
   readonly nameScalar = new StringScalarInfo("Name", "");
   readonly scalars = [this.nameScalar] as const;
-  readonly colorSchedule = new ColorScheduleInfo("Color", "#666");
+  readonly colorSchedule :ColorScheduleInfo;
   readonly sizeSchedule = new NumberScheduleInfo("Font Size", 1);
   readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
   readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
   readonly alphaSchedule = new NumberScheduleInfo("Alpha", 1);
-  readonly schedules = [
+  get schedules() { return  [
     this.colorSchedule,
     this.sizeSchedule,
     this.boldnessSchedule,
     this.obliquenessSchedule,
     this.alphaSchedule,
-  ] as const;
+  ] as const};
   readonly description = "Text Format";
   readonly duration = 0;
   constructor(
     initialValues: {
       name?: string;
-      color?: string | Keyframes<string>;
-      size?: number | Keyframes<number>;
-      boldness?: number | Keyframes<number>;
-      obliqueness?: number | Keyframes<number>;
-      alpha?: number | Keyframes<number>;
+      color?: string | readonly Keyframe<string>[] | ColorScheduleInfo;
+      size?: number | readonly Keyframe<number>[];
+      boldness?: number | readonly Keyframe<number>[];
+      obliqueness?: number | readonly Keyframe<number>[];
+      alpha?: number | readonly Keyframe<number>[];
     } = {},
   ) {
     if (initialValues.name !== undefined)
       this.nameScalar.value = initialValues.name;
-    if (initialValues.color !== undefined)
-      this.colorSchedule.set(initialValues.color);
+this.colorSchedule = new ColorScheduleInfo("Color",initialValues.color?? "#666")
     if (initialValues.size !== undefined)
       this.sizeSchedule.set(initialValues.size);
     if (initialValues.boldness !== undefined)
@@ -876,12 +874,12 @@ export class TextComponent implements Showable {
   ] as const;
   constructor(
     initialValues: {
-      color?: string | Keyframes<string>;
-      rect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
-      text?: string | Keyframes<string>;
-      size?: number | Keyframes<number>;
-      boldness?: number | Keyframes<number>;
-      obliqueness?: number | Keyframes<number>;
+      color?: string | readonly Keyframe<string>[];
+      rect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
+      text?: string | readonly Keyframe<string>[];
+      size?: number | readonly Keyframe<number>[];
+      boldness?: number | readonly Keyframe<number>[];
+      obliqueness?: number | readonly Keyframe<number>[];
       // I have mixed feelings on the complicated type definition.
       // It is exactly what it needs to be, and it avoids any duplicated code or namespace pollution.
       // But it is long and complicated.
@@ -993,8 +991,8 @@ export class RectangleComponent implements Showable {
   readonly duration = 0;
   constructor(
     initialValues: {
-      color?: string | Keyframes<string>;
-      rect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
+      color?: string | readonly Keyframe<string>[];
+      rect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
     } = {},
   ) {
     if (initialValues.color !== undefined)
@@ -1035,8 +1033,8 @@ export class SingleImageComponent implements Showable {
   #image: SingleImage | null = null;
   constructor(
     initialValues: {
-      url?: string | Keyframes<string>;
-      destRect?: ReadOnlyRect | Keyframes<ReadOnlyRect>;
+      url?: string | readonly Keyframe<string>[];
+      destRect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
     } = {},
   ) {
     if (initialValues.url !== undefined)

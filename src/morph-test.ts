@@ -39,7 +39,7 @@ import {
   interpolateColor,
   interpolateColorsEqualWidths,
   interpolateNumbers,
-  Keyframes,
+  Keyframe,
 } from "./interpolate";
 import { makeLineFont } from "./glib/line-font";
 import { panAndZoom, transform } from "./glib/transforms";
@@ -288,7 +288,7 @@ if (false) {
     0.5,
   );
   const period = 5000;
-  const easingKeyframes: Keyframes<number> = [
+  const easingKeyframes: readonly Keyframe<number>[] = [
     { time: period * 0.125, value: 0, easeAfter: ease },
     { time: period * 0.5, value: 1 },
     { time: period * 0.625, value: 1, easeAfter: ease },

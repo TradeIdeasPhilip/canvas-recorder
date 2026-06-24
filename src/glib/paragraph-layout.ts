@@ -103,6 +103,10 @@ export class ParagraphLayout {
    * Like hitting shift-enter in some programs, this will move you to the start of the next line without starting a new paragraph.
    */
   addLineBreak() {
+    // TODO This should really include a font.
+    // Maybe that defaults to this.font, but in MultiTextComponent and other places, the default font means nothing.
+    // If this comes from a \n in a string, we should record the current font, as with any other character.
+    // Currently the workaround is to use " \n" instead of "\n" for blank lines.
     this.#items.push(new LinkBreak());
   }
   /**

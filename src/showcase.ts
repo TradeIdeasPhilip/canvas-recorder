@@ -29,7 +29,6 @@ import {
   interpolatePoints,
   interpolateRects,
   Keyframe,
-  Keyframes,
   makePathShapeInterpolator,
 } from "./interpolate";
 import { Command, Point, QCommand } from "./glib/path-shape";
@@ -1939,7 +1938,7 @@ What the hand, dare sieze the fire?`);
   const toColor = "red";
   const schedules = initializedArray(
     morphers.length,
-    (index): Keyframes<number> => {
+    (index): readonly Keyframe<number>[] => {
       const startTime = index * 800 + 500;
       const endTime = startTime + 4000;
       return [

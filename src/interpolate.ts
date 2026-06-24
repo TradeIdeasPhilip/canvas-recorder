@@ -90,8 +90,6 @@ export type Keyframe<T> = {
   easeAfter?: (progress: number) => number;
 };
 
-export type Keyframes<T> = readonly Keyframe<T>[];
-
 /**
  *
  * @param time There is no fixed scale.  This fits into the values of time in the array.
@@ -104,7 +102,7 @@ export type Keyframes<T> = readonly Keyframe<T>[];
  */
 export function timedKeyframes<T>(
   time: number,
-  keyframes: Keyframes<T>,
+  keyframes: readonly Keyframe<T>[],
 ):
   | { index: number; single: true; value: T }
   | { index: number; single: false; progress: number; from: T; to: T } {
@@ -177,22 +175,25 @@ export function discreteKeyframes<T>(
  * @param keyframes The time value of each keyframe is a duration, not a start time.
  * @returns The value at this time.  And the progress (0 to 1) within this value.
  */
-export function durationKeyframes<T> (time:number, keyframes:Keyframes<T>){
+export function durationKeyframes<T>(
+  time: number,
+  keyframes: readonly Keyframe<T>[],
+) {
   let foundAt = -1;
-  for (let i = 0; i < keyframes.length;i++ ) {
+  for (let i = 0; i < keyframes.length; i++) {
     const keyframe = keyframes[i];
     if (time < keyframe.time) {
       foundAt = i;
-      break
+      break;
     }
     time -= keyframe.time;
   }
-  if ((foundAt==-1)) {
+  if (foundAt == -1) {
     // Time before 0 points to the beginning of the first item.
     // Sometimes you need to freeze at the beginning or end.
     // I was worried that you might miss the exact end because of round off error.
     // So I extend the end forever rather than trying to cut it off exactly at the end.
-    foundAt = keyframes.length -1;
+    foundAt = keyframes.length - 1;
     time = keyframes[foundAt].time;
   }
   const keyframe = keyframes[foundAt];
@@ -201,7 +202,7 @@ export function durationKeyframes<T> (time:number, keyframes:Keyframes<T>){
   if (keyframe.easeAfter) {
     progress = keyframe.easeAfter(progress);
   }
-  return {value:keyframe.value, progress}
+  return { value: keyframe.value, progress };
 }
 
 /**
@@ -249,7 +250,7 @@ export function durationKeyframes<T> (time:number, keyframes:Keyframes<T>){
  */
 export function interpolateNumbers(
   time: number,
-  keyframes: Keyframes<number>,
+  keyframes: readonly Keyframe<number>[],
 ): number {
   const relevant = timedKeyframes(time, keyframes);
   if (relevant.single) {
@@ -282,7 +283,7 @@ export function interpolateRectangle(
  */
 export function interpolateRects(
   time: number,
-  keyframes: Keyframes<Rect>,
+  keyframes: readonly Keyframe<Rect>[],
 ): Rect {
   const relevant = timedKeyframes(time, keyframes);
   if (relevant.single) {
@@ -312,7 +313,7 @@ export function interpolatePoint(
  */
 export function interpolatePoints(
   time: number,
-  keyframes: Keyframes<Point>,
+  keyframes: readonly Keyframe<Point>[],
 ): Point {
   const relevant = timedKeyframes(time, keyframes);
   if (relevant.single) {
@@ -331,7 +332,7 @@ export function interpolatePoints(
  */
 export function interpolateColors(
   time: number,
-  keyframes: Keyframes<string>,
+  keyframes: readonly Keyframe<string>[],
 ): string {
   const relevant = timedKeyframes(time, keyframes);
   if (relevant.single) {

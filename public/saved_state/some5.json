@@ -1368,7 +1368,7 @@
         "keyframes": [
           {
             "time": 0,
-            "value": "rgb(255, 0, 0)"
+            "value": "color-mix(in oklab, red, blue)"
           }
         ]
       },
@@ -1454,5 +1454,387 @@
       }
     ],
     "components": []
+  },
+  "some5|Slide 10": {
+    "schedules": [
+      {
+        "description": "left",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(0, 128, 255)"
+          }
+        ]
+      },
+      {
+        "description": "inner",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 0, 0)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
+      }
+    ],
+    "components": [
+      {
+        "registryKey": "Multi Text",
+        "schedules": [
+          {
+            "description": "Position",
+            "type": "point",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "x": 0.25,
+                  "y": 0.25
+                }
+              }
+            ]
+          },
+          {
+            "description": "Alignment",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "description": "Baseline",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "top"
+              }
+            ]
+          },
+          {
+            "description": "Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 7.5
+              }
+            ]
+          },
+          {
+            "description": "Additional Line Height",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.15
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Text Format",
+            "schedules": [
+              {
+                "description": "Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "#600060"
+                  },
+                  {
+                    "time": 5000,
+                    "value": "rgb(37.65% 0% 0%)"
+                  },
+                  {
+                    "time": 10000,
+                    "value": "#070"
+                  },
+                  {
+                    "time": 15000,
+                    "value": "rgb(0% 25% 0% )"
+                  },
+                  {
+                    "time": 20000,
+                    "value": "rgb(0% 0% 0%)"
+                  }
+                ]
+              },
+              {
+                "description": "Font Size",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.25
+                  }
+                ]
+              },
+              {
+                "description": "Boldness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1.3
+                  }
+                ]
+              },
+              {
+                "description": "Obliqueness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "description": "Alpha",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.8
+                  }
+                ]
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Name",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          },
+          {
+            "registryKey": "Text Span",
+            "schedules": [
+              {
+                "description": "Content",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "<svg xmlns=\"http://www.w3.org/2000/svg\">\n   <g transform=\"scale(2)\">\n      <g transform=\"translateX(1px)\">\n         <use href=\"#WinkingFace\" />\n      </g>\n   </g>\n</svg>"
+                  }
+                ]
+              },
+              {
+                "description": "Style",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": ""
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "some5|Slide 11": {
+    "schedules": [
+      {
+        "description": "left",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 0, 255)"
+          }
+        ]
+      },
+      {
+        "description": "inner",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(32, 64, 255)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
+      }
+    ],
+    "components": [
+      {
+        "registryKey": "Multi Text",
+        "schedules": [
+          {
+            "description": "Position",
+            "type": "point",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "x": 0.25,
+                  "y": 0.25
+                }
+              }
+            ]
+          },
+          {
+            "description": "Alignment",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "left"
+              }
+            ]
+          },
+          {
+            "description": "Baseline",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "top"
+              }
+            ]
+          },
+          {
+            "description": "Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 8.5
+              }
+            ]
+          },
+          {
+            "description": "Additional Line Height",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.15
+              }
+            ]
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Text Format",
+            "schedules": [
+              {
+                "description": "Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 10000,
+                    "value": "#070"
+                  }
+                ]
+              },
+              {
+                "description": "Font Size",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.3
+                  }
+                ]
+              },
+              {
+                "description": "Boldness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1.3
+                  }
+                ]
+              },
+              {
+                "description": "Obliqueness",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "description": "Alpha",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.8
+                  }
+                ]
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Name",
+                "type": "string",
+                "value": ""
+              }
+            ]
+          },
+          {
+            "registryKey": "Text Span",
+            "schedules": [
+              {
+                "description": "Content",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "<svg>\n   <g transform=\"scale(2)\">\n      <g transform=\"translateX(1px)\">\n         <use href=\"#WinkingFace\" />\n      </g>\n   </g>\n</svg>\n \n \ncontext.rotate(45);\ncontext.scale(2, 2);\nWinkingFace.draw(context);"
+                  }
+                ]
+              },
+              {
+                "description": "Style",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": ""
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }
