@@ -25,6 +25,8 @@ import {
   Keyframe,
   durationKeyframes,
   ease,
+  easeIn,
+  easeOut,
   interpolateNumbers,
 } from "../interpolate";
 
@@ -1311,12 +1313,36 @@ type CodeSpec = SwapTransformSpec & {
  * The other side shows a MultiText control, showing the code that matches the rest of the demo.
  */
 class CodeSampleAndTwoMatrices implements Showable {
-  readonly duration = 20_000;
+  readonly duration = 30_000;
   readonly components: Showable[] = [];
   readonly schedules: Showable["schedules"];
   private readonly standardDisplay: ShowTwoTransforms;
   private readonly textTop = new MultiTextComponent({
-    position: { x: 0.25, y: 0.25 },
+    position: [
+      { time: 0, value: { x: 0.25, y: -8 }, easeAfter: easeOut },
+      { time: 500, value: { x: 0.25, y: 0.25 } },
+      {
+        time: this.duration / 2 - 500,
+        value: { x: 0.35, y: 0.75 },
+        easeAfter: easeIn,
+      },
+      { time: this.duration / 2, value: { x: 0.35, y: 8.9 } },
+      {
+        time: this.duration / 2,
+        value: { x: 0.25, y: -8 },
+        easeAfter: easeOut,
+      },
+      {
+        time: this.duration / 2 + 500,
+        value: { x: 0.8, y: 0.25 },
+      },
+      {
+        time: this.duration - 500,
+        value: { x: 0.7, y: 0.75 },
+        easeAfter: easeIn,
+      },
+      { time: this.duration, value: { x: 0.35, y: 8.9 } },
+    ],
     alignment: "left",
     textBaseline: "top",
     additionalLineHeight: 0.15,

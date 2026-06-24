@@ -631,7 +631,7 @@ export class MultiTextComponent implements Showable {
   readonly components: Showable[] = [];
   constructor(
     initialValues: {
-      position?: Point;
+      position?: Point|readonly Keyframe<Point>[];
       alignment?: Parameters<
         InstanceType<typeof MultiTextComponent>["alignmentSchedule"]["set"]
       >[0];

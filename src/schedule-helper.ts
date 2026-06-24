@@ -279,7 +279,7 @@ export class PointScheduleInfo {
   at(timeInMs: number): Point {
     return interpolatePoints(timeInMs, this.schedule);
   }
-  set(overwriteWith: Point) {
+  set(overwriteWith: Point|readonly Keyframe<Point>[]) {
     this.schedule.length = 0;
     if (overwriteWith instanceof Array) {
       this.schedule.push(...overwriteWith);
