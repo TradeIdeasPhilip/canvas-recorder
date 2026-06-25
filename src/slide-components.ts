@@ -595,6 +595,38 @@ export class MultiTextComponent implements Showable {
     this.components.push(span);
     return this;
   }
+  static #splitter = /^⸨([^⸨⸩]*)⸩([^⸨⸩]*)(.*)$/s;
+  /**
+   * `component.addText1("⸨format1⸩content1⸨format2⸩content2⸨format3⸩content3")`
+   * is equivalent to
+   * `component.add("format1", "content1").add("format2", "content2").add("format3", "content3")`
+   * @param all A string containing all of the text and styles to add.
+   * @returns this;
+   */
+  addText1(all: string): this {
+    while (all != "") {
+      const pieces = MultiTextComponent.#splitter.exec(all);
+      if (!pieces) {
+        throw new Error("Invalid here:  " + all);
+      }
+      this.addText(pieces[1], pieces[2]);
+      all = pieces[3];
+    }
+    return this;
+  }
+  /**
+   * Remove all TextSpanComponent children.
+   * Leave the TextFormatComponent children in place.
+   */
+  clearText() {
+    const components = this.components;
+    for (let index = components.length - 1; index >= 0; index--) {
+      if (components[index] instanceof TextSpanComponent) {
+        components.splice(index, 1);
+      }
+    }
+    return this;
+  }
   readonly positionSchedule = new PointScheduleInfo("Position", {
     x: 8,
     y: 0.25,
@@ -631,7 +663,7 @@ export class MultiTextComponent implements Showable {
   readonly components: Showable[] = [];
   constructor(
     initialValues: {
-      position?: Point|readonly Keyframe<Point>[];
+      position?: Point | readonly Keyframe<Point>[];
       alignment?: Parameters<
         InstanceType<typeof MultiTextComponent>["alignmentSchedule"]["set"]
       >[0];
@@ -767,18 +799,20 @@ type CachedFont = {
 export class TextFormatComponent implements Showable {
   readonly nameScalar = new StringScalarInfo("Name", "");
   readonly scalars = [this.nameScalar] as const;
-  readonly colorSchedule :ColorScheduleInfo;
+  readonly colorSchedule: ColorScheduleInfo;
   readonly sizeSchedule = new NumberScheduleInfo("Font Size", 1);
   readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
   readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
   readonly alphaSchedule = new NumberScheduleInfo("Alpha", 1);
-  get schedules() { return  [
-    this.colorSchedule,
-    this.sizeSchedule,
-    this.boldnessSchedule,
-    this.obliquenessSchedule,
-    this.alphaSchedule,
-  ] as const};
+  get schedules() {
+    return [
+      this.colorSchedule,
+      this.sizeSchedule,
+      this.boldnessSchedule,
+      this.obliquenessSchedule,
+      this.alphaSchedule,
+    ] as const;
+  }
   readonly description = "Text Format";
   readonly duration = 0;
   constructor(
@@ -793,7 +827,10 @@ export class TextFormatComponent implements Showable {
   ) {
     if (initialValues.name !== undefined)
       this.nameScalar.value = initialValues.name;
-this.colorSchedule = new ColorScheduleInfo("Color",initialValues.color?? "#666")
+    this.colorSchedule = new ColorScheduleInfo(
+      "Color",
+      initialValues.color ?? "#666",
+    );
     if (initialValues.size !== undefined)
       this.sizeSchedule.set(initialValues.size);
     if (initialValues.boldness !== undefined)

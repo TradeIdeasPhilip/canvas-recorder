@@ -1,34 +1,32 @@
-import { MakeShowableInSeries, Showable, ShowOptions } from "../showable";
-import { makeShadowDemo, DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
-import { myRainbow } from "../glib/my-rainbow";
-import {
-  buildComponents,
-  MultiTextComponent,
-  showError,
-  TextComponent,
-  TextFormatComponent,
-  TextSpanComponent,
-} from "../slide-components";
-import slide1 from "./slide1.json";
+import { lerp, ReadOnlyRect } from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
-import { ParagraphLayout } from "../glib/paragraph-layout";
 import { makeLineFontRatio } from "../glib/line-font";
+import { myRainbow } from "../glib/my-rainbow";
+import { ParagraphLayout } from "../glib/paragraph-layout";
 import { Point } from "../glib/path-shape";
 import { applyTransform, transform } from "../glib/transforms";
-import { lerp, ReadOnlyRect } from "phil-lib/misc";
 import {
-  NumberDurationScheduleInfo,
-  NumberScheduleInfo,
-  StringScalarInfo,
-} from "../schedule-helper";
-import {
-  Keyframe,
   durationKeyframes,
   ease,
   easeIn,
   easeOut,
   interpolateNumbers,
+  Keyframe,
 } from "../interpolate";
+import {
+  NumberDurationScheduleInfo,
+  NumberScheduleInfo,
+} from "../schedule-helper";
+import { DEFAULT_SLIDE_DURATION_MS, makeShadowDemo } from "../shadow-test";
+import { MakeShowableInSeries, Showable, ShowOptions } from "../showable";
+import {
+  buildComponents,
+  MultiTextComponent,
+  TextComponent,
+  TextFormatComponent,
+  TextSpanComponent,
+} from "../slide-components";
+import slide1 from "./slide1.json";
 
 const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
   { time: 0.15, value: 0, easeAfter: ease },
@@ -1298,6 +1296,82 @@ slideList.add(
 
 // MARK: TextSampleAndTwoMatrices
 
+abstract class TwoMatricesRight implements Showable {
+  readonly duration = 30_000;
+  readonly components: Showable[] = [];
+  private readonly standardDisplay: ShowTwoTransforms;
+  protected leftFormat: TextFormatComponent;
+  protected rightFormat: TextFormatComponent;
+  protected baseFormat: TextFormatComponent;
+  get schedules() {
+    return [
+      this.leftFormat.colorSchedule,
+      this.rightFormat.colorSchedule,
+      this.baseFormat.colorSchedule,
+    ];
+  }
+  constructor(
+    public readonly description: string,
+    readonly leftSpec: SwapTransformSpec,
+    readonly rightSpec: SwapTransformSpec,
+  ) {
+    const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
+    this.leftFormat = new TextFormatComponent({
+      color: leftSpec.color,
+      name: "left",
+      size: 1 / 3,
+    });
+    this.rightFormat = new TextFormatComponent({
+      color: rightSpec.color,
+      name: "right",
+      size: 1 / 3,
+    });
+    this.baseFormat = new TextFormatComponent({
+      color: "black",
+      name: "base",
+      size: 1 / 3,
+    });
+    [this.leftFormat, this.rightFormat, this.baseFormat].forEach(
+      (formatter) => {
+        formatter.colorSchedule.description = formatter.nameScalar.value;
+      },
+    );
+    const left: SingleTransform = {
+      transformString: leftSpec.transformString,
+      functionString: leftSpec.functionString,
+      getTransform: leftSpec.getTransform,
+      formatter: this.leftFormat,
+    };
+    const right: SingleTransform = {
+      transformString: rightSpec.transformString,
+      functionString: rightSpec.functionString,
+      getTransform: rightSpec.getTransform,
+      formatter: this.rightFormat,
+    };
+    this.standardDisplay = new ShowTwoTransforms(
+      left,
+      right,
+      this.baseFormat,
+      "right",
+      matrixLayout,
+      this.duration,
+    );
+  }
+  show(options: ShowOptions) {
+    for (const child of this.components) child.show(options);
+    const status = this.standardDisplay.show(options);
+    this.showHelper(options, status);
+  }
+  abstract showHelper(
+    options: ShowOptions,
+    status: {
+      readonly leftProgress: number;
+      readonly rightProgress: number;
+      readonly sample: "wink" | "box" | "unknown";
+    },
+  ): void;
+}
+
 type CodeSpec = SwapTransformSpec & {
   /**
    * This describes the transform as JavaScript code.
@@ -1312,11 +1386,7 @@ type CodeSpec = SwapTransformSpec & {
  * One side looks just like {@link ShowTwoTransforms}.
  * The other side shows a MultiText control, showing the code that matches the rest of the demo.
  */
-class CodeSampleAndTwoMatrices implements Showable {
-  readonly duration = 30_000;
-  readonly components: Showable[] = [];
-  readonly schedules: Showable["schedules"];
-  private readonly standardDisplay: ShowTwoTransforms;
+class CodeSampleAndTwoMatrices extends TwoMatricesRight {
   private readonly textTop = new MultiTextComponent({
     position: [
       { time: 0, value: { x: 0.25, y: -8 }, easeAfter: easeOut },
@@ -1353,56 +1423,8 @@ class CodeSampleAndTwoMatrices implements Showable {
   private readonly setCodeLeftAlpha: (alpha: number) => void;
   private readonly setCodeRightAlpha: (alpha: number) => void;
 
-  constructor(
-    public readonly description: string,
-    leftSpec: CodeSpec,
-    rightSpec: CodeSpec,
-  ) {
-    const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
-    const leftFormat = new TextFormatComponent({
-      color: leftSpec.color,
-      name: "left",
-      size: 1 / 3,
-    });
-    const rightFormat = new TextFormatComponent({
-      color: rightSpec.color,
-      name: "right",
-      size: 1 / 3,
-    });
-    const baseFormat = new TextFormatComponent({
-      color: "black",
-      name: "base",
-      size: 1 / 3,
-    });
-    [leftFormat, rightFormat, baseFormat].forEach((formatter) => {
-      formatter.colorSchedule.description = formatter.nameScalar.value;
-    });
-    const left: SingleTransform = {
-      transformString: leftSpec.transformString,
-      functionString: leftSpec.functionString,
-      getTransform: leftSpec.getTransform,
-      formatter: leftFormat,
-    };
-    const right: SingleTransform = {
-      transformString: rightSpec.transformString,
-      functionString: rightSpec.functionString,
-      getTransform: rightSpec.getTransform,
-      formatter: rightFormat,
-    };
-    this.standardDisplay = new ShowTwoTransforms(
-      left,
-      right,
-      baseFormat,
-      "right",
-      matrixLayout,
-      this.duration,
-    );
-    this.schedules = [
-      this.textTop.positionSchedule,
-      leftFormat.colorSchedule,
-      rightFormat.colorSchedule,
-      baseFormat.colorSchedule,
-    ];
+  constructor(description: string, leftSpec: CodeSpec, rightSpec: CodeSpec) {
+    super(description, leftSpec, rightSpec);
     // Show code on left side.
     const baseFormatName = "";
     this.textTop
@@ -1431,32 +1453,31 @@ class CodeSampleAndTwoMatrices implements Showable {
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
-      color: leftFormat.colorSchedule,
+      color: this.leftFormat.colorSchedule,
       name: "left colorful",
       size,
       boldness,
     });
-    leftColorfulCodeFormat.colorSchedule.set;
     const rightColorfulCodeFormat = new TextFormatComponent({
-      color: rightFormat.colorSchedule,
+      color: this.rightFormat.colorSchedule,
       name: "right colorful",
       size,
       boldness,
     });
     const leftCodeFormat = new TextFormatComponent({
-      color: baseFormat.colorSchedule,
+      color: this.baseFormat.colorSchedule,
       name: "left",
       size,
       boldness,
     });
     const rightCodeFormat = new TextFormatComponent({
-      color: baseFormat.colorSchedule,
+      color: this.baseFormat.colorSchedule,
       name: "right",
       size,
       boldness,
     });
     const baseCodeFormat = new TextFormatComponent({
-      color: baseFormat.colorSchedule,
+      color: this.baseFormat.colorSchedule,
       name: "",
       size,
       boldness,
@@ -1477,10 +1498,14 @@ class CodeSampleAndTwoMatrices implements Showable {
       baseCodeFormat,
     );
   }
-
-  show(options: ShowOptions) {
-    for (const child of this.components!) child.show(options);
-    const status = this.standardDisplay.show(options);
+  showHelper(
+    options: ShowOptions,
+    status: {
+      readonly leftProgress: number;
+      readonly rightProgress: number;
+      readonly sample: "wink" | "box" | "unknown";
+    },
+  ): void {
     switch (status.sample) {
       case "wink": {
         this.cssSampleName.contentSchedule.set("#winkingFace");
@@ -1579,6 +1604,148 @@ slideList.add(
     },
   ),
 );
+
+{
+  class Slide13 extends TwoMatricesRight {
+    private readonly textTop = new MultiTextComponent({
+      position: [
+        { time: 0, value: { x: 0.25, y: -8 }, easeAfter: easeOut },
+        { time: 500, value: { x: 0.25, y: 0.25 } },
+        {
+          time: this.duration / 2 - 500,
+          value: { x: 0.35, y: 0.75 },
+          easeAfter: easeIn,
+        },
+        { time: this.duration / 2, value: { x: 0.35, y: 8.9 } },
+        {
+          time: this.duration / 2,
+          value: { x: 0.25, y: -8 },
+          easeAfter: easeOut,
+        },
+        {
+          time: this.duration / 2 + 500,
+          value: { x: 0.8, y: 0.25 },
+        },
+        {
+          time: this.duration - 500,
+          value: { x: 0.7, y: 0.75 },
+          easeAfter: easeIn,
+        },
+        { time: this.duration, value: { x: 0.35, y: 8.9 } },
+      ],
+      alignment: "left",
+      textBaseline: "top",
+      additionalLineHeight: 0.15,
+      width: 8,
+    });
+    private readonly setCodeLeftAlpha: (alpha: number) => void;
+    private readonly setCodeRightAlpha: (alpha: number) => void;
+    static readonly #svgSampleName: ReadonlyMap<string, string> = new Map([
+      ["wink", "#winkingFace"],
+      ["box", "#colorfulBox"],
+    ]);
+    static readonly #typescriptSampleName: ReadonlyMap<string, string> =
+      new Map([
+        ["wink", "WinkingFace.draw();"],
+        ["box", "showColorfulBox();"],
+      ]);
+    showHelper(
+      options: ShowOptions,
+      status: {
+        readonly leftProgress: number;
+        readonly rightProgress: number;
+        readonly sample: "wink" | "box" | "unknown";
+      },
+    ): void {
+      this.textTop.clearText()
+        .addText1(`⸨left⸩<g transform="⸨left colorful⸩${this.leftSpec.transformString}⸨left⸩">
+⸨right⸩   <g transform="⸨right colorful⸩${this.rightSpec.transformString}⸨right⸩">
+⸨⸩      <use href="${Slide13.#svgSampleName.get(status.sample) ?? "???"}" />
+⸨right⸩   </g>
+⸨left⸩</g>
+⸨⸩ 
+ 
+const matrix = new DOMMatrix();
+⸨left⸩matrix.⸨left colorful⸩skewXSelf(30)⸨left⸩;
+⸨right⸩matrix.⸨right colorful⸩translateSelf(0, 2)⸨right⸩;
+⸨⸩applyTransform(context, matrix);
+${Slide13.#typescriptSampleName.get(status.sample) ?? "???"}`);
+      this.setCodeLeftAlpha(status.leftProgress);
+      this.setCodeRightAlpha(status.rightProgress);
+      this.textTop.show(options);
+    }
+    constructor() {
+      super(
+        "Slide 13",
+        {
+          transformString: "skewX(30deg)",
+          functionString: "leanLeft",
+          color: myRainbow.violet,
+          getTransform(progress) {
+            return new DOMMatrix().skewXSelf(progress * 30);
+          },
+        },
+        {
+          transformString: "translateY(2px)",
+          functionString: "slideDownTwoUnits",
+          color: myRainbow.orange,
+          getTransform(progress) {
+            return new DOMMatrix().translateSelf(0, progress * 2);
+          },
+        },
+      );
+      const size = 0.3;
+      const boldness = 1.3;
+      const leftColorfulCodeFormat = new TextFormatComponent({
+        color: this.leftFormat.colorSchedule,
+        name: "left colorful",
+        size,
+        boldness,
+      });
+      const rightColorfulCodeFormat = new TextFormatComponent({
+        color: this.rightFormat.colorSchedule,
+        name: "right colorful",
+        size,
+        boldness,
+      });
+      const leftCodeFormat = new TextFormatComponent({
+        color: this.baseFormat.colorSchedule,
+        name: "left",
+        size,
+        boldness,
+      });
+      const rightCodeFormat = new TextFormatComponent({
+        color: this.baseFormat.colorSchedule,
+        name: "right",
+        size,
+        boldness,
+      });
+      const baseCodeFormat = new TextFormatComponent({
+        color: this.baseFormat.colorSchedule,
+        name: "",
+        size,
+        boldness,
+      });
+      this.setCodeLeftAlpha = (alpha: number) => {
+        leftColorfulCodeFormat.alphaSchedule.set(alpha);
+        leftCodeFormat.alphaSchedule.set(alpha);
+      };
+      this.setCodeRightAlpha = (alpha: number) => {
+        rightColorfulCodeFormat.alphaSchedule.set(alpha);
+        rightCodeFormat.alphaSchedule.set(alpha);
+      };
+      this.textTop.components.push(
+        leftColorfulCodeFormat,
+        leftCodeFormat,
+        rightColorfulCodeFormat,
+        rightCodeFormat,
+        baseCodeFormat,
+      );
+    }
+    static readonly instance = new this();
+  }
+  slideList.add(Slide13.instance);
+}
 
 // MARK: Blank Sides
 
