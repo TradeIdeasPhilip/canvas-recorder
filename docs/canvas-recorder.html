@@ -5,11 +5,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📽️ Canvas Recorder</title>
-    <script type="module" crossorigin src="./assets/canvas-recorder-D0UkKWgO.js"></script>
+    <script type="module" crossorigin src="./assets/canvas-recorder-DFT4otzV.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
-    <link rel="modulepreload" crossorigin href="./assets/lib-Ds6nv5VH.js">
-    <link rel="modulepreload" crossorigin href="./assets/client-misc-OntAltw_.js">
-    <link rel="stylesheet" crossorigin href="./assets/canvas-recorder-CPPRZfLp.css">
+    <link rel="modulepreload" crossorigin href="./assets/lib-oSjqi_IM.js">
+    <link rel="modulepreload" crossorigin href="./assets/client-misc-CDcbevS-.js">
+    <link rel="stylesheet" crossorigin href="./assets/canvas-recorder-DI79An3I.css">
   </head>
   <body>
     <!-- ── Left column ─────────────────────────────────────────────── -->
@@ -217,8 +217,8 @@
           <span id="scheduleHistoryControls" hidden>
             &nbsp;
             <button id="saveScheduleNowBtn" type="button">💾 Save</button>
-            <select id="scheduleHistorySelect" style="max-width: 18em"></select>
-            <button id="loadScheduleBtn" type="button">Load</button>
+            <span id="scheduleStatusDisplay" style="font-size:0.85em;font-style:italic;max-width:18em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;cursor:default"></span>
+            <button id="openHistoryDialogBtn" type="button" title="Browse save history">📋</button>
           </span>
         </div>
         <fieldset id="componentsEditor" hidden>
@@ -232,6 +232,20 @@
         </fieldset>
       </div>
     </div>
+
+    <dialog id="historyDialog" style="min-width:30em;padding:1em">
+      <h3 style="margin:0 0 0.6em 0">Save History</h3>
+      <div id="historyDialogHint" style="margin-bottom:0.5em;font-size:0.85em;color:#555;font-style:italic;min-height:1.2em"></div>
+      <ul id="historyList" style="list-style:none;padding:0;margin:0 0 1em 0;max-height:22em;overflow-y:auto;border:1px solid #ccc;border-radius:4px;min-height:2em"></ul>
+      <div style="display:flex;gap:0.5em;align-items:center">
+        <button id="historyDeleteBtn" type="button" disabled title="Remove this entry from the database">🗑 Delete</button>
+        <div style="flex:1"></div>
+        <button id="historyAbandonBtn" type="button" hidden>Switch &amp; Abandon</button>
+        <button id="historySaveBtn" type="button" hidden>Switch &amp; Save</button>
+        <button id="historyOkBtn" type="button">OK</button>
+        <button id="historyCancelBtn" type="button">Cancel</button>
+      </div>
+    </dialog>
 
     <dialog id="saveDialog" style="min-width: 28em">
       <h2 style="margin-top: 0">Save Video</h2>

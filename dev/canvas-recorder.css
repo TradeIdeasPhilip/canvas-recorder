@@ -189,3 +189,16 @@ body {
 .range-container input[type="range"] {
   flex-grow: 1;
 }
+
+/* ── History dialog ──────────────────────────────────────────────────── */
+
+#historyList li.selected {
+  background: #d0e8ff;
+  outline: 2px solid #4a90d9;
+  outline-offset: -2px;
+}
+
+#scheduleStatusDisplay {
+  color: #333;
+}
+

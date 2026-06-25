@@ -1190,11 +1190,16 @@ const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 let selectedSlideChild: Showable | null = null;
 const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);
 const saveScheduleNowBtn = getById("saveScheduleNowBtn", HTMLButtonElement);
-const scheduleHistorySelect = getById(
-  "scheduleHistorySelect",
-  HTMLSelectElement,
-);
-const loadScheduleBtn = getById("loadScheduleBtn", HTMLButtonElement);
+const scheduleStatusDisplay = getById("scheduleStatusDisplay", HTMLElement);
+const openHistoryDialogBtn = getById("openHistoryDialogBtn", HTMLButtonElement);
+const historyDialog = getById("historyDialog", HTMLDialogElement);
+const historyList = getById("historyList", HTMLUListElement);
+const historyDeleteBtn = getById("historyDeleteBtn", HTMLButtonElement);
+const historyAbandonBtn = getById("historyAbandonBtn", HTMLButtonElement);
+const historySaveBtn = getById("historySaveBtn", HTMLButtonElement);
+const historyOkBtn = getById("historyOkBtn", HTMLButtonElement);
+const historyCancelBtn = getById("historyCancelBtn", HTMLButtonElement);
+const historyDialogHint = getById("historyDialogHint", HTMLElement);
 
 // MARK: Rect marker drag state
 type RectKf = Keyframe<ReadOnlyRect>;
@@ -1369,13 +1374,31 @@ type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
 
 const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
 
-type HistoryEntry = {
+/** Full serialized state saved to IndexedDB. */
+type DataHistoryEntry = {
   timestamp: number;
   schedules: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
 };
+/** Marker written when the user deliberately chooses TypeScript defaults. */
+type MarkerHistoryEntry = {
+  timestamp: number;
+  kind: "ts-defaults" | "json";
+  /** Only set when kind === "json". */
+  filename?: string;
+};
+type HistoryEntry = DataHistoryEntry | MarkerHistoryEntry;
+function isMarker(e: HistoryEntry): e is MarkerHistoryEntry {
+  return "kind" in e;
+}
 type HistoryRecord = { selectableKey: string; entries: HistoryEntry[] };
+
+/** Where the current in-memory state came from. */
+type LoadSource =
+  | { kind: "ts-defaults" }
+  | { kind: "db"; timestamp: number }
+  | { kind: "json"; filename: string };
 
 const MAX_HISTORY_ENTRIES = 20;
 
@@ -1385,10 +1408,14 @@ const MAX_HISTORY_ENTRIES = 20;
  * option in the history select so the user can always reset to the
  * code-defined starting point. Never written to IndexedDB.
  */
-const tsDefaults = new Map<string, HistoryEntry>();
-/** Set to true once initFromDB has finished. After that, saving state that
- * matches the TS default is legitimate (the user explicitly reset to it). */
+const tsDefaults = new Map<string, DataHistoryEntry>();
+/** Set to true once initFromDB has finished. */
 let initFromDBComplete = false;
+/** Where each selectable's current in-memory state was loaded from. */
+const loadSources = new Map<string, LoadSource>();
+/** JSON snapshot of each selectable's state at load time (or last save).
+ *  Compared against current state to determine dirty status. */
+const loadedSnapshots = new Map<string, string>();
 
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -1434,6 +1461,95 @@ async function writeHistory(
   });
 }
 
+// MARK: Load-source helpers
+
+/** Logs abandoned or deleted items; replace console.info with persistent storage if needed. */
+function sendToRecycleBin(...args: unknown[]): void {
+  console.info("🗑️ Recycle bin:", ...args);
+}
+
+/** Serializes the current in-memory state of a selectable to a JSON string. */
+function currentSnapshotJson(selectable: Selectable): string {
+  return JSON.stringify({
+    schedules: selectable.schedules?.length
+      ? serializeSchedules(selectable.schedules)
+      : [],
+    scalars: selectable.scalars?.length
+      ? serializeScalars(selectable.scalars)
+      : undefined,
+    components: Array.isArray(selectable.components)
+      ? serializeComponents(selectable.components)
+      : undefined,
+  });
+}
+
+/** True if the selectable's in-memory state differs from what was last loaded or saved. */
+function isDirty(selectable: Selectable): boolean {
+  const key = selectableKey(selectable);
+  const snapshot = loadedSnapshots.get(key);
+  return snapshot !== undefined && currentSnapshotJson(selectable) !== snapshot;
+}
+
+function formatLoadSource(source: LoadSource | undefined): string {
+  if (!source) return "—";
+  switch (source.kind) {
+    case "ts-defaults": return "TypeScript defaults";
+    case "json": return source.filename;
+    case "db": return new Date(source.timestamp).toLocaleString();
+  }
+}
+
+/** Updates the inline status label to show source and dirty flag. */
+function updateStatusDisplay(selectable: Selectable) {
+  const source = loadSources.get(selectableKey(selectable));
+  const dirty = isDirty(selectable);
+  scheduleStatusDisplay.textContent = formatLoadSource(source) + (dirty ? " *" : "");
+  scheduleStatusDisplay.title = dirty ? "Unsaved changes since last load or save" : "";
+}
+
+/**
+ * Apply a DataHistoryEntry to a selectable in-place.
+ * Does NOT update loadSources / loadedSnapshots — caller must do that.
+ */
+function applyDataEntry(
+  selectable: Selectable,
+  entry: DataHistoryEntry,
+): void {
+  if (selectable.scalars?.length && entry.scalars?.length) {
+    applyScalarSnapshot(selectable.scalars, entry.scalars);
+  }
+  if (selectable.schedules?.length && entry.schedules.length) {
+    applySnapshot(selectable.schedules, entry.schedules);
+  }
+  if (selectable.components !== undefined && entry.components !== undefined) {
+    selectable.components.length = 0;
+    selectable.components.push(...buildComponents(entry.components));
+  }
+}
+
+/** Apply TypeScript defaults to a selectable in-place. */
+function applyTsDefaults(selectable: Selectable): void {
+  const defaults = tsDefaults.get(selectableKey(selectable));
+  if (defaults) applyDataEntry(selectable, defaults);
+}
+
+/**
+ * Write a ts-defaults marker to IndexedDB for the given key,
+ * but only if the latest entry is not already such a marker.
+ * Fire-and-forget.
+ */
+function writeMarkerIfNeeded(key: string): void {
+  void (async () => {
+    const record = await readHistory(key);
+    const entries = record?.entries ?? [];
+    const last = entries.at(-1);
+    if (last && isMarker(last) && last.kind === "ts-defaults") return;
+    entries.push({ timestamp: Date.now(), kind: "ts-defaults" });
+    while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+    await writeHistory(key, entries);
+  })();
+}
+
 /**
  * Snapshots the current (TypeScript-defined) schedule state for every
  * selectable in the chapter list into {@link tsDefaults}.
@@ -1452,7 +1568,7 @@ function captureDefaults(): void {
     const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
     if (!hasSchedules && !hasScalars && !hasChildren) continue;
-    const entry: HistoryEntry = {
+    const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
@@ -1471,14 +1587,14 @@ function captureDefaults(): void {
 async function initFromDB(unloadBackup?: string | null): Promise<void> {
   // Parse the backup map synchronously before any async work, so each per-item
   // promise can apply the backup in the same async round as the DB read.
-  const backupMap = new Map<string, HistoryEntry>();
+  const backupMap = new Map<string, DataHistoryEntry>();
   if (unloadBackup) {
     try {
       const parsed = JSON.parse(unloadBackup) as
-        | { key: string; entry: HistoryEntry }
-        | { key: string; entry: HistoryEntry }[];
+        | { key: string; entry: DataHistoryEntry }
+        | { key: string; entry: DataHistoryEntry }[];
       for (const { key, entry } of Array.isArray(parsed) ? parsed : [parsed]) {
-        backupMap.set(key, entry);
+        if (!isMarker(entry)) backupMap.set(key, entry);
       }
     } catch {
       /* malformed backup — ignore */
@@ -1506,39 +1622,42 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         const useBackup =
           backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
         const effective = useBackup ? backup : last;
-        if (!effective) return;
-        if (sel.scalars?.length && effective.scalars?.length) {
-          applyScalarSnapshot(sel.scalars, effective.scalars);
-        }
-        if (sel.schedules?.length && effective.schedules.length) {
-          applySnapshot(sel.schedules, effective.schedules);
-        }
-        if (
-          sel.components !== undefined &&
-          effective.components !== undefined
-        ) {
-          sel.components.length = 0;
-          sel.components.push(...buildComponents(effective.components));
-        }
-        if (useBackup) {
-          const entryJson = JSON.stringify({
-            schedules: backup!.schedules,
-            scalars: backup!.scalars,
-            components: backup!.components,
-          });
-          const lastJson = last
-            ? JSON.stringify({
-                schedules: last.schedules,
-                scalars: last.scalars,
-                components: last.components,
-              })
-            : null;
-          if (entryJson !== lastJson) {
-            entries.push(backup!);
-            while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-            await writeHistory(key, entries);
+
+        let source: LoadSource;
+        if (!effective || (isMarker(effective) && effective.kind === "ts-defaults")) {
+          // No DB record, or the most recent record says "use TypeScript defaults"
+          source = { kind: "ts-defaults" };
+        } else if (isMarker(effective)) {
+          // json or unknown marker — fall back to TypeScript defaults
+          source = { kind: "ts-defaults" };
+        } else {
+          // Full data entry: apply it
+          applyDataEntry(sel, effective);
+          source = { kind: "db", timestamp: effective.timestamp };
+
+          if (useBackup) {
+            // The backup is newer than what's in DB — write it back
+            const backupJson = JSON.stringify({
+              schedules: backup!.schedules,
+              scalars: backup!.scalars,
+              components: backup!.components,
+            });
+            const lastJson = last && !isMarker(last)
+              ? JSON.stringify({
+                  schedules: last.schedules,
+                  scalars: last.scalars,
+                  components: last.components,
+                })
+              : null;
+            if (backupJson !== lastJson) {
+              entries.push(backup!);
+              while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+              await writeHistory(key, entries);
+            }
           }
         }
+        loadSources.set(key, source);
+        loadedSnapshots.set(key, currentSnapshotJson(sel));
       }),
     );
   }
@@ -1617,52 +1736,27 @@ function selectableKey(selectable: Selectable): string {
   return `${toShowKey}|${selectable.description}`;
 }
 
-/** Reads history from IndexedDB and repopulates the history <select>.
- *  selectValue: explicit option to select; omit to default to the most recent DB entry. */
-async function refreshHistoryUI(selectable: Selectable, selectValue?: string) {
-  const key = selectableKey(selectable);
-  const record = await readHistory(key);
-  const entries = record?.entries ?? [];
-  const hasDefaults = tsDefaults.has(key);
-  scheduleHistorySelect.replaceChildren();
-  if (entries.length === 0 && !hasDefaults) {
-    scheduleHistorySelect.hidden = true;
-    loadScheduleBtn.hidden = true;
-  } else {
-    scheduleHistorySelect.hidden = false;
-    loadScheduleBtn.hidden = false;
-    if (hasDefaults) {
-      const opt = document.createElement("option");
-      opt.value = "ts-defaults";
-      opt.textContent = "TypeScript defaults";
-      scheduleHistorySelect.append(opt);
-    }
-    for (let i = entries.length - 1; i >= 0; i--) {
-      const opt = document.createElement("option");
-      opt.value = String(i);
-      opt.textContent = new Date(entries[i].timestamp).toLocaleString();
-      scheduleHistorySelect.append(opt);
-    }
-    // Use explicit selectValue if valid; otherwise default to most recent DB entry.
-    const target =
-      selectValue ??
-      (entries.length > 0 ? String(entries.length - 1) : undefined);
-    if (
-      target &&
-      [...scheduleHistorySelect.options].some((o) => o.value === target)
-    ) {
-      scheduleHistorySelect.value = target;
-    }
-  }
-}
-
-/** Saves current schedule state to IndexedDB. */
-async function saveScheduleState(selectable: Selectable, updateUI = true) {
+/** Saves current schedule state to IndexedDB as a full data entry.
+ *  Pass force=true (💾 Save button) to bypass the ts-defaults-no-auto-save guard. */
+async function saveScheduleState(
+  selectable: Selectable,
+  updateUI = true,
+  force = false,
+) {
   const hasSchedules = !!selectable.schedules?.length;
   const hasScalars = !!selectable.scalars?.length;
   const hasChildren = Array.isArray(selectable.components);
   if (!hasSchedules && !hasScalars && !hasChildren) return;
   const key = selectableKey(selectable);
+
+  // Skip auto-saving when the source is TypeScript defaults and state is clean.
+  // The user hasn't made changes — writing ts-defaults data to DB would mean the
+  // next restart would restore those values rather than picking up new TS code.
+  if (!force) {
+    const source = loadSources.get(key);
+    if (source?.kind === "ts-defaults" && !isDirty(selectable)) return;
+  }
+
   const record = await readHistory(key);
   const entries = record?.entries ?? [];
   const newSchedules = hasSchedules
@@ -1679,9 +1773,10 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     scalars: newScalars,
     components: newComponents,
   });
-  // Skip saving if nothing changed since the last entry (e.g. Vite hot-reload
-  // with no user edits triggers beforeunload and would pollute history).
-  const last = entries[entries.length - 1];
+  // Skip saving if nothing changed since the last data entry.
+  const last = entries.findLast((e) => !isMarker(e)) as
+    | DataHistoryEntry
+    | undefined;
   if (last) {
     const prevJson = JSON.stringify({
       schedules: last.schedules,
@@ -1690,22 +1785,7 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
     });
     if (prevJson === newJson) return;
   }
-  // Skip saving if the state is still the unmodified TypeScript defaults,
-  // but only during the early-load window before initFromDB has finished.
-  // After that, the user may have deliberately reset to defaults (e.g. deleted
-  // all components), and we must persist that change.
-  if (!initFromDBComplete) {
-    const tsDefault = tsDefaults.get(key);
-    if (tsDefault) {
-      const defaultJson = JSON.stringify({
-        schedules: tsDefault.schedules,
-        scalars: tsDefault.scalars,
-        components: tsDefault.components,
-      });
-      if (defaultJson === newJson) return;
-    }
-  }
-  const entry: HistoryEntry = {
+  const entry: DataHistoryEntry = {
     timestamp: Date.now(),
     schedules: newSchedules,
   };
@@ -1714,7 +1794,12 @@ async function saveScheduleState(selectable: Selectable, updateUI = true) {
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
-  if (updateUI) await refreshHistoryUI(selectable, String(entries.length - 1));
+
+  // Update source tracking and snapshot
+  loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
+  loadedSnapshots.set(key, newJson);
+
+  if (updateUI) updateStatusDisplay(selectable);
 }
 
 /**
@@ -1731,57 +1816,13 @@ function currentSaveTarget(): Selectable | null {
 
 saveScheduleNowBtn.addEventListener("click", () => {
   const target = currentSaveTarget();
-  if (target) saveScheduleState(target);
-});
-
-loadScheduleBtn.addEventListener("click", () => {
-  const target = currentSaveTarget();
-  if (!target) return;
-  const loadedValue = scheduleHistorySelect.value;
-  if (loadedValue === "ts-defaults") {
-    const defaults = tsDefaults.get(selectableKey(target));
-    if (!defaults) return;
-    if (target.scalars?.length && defaults.scalars?.length) {
-      applyScalarSnapshot(target.scalars, defaults.scalars);
-    }
-    if (target.schedules?.length && defaults.schedules.length) {
-      applySnapshot(target.schedules, defaults.schedules);
-    }
-    if (target.components !== undefined && defaults.components) {
-      target.components.length = 0;
-      target.components.push(...buildComponents(defaults.components));
-    }
-    selectedSlideChild = null;
-    updateComponentEditor(target);
-    updateScheduleEditor(target, "ts-defaults");
-    return;
-  }
-  const index = parseInt(loadedValue, 10);
-  readHistory(selectableKey(target)).then((record) => {
-    const entry = record?.entries[index];
-    if (!entry) return;
-    if (target.scalars?.length && entry.scalars?.length) {
-      applyScalarSnapshot(target.scalars, entry.scalars);
-    }
-    if (target.schedules?.length && entry.schedules.length) {
-      applySnapshot(target.schedules, entry.schedules);
-    }
-    if (target.components !== undefined && entry.components) {
-      target.components.length = 0;
-      target.components.push(...buildComponents(entry.components));
-    }
-    selectedSlideChild = null;
-    updateComponentEditor(target);
-    updateScheduleEditor(target, loadedValue);
-  });
+  if (target) void saveScheduleState(target, true, true); // force=true
 });
 
 function saveOnUnload() {
   // Save every slide that has editable state, not just the currently-visible one.
-  // A user may edit slide 1 then navigate to slide 5 before refreshing; we must
-  // persist slide 1's changes even though it is no longer selected.
   const seen = new Set<string>();
-  const backups: { key: string; entry: HistoryEntry }[] = [];
+  const backups: { key: string; entry: DataHistoryEntry }[] = [];
 
   for (const item of debug) {
     const sel = item.selectable;
@@ -1794,34 +1835,33 @@ function saveOnUnload() {
     const hasChildren = Array.isArray(sel.components);
     if (!hasSchedules && !hasScalars && !hasChildren) continue;
 
+    const source = loadSources.get(key);
+    const dirty = isDirty(sel);
+
+    if (source?.kind === "ts-defaults" && !dirty) {
+      // Remember that the user is on TypeScript defaults, not the last DB save.
+      // Fire-and-forget; sessionStorage backup not needed (no data to lose).
+      writeMarkerIfNeeded(key);
+      continue;
+    }
+
+    // Dirty or loaded from DB — do the normal data save.
     const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
     const scalars = hasScalars ? serializeScalars(sel.scalars!) : undefined;
     const components = hasChildren
       ? serializeComponents(sel.components!)
       : undefined;
-    const tsDefault = tsDefaults.get(key);
-    const newJson = JSON.stringify({ schedules, scalars, components });
-    const defaultJson =
-      !initFromDBComplete && tsDefault
-        ? JSON.stringify({
-            schedules: tsDefault.schedules,
-            scalars: tsDefault.scalars,
-            components: tsDefault.components,
-          })
-        : null;
-    if (newJson !== defaultJson) {
-      backups.push({
-        key,
-        entry: {
-          timestamp: Date.now(),
-          schedules,
-          ...(scalars !== undefined && { scalars }),
-          ...(components !== undefined && { components }),
-        },
-      });
-    }
+    backups.push({
+      key,
+      entry: {
+        timestamp: Date.now(),
+        schedules,
+        ...(scalars !== undefined && { scalars }),
+        ...(components !== undefined && { components }),
+      },
+    });
     // Async DB write — succeeds on tab-hide, may be abandoned on navigation.
-    saveScheduleState(sel, false);
+    void saveScheduleState(sel, false);
   }
 
   if (backups.length > 0) {
@@ -1831,6 +1871,273 @@ function saveOnUnload() {
 window.addEventListener("beforeunload", saveOnUnload);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") saveOnUnload();
+});
+
+// MARK: History dialog
+
+/** Describes a single item in the history dialog's list. */
+type DialogListItem =
+  | { kind: "current-unsaved"; snapshotJson: string }
+  | { kind: "ts-defaults" }
+  | { kind: "db-entry"; entry: DataHistoryEntry; entryIndex: number; isInitial: boolean };
+
+let _historyTarget: Selectable | null = null;
+let _preDialogSnapshotJson = "";
+let _preDialogSource: LoadSource | undefined;
+let _wasInitiallyDirty = false;
+let _dialogItems: DialogListItem[] = [];
+let _selectedDialogIndex = -1;
+let _allHistoryEntries: HistoryEntry[] = [];
+
+function _dialogSelectItem(index: number, target: Selectable) {
+  if (index < 0 || index >= _dialogItems.length) return;
+  _selectedDialogIndex = index;
+
+  // Highlight in list
+  for (let i = 0; i < historyList.children.length; i++) {
+    historyList.children[i].classList.toggle("selected", i === index);
+  }
+
+  const item = _dialogItems[index];
+  const isInitial = item.kind === "current-unsaved" ||
+    (item.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
+    (item.kind === "db-entry" && item.isInitial);
+  const isDeletable = item.kind === "db-entry" && !item.isInitial;
+  historyDeleteBtn.disabled = !isDeletable;
+
+  // Preview the selected state
+  if (item.kind === "current-unsaved") {
+    // Revert to the unsaved state captured when the dialog opened
+    const snap = JSON.parse(_preDialogSnapshotJson) as {
+      schedules: SerializedSchedule[];
+      scalars?: SerializedScalar[];
+      components?: SerializedChild[];
+    };
+    if (target.scalars?.length && snap.scalars?.length) applyScalarSnapshot(target.scalars, snap.scalars);
+    if (target.schedules?.length && snap.schedules.length) applySnapshot(target.schedules, snap.schedules);
+    if (target.components !== undefined && snap.components !== undefined) {
+      target.components.length = 0;
+      target.components.push(...buildComponents(snap.components));
+    }
+  } else if (item.kind === "ts-defaults") {
+    applyTsDefaults(target);
+  } else {
+    applyDataEntry(target, item.entry);
+  }
+  selectedSlideChild = null;
+  updateComponentEditor(target);
+  updateScheduleEditor(target);
+
+  // Show/hide OK vs Switch-and-Abandon/Switch-and-Save
+  const isOriginal = index === (_wasInitiallyDirty ? 0 : _dialogItems.findIndex(
+    (it) => (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
+             (it.kind === "db-entry" && it.isInitial)
+  ));
+  if (_wasInitiallyDirty && !isOriginal) {
+    historyOkBtn.hidden = true;
+    historyAbandonBtn.hidden = false;
+    historySaveBtn.hidden = false;
+  } else {
+    historyOkBtn.hidden = false;
+    historyAbandonBtn.hidden = true;
+    historySaveBtn.hidden = true;
+  }
+}
+
+async function openHistoryDialog(target: Selectable) {
+  _historyTarget = target;
+  const key = selectableKey(target);
+  _preDialogSnapshotJson = currentSnapshotJson(target);
+  _preDialogSource = loadSources.get(key);
+  _wasInitiallyDirty = isDirty(target);
+
+  const record = await readHistory(key);
+  _allHistoryEntries = record?.entries ?? [];
+
+  // Build the item list
+  _dialogItems = [];
+  if (_wasInitiallyDirty) {
+    _dialogItems.push({ kind: "current-unsaved", snapshotJson: _preDialogSnapshotJson });
+  }
+  // DB data entries, newest first, with isInitial flag
+  const initialTimestamp = _preDialogSource?.kind === "db" ? _preDialogSource.timestamp : -1;
+  const dataEntries: { entry: DataHistoryEntry; entryIndex: number }[] = [];
+  for (let i = 0; i < _allHistoryEntries.length; i++) {
+    const e = _allHistoryEntries[i];
+    if (!isMarker(e)) dataEntries.push({ entry: e, entryIndex: i });
+  }
+  for (let i = dataEntries.length - 1; i >= 0; i--) {
+    const { entry, entryIndex } = dataEntries[i];
+    _dialogItems.push({
+      kind: "db-entry",
+      entry,
+      entryIndex,
+      isInitial: entry.timestamp === initialTimestamp,
+    });
+  }
+  // TypeScript defaults (always last)
+  _dialogItems.push({ kind: "ts-defaults" });
+
+  // Build list DOM
+  historyList.replaceChildren();
+  for (let i = 0; i < _dialogItems.length; i++) {
+    const item = _dialogItems[i];
+    const li = document.createElement("li");
+    li.style.cssText = "padding:0.35em 0.6em;cursor:pointer;border-bottom:1px solid #eee";
+    let label = "";
+    if (item.kind === "current-unsaved") {
+      label = "★ Current (unsaved changes)";
+    } else if (item.kind === "ts-defaults") {
+      label = "TypeScript defaults";
+      if (_preDialogSource?.kind === "ts-defaults") label += " ← initial load";
+    } else {
+      label = new Date(item.entry.timestamp).toLocaleString();
+      if (item.isInitial) label += " ← initial load";
+    }
+    li.textContent = label;
+    const idx = i;
+    li.addEventListener("click", () => _dialogSelectItem(idx, target));
+    li.addEventListener("mouseover", () => { li.style.background = "#f0f0f0"; });
+    li.addEventListener("mouseout", () => { li.style.background = ""; });
+    historyList.append(li);
+  }
+
+  // Arrow key navigation
+  historyList.tabIndex = 0;
+  historyList.onkeydown = (e) => {
+    if (e.key === "ArrowDown" && _selectedDialogIndex < _dialogItems.length - 1) {
+      _dialogSelectItem(_selectedDialogIndex + 1, target);
+    } else if (e.key === "ArrowUp" && _selectedDialogIndex > 0) {
+      _dialogSelectItem(_selectedDialogIndex - 1, target);
+    }
+  };
+
+  // Update hint text
+  historyDialogHint.textContent = _wasInitiallyDirty
+    ? "You have unsaved changes. Switching will apply the selected state."
+    : `Loaded from: ${formatLoadSource(_preDialogSource)}`;
+
+  // Select the initial/current item
+  const initialIdx = _wasInitiallyDirty
+    ? 0
+    : _dialogItems.findIndex(
+        (it) =>
+          (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
+          (it.kind === "db-entry" && it.isInitial),
+      );
+  _dialogSelectItem(Math.max(0, initialIdx), target);
+
+  historyDialog.showModal();
+  historyList.focus();
+}
+
+/** Apply the currently selected dialog item and update source tracking. */
+async function _applyDialogSelection(saveOld: boolean) {
+  const target = _historyTarget;
+  if (!target) return;
+  const key = selectableKey(target);
+  const item = _dialogItems[_selectedDialogIndex];
+  if (!item) return;
+
+  if (saveOld && _wasInitiallyDirty) {
+    // Temporarily restore the old state to save it, then re-apply selection
+    const origSnap = JSON.parse(_preDialogSnapshotJson) as {
+      schedules: SerializedSchedule[];
+      scalars?: SerializedScalar[];
+      components?: SerializedChild[];
+    };
+    if (target.scalars?.length && origSnap.scalars?.length) applyScalarSnapshot(target.scalars, origSnap.scalars);
+    if (target.schedules?.length && origSnap.schedules.length) applySnapshot(target.schedules, origSnap.schedules);
+    if (target.components !== undefined && origSnap.components !== undefined) {
+      target.components.length = 0;
+      target.components.push(...buildComponents(origSnap.components));
+    }
+    await saveScheduleState(target, false, true);
+    // Re-apply the selected item
+    if (item.kind === "ts-defaults") applyTsDefaults(target);
+    else if (item.kind === "db-entry") applyDataEntry(target, item.entry);
+    // "current-unsaved" is already applied (it IS the old state we just saved)
+  }
+
+  // Update source tracking
+  if (item.kind === "ts-defaults") {
+    loadSources.set(key, { kind: "ts-defaults" });
+    loadedSnapshots.set(key, currentSnapshotJson(target));
+    writeMarkerIfNeeded(key);
+  } else if (item.kind === "db-entry") {
+    loadSources.set(key, { kind: "db", timestamp: item.entry.timestamp });
+    loadedSnapshots.set(key, currentSnapshotJson(target));
+  } else if (item.kind === "current-unsaved") {
+    // State is already "current"; source stays what it was but snapshot updates
+    // (no change to loadSources — the unsaved state was already dirty vs the load source)
+    // After choosing "current unsaved" as a deliberate selection, nothing changes.
+  }
+
+  selectedSlideChild = null;
+  updateComponentEditor(target);
+  updateScheduleEditor(target);
+}
+
+historyOkBtn.addEventListener("click", () => {
+  void _applyDialogSelection(false);
+  historyDialog.close();
+});
+historyAbandonBtn.addEventListener("click", () => {
+  sendToRecycleBin("abandoned", _preDialogSnapshotJson, `from ${formatLoadSource(_preDialogSource)}`);
+  void _applyDialogSelection(false);
+  historyDialog.close();
+});
+historySaveBtn.addEventListener("click", () => {
+  void _applyDialogSelection(true);
+  historyDialog.close();
+});
+historyCancelBtn.addEventListener("click", () => {
+  // Revert to the state before the dialog opened
+  const target = _historyTarget;
+  if (target) {
+    const snap = JSON.parse(_preDialogSnapshotJson) as {
+      schedules: SerializedSchedule[];
+      scalars?: SerializedScalar[];
+      components?: SerializedChild[];
+    };
+    if (target.scalars?.length && snap.scalars?.length) applyScalarSnapshot(target.scalars, snap.scalars);
+    if (target.schedules?.length && snap.schedules.length) applySnapshot(target.schedules, snap.schedules);
+    if (target.components !== undefined && snap.components !== undefined) {
+      target.components.length = 0;
+      target.components.push(...buildComponents(snap.components));
+    }
+    selectedSlideChild = null;
+    updateComponentEditor(target);
+    updateScheduleEditor(target);
+  }
+  historyDialog.close();
+});
+
+historyDeleteBtn.addEventListener("click", async () => {
+  const target = _historyTarget;
+  if (!target) return;
+  const item = _dialogItems[_selectedDialogIndex];
+  if (!item || item.kind !== "db-entry" || item.isInitial) return;
+  const key = selectableKey(target);
+  sendToRecycleBin("deleted", item.entry);
+  _allHistoryEntries.splice(item.entryIndex, 1);
+  await writeHistory(key, _allHistoryEntries);
+  await openHistoryDialog(target); // Rebuild dialog after deletion
+});
+
+openHistoryDialogBtn.addEventListener("click", () => {
+  const target = currentSaveTarget();
+  if (target) void openHistoryDialog(target);
+});
+
+// Live dirty indicator: any edit in the schedule editor triggers a status refresh
+scheduleEditorFieldset.addEventListener("input", () => {
+  const target = currentSaveTarget();
+  if (target) updateStatusDisplay(target);
+});
+scheduleEditorFieldset.addEventListener("change", () => {
+  const target = currentSaveTarget();
+  if (target) updateStatusDisplay(target);
 });
 
 // MARK: Color editor utilities
@@ -4003,10 +4310,7 @@ function updateComponentEditor(selectable: Selectable) {
   list.scrollTop = wasAtBottom ? list.scrollHeight : savedScrollTop;
 }
 
-function updateScheduleEditor(
-  selectable: Selectable,
-  historySelectValue?: string,
-) {
+function updateScheduleEditor(selectable: Selectable) {
   scheduleEditorFieldset.replaceChildren();
   editingRectKf = null;
   viewingRectKfs.clear();
@@ -4020,7 +4324,7 @@ function updateScheduleEditor(
   const saveTarget = currentSaveTarget();
   if (saveTarget) {
     scheduleHistoryControls.hidden = false;
-    refreshHistoryUI(saveTarget, historySelectValue);
+    updateStatusDisplay(saveTarget);
   } else {
     scheduleHistoryControls.hidden = true;
   }

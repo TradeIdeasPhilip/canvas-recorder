@@ -1024,7 +1024,7 @@ class ShowTwoTransforms {
     this.xOffset = whereToDraw == "left" ? 0 : 8;
     this.textTop = new MultiTextComponent({
       position: { x: 4 + this.xOffset, y: 0.25 },
-      width: 7,
+      width: 8,
       alignment: "center",
       additionalLineHeight: 0.3,
     });
@@ -1550,6 +1550,31 @@ slideList.add(
       color: myRainbow.cssBlue,
       getTransform(progress) {
         return new DOMMatrix().scaleSelf(progress + 1, 1);
+      },
+    },
+  ),
+);
+
+// MARK: Slide 12
+slideList.add(
+  new CodeSampleAndTwoMatrices(
+    "Slide 12",
+    {
+      transformString: "translate(-6px)",
+      functionString: "slideWayLeft",
+      javaScriptString: "translate(-6, 0)",
+      color: myRainbow.violet,
+      getTransform(progress) {
+        return new DOMMatrix().translateSelf(progress * -6, 0);
+      },
+    },
+    {
+      transformString: "translate(3px)",
+      functionString: "slideALittleRight",
+      javaScriptString: "translate(3, 0)",
+      color: myRainbow.orange,
+      getTransform(progress) {
+        return new DOMMatrix().translateSelf(progress * 3, 0);
       },
     },
   ),
