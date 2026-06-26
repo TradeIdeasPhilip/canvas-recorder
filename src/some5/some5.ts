@@ -801,6 +801,26 @@ function drawGrid(
   context.setLineDash([]);
 }
 
+type Sample = {
+  draw(
+    context: CanvasRenderingContext2D,
+    transform?: DOMMatrixReadOnly | undefined,
+  ): void;
+  readonly svg: string;
+  readonly typescript: string;
+};
+
+const WINK: Sample = {
+  draw: WinkingFace.draw,
+  svg: "#winkingFace",
+  typescript: "WinkingFace.draw();",
+};
+const BOX: Sample = {
+  draw: showColorfulBox,
+  svg: "#colorfulBox",
+  typescript: "showColorfulBox();",
+};
+
 /**
  * Top is a string version of the transform.
  * Left is the untransformed shape.
@@ -858,10 +878,8 @@ class BeforeAndAfter implements Showable {
     for (const child of this.components!) child.show(options);
     const { timeInMs, context } = options;
     const globalProgress = (timeInMs / this.duration) * 2;
-    const [progress, drawSample] =
-      globalProgress < 1
-        ? [globalProgress, WinkingFace.draw]
-        : [globalProgress - 1, showColorfulBox];
+    const [progress, sample] =
+      globalProgress < 1 ? [globalProgress, WINK] : [globalProgress - 1, BOX];
     const transformString = this.makeTransformString(progress);
     const matrix = new DOMMatrixReadOnly(transformString);
     const transformedPoint = transform(
@@ -885,7 +903,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     context.lineWidth = 0.25;
-    drawSample(context, this.rightMostTransform);
+    sample.draw(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     context.translate(12, 3.75);
     drawGrid(
@@ -894,7 +912,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     applyTransform(context, matrix);
-    drawSample(context, this.rightMostTransform);
+    sample.draw(context, this.rightMostTransform);
     context.setTransform(originalTransform);
     this.textForTransform.textSchedule.set(transformString);
     this.textForTransform.show(options);
@@ -1047,29 +1065,26 @@ class ShowTwoTransforms {
   private readonly xOffset: number;
   static #schedule: readonly Keyframe<{
     readonly activeMatrix: "left" | "right";
-    readonly sample: (
-      context: CanvasRenderingContext2D,
-      transform?: DOMMatrixReadOnly | undefined,
-    ) => void;
+    readonly sample: Sample;
   }>[] = [
     {
       time: 1 / 4,
-      value: { activeMatrix: "right", sample: WinkingFace.draw },
+      value: { activeMatrix: "right", sample: WINK },
       easeAfter: ease,
     },
     {
       time: 1 / 4,
-      value: { activeMatrix: "left", sample: WinkingFace.draw },
+      value: { activeMatrix: "left", sample: WINK },
       easeAfter: ease,
     },
     {
       time: 1 / 4,
-      value: { activeMatrix: "right", sample: showColorfulBox },
+      value: { activeMatrix: "right", sample: BOX },
       easeAfter: ease,
     },
     {
       time: 1 / 4,
-      value: { activeMatrix: "left", sample: showColorfulBox },
+      value: { activeMatrix: "left", sample: BOX },
       easeAfter: ease,
     },
   ];
@@ -1112,15 +1127,13 @@ class ShowTwoTransforms {
         .getTransform(leftProgress)
         .multiply(this.right.getTransform(rightProgress)),
     );
-    globalProgress.value.sample(context);
+    globalProgress.value.sample.draw(context);
     context.setTransform(originalTransform);
-    const sample =
-      globalProgress.value.sample == WinkingFace.draw
-        ? "wink"
-        : globalProgress.value.sample == showColorfulBox
-          ? "box"
-          : ("unknown" as const);
-    return { leftProgress, rightProgress, sample } as const;
+    return {
+      leftProgress,
+      rightProgress,
+      sample: globalProgress.value.sample,
+    } as const;
   }
 }
 
@@ -1308,7 +1321,7 @@ abstract class TwoMatricesRight implements Showable {
       this.leftFormat.colorSchedule,
       this.rightFormat.colorSchedule,
       this.baseFormat.colorSchedule,
-    ];
+    ] as const;
   }
   constructor(
     public readonly description: string,
@@ -1367,7 +1380,7 @@ abstract class TwoMatricesRight implements Showable {
     status: {
       readonly leftProgress: number;
       readonly rightProgress: number;
-      readonly sample: "wink" | "box" | "unknown";
+      readonly sample: Sample;
     },
   ): void;
 }
@@ -1503,27 +1516,11 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
     status: {
       readonly leftProgress: number;
       readonly rightProgress: number;
-      readonly sample: "wink" | "box" | "unknown";
+      readonly sample: Sample;
     },
   ): void {
-    switch (status.sample) {
-      case "wink": {
-        this.cssSampleName.contentSchedule.set("#winkingFace");
-        this.javaScriptSampleName.contentSchedule.set("WinkingFace.draw();");
-        break;
-      }
-      case "box": {
-        this.cssSampleName.contentSchedule.set("#colorfulBox");
-        this.javaScriptSampleName.contentSchedule.set("showColorfulBox();");
-        break;
-      }
-      default: {
-        this.cssSampleName.contentSchedule.set("???");
-        this.javaScriptSampleName.contentSchedule.set("???");
-        console.warn("wtf");
-        break;
-      }
-    }
+    this.cssSampleName.contentSchedule.set(status.sample.svg);
+    this.javaScriptSampleName.contentSchedule.set(status.sample.typescript);
     this.setCodeLeftAlpha(status.leftProgress);
     this.setCodeRightAlpha(status.rightProgress);
     this.textTop.show(options);
@@ -1640,27 +1637,18 @@ slideList.add(
     });
     private readonly setCodeLeftAlpha: (alpha: number) => void;
     private readonly setCodeRightAlpha: (alpha: number) => void;
-    static readonly #svgSampleName: ReadonlyMap<string, string> = new Map([
-      ["wink", "#winkingFace"],
-      ["box", "#colorfulBox"],
-    ]);
-    static readonly #typescriptSampleName: ReadonlyMap<string, string> =
-      new Map([
-        ["wink", "WinkingFace.draw();"],
-        ["box", "showColorfulBox();"],
-      ]);
     showHelper(
       options: ShowOptions,
       status: {
         readonly leftProgress: number;
         readonly rightProgress: number;
-        readonly sample: "wink" | "box" | "unknown";
+        readonly sample: Sample;
       },
     ): void {
       this.textTop.clearText()
         .addText1(`⸨left⸩<g transform="⸨left colorful⸩${this.leftSpec.transformString}⸨left⸩">
 ⸨right⸩   <g transform="⸨right colorful⸩${this.rightSpec.transformString}⸨right⸩">
-⸨⸩      <use href="${Slide13.#svgSampleName.get(status.sample) ?? "???"}" />
+⸨⸩      <use href="${status.sample.svg}" />
 ⸨right⸩   </g>
 ⸨left⸩</g>
 ⸨⸩ 
@@ -1669,7 +1657,7 @@ const matrix = new DOMMatrix();
 ⸨left⸩matrix.⸨left colorful⸩skewXSelf(30)⸨left⸩;
 ⸨right⸩matrix.⸨right colorful⸩translateSelf(0, 2)⸨right⸩;
 ⸨⸩applyTransform(context, matrix);
-${Slide13.#typescriptSampleName.get(status.sample) ?? "???"}`);
+${status.sample.typescript}`);
       this.setCodeLeftAlpha(status.leftProgress);
       this.setCodeRightAlpha(status.rightProgress);
       this.textTop.show(options);
