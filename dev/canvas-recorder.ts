@@ -42,7 +42,7 @@ import {
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
-import { downloadBlob } from "../src/utility.ts";
+import { downloadBlob, philDebug } from "../src/utility.ts";
 import { myRainbow, myRainbowInfo } from "../src/glib/my-rainbow.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import {
@@ -915,7 +915,7 @@ function populateSaveChapterSelect(): void {
   entire.dataset.startMs = "0";
   entire.dataset.endMs = toShow.duration.toString();
   saveChapterSelect.append(entire);
-  debug.forEach((item) => {
+  rootVideoElement.forEach((item) => {
     const opt = document.createElement("option");
     opt.textContent = item.prefix + item.description;
     opt.dataset.startMs = item.start.toString();
@@ -942,7 +942,7 @@ getById("saveAllBtn", HTMLButtonElement).addEventListener("click", () => {
 getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener(
   "click",
   () => {
-    const info = debug[select.selectedIndex];
+    const info = rootVideoElement[select.selectedIndex];
     if (info) {
       saveChapterSelect.selectedIndex = info.absolutePosition + 1;
       setSaveRange(info.start, info.end);
@@ -994,14 +994,13 @@ type SelectableTree = {
 };
 
 /**
- * The list of sections that you can display.
- *
- * "Debug" because this is not part of the video.
- * This is used in the editor to help you create the video.
+ * The flat list of every selectable section in the video, in timeline order.
+ * Drives the chapter \<select> and the Visual Editor.
+ * Exposed on the console as `philDebug.rootVideoElement`.
  */
-const debug = new Array<SelectableTree>();
+const rootVideoElement = new Array<SelectableTree>();
 /**
- * Initialize the `debug` list with all the sections of the video.
+ * Initialize the `rootVideoElement` list with all the sections of the video.
  * @param current Add this and its children.
  * @param prefix Draw the sections like an outline.
  * Each section is indented a little more than its parent.
@@ -1054,14 +1053,14 @@ function dump(
       end,
       parent,
       children: [],
-      absolutePosition: debug.length,
+      absolutePosition: rootVideoElement.length,
       siblingPosition: parent ? parent.children.length : NaN,
       selectable: current,
     };
     if (parent) {
       parent.children.push(info);
     }
-    debug.push(info);
+    rootVideoElement.push(info);
     interestingChildren.forEach((next) => {
       const absoluteStart = start + next.start;
       dump(next.child, FIGURE_SPACE + prefix, absoluteStart, end, "", info);
@@ -1071,11 +1070,11 @@ function dump(
 const select = getById("chapterSelector", HTMLSelectElement);
 
 function initChapters(): void {
-  const savedDescription = debug[select.selectedIndex]?.description;
-  debug.length = 0;
+  const savedDescription = rootVideoElement[select.selectedIndex]?.description;
+  rootVideoElement.length = 0;
   dump(toShow);
   select.replaceChildren();
-  debug.forEach((value) => {
+  rootVideoElement.forEach((value) => {
     const option = document.createElement("option");
     option.textContent = value.prefix + value.description;
     option.value = value.description;
@@ -1083,13 +1082,13 @@ function initChapters(): void {
   });
   const restoredIndex =
     savedDescription !== undefined
-      ? debug.findIndex((d) => d.description === savedDescription)
+      ? rootVideoElement.findIndex((d) => d.description === savedDescription)
       : -1;
   select.selectedIndex = restoredIndex >= 0 ? restoredIndex : 0;
 }
 
 initChapters();
-//console.table(debug);
+//console.table(rootVideoElement);
 
 /**
  * These describe the parent of the currently selected section.
@@ -1188,6 +1187,18 @@ const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
  * null means the parent section itself is the schedule target.
  */
 let selectedSlideChild: Showable | null = null;
+
+// MARK: Console API
+philDebug.rootVideoElement = rootVideoElement;
+philDebug.VisualEditor = {
+  get rootComponent(): Selectable | undefined {
+    return rootVideoElement[select.selectedIndex]?.selectable;
+  },
+  get selectedComponent(): Showable | null {
+    return selectedSlideChild;
+  },
+};
+
 const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);
 const saveScheduleNowBtn = getById("saveScheduleNowBtn", HTMLButtonElement);
 const scheduleStatusDisplay = getById("scheduleStatusDisplay", HTMLElement);
@@ -1260,9 +1271,9 @@ const componentTransforms = new WeakMap<Showable, DOMMatrix>();
  */
 function updateFromSelect() {
   stopAudio();
-  const info = debug[select.selectedIndex];
+  const info = rootVideoElement[select.selectedIndex];
   previousButton.disabled = info.absolutePosition == 0;
-  nextButton.disabled = info.absolutePosition == debug.length - 1;
+  nextButton.disabled = info.absolutePosition == rootVideoElement.length - 1;
   updateRow(parentCells, info.parent);
   updateRow(thisCells, info);
   updateRow(firstChildCells, info.children.at(0));
@@ -1493,9 +1504,12 @@ function isDirty(selectable: Selectable): boolean {
 function formatLoadSource(source: LoadSource | undefined): string {
   if (!source) return "—";
   switch (source.kind) {
-    case "ts-defaults": return "TypeScript defaults";
-    case "json": return source.filename;
-    case "db": return new Date(source.timestamp).toLocaleString();
+    case "ts-defaults":
+      return "TypeScript defaults";
+    case "json":
+      return source.filename;
+    case "db":
+      return new Date(source.timestamp).toLocaleString();
   }
 }
 
@@ -1503,18 +1517,18 @@ function formatLoadSource(source: LoadSource | undefined): string {
 function updateStatusDisplay(selectable: Selectable) {
   const source = loadSources.get(selectableKey(selectable));
   const dirty = isDirty(selectable);
-  scheduleStatusDisplay.textContent = formatLoadSource(source) + (dirty ? " *" : "");
-  scheduleStatusDisplay.title = dirty ? "Unsaved changes since last load or save" : "";
+  scheduleStatusDisplay.textContent =
+    formatLoadSource(source) + (dirty ? " *" : "");
+  scheduleStatusDisplay.title = dirty
+    ? "Unsaved changes since last load or save"
+    : "";
 }
 
 /**
  * Apply a DataHistoryEntry to a selectable in-place.
  * Does NOT update loadSources / loadedSnapshots — caller must do that.
  */
-function applyDataEntry(
-  selectable: Selectable,
-  entry: DataHistoryEntry,
-): void {
+function applyDataEntry(selectable: Selectable, entry: DataHistoryEntry): void {
   if (selectable.scalars?.length && entry.scalars?.length) {
     applyScalarSnapshot(selectable.scalars, entry.scalars);
   }
@@ -1559,7 +1573,7 @@ function writeMarkerIfNeeded(key: string): void {
 function captureDefaults(): void {
   tsDefaults.clear();
   const seen = new Set<string>();
-  for (const item of debug) {
+  for (const item of rootVideoElement) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -1603,7 +1617,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
 
   const seen = new Set<string>();
   const restores: Promise<void>[] = [];
-  for (const item of debug) {
+  for (const item of rootVideoElement) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -1624,7 +1638,10 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         const effective = useBackup ? backup : last;
 
         let source: LoadSource;
-        if (!effective || (isMarker(effective) && effective.kind === "ts-defaults")) {
+        if (
+          !effective ||
+          (isMarker(effective) && effective.kind === "ts-defaults")
+        ) {
           // No DB record, or the most recent record says "use TypeScript defaults"
           source = { kind: "ts-defaults" };
         } else if (isMarker(effective)) {
@@ -1642,13 +1659,14 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
               scalars: backup!.scalars,
               components: backup!.components,
             });
-            const lastJson = last && !isMarker(last)
-              ? JSON.stringify({
-                  schedules: last.schedules,
-                  scalars: last.scalars,
-                  components: last.components,
-                })
-              : null;
+            const lastJson =
+              last && !isMarker(last)
+                ? JSON.stringify({
+                    schedules: last.schedules,
+                    scalars: last.scalars,
+                    components: last.components,
+                  })
+                : null;
             if (backupJson !== lastJson) {
               entries.push(backup!);
               while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
@@ -1666,7 +1684,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   initFromDBComplete = true;
   canvas.style.visibility = "";
   canvasLoading.style.display = "none";
-  const currentSel = debug[select.selectedIndex]?.selectable;
+  const currentSel = rootVideoElement[select.selectedIndex]?.selectable;
   if (currentSel) {
     updateComponentEditor(currentSel);
     updateScheduleEditor(currentSel);
@@ -1808,7 +1826,7 @@ async function saveScheduleState(
  * so a single save captures the full component list and all keyframes.
  */
 function currentSaveTarget(): Selectable | null {
-  const selectable = debug[select.selectedIndex]?.selectable;
+  const selectable = rootVideoElement[select.selectedIndex]?.selectable;
   if (!selectable) return null;
   if (selectable.components !== undefined) return selectable;
   return selectable.schedules?.length ? selectable : null;
@@ -1824,7 +1842,7 @@ function saveOnUnload() {
   const seen = new Set<string>();
   const backups: { key: string; entry: DataHistoryEntry }[] = [];
 
-  for (const item of debug) {
+  for (const item of rootVideoElement) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -1879,7 +1897,12 @@ document.addEventListener("visibilitychange", () => {
 type DialogListItem =
   | { kind: "current-unsaved"; snapshotJson: string }
   | { kind: "ts-defaults" }
-  | { kind: "db-entry"; entry: DataHistoryEntry; entryIndex: number; isInitial: boolean };
+  | {
+      kind: "db-entry";
+      entry: DataHistoryEntry;
+      entryIndex: number;
+      isInitial: boolean;
+    };
 
 let _historyTarget: Selectable | null = null;
 let _preDialogSnapshotJson = "";
@@ -1899,7 +1922,8 @@ function _dialogSelectItem(index: number, target: Selectable) {
   }
 
   const item = _dialogItems[index];
-  const isInitial = item.kind === "current-unsaved" ||
+  const isInitial =
+    item.kind === "current-unsaved" ||
     (item.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
     (item.kind === "db-entry" && item.isInitial);
   const isDeletable = item.kind === "db-entry" && !item.isInitial;
@@ -1913,8 +1937,10 @@ function _dialogSelectItem(index: number, target: Selectable) {
       scalars?: SerializedScalar[];
       components?: SerializedChild[];
     };
-    if (target.scalars?.length && snap.scalars?.length) applyScalarSnapshot(target.scalars, snap.scalars);
-    if (target.schedules?.length && snap.schedules.length) applySnapshot(target.schedules, snap.schedules);
+    if (target.scalars?.length && snap.scalars?.length)
+      applyScalarSnapshot(target.scalars, snap.scalars);
+    if (target.schedules?.length && snap.schedules.length)
+      applySnapshot(target.schedules, snap.schedules);
     if (target.components !== undefined && snap.components !== undefined) {
       target.components.length = 0;
       target.components.push(...buildComponents(snap.components));
@@ -1929,10 +1955,16 @@ function _dialogSelectItem(index: number, target: Selectable) {
   updateScheduleEditor(target);
 
   // Show/hide OK vs Switch-and-Abandon/Switch-and-Save
-  const isOriginal = index === (_wasInitiallyDirty ? 0 : _dialogItems.findIndex(
-    (it) => (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
-             (it.kind === "db-entry" && it.isInitial)
-  ));
+  const isOriginal =
+    index ===
+    (_wasInitiallyDirty
+      ? 0
+      : _dialogItems.findIndex(
+          (it) =>
+            (it.kind === "ts-defaults" &&
+              _preDialogSource?.kind === "ts-defaults") ||
+            (it.kind === "db-entry" && it.isInitial),
+        ));
   if (_wasInitiallyDirty && !isOriginal) {
     historyOkBtn.hidden = true;
     historyAbandonBtn.hidden = false;
@@ -1957,10 +1989,14 @@ async function openHistoryDialog(target: Selectable) {
   // Build the item list
   _dialogItems = [];
   if (_wasInitiallyDirty) {
-    _dialogItems.push({ kind: "current-unsaved", snapshotJson: _preDialogSnapshotJson });
+    _dialogItems.push({
+      kind: "current-unsaved",
+      snapshotJson: _preDialogSnapshotJson,
+    });
   }
   // DB data entries, newest first, with isInitial flag
-  const initialTimestamp = _preDialogSource?.kind === "db" ? _preDialogSource.timestamp : -1;
+  const initialTimestamp =
+    _preDialogSource?.kind === "db" ? _preDialogSource.timestamp : -1;
   const dataEntries: { entry: DataHistoryEntry; entryIndex: number }[] = [];
   for (let i = 0; i < _allHistoryEntries.length; i++) {
     const e = _allHistoryEntries[i];
@@ -1983,7 +2019,8 @@ async function openHistoryDialog(target: Selectable) {
   for (let i = 0; i < _dialogItems.length; i++) {
     const item = _dialogItems[i];
     const li = document.createElement("li");
-    li.style.cssText = "padding:0.35em 0.6em;cursor:pointer;border-bottom:1px solid #eee";
+    li.style.cssText =
+      "padding:0.35em 0.6em;cursor:pointer;border-bottom:1px solid #eee";
     let label = "";
     if (item.kind === "current-unsaved") {
       label = "★ Current (unsaved changes)";
@@ -1997,15 +2034,22 @@ async function openHistoryDialog(target: Selectable) {
     li.textContent = label;
     const idx = i;
     li.addEventListener("click", () => _dialogSelectItem(idx, target));
-    li.addEventListener("mouseover", () => { li.style.background = "#f0f0f0"; });
-    li.addEventListener("mouseout", () => { li.style.background = ""; });
+    li.addEventListener("mouseover", () => {
+      li.style.background = "#f0f0f0";
+    });
+    li.addEventListener("mouseout", () => {
+      li.style.background = "";
+    });
     historyList.append(li);
   }
 
   // Arrow key navigation
   historyList.tabIndex = 0;
   historyList.onkeydown = (e) => {
-    if (e.key === "ArrowDown" && _selectedDialogIndex < _dialogItems.length - 1) {
+    if (
+      e.key === "ArrowDown" &&
+      _selectedDialogIndex < _dialogItems.length - 1
+    ) {
       _dialogSelectItem(_selectedDialogIndex + 1, target);
     } else if (e.key === "ArrowUp" && _selectedDialogIndex > 0) {
       _dialogSelectItem(_selectedDialogIndex - 1, target);
@@ -2022,7 +2066,8 @@ async function openHistoryDialog(target: Selectable) {
     ? 0
     : _dialogItems.findIndex(
         (it) =>
-          (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
+          (it.kind === "ts-defaults" &&
+            _preDialogSource?.kind === "ts-defaults") ||
           (it.kind === "db-entry" && it.isInitial),
       );
   _dialogSelectItem(Math.max(0, initialIdx), target);
@@ -2046,8 +2091,10 @@ async function _applyDialogSelection(saveOld: boolean) {
       scalars?: SerializedScalar[];
       components?: SerializedChild[];
     };
-    if (target.scalars?.length && origSnap.scalars?.length) applyScalarSnapshot(target.scalars, origSnap.scalars);
-    if (target.schedules?.length && origSnap.schedules.length) applySnapshot(target.schedules, origSnap.schedules);
+    if (target.scalars?.length && origSnap.scalars?.length)
+      applyScalarSnapshot(target.scalars, origSnap.scalars);
+    if (target.schedules?.length && origSnap.schedules.length)
+      applySnapshot(target.schedules, origSnap.schedules);
     if (target.components !== undefined && origSnap.components !== undefined) {
       target.components.length = 0;
       target.components.push(...buildComponents(origSnap.components));
@@ -2083,7 +2130,11 @@ historyOkBtn.addEventListener("click", () => {
   historyDialog.close();
 });
 historyAbandonBtn.addEventListener("click", () => {
-  sendToRecycleBin("abandoned", _preDialogSnapshotJson, `from ${formatLoadSource(_preDialogSource)}`);
+  sendToRecycleBin(
+    "abandoned",
+    _preDialogSnapshotJson,
+    `from ${formatLoadSource(_preDialogSource)}`,
+  );
   void _applyDialogSelection(false);
   historyDialog.close();
 });
@@ -2100,8 +2151,10 @@ historyCancelBtn.addEventListener("click", () => {
       scalars?: SerializedScalar[];
       components?: SerializedChild[];
     };
-    if (target.scalars?.length && snap.scalars?.length) applyScalarSnapshot(target.scalars, snap.scalars);
-    if (target.schedules?.length && snap.schedules.length) applySnapshot(target.schedules, snap.schedules);
+    if (target.scalars?.length && snap.scalars?.length)
+      applyScalarSnapshot(target.scalars, snap.scalars);
+    if (target.schedules?.length && snap.schedules.length)
+      applySnapshot(target.schedules, snap.schedules);
     if (target.components !== undefined && snap.components !== undefined) {
       target.components.length = 0;
       target.components.push(...buildComponents(snap.components));
@@ -4213,7 +4266,10 @@ function updateComponentEditor(selectable: Selectable) {
 
       list.append(row);
 
-      if (child.components !== undefined || (child.fixedComponents?.length ?? 0) > 0) {
+      if (
+        child.components !== undefined ||
+        (child.fixedComponents?.length ?? 0) > 0
+      ) {
         renderComponentTree(child, depth + 1);
       }
     }
@@ -4259,7 +4315,10 @@ function updateComponentEditor(selectable: Selectable) {
 
       list.append(row);
 
-      if (child.components !== undefined || (child.fixedComponents?.length ?? 0) > 0) {
+      if (
+        child.components !== undefined ||
+        (child.fixedComponents?.length ?? 0) > 0
+      ) {
         renderComponentTree(child, depth + 1);
       }
     }
@@ -4485,7 +4544,9 @@ function rectHandlePositions(
 function getMarkerRelTf(): DOMMatrix | null {
   const component =
     selectedSlideChild ??
-    (debug[select.selectedIndex]?.selectable as Showable | undefined);
+    (rootVideoElement[select.selectedIndex]?.selectable as
+      | Showable
+      | undefined);
   if (!component) return null;
   const compTf = componentTransforms.get(component);
   if (!compTf) return null;
@@ -4967,7 +5028,7 @@ async function saveToJsonFile(): Promise<void> {
   const result: Record<string, JsonFileEntry> = {};
   const seen = new Set<string>();
 
-  for (const item of debug) {
+  for (const item of rootVideoElement) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;

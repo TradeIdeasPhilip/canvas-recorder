@@ -1,5 +1,17 @@
 # Syncing Voiceover
 
+These are near term thoughts.
+(As of 6/27/2026)
+I'm making good progress on some animations.
+I have more to do, but not a lot more.
+
+Whenever I record a status update video I have trouble making my voiceover match the existing animation.
+This is a preview of a real problem that I will have whenever I finish the animations and start the final voiceover.
+I need better tools for adjusting things.
+
+We already have the ability to adjust video clips and animation schedules.
+It's just not in the GUI yet.
+The GUI will _play_ the current version, but currently changes must be done in code.
 
 ## Problems with the Current Playback Controls
 
@@ -16,14 +28,14 @@ But it can't be the only case.
 
 Sometimes I want to loop over an arbitrary part of the movie.
 The default would be to show the entire movie.
-When I say "loop," I mean what we currently do, where the user might or might not have to manually restart it at the end, but either way we have strict starting and ending points.
+When I say "loop," I mean what we currently do, where the user might or might not have to manually restart it at the end, but either way we have specific starting and ending points.
 
 I will often want to start end between chapters.
 But if we are implementing a normal timeline, and if I can pick any point on the timeline, and the ends of chapters are slightly sticky, we don't need to add anything special for this case.
 
 And I might want to edit something that I'm not currently looking at.
 Maybe I'm editing a property in a group of slides that gets used by all of the slides in the group.
-I do that anywhere yet, but I plan to.
+I don't do that anywhere yet, but I plan to.
 MultiTextComponent is already able to be used that way.
 I want to loop on one particular part of the code, but the editor covers a much longer part of the video.
 
@@ -46,19 +58,30 @@ But there is currently nothing in the Visual Editor that can edit any of this.
 Interesting idea.
 **TODO** Find a better section for this paragraph.
 
-Currently I use a separate program to trim the audio:  http://localhost:5173/sound-explorer.html
+Currently I use a separate program to trim the audio: http://localhost:5173/sound-explorer.html
 Ideally this would all be done on one page... maybe.
 In any case, this program can read the values saved by the sound-explorer.
+
+I can imagine these two working together.
+I continue to use sound-explorer.\* to do the big edits.
+I tear a single file into a lot of individual clips, each with an English description.
+(That already exists!)
+The Visual Editor in canvas-recorder.\* can import an entire sound file, and it can adjust beginning and end of each clip at any time.
+The Visual Editor will have an easy way to import clips from sound-explorer.\*.
+The import is a simple copy.
+You can change the copy or the original and it will not affect the other.
 
 #### Short Term Plans
 
 **Status:** Part 1 and the rename can be done at any time.
 These should be small and simple.
 Part 2 can happen as other changes are being made.
+"debug" was renamed!
+philDebug.rootVideoElement exists.
 
 Try some type of reasonable first guess at sound file updates.
 
-Part 1:  Always read the sounds from `const debug: SelectableTree[]`, like we do now.
+Part 1: Always read the sounds from `const debug: SelectableTree[]`, like we do now.
 But add an easy way to do this from the console.
 Maybe we create `philDebug.refreshSounds()` and `philDebug.rootVideoElement`.
 
@@ -73,10 +96,9 @@ Keep the existing code that rebuilds the entire soundtrack every time there's a 
 It works well for now.
 I can imagine something better, but this isn't terrible.
 
-Part 2:  As we work on the "in parallel component", described below, we should work on a way to incorporate sounds into the GUI.
+Part 2: As we work on the "in parallel component", described below, we should work on a way to incorporate sounds into the GUI.
 There are a lot of details to work out.
 The important things are letting the use edit the sounds visually, and saving these changes with the rest of the Visual Editor's changes.
-
 
 ## Current Project
 
@@ -87,7 +109,7 @@ I'd love to record and edit the voiceover in the same application.
 In some places I could just adjust the length & speed of a each chapter.
 But in some places I want to completely freeze the action.
 And ideally the speed would ease.
-I.e. things would decelerate and accelerate, instead of *suddenly* stopping and starting.
+I.e. things would decelerate and accelerate, instead of _suddenly_ stopping and starting.
 
 ### Minimal Prototype
 
@@ -115,6 +137,7 @@ If we know how to interpolate the type, then we do and we return the interpolate
 If not, then we just return the first value and call it "discrete."
 In either case we only return a value of type `T` and we do not share the progress.
 It seems like all ScheduleHelper classes could have a `discrete() : { value: T, progress: number}` method.
+**This seems useful even if we don't use it here.**
 
 Hmm.
 I wanted to use the existing tools for easing.
@@ -143,7 +166,7 @@ Each slide has its own progress schedule!
 In parallel instead of in series.
 So I have full control!
 
-What about *inserting* time?
+What about _inserting_ time?
 If I want to make the first slide take longer, I probably want all the other slides to start later.
 I don't have a solution for that.
 But I don't yet have a solution to that with a single schedule, either!
@@ -158,9 +181,11 @@ At the moment a slide is just a container with a transform.
 I'm not sure exactly how to display that.
 I could picture each slide being a child component, but without the ability to add and remove components.
 
+**Status:** This next paragraph was implemented in https://github.com/TradeIdeasPhilip/canvas-recorder/commit/6ea913e332a54380d9eec2f85957d1d48676243e
+
 That just needs to be a thing.
 Separate from the rest of this.
-`Showable` need *two* lists of components.
+`Showable` need _two_ lists of components.
 Keep the existing list which can be `undefined` to disable, otherwise is fully editable by the user.
 And add a fixed list of components.
 These cannot be added removed or reordered by the user.
@@ -195,7 +220,6 @@ But when we call the slide from this new slide container, we focus on progress f
 A progress of less than 0 or greater than 1 means don't display the subcomponent at all.
 That has worked well in other places.
 It's easy to say time = 0 → progress = -1, time = duration → progress = 2 and the rest will work itself out.
-
 
 ## Transitions & Overlap
 
@@ -250,6 +274,7 @@ This is another old request that I'm finally caring about enough to fix.
 It would be good to have it sooner rather than later.
 It will help me build some of the functionality described elsewhere in this document.
 Creating this will involve a quick audit of what is currently available, which will help me think about what I want to do next.
+`philDebug.VisualEditor.rootComponent` and `philDebug.VisualEditor.selectedComponent` exist now!
 
 This is an old idea but I don't think any code exists.
 There should be a way to access the Visual Editor from the console.
@@ -257,7 +282,7 @@ There should be a way to access the Visual Editor from the console.
 Right now I'm considering ways to make changes to lots of stops on lots of schedules at the same time.
 Maybe insert a new item in the middle.
 Maybe stretch or shrink or crop or expand an existing item.
-This is where it would be nice to try various queries from the command line
+This is where it would be nice to try various queries from the console.
 
 Notice `philDebug` in utility.ts.
 That's the preferred way to send things to the console.
@@ -270,7 +295,7 @@ I can imagine something like `philDebug.VisualEditor.components.forEach(componen
 That will provide a series of `Showable` objects so I don't really need the Visual Editor to help me access them.
 Hmmm.
 Maybe I only need `philDebug.VisualEditor.rootComponent` and `philDebug.VisualEditor.selectedComponent`.
-Sometimes I will need to *tell* the Visual Editor that I made a change.
+Sometimes I will need to _tell_ the Visual Editor that I made a change.
 Maybe sometimes a full refresh and rebuild, trying to keep the same things selected.
 Maybe sometimes something more specific, like just reread the contents of the schedules and update the GUI.
 And it doesn't exist yet, but we will have a way to update the sound clips at any time.
