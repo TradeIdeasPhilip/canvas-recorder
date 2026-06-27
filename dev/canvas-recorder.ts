@@ -150,22 +150,22 @@ let isRecording = false;
  * When the canvas is smaller than the viewport, centers it instead.
  */
 function clampPan(
-  canvasCSSW: number,
-  canvasCSSH: number,
+  canvasCssWidth: number,
+  canvasCssHeight: number,
   px: number,
   py: number,
 ): [number, number] {
-  const vpW = viewport.clientWidth;
-  const vpH = viewport.clientHeight;
-  if (canvasCSSW <= vpW) {
+  const viewportWidth = viewport.clientWidth;
+  const viewportHeight = viewport.clientHeight;
+  if (canvasCssWidth <= viewportWidth) {
     return [
-      Math.round((vpW - canvasCSSW) / 2),
-      Math.round((vpH - canvasCSSH) / 2),
+      Math.round((viewportWidth - canvasCssWidth) / 2),
+      Math.round((viewportHeight - canvasCssHeight) / 2),
     ];
   }
   return [
-    Math.max(vpW - canvasCSSW, Math.min(0, px)),
-    Math.max(vpH - canvasCSSH, Math.min(0, py)),
+    Math.max(viewportWidth - canvasCssWidth, Math.min(0, px)),
+    Math.max(viewportHeight - canvasCssHeight, Math.min(0, py)),
   ];
 }
 
@@ -4081,8 +4081,10 @@ async function pasteInto(target: Showable, selectable: Selectable) {
 
 function updateComponentEditor(selectable: Selectable) {
   const rootComponents = selectable.components;
-  componentsEditorFieldset.hidden = rootComponents === undefined;
-  if (rootComponents === undefined) return;
+  const rootFixed = selectable.fixedComponents;
+  componentsEditorFieldset.hidden =
+    rootComponents === undefined && !(rootFixed && rootFixed.length > 0);
+  if (componentsEditorFieldset.hidden) return;
 
   // Preserve scroll position so clicking a component doesn't jump to the top.
   // If the list was scrolled to the bottom, stick to the bottom even if content
@@ -4211,7 +4213,53 @@ function updateComponentEditor(selectable: Selectable) {
 
       list.append(row);
 
+      if (child.components !== undefined || (child.fixedComponents?.length ?? 0) > 0) {
+        renderComponentTree(child, depth + 1);
+      }
+    }
+
+    for (const child of container.fixedComponents ?? []) {
+      const row = document.createElement("div");
+      row.style.cssText = `display:flex;align-items:center;gap:0.4em;padding-left:${depth * 1.2}em`;
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "✎ " + child.description;
+      editBtn.style.cssText = "flex:1;text-align:left";
+      if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
+      editBtn.addEventListener("click", () => {
+        selectedSlideChild = child;
+        updateComponentEditor(selectable);
+        updateScheduleEditor(child);
+      });
+
+      const copyBtn = document.createElement("button");
+      copyBtn.type = "button";
+      copyBtn.textContent = "🖥️ → 📋";
+      copyBtn.title = "Copy component";
+      copyBtn.addEventListener("click", () => {
+        const json = JSON.stringify([serializeComponent(child)], null, 2);
+        navigator.clipboard
+          .writeText(json)
+          .catch(() => alert("Could not write to clipboard."));
+      });
+
+      row.append(editBtn, copyBtn);
+
       if (child.components !== undefined) {
+        const pasteIntoBtn = document.createElement("button");
+        pasteIntoBtn.type = "button";
+        pasteIntoBtn.textContent = "📋 → 🖥️";
+        pasteIntoBtn.title = `Paste into "${child.description}"`;
+        pasteIntoBtn.addEventListener("click", () =>
+          pasteInto(child, selectable),
+        );
+        row.append(pasteIntoBtn);
+      }
+
+      list.append(row);
+
+      if (child.components !== undefined || (child.fixedComponents?.length ?? 0) > 0) {
         renderComponentTree(child, depth + 1);
       }
     }
@@ -4251,7 +4299,8 @@ function updateComponentEditor(selectable: Selectable) {
     pasteInto(selectable as Showable, selectable),
   );
 
-  rootRow.append(rootEditBtn, rootCopyBtn, rootPasteBtn);
+  rootRow.append(rootEditBtn);
+  if (rootComponents !== undefined) rootRow.append(rootCopyBtn, rootPasteBtn);
   list.append(rootRow);
 
   renderComponentTree(selectable as Showable, 0);
@@ -4261,7 +4310,9 @@ function updateComponentEditor(selectable: Selectable) {
   // addTarget: where the new component goes (null = add button disabled).
   const addTarget: Showable | null =
     selectedSlideChild === null
-      ? (selectable as Showable)
+      ? rootComponents !== undefined
+        ? (selectable as Showable)
+        : null
       : selectedSlideChild.components !== undefined
         ? selectedSlideChild
         : null;

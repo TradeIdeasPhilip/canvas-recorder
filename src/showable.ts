@@ -79,6 +79,16 @@ export type Selectable = {
   readonly components?: Showable[];
 
   /**
+   * TypeScript-defined list of components whose structure cannot be changed by
+   * the user — they cannot be added, removed, or reordered.  Their properties
+   * (schedules, scalars, sub-components) remain fully editable in the Visual
+   * Editor.  Each item can itself carry `components` and/or `fixedComponents`.
+   *
+   * `undefined` and `[]` are equivalent.
+   */
+  readonly fixedComponents?: readonly Showable[];
+
+  /**
    * Key in `componentRegistry` that can recreate this component.
    * Set this on any component that is hardcoded in TypeScript source so the
    * visual editor can serialize it into TypeScript defaults and the save/restore
