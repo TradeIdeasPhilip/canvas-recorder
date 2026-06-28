@@ -915,7 +915,7 @@ function populateSaveChapterSelect(): void {
   entire.dataset.startMs = "0";
   entire.dataset.endMs = toShow.duration.toString();
   saveChapterSelect.append(entire);
-  rootVideoElement.forEach((item) => {
+  chapterList.forEach((item) => {
     const opt = document.createElement("option");
     opt.textContent = item.prefix + item.description;
     opt.dataset.startMs = item.start.toString();
@@ -942,7 +942,7 @@ getById("saveAllBtn", HTMLButtonElement).addEventListener("click", () => {
 getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener(
   "click",
   () => {
-    const info = rootVideoElement[select.selectedIndex];
+    const info = chapterList[select.selectedIndex];
     if (info) {
       saveChapterSelect.selectedIndex = info.absolutePosition + 1;
       setSaveRange(info.start, info.end);
@@ -996,11 +996,11 @@ type SelectableTree = {
 /**
  * The flat list of every selectable section in the video, in timeline order.
  * Drives the chapter \<select> and the Visual Editor.
- * Exposed on the console as `philDebug.rootVideoElement`.
+ * Exposed on the console as `philDebug.chapterList`.
  */
-const rootVideoElement = new Array<SelectableTree>();
+const chapterList = new Array<SelectableTree>();
 /**
- * Initialize the `rootVideoElement` list with all the sections of the video.
+ * Initialize the `chapterList` list with all the sections of the video.
  * @param current Add this and its children.
  * @param prefix Draw the sections like an outline.
  * Each section is indented a little more than its parent.
@@ -1053,14 +1053,14 @@ function dump(
       end,
       parent,
       children: [],
-      absolutePosition: rootVideoElement.length,
+      absolutePosition: chapterList.length,
       siblingPosition: parent ? parent.children.length : NaN,
       selectable: current,
     };
     if (parent) {
       parent.children.push(info);
     }
-    rootVideoElement.push(info);
+    chapterList.push(info);
     interestingChildren.forEach((next) => {
       const absoluteStart = start + next.start;
       dump(next.child, FIGURE_SPACE + prefix, absoluteStart, end, "", info);
@@ -1070,11 +1070,11 @@ function dump(
 const select = getById("chapterSelector", HTMLSelectElement);
 
 function initChapters(): void {
-  const savedDescription = rootVideoElement[select.selectedIndex]?.description;
-  rootVideoElement.length = 0;
+  const savedDescription = chapterList[select.selectedIndex]?.description;
+  chapterList.length = 0;
   dump(toShow);
   select.replaceChildren();
-  rootVideoElement.forEach((value) => {
+  chapterList.forEach((value) => {
     const option = document.createElement("option");
     option.textContent = value.prefix + value.description;
     option.value = value.description;
@@ -1082,13 +1082,13 @@ function initChapters(): void {
   });
   const restoredIndex =
     savedDescription !== undefined
-      ? rootVideoElement.findIndex((d) => d.description === savedDescription)
+      ? chapterList.findIndex((d) => d.description === savedDescription)
       : -1;
   select.selectedIndex = restoredIndex >= 0 ? restoredIndex : 0;
 }
 
 initChapters();
-//console.table(rootVideoElement);
+//console.table(chapterList);
 
 /**
  * These describe the parent of the currently selected section.
@@ -1189,10 +1189,11 @@ const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
 let selectedSlideChild: Showable | null = null;
 
 // MARK: Console API
-philDebug.rootVideoElement = rootVideoElement;
+philDebug.chapterList = chapterList;
+philDebug.refreshSounds = () => void initAudio();
 philDebug.VisualEditor = {
   get rootComponent(): Selectable | undefined {
-    return rootVideoElement[select.selectedIndex]?.selectable;
+    return chapterList[select.selectedIndex]?.selectable;
   },
   get selectedComponent(): Showable | null {
     return selectedSlideChild;
@@ -1271,9 +1272,9 @@ const componentTransforms = new WeakMap<Showable, DOMMatrix>();
  */
 function updateFromSelect() {
   stopAudio();
-  const info = rootVideoElement[select.selectedIndex];
+  const info = chapterList[select.selectedIndex];
   previousButton.disabled = info.absolutePosition == 0;
-  nextButton.disabled = info.absolutePosition == rootVideoElement.length - 1;
+  nextButton.disabled = info.absolutePosition == chapterList.length - 1;
   updateRow(parentCells, info.parent);
   updateRow(thisCells, info);
   updateRow(firstChildCells, info.children.at(0));
@@ -1573,7 +1574,7 @@ function writeMarkerIfNeeded(key: string): void {
 function captureDefaults(): void {
   tsDefaults.clear();
   const seen = new Set<string>();
-  for (const item of rootVideoElement) {
+  for (const item of chapterList) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -1617,7 +1618,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
 
   const seen = new Set<string>();
   const restores: Promise<void>[] = [];
-  for (const item of rootVideoElement) {
+  for (const item of chapterList) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -1684,7 +1685,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   initFromDBComplete = true;
   canvas.style.visibility = "";
   canvasLoading.style.display = "none";
-  const currentSel = rootVideoElement[select.selectedIndex]?.selectable;
+  const currentSel = chapterList[select.selectedIndex]?.selectable;
   if (currentSel) {
     updateComponentEditor(currentSel);
     updateScheduleEditor(currentSel);
@@ -1826,7 +1827,7 @@ async function saveScheduleState(
  * so a single save captures the full component list and all keyframes.
  */
 function currentSaveTarget(): Selectable | null {
-  const selectable = rootVideoElement[select.selectedIndex]?.selectable;
+  const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return null;
   if (selectable.components !== undefined) return selectable;
   return selectable.schedules?.length ? selectable : null;
@@ -1842,7 +1843,7 @@ function saveOnUnload() {
   const seen = new Set<string>();
   const backups: { key: string; entry: DataHistoryEntry }[] = [];
 
-  for (const item of rootVideoElement) {
+  for (const item of chapterList) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
@@ -4665,7 +4666,7 @@ function rectHandlePositions(
 function getMarkerRelTf(): DOMMatrix | null {
   const component =
     selectedSlideChild ??
-    (rootVideoElement[select.selectedIndex]?.selectable as
+    (chapterList[select.selectedIndex]?.selectable as
       | Showable
       | undefined);
   if (!component) return null;
@@ -5149,7 +5150,7 @@ async function saveToJsonFile(): Promise<void> {
   const result: Record<string, JsonFileEntry> = {};
   const seen = new Set<string>();
 
-  for (const item of rootVideoElement) {
+  for (const item of chapterList) {
     const sel = item.selectable;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
