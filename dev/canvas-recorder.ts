@@ -2458,6 +2458,93 @@ function scheduleToTypeScript(
   return `${header}\n[\n${rows.join("\n")}\n]`;
 }
 
+function easeFromName(name: string | undefined): ((t: number) => number) | undefined {
+  if (name === "ease") return ease;
+  if (name === "easeIn") return easeIn;
+  if (name === "easeOut") return easeOut;
+  if (name === "hold") return (t: number) => (t < 1 ? 0 : 1);
+  return undefined;
+}
+
+function validateKfValue(value: unknown, type: ScheduleInfo["type"]): boolean {
+  switch (type) {
+    case "number":
+      return typeof value === "number";
+    case "color":
+    case "string":
+    case "select":
+      return typeof value === "string";
+    case "point": {
+      if (typeof value !== "object" || value === null) return false;
+      const v = value as Record<string, unknown>;
+      return typeof v.x === "number" && typeof v.y === "number";
+    }
+    case "rectangle": {
+      if (typeof value !== "object" || value === null) return false;
+      const v = value as Record<string, unknown>;
+      return (
+        typeof v.x === "number" &&
+        typeof v.y === "number" &&
+        typeof v.width === "number" &&
+        typeof v.height === "number"
+      );
+    }
+  }
+}
+
+/** Parse the "JSON with comments" produced by {@link scheduleToTypeScript}. */
+function parseScheduleFromClipboard(
+  text: string,
+  type: ScheduleInfo["type"],
+): { time: number; value: unknown; easeAfter?: (t: number) => number }[] | null {
+  try {
+    let cleaned = text
+      .split("\n")
+      .filter((line) => !line.trimStart().startsWith("//"))
+      .join("\n");
+    // hold arrow function → quoted string before other replacements touch it
+    cleaned = cleaned.replace(
+      /easeAfter\s*:\s*\(t\)\s*=>\s*\(t\s*<\s*1\s*\?\s*0\s*:\s*1\)/g,
+      '"easeAfter":"hold"',
+    );
+    // bare easeAfter identifier → quoted string
+    cleaned = cleaned.replace(
+      /easeAfter\s*:\s*(ease(?:In|Out)?)/g,
+      '"easeAfter":"$1"',
+    );
+    // quote any remaining unquoted object keys
+    cleaned = cleaned.replace(
+      /\b(time|value|easeAfter|x|y|width|height)\s*:/g,
+      '"$1":',
+    );
+    // remove trailing commas before } or ]
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, "$1");
+    const parsed: unknown = JSON.parse(cleaned);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+    const result: {
+      time: number;
+      value: unknown;
+      easeAfter?: (t: number) => number;
+    }[] = [];
+    for (const raw of parsed) {
+      if (typeof raw !== "object" || raw === null) return null;
+      const r = raw as Record<string, unknown>;
+      if (typeof r.time !== "number") return null;
+      if (!validateKfValue(r.value, type)) return null;
+      const easeStr = r.easeAfter;
+      if (easeStr !== undefined && typeof easeStr !== "string") return null;
+      const kf: { time: number; value: unknown; easeAfter?: (t: number) => number } =
+        { time: r.time, value: r.value };
+      const fn = easeFromName(typeof easeStr === "string" ? easeStr : undefined);
+      if (fn) kf.easeAfter = fn;
+      result.push(kf);
+    }
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 function buildScalarSection(info: ScalarInfo): HTMLElement {
   const section = document.createElement("fieldset");
   section.style.cssText = "margin-bottom:0.4em";
@@ -3734,7 +3821,41 @@ function buildScheduleSection(
       scheduleToTypeScript(info, showableDescription),
     );
   });
-  legend.append(addBtn, " ", sortBtn, " ", copyBtn);
+
+  const pasteErrorSpan = document.createElement("span");
+  pasteErrorSpan.style.cssText = "color:red;font-size:0.85em;margin-left:0.3em";
+  let pasteErrorTimer: ReturnType<typeof setTimeout> | undefined;
+  function showPasteError(msg: string) {
+    pasteErrorSpan.textContent = msg;
+    clearTimeout(pasteErrorTimer);
+    pasteErrorTimer = setTimeout(() => {
+      pasteErrorSpan.textContent = "";
+    }, 3000);
+  }
+
+  const pasteBtn = document.createElement("button");
+  pasteBtn.type = "button";
+  pasteBtn.textContent = "📋 → 🖥️";
+  pasteBtn.title = "Paste schedule from clipboard";
+  pasteBtn.addEventListener("click", async () => {
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      showPasteError("Cannot read clipboard.");
+      return;
+    }
+    const kfs = parseScheduleFromClipboard(text, info.type);
+    if (!kfs) {
+      showPasteError("Clipboard doesn't contain a compatible schedule.");
+      return;
+    }
+    (info.schedule as unknown[]).length = 0;
+    (info.schedule as unknown[]).push(...kfs);
+    rebuild();
+  });
+
+  legend.append(addBtn, " ", sortBtn, " ", copyBtn, " ", pasteBtn, pasteErrorSpan);
   section.append(legend);
 
   const table = document.createElement("table");
@@ -3747,7 +3868,7 @@ function buildScheduleSection(
         ? ["x", "y", "width", "height", "Canvas"]
         : ["Value"];
   for (const h of [
-    info.editDurations ? "Duration (ms)" : "Time (ms)",
+    info.timeAxisLabel ?? (info.editDurations ? "Duration (ms)" : "Time (ms)"),
     ...valueHeaders,
     "Ease ↓",
     "",

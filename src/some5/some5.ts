@@ -18,7 +18,13 @@ import {
   NumberScheduleInfo,
 } from "../schedule-helper";
 import { DEFAULT_SLIDE_DURATION_MS, makeShadowDemo } from "../shadow-test";
-import { MakeShowableInSeries, Showable, ShowOptions } from "../showable";
+import {
+  MakeShowableInSeries,
+  progressAxisLabel,
+  ScheduleInfo,
+  Showable,
+  ShowOptions,
+} from "../showable";
 import {
   buildComponents,
   MultiTextComponent,
@@ -836,6 +842,7 @@ class BeforeAndAfter implements Showable {
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
   readonly duration = 20_000;
   readonly components: Showable[] = [];
+  readonly schedules: ScheduleInfo[] = [];
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
   /**
@@ -928,12 +935,15 @@ class BeforeAndAfter implements Showable {
 // MARK: Slide 3
 {
   const angleSchedule = new NumberScheduleInfo("Angle", [
-    { time: 0, value: 0, easeAfter: paddedEase },
-    { time: 0.25, value: 30, easeAfter: paddedEase },
-    { time: 0.75, value: -30, easeAfter: paddedEase },
+    { time: 0, value: 0, easeAfter: ease },
+    { time: 0.2, value: 30 },
+    { time: 0.3, value: 30, easeAfter: ease },
+    { time: 0.7, value: -30 },
+    { time: 0.8, value: -30, easeAfter: ease },
     { time: 1, value: 0 },
-  ]);
+  ], progressAxisLabel);
   const slide = new BeforeAndAfter("Slide 3");
+  slide.schedules.push(angleSchedule);
   slide.makeTransformString = (progress: number): string => {
     const angle = angleSchedule.at(progress);
     return `skewY(${angle.toFixed(2)}deg)`;
@@ -944,12 +954,15 @@ class BeforeAndAfter implements Showable {
 // MARK: Slide 4
 {
   const scaleSchedule = new NumberScheduleInfo("Scale X", [
-    { time: 0, value: 1, easeAfter: paddedEase },
-    { time: 0.25, value: -2, easeAfter: paddedEase },
-    { time: 0.75, value: 2, easeAfter: paddedEase },
+    { time: 0, value: 1, easeAfter: ease },
+    { time: 0.2, value: -2 },
+    { time: 0.3, value: -2, easeAfter: ease },
+    { time: 0.7, value: 2 },
+    { time: 0.8, value: 2, easeAfter: ease },
     { time: 1, value: 1 },
-  ]);
+  ], progressAxisLabel);
   const slide = new BeforeAndAfter("Slide 4");
+  slide.schedules.push(scaleSchedule);
   slide.makeTransformString = (progress: number): string => {
     const scale = scaleSchedule.at(progress);
     return `scaleX(${scale.toFixed(2)})`;

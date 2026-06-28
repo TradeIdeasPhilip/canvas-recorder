@@ -97,6 +97,12 @@ export type Selectable = {
   registryKey?: string;
 };
 
+/**
+ * Use as {@link ScheduleInfo.timeAxisLabel} when keyframe times are 0–1
+ * progress values rather than milliseconds.
+ */
+export const progressAxisLabel = "Progress (0 - 1)";
+
 export type ScheduleInfo = {
   /**
    * Visible on the GUI
@@ -108,6 +114,12 @@ export type ScheduleInfo = {
    * Either way, we store start times in the schedule.
    */
   readonly editDurations?: boolean;
+  /**
+   * Label for the time/position column in the Visual Editor.
+   * Defaults to `"Time (ms)"` (or `"Duration (ms)"` when {@link editDurations} is true).
+   * Set to {@link progressAxisLabel} when keyframe times are 0–1 progress values.
+   */
+  readonly timeAxisLabel?: string;
 } & (
   | {
       readonly type: "string";

@@ -201,10 +201,13 @@ export class NumberScheduleInfo {
    * parent {@link VisuallyEditable}'s database record.
    * @param schedule Initial keyframes. The array is explicitly mutable and
    * will be modified by the Visual Editor at runtime.
+   * @param timeAxisLabel Override the "Time (ms)" column header.
+   * Use {@link progressAxisLabel} when keyframe times are 0–1 progress values.
    */
   constructor(
     readonly description: string,
     schedule: Keyframe<number>[] | number,
+    readonly timeAxisLabel?: string,
   ) {
     if (typeof schedule === "number") {
       this.schedule = [{ time: 0, value: schedule }];
