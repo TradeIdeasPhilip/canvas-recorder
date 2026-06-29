@@ -3,6 +3,67 @@ import { ease, easeIn, easeOut, Keyframe } from "./interpolate";
 import { Point } from "./glib/path-shape";
 
 /**
+ * The content shouldn't know much about the Visual Editor.
+ * For example, the content might be running in the command line version of this code, which has no Visual Editor.
+ * Also, the Visual Editor is big and complicated and constantly changing.
+ * This is a minimal interface to the Visual Editor for use in {@link RootComponentEditor}.
+ * If there is no Visual Editor then {@link RootComponentEditor.start}() will never be called.
+ */
+export type VisualEditorAPI = {
+  /**
+   * @returns Which component's properties are currently available in the bottom right of the screen.
+   */
+  getCurrentlySelected() : Showable;
+  /**
+   *
+   * @param howMuch "sound" means to rebuild the sound from clips.
+   * "properties" means that the values of one or more properties has changed.  "properties" means schedules or scalars.
+   * "structure" means that something bigger has changed, like adding or removing a component.
+   * "structure" pretty much implies that the sounds and properties should be reread.
+   */
+  refreshGUI(howMuch : "sound"|"properties"|"structure" ):void;
+}
+
+/**
+ * The "root" component refers to the showable at the top of the tree on the top right side of the screen.
+ * Each root component can bring a tree of children, all editable by the Visual Editor, all saved in one group per root.
+ *
+ * This allows a component to add custom content to the Visual Editor.
+ * This content should be displayed in the scrollable section of the top right part of the screen, right under the list of components.
+ */
+export type RootComponentEditor = {
+  /**
+   * Call this when a new root element is selected.
+   * @param visualEditor These are functions that can be used to communicate with the Visual Editor.
+   * You can hold onto this until you are suspended.
+   * Trying to use the object after that is forbidden and the results are undefined.
+   * @returns This element should be displayed so this object can interact with the user.
+   */
+  start(visualEditor : VisualEditorAPI) : HTMLElement;
+  /**
+   * This is called when a new root element is put in place.
+   * This object might have created other listeners or callbacks and now would be a good time to cancel those.
+   */
+  suspend() : void;
+  /**
+   * This is called whenever the Visual Editor updates something.
+   * @param component What changed?
+   * @param property What changed?
+   */
+  update(component: Showable, property: ScalarInfo | ScheduleInfo) : void;
+  /**
+   * This is called whenever
+   * @param selected Which component's properties are currently available in the bottom right of the screen.
+   */
+  selectionChanged(selected:Showable) : void;
+  /**
+   * If there are a lot of updates, or if something other than a property value changed, this will be called.
+   * E.g. a new component was added or the entire thing was reloaded from a snapshot.
+   */
+  resetAll():void;
+}
+
+/**
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
  * Or this might be a part of the animation that will be joined with other parts.
@@ -85,6 +146,12 @@ export type Showable = {
    * `undefined` and `[]` are equivalent.
    */
   readonly fixedComponents?: readonly Showable[];
+
+  /**
+   * Any time a new root component is selected, see if that component has this property set.
+   * If so, call {@link RootComponentEditor.start}() and honer the other callbacks in {@link RootComponentEditor}.
+   */
+  readonly rootComponentEditor? : RootComponentEditor;
 
   /**
    * Key in `componentRegistry` that can recreate this component.

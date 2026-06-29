@@ -1,4 +1,4 @@
-import { lerp, ReadOnlyRect } from "phil-lib/misc";
+import { lerp, only, ReadOnlyRect } from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
 import { makeLineFontRatio } from "../glib/line-font";
 import { myRainbow } from "../glib/my-rainbow";
@@ -21,9 +21,11 @@ import { DEFAULT_SLIDE_DURATION_MS, makeShadowDemo } from "../shadow-test";
 import {
   MakeShowableInSeries,
   progressAxisLabel,
+  RootComponentEditor,
   ScheduleInfo,
   Showable,
   ShowOptions,
+  VisualEditorAPI,
 } from "../showable";
 import {
   buildComponents,
@@ -934,14 +936,18 @@ class BeforeAndAfter implements Showable {
 
 // MARK: Slide 3
 {
-  const angleSchedule = new NumberScheduleInfo("Angle", [
-    { time: 0, value: 0, easeAfter: ease },
-    { time: 0.2, value: 30 },
-    { time: 0.3, value: 30, easeAfter: ease },
-    { time: 0.7, value: -30 },
-    { time: 0.8, value: -30, easeAfter: ease },
-    { time: 1, value: 0 },
-  ], progressAxisLabel);
+  const angleSchedule = new NumberScheduleInfo(
+    "Angle",
+    [
+      { time: 0, value: 0, easeAfter: ease },
+      { time: 0.2, value: 30 },
+      { time: 0.3, value: 30, easeAfter: ease },
+      { time: 0.7, value: -30 },
+      { time: 0.8, value: -30, easeAfter: ease },
+      { time: 1, value: 0 },
+    ],
+    progressAxisLabel,
+  );
   const slide = new BeforeAndAfter("Slide 3");
   slide.schedules.push(angleSchedule);
   slide.makeTransformString = (progress: number): string => {
@@ -953,14 +959,18 @@ class BeforeAndAfter implements Showable {
 
 // MARK: Slide 4
 {
-  const scaleSchedule = new NumberScheduleInfo("Scale X", [
-    { time: 0, value: 1, easeAfter: ease },
-    { time: 0.2, value: -2 },
-    { time: 0.3, value: -2, easeAfter: ease },
-    { time: 0.7, value: 2 },
-    { time: 0.8, value: 2, easeAfter: ease },
-    { time: 1, value: 1 },
-  ], progressAxisLabel);
+  const scaleSchedule = new NumberScheduleInfo(
+    "Scale X",
+    [
+      { time: 0, value: 1, easeAfter: ease },
+      { time: 0.2, value: -2 },
+      { time: 0.3, value: -2, easeAfter: ease },
+      { time: 0.7, value: 2 },
+      { time: 0.8, value: 2, easeAfter: ease },
+      { time: 1, value: 1 },
+    ],
+    progressAxisLabel,
+  );
   const slide = new BeforeAndAfter("Slide 4");
   slide.schedules.push(scaleSchedule);
   slide.makeTransformString = (progress: number): string => {
@@ -1615,6 +1625,7 @@ slideList.add(
   ),
 );
 
+// MARK: Slide 13
 {
   class Slide13 extends TwoMatricesRight {
     private readonly textTop = new MultiTextComponent({
@@ -1746,6 +1757,84 @@ ${status.sample.typescript}`);
     static readonly instance = new this();
   }
   slideList.add(Slide13.instance);
+}
+
+// MARK: Slide 14
+{
+  //
+  /**
+   * This slide is a test of the new {@link Showable.rootComponentEditor} property.
+   * Eventually this will be filled with some type of timeline GUI.
+   * For now it's a placeholder just to make sure we have the structure in place.
+   * For now it only has debug data.
+   * The timeline is a very rough idea and will require several prototypes.
+   */
+  let visualEditorAPI: VisualEditorAPI | undefined;
+  const element = document.createElement("div");
+  // This makes some assumptions about the container.
+  // I don't actually know the details right now, so this is just a straw man:
+  element.style.maxHeight = "100%";
+  element.style.width = "100%";
+  // Motif style so it's very obvious.
+  element.style.border = "0.5em outset #A3A0A4";
+  const rootComponentEditor: RootComponentEditor = {
+    start(visualEditor) {
+      if (visualEditorAPI) {
+        // It looks like we didn't get a call to suspend().
+        console.error(
+          "Unexpected call to start()",
+          visualEditorAPI,
+          visualEditor,
+        );
+        // Overwrite the old state.
+        // There's a good chance that will fix the problem going forward.
+      }
+      visualEditorAPI = visualEditor;
+      element.textContent = "start() ";
+      // for testing purposes:
+      console.log(visualEditor);
+      return element;
+    },
+    resetAll() {
+      element.textContent += "R";
+      if (visualEditorAPI === undefined) {
+        throw new Error("Unexpected state.");
+      }
+    },
+    selectionChanged(selected) {
+      element.textContent += "S";
+      console.log(selected);
+      if (visualEditorAPI === undefined) {
+        throw new Error("Unexpected state.");
+      }
+    },
+    update(component, property) {
+      element.textContent += "U";
+      console.log(component, property);
+      if (visualEditorAPI === undefined) {
+        throw new Error("Unexpected state.");
+      }
+    },
+    suspend() {
+      element.textContent = "❌❌ BAD ❌❌";
+      if (visualEditorAPI === undefined) {
+        throw new Error("Unexpected state.");
+      }
+      // The old value is now off limits.
+      // Later we might get the same object or a different object of the same type.
+      visualEditorAPI = undefined;
+    },
+  };
+  const slide14: Showable = {
+    description: "Slide 14",
+    duration: 120_000,
+    rootComponentEditor,
+    fixedComponents: [new TextComponent({ text: "coming soon" })],
+    show(options) {
+      only(this.fixedComponents!).show(options);
+    },
+  };
+  slideList.add(slide14);
 }
 
 // MARK: Blank Sides
