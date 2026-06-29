@@ -6,10 +6,8 @@ import { Point } from "./glib/path-shape";
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
  * Or this might be a part of the animation that will be joined with other parts.
- *
- * In particular, this represents the part that you can see in the user interface.
  */
-export type Selectable = {
+export type Showable = {
   /**
    * How long should this effect last, in milliseconds?
    * This should be 0 or positive.
@@ -45,7 +43,7 @@ export type Selectable = {
    */
   readonly children?: readonly {
     readonly start: number;
-    readonly child: Selectable;
+    readonly child: Showable;
   }[];
 
   readonly soundClips?: readonly {
@@ -95,6 +93,17 @@ export type Selectable = {
    * pipeline can round-trip it correctly.
    */
   registryKey?: string;
+  /**
+   * Draw this object to the canvas.
+   *
+   * This should have no other assumptions or side effects.
+   * The system can call show with any input at any time.
+   * @param timeInMs Show the animation at this time.
+   *
+   * This will typically be between 0 and `duration`, inclusive.
+   * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
+   */
+  show(options: ShowOptions): void;
 };
 
 /**
@@ -346,25 +355,6 @@ export type ShowOptions = {
 };
 
 /**
- * This represents an animation.
- * This might be the entire animation we intend to display or record.
- * Or this might be a part of the animation that will be joined with other parts.
- */
-export type Showable = Selectable & {
-  /**
-   * Draw this object to the canvas.
-   *
-   * This should have no other assumptions or side effects.
-   * The system can call show with any input at any time.
-   * @param timeInMs Show the animation at this time.
-   *
-   * This will typically be between 0 and `duration`, inclusive.
-   * See addMargins() or MakeShowableInSeries or makeShowableInSeries() if you need to be certain.
-   */
-  show(options: ShowOptions): void;
-};
-
-/**
  * Runtime assertion that value >= 0.
  * +Infinity is allowed, NaN is not.
  * @param value Verify this.
@@ -391,7 +381,7 @@ export class MakeShowableInParallel {
      * Wait this many milliseconds after the parent starts before starting this child.
      */
     readonly start: number;
-    readonly child: Selectable;
+    readonly child: Showable;
   }[] = [];
   /**
    * How long should this new showable run?
@@ -410,7 +400,7 @@ export class MakeShowableInParallel {
    * @param duration How long in milliseconds this will be in effect.
    */
   addNotes(description: string, start: number, duration: number) {
-    this.#children.push({ start, child: { description, duration } });
+    this.#children.push({ start, child: { description, duration, show() {} } });
   }
   /**
    *

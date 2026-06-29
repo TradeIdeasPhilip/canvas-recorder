@@ -25,7 +25,6 @@ import {
   applyScalarSnapshot,
   applySnapshot,
   ScalarInfo,
-  Selectable,
   SerializedKf,
   SerializedScalar,
   SerializedSchedule,
@@ -539,7 +538,7 @@ async function initAudio(): Promise<void> {
   stopAudio();
   const newBuilder = new AudioBuilder(toShow.duration);
 
-  async function doIt(item: Selectable, offset: number): Promise<boolean> {
+  async function doIt(item: Showable, offset: number): Promise<boolean> {
     if (myGen !== reloadGeneration) return false;
     if (item.soundClips) {
       for (const clip of item.soundClips) {
@@ -981,16 +980,16 @@ startRecordingButton.addEventListener("click", () => {
 /**
  * This powers the GUI that lets you select and display a specific section of the video.
  */
-type SelectableTree = {
+type ShowableTree = {
   description: string;
   prefix: string;
   start: number;
   end: number;
-  parent: SelectableTree | undefined;
-  children: SelectableTree[];
+  parent: ShowableTree | undefined;
+  children: ShowableTree[];
   absolutePosition: number;
   siblingPosition: number;
-  selectable: Selectable;
+  selectable: Showable;
 };
 
 /**
@@ -998,7 +997,7 @@ type SelectableTree = {
  * Drives the chapter \<select> and the Visual Editor.
  * Exposed on the console as `philDebug.chapterList`.
  */
-const chapterList = new Array<SelectableTree>();
+const chapterList = new Array<ShowableTree>();
 /**
  * Initialize the `chapterList` list with all the sections of the video.
  * @param current Add this and its children.
@@ -1014,12 +1013,12 @@ const chapterList = new Array<SelectableTree>();
  * @param parent
  */
 function dump(
-  current: Selectable,
+  current: Showable,
   prefix = "",
   start = 0,
   limit = Infinity,
   descriptionPrefix = "",
-  parent?: SelectableTree,
+  parent?: ShowableTree,
 ) {
   /**
    * Remove any children with a duration of 0.
@@ -1046,7 +1045,7 @@ function dump(
   } else {
     // Add this node to the tree then process its children recursively.
     const end = Math.min(start + current.duration, limit);
-    const info: SelectableTree = {
+    const info: ShowableTree = {
       prefix,
       description: descriptionPrefix + current.description,
       start,
@@ -1122,7 +1121,7 @@ const nextSiblingCells = querySelectorAll(
 
 const buttonDestination = new Map<
   HTMLButtonElement,
-  SelectableTree | undefined
+  ShowableTree | undefined
 >();
 
 /**
@@ -1132,7 +1131,7 @@ const buttonDestination = new Map<
  */
 function updateRow(
   cells: readonly HTMLTableCellElement[],
-  info: SelectableTree | undefined,
+  info: ShowableTree | undefined,
 ) {
   /**
    * Pressing this button will jump to the section described by this row.
@@ -1192,7 +1191,7 @@ let selectedSlideChild: Showable | null = null;
 philDebug.chapterList = chapterList;
 philDebug.refreshSounds = () => void initAudio();
 philDebug.VisualEditor = {
-  get rootComponent(): Selectable | undefined {
+  get rootComponent(): Showable | undefined {
     return chapterList[select.selectedIndex]?.selectable;
   },
   get selectedComponent(): Showable | null {
@@ -1380,7 +1379,7 @@ addEventListener("pagehide", (_event) => {
 
 // MARK: Schedule Editor
 
-type ScheduleInfo = NonNullable<Selectable["schedules"]>[number];
+type ScheduleInfo = NonNullable<Showable["schedules"]>[number];
 
 // MARK: Schedule persistence (IndexedDB)
 
@@ -1481,7 +1480,7 @@ function sendToRecycleBin(...args: unknown[]): void {
 }
 
 /** Serializes the current in-memory state of a selectable to a JSON string. */
-function currentSnapshotJson(selectable: Selectable): string {
+function currentSnapshotJson(selectable: Showable): string {
   return JSON.stringify({
     schedules: selectable.schedules?.length
       ? serializeSchedules(selectable.schedules)
@@ -1496,7 +1495,7 @@ function currentSnapshotJson(selectable: Selectable): string {
 }
 
 /** True if the selectable's in-memory state differs from what was last loaded or saved. */
-function isDirty(selectable: Selectable): boolean {
+function isDirty(selectable: Showable): boolean {
   const key = selectableKey(selectable);
   const snapshot = loadedSnapshots.get(key);
   return snapshot !== undefined && currentSnapshotJson(selectable) !== snapshot;
@@ -1515,7 +1514,7 @@ function formatLoadSource(source: LoadSource | undefined): string {
 }
 
 /** Updates the inline status label to show source and dirty flag. */
-function updateStatusDisplay(selectable: Selectable) {
+function updateStatusDisplay(selectable: Showable) {
   const source = loadSources.get(selectableKey(selectable));
   const dirty = isDirty(selectable);
   scheduleStatusDisplay.textContent =
@@ -1529,7 +1528,7 @@ function updateStatusDisplay(selectable: Selectable) {
  * Apply a DataHistoryEntry to a selectable in-place.
  * Does NOT update loadSources / loadedSnapshots — caller must do that.
  */
-function applyDataEntry(selectable: Selectable, entry: DataHistoryEntry): void {
+function applyDataEntry(selectable: Showable, entry: DataHistoryEntry): void {
   if (selectable.scalars?.length && entry.scalars?.length) {
     applyScalarSnapshot(selectable.scalars, entry.scalars);
   }
@@ -1543,7 +1542,7 @@ function applyDataEntry(selectable: Selectable, entry: DataHistoryEntry): void {
 }
 
 /** Apply TypeScript defaults to a selectable in-place. */
-function applyTsDefaults(selectable: Selectable): void {
+function applyTsDefaults(selectable: Showable): void {
   const defaults = tsDefaults.get(selectableKey(selectable));
   if (defaults) applyDataEntry(selectable, defaults);
 }
@@ -1751,14 +1750,14 @@ function serializeComponents(components: Showable[]): SerializedChild[] {
   });
 }
 
-function selectableKey(selectable: Selectable): string {
+function selectableKey(selectable: Showable): string {
   return `${toShowKey}|${selectable.description}`;
 }
 
 /** Saves current schedule state to IndexedDB as a full data entry.
  *  Pass force=true (💾 Save button) to bypass the ts-defaults-no-auto-save guard. */
 async function saveScheduleState(
-  selectable: Selectable,
+  selectable: Showable,
   updateUI = true,
   force = false,
 ) {
@@ -1826,7 +1825,7 @@ async function saveScheduleState(
  * For components slides this is always the slide itself (not the selected child),
  * so a single save captures the full component list and all keyframes.
  */
-function currentSaveTarget(): Selectable | null {
+function currentSaveTarget(): Showable | null {
   const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return null;
   if (selectable.components !== undefined) return selectable;
@@ -1905,7 +1904,7 @@ type DialogListItem =
       isInitial: boolean;
     };
 
-let _historyTarget: Selectable | null = null;
+let _historyTarget: Showable | null = null;
 let _preDialogSnapshotJson = "";
 let _preDialogSource: LoadSource | undefined;
 let _wasInitiallyDirty = false;
@@ -1913,7 +1912,7 @@ let _dialogItems: DialogListItem[] = [];
 let _selectedDialogIndex = -1;
 let _allHistoryEntries: HistoryEntry[] = [];
 
-function _dialogSelectItem(index: number, target: Selectable) {
+function _dialogSelectItem(index: number, target: Showable) {
   if (index < 0 || index >= _dialogItems.length) return;
   _selectedDialogIndex = index;
 
@@ -1977,7 +1976,7 @@ function _dialogSelectItem(index: number, target: Selectable) {
   }
 }
 
-async function openHistoryDialog(target: Selectable) {
+async function openHistoryDialog(target: Showable) {
   _historyTarget = target;
   const key = selectableKey(target);
   _preDialogSnapshotJson = currentSnapshotJson(target);
@@ -4225,7 +4224,7 @@ function serializeComponent(child: Showable): SerializedChild {
   return entry;
 }
 
-async function pasteInto(target: Showable, selectable: Selectable) {
+async function pasteInto(target: Showable, selectable: Showable) {
   let text: string;
   try {
     text = await navigator.clipboard.readText();
@@ -4254,7 +4253,7 @@ async function pasteInto(target: Showable, selectable: Selectable) {
   updateScheduleEditor(selectedSlideChild);
 }
 
-function updateComponentEditor(selectable: Selectable) {
+function updateComponentEditor(selectable: Showable) {
   const rootComponents = selectable.components;
   const rootFixed = selectable.fixedComponents;
   componentsEditorFieldset.hidden =
@@ -4542,7 +4541,7 @@ function updateComponentEditor(selectable: Selectable) {
   list.scrollTop = wasAtBottom ? list.scrollHeight : savedScrollTop;
 }
 
-function updateScheduleEditor(selectable: Selectable) {
+function updateScheduleEditor(selectable: Showable) {
   scheduleEditorFieldset.replaceChildren();
   editingRectKf = null;
   viewingRectKfs.clear();
