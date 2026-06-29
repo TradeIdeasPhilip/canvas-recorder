@@ -73,24 +73,22 @@ You can change the copy or the original and it will not affect the other.
 
 #### Short Term Plans
 
-**Status:** Part 1 and the rename can be done at any time.
-These should be small and simple.
+**Status:** Part 1 and the rename are done.
 Part 2 can happen as other changes are being made.
-"debug" was renamed!
-philDebug.rootVideoElement exists.
 
 Try some type of reasonable first guess at sound file updates.
 
 Part 1: Always read the sounds from `const debug: SelectableTree[]`, like we do now.
 But add an easy way to do this from the console.
-Maybe we create `philDebug.refreshSounds()` and `philDebug.rootVideoElement`.
+Maybe we create `philDebug.refreshSounds()` and `philDebug.chapterList`.
 
 I hate the name "debug"!
-Let's change that to "rootVideoElement".
+Let's change that to "chapterList".
 "Debug" suggested working in the console, and is accurate and appropriate for "philDebug", but not for the top of tree.
 
 Note: `philDebug.VisualEditor.rootComponent`, described below, refers to whatever is currently being edited on the right side of the screen.
-That's different from `philDebug.rootVideoElement`, described here, which is the top level of the entire video.
+That's different from `philDebug.chapterList`, described here, which is the a lost of all possible root elements in entire video.
+Chapter "list" started as a tree of `Selectable` objects but got flattened to a list to help the GUI.
 
 Keep the existing code that rebuilds the entire soundtrack every time there's a change.
 It works well for now.
@@ -250,8 +248,8 @@ Those two schedules will be right next to each other in the editor.
 
 ## Schedule vs Progress
 
-**Status:** This section is totally independent of the rest of this document.
-This can be implemented at any time.
+**Status:** This has been completed.
+Examples in slides 3 and 4 of some5.ts.
 
 Currently all schedules are displayed in the Visual Editor where the time is labeled "Time (ms)"
 In some cases that label should change.
@@ -270,7 +268,7 @@ This is another old request that I'm finally caring about enough to fix.
 
 ## Access from the Console
 
-**Status:** This can be done at any time.
+**Status:** Done.
 It would be good to have it sooner rather than later.
 It will help me build some of the functionality described elsewhere in this document.
 Creating this will involve a quick audit of what is currently available, which will help me think about what I want to do next.
