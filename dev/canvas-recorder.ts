@@ -24,11 +24,13 @@ import {
 import {
   applyScalarSnapshot,
   applySnapshot,
+  RootComponentEditor,
   ScalarInfo,
   SerializedKf,
   SerializedScalar,
   SerializedSchedule,
   Showable,
+  VisualEditorAPI,
 } from "../src/showable.ts";
 import {
   discreteKeyframes,
@@ -1187,6 +1189,37 @@ const scheduleEditorFieldset = getById("scheduleEditor", HTMLFieldSetElement);
  */
 let selectedSlideChild: Showable | null = null;
 
+/** The active {@link RootComponentEditor}, if the current root has one. */
+let activeRootComponentEditor: RootComponentEditor | undefined = undefined;
+
+const rootComponentEditorContainer = getById(
+  "rootComponentEditorContainer",
+  HTMLDivElement,
+);
+
+const visualEditorAPI: VisualEditorAPI = {
+  getCurrentlySelected(): Showable {
+    return (
+      selectedSlideChild ?? chapterList[select.selectedIndex]!.selectable
+    );
+  },
+  refreshGUI(howMuch) {
+    const selectable = chapterList[select.selectedIndex]?.selectable;
+    if (!selectable) return;
+    if (howMuch === "sound") {
+      void initAudio();
+    } else if (howMuch === "properties") {
+      updateScheduleEditor(selectedSlideChild ?? selectable);
+    } else {
+      // "structure"
+      selectedSlideChild = null;
+      updateComponentEditor(selectable);
+      updateScheduleEditor(selectable);
+      void saveScheduleState(selectable);
+    }
+  },
+};
+
 // MARK: Console API
 philDebug.chapterList = chapterList;
 philDebug.refreshSounds = () => void initAudio();
@@ -1301,6 +1334,18 @@ function updateFromSelect() {
   const rawPositionMs = playPositionRange.valueAsNumber;
   const safePositionMs = Math.max(rawPositionMs, sectionStartTime);
   loadPlayPositionSeconds(safePositionMs);
+  const newRootEditor = info.selectable.rootComponentEditor;
+  if (newRootEditor !== activeRootComponentEditor) {
+    activeRootComponentEditor?.suspend();
+    activeRootComponentEditor = newRootEditor;
+    if (newRootEditor) {
+      rootComponentEditorContainer.replaceChildren(
+        newRootEditor.start(visualEditorAPI),
+      );
+    } else {
+      rootComponentEditorContainer.replaceChildren();
+    }
+  }
   selectedSlideChild = null;
   updateComponentEditor(info.selectable);
   updateScheduleEditor(info.selectable);
@@ -1951,6 +1996,7 @@ function _dialogSelectItem(index: number, target: Showable) {
     applyDataEntry(target, item.entry);
   }
   selectedSlideChild = null;
+  activeRootComponentEditor?.resetAll();
   updateComponentEditor(target);
   updateScheduleEditor(target);
 
@@ -2121,6 +2167,7 @@ async function _applyDialogSelection(saveOld: boolean) {
   }
 
   selectedSlideChild = null;
+  activeRootComponentEditor?.resetAll();
   updateComponentEditor(target);
   updateScheduleEditor(target);
 }
@@ -2160,6 +2207,7 @@ historyCancelBtn.addEventListener("click", () => {
       target.components.push(...buildComponents(snap.components));
     }
     selectedSlideChild = null;
+    activeRootComponentEditor?.resetAll();
     updateComponentEditor(target);
     updateScheduleEditor(target);
   }
@@ -2545,7 +2593,7 @@ function parseScheduleFromClipboard(
   }
 }
 
-function buildScalarSection(info: ScalarInfo): HTMLElement {
+function buildScalarSection(info: ScalarInfo, selectable: Showable): HTMLElement {
   const section = document.createElement("fieldset");
   section.style.cssText = "margin-bottom:0.4em";
   const legend = document.createElement("legend");
@@ -2629,6 +2677,9 @@ function buildScalarSection(info: ScalarInfo): HTMLElement {
       section.append(label, " ");
     }
   }
+  section.addEventListener("input", () => {
+    activeRootComponentEditor?.update(selectable, info);
+  });
   return section;
 }
 
@@ -3708,8 +3759,9 @@ async function openColorPickerDialog(
 
 function buildScheduleSection(
   info: ScheduleInfo,
-  showableDescription: string,
+  selectable: Showable,
 ): HTMLElement {
+  const showableDescription = selectable.description;
   const section = document.createElement("fieldset");
 
   if (info.editDurations) {
@@ -3736,7 +3788,8 @@ function buildScheduleSection(
         if (!kfSet.has(kf)) viewingPointKfs.delete(kf);
       }
     }
-    section.replaceWith(buildScheduleSection(info, showableDescription));
+    activeRootComponentEditor?.resetAll();
+    section.replaceWith(buildScheduleSection(info, selectable));
   }
 
   function currentTimeMs() {
@@ -4198,6 +4251,9 @@ function buildScheduleSection(
 
   table.append(tbody);
   section.append(table);
+  section.addEventListener("input", () => {
+    activeRootComponentEditor?.update(selectable, info);
+  });
   return section;
 }
 
@@ -4249,6 +4305,7 @@ async function pasteInto(target: Showable, selectable: Showable) {
   }
   target.components!.push(...built);
   selectedSlideChild = built[built.length - 1];
+  activeRootComponentEditor?.resetAll();
   updateComponentEditor(selectable);
   updateScheduleEditor(selectedSlideChild);
 }
@@ -4300,12 +4357,14 @@ function updateComponentEditor(selectable: Showable) {
         selectedSlideChild = child;
         updateComponentEditor(selectable);
         updateScheduleEditor(child);
+        activeRootComponentEditor?.selectionChanged(child);
       });
 
       function moveChild(fromIdx: number, toIdx: number) {
         const arr = container.components!;
         const [item] = arr.splice(fromIdx, 1);
         arr.splice(toIdx, 0, item);
+        activeRootComponentEditor?.resetAll();
         updateComponentEditor(selectable);
       }
 
@@ -4361,6 +4420,7 @@ function updateComponentEditor(selectable: Showable) {
           selectedSlideChild = null;
           updateScheduleEditor(selectable);
         }
+        activeRootComponentEditor?.resetAll();
         updateComponentEditor(selectable);
       });
 
@@ -4408,6 +4468,7 @@ function updateComponentEditor(selectable: Showable) {
         selectedSlideChild = child;
         updateComponentEditor(selectable);
         updateScheduleEditor(child);
+        activeRootComponentEditor?.selectionChanged(child);
       });
 
       const copyBtn = document.createElement("button");
@@ -4458,6 +4519,7 @@ function updateComponentEditor(selectable: Showable) {
     selectedSlideChild = null;
     updateComponentEditor(selectable);
     updateScheduleEditor(selectable);
+    activeRootComponentEditor?.selectionChanged(selectable);
   });
 
   const rootCopyBtn = document.createElement("button");
@@ -4530,6 +4592,7 @@ function updateComponentEditor(selectable: Showable) {
     componentRegistryKey.set(newChild, addSelect.value);
     addTarget.components!.push(newChild);
     selectedSlideChild = newChild;
+    activeRootComponentEditor?.resetAll();
     updateComponentEditor(selectable);
     updateScheduleEditor(newChild);
   });
@@ -4586,7 +4649,7 @@ function updateScheduleEditor(selectable: Showable) {
   }
 
   for (const info of scalars ?? []) {
-    const section = buildScalarSection(info);
+    const section = buildScalarSection(info, selectable);
     // Rebuild the Transform Info panel whenever the template string changes.
     if (
       slideComponent &&
@@ -4602,7 +4665,7 @@ function updateScheduleEditor(selectable: Showable) {
     scheduleEditorFieldset.append(section);
   }
   for (const info of schedules ?? []) {
-    const section = buildScheduleSection(info, selectable.description);
+    const section = buildScheduleSection(info, selectable);
     // Rebuild the Font Info panel when the font family or weight changes.
     if (
       isTraditionalText &&

@@ -1761,6 +1761,10 @@ ${status.sample.typescript}`);
 
 // MARK: Slide 14
 {
+}
+
+// MARK: Parallel Combination
+{
   //
   /**
    * This slide is a test of the new {@link Showable.rootComponentEditor} property.
@@ -1825,8 +1829,8 @@ ${status.sample.typescript}`);
       visualEditorAPI = undefined;
     },
   };
-  const slide14: Showable = {
-    description: "Slide 14",
+  const parallelCombination: Showable = {
+    description: "Parallel Combination",
     duration: 120_000,
     rootComponentEditor,
     fixedComponents: [new TextComponent({ text: "coming soon" })],
@@ -1834,7 +1838,7 @@ ${status.sample.typescript}`);
       only(this.fixedComponents!).show(options);
     },
   };
-  slideList.add(slide14);
+  slideList.add(parallelCombination);
 }
 
 // MARK: Blank Sides
