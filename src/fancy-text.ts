@@ -252,6 +252,4 @@ export class FullFormatter {
   }
 }
 
-export type FancyLayout = ReturnType<
-  InstanceType<typeof FullFormatter>["align"]
->;
+export type FancyLayout = ReturnType<FullFormatter["align"]>;

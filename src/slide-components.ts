@@ -228,21 +228,15 @@ export class TraditionalTextComponent implements Showable {
       outlineWidth?: number | readonly Keyframe<number>[];
       fontSize?: number | readonly Keyframe<number>[];
       fontStyle?: Parameters<
-        InstanceType<
-          typeof TraditionalTextComponent
-        >["fontStyleSchedule"]["set"]
+        TraditionalTextComponent["fontStyleSchedule"]["set"]
       >[0];
       fontWeight?: number | readonly Keyframe<number>[];
       fontFamily?: string | readonly Keyframe<string>[];
       textAlign?: Parameters<
-        InstanceType<
-          typeof TraditionalTextComponent
-        >["textAlignSchedule"]["set"]
+        TraditionalTextComponent["textAlignSchedule"]["set"]
       >[0];
       textBaseline?: Parameters<
-        InstanceType<
-          typeof TraditionalTextComponent
-        >["textBaselineSchedule"]["set"]
+        TraditionalTextComponent["textBaselineSchedule"]["set"]
       >[0];
     } = {},
   ) {
@@ -664,11 +658,9 @@ export class MultiTextComponent implements Showable {
   constructor(
     initialValues: {
       position?: Point | readonly Keyframe<Point>[];
-      alignment?: Parameters<
-        InstanceType<typeof MultiTextComponent>["alignmentSchedule"]["set"]
-      >[0];
+      alignment?: Parameters<MultiTextComponent["alignmentSchedule"]["set"]>[0];
       textBaseline?: Parameters<
-        InstanceType<typeof MultiTextComponent>["textBaselineSchedule"]["set"]
+        MultiTextComponent["textBaselineSchedule"]["set"]
       >[0];
       width?: number | readonly Keyframe<number>[];
       additionalLineHeight?: number | readonly Keyframe<number>[];
@@ -923,7 +915,7 @@ export class TextComponent implements Showable {
       // Final thoughts:  It was only complicated the first time.
       // You could clone this any number of times with different classes and properties.
       alignmentSchedule?: Parameters<
-        InstanceType<typeof TextComponent>["alignmentSchedule"]["set"]
+        TextComponent["alignmentSchedule"]["set"]
       >[0];
     } = {},
   ) {
@@ -956,9 +948,7 @@ export class TextComponent implements Showable {
         readonly cachedFont: CachedFont;
         readonly width: number;
         readonly text: string;
-        readonly alignment: InstanceType<
-          typeof TextComponent
-        >["alignmentSchedule"]["choices"][0];
+        readonly alignment: TextComponent["alignmentSchedule"]["choices"][0];
         readonly path: Path2D;
       };
   show({ context, timeInMs }: ShowOptions) {

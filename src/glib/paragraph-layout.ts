@@ -42,7 +42,7 @@ export type WordInPlace = {
 
 class LinkBreak {}
 
-export type LaidOut = ReturnType<InstanceType<typeof ParagraphLayout>["align"]>;
+export type LaidOut = ReturnType<ParagraphLayout["align"]>;
 
 /**
  * This is a good way to use my strokable fonts.

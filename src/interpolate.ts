@@ -168,6 +168,23 @@ export function discreteKeyframes<T>(
   }
 }
 
+// I ended up using durationKeyframes() instead.
+// export function discreteWithProgress<T>(
+//   time: number,
+//   keyframes: DiscreteKeyframes<T>,
+// ): { value: T; progress: number; index: number } {
+//   const initial = timedKeyframes(time, keyframes);
+//   if (initial.single) {
+//     return { value: initial.value, index: initial.index, progress: 0 };
+//   } else {
+//     return {
+//       value: initial.from,
+//       index: initial.index,
+//       progress: initial.progress,
+//     };
+//   }
+// }
+
 /**
  *
  * @param time Look for the value at this time.
@@ -367,6 +384,7 @@ export function interpolateColorsEqualWidths(
  * Interpolate between two paths.  The two paths must have identical command types in the identical order.  Only the arguments to the commands can change.
  *
  * See matchShapes() in morph-animations.ts for a newer version of this function.
+ * See createCrossFade() in cross-fade.ts for an alternative.
  * @param from The path to return at progress <= 0.
  * @param to The path to return at progress >= 1.
  * @returns A function that will take progress as an input and returns a path as an output.

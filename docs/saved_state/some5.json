@@ -1339,9 +1339,79 @@
     "components": []
   },
   "some5|Slide 3": {
+    "schedules": [
+      {
+        "description": "Angle",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 0,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 0.2,
+            "value": 30
+          },
+          {
+            "time": 0.3,
+            "value": 30,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 0.7,
+            "value": -30
+          },
+          {
+            "time": 0.8,
+            "value": -30,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 1,
+            "value": 0
+          }
+        ]
+      }
+    ],
     "components": []
   },
   "some5|Slide 4": {
+    "schedules": [
+      {
+        "description": "Scale X",
+        "type": "number",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": 1,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 0.2,
+            "value": -2
+          },
+          {
+            "time": 0.3,
+            "value": -2,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 0.7,
+            "value": 2
+          },
+          {
+            "time": 0.8,
+            "value": 2,
+            "easeAfter": "ease"
+          },
+          {
+            "time": 1,
+            "value": 1
+          }
+        ]
+      }
+    ],
     "components": []
   },
   "some5|Slide 5": {
@@ -1468,7 +1538,7 @@
         ]
       },
       {
-        "description": "inner",
+        "description": "right",
         "type": "color",
         "keyframes": [
           {
@@ -1488,171 +1558,7 @@
         ]
       }
     ],
-    "components": [
-      {
-        "registryKey": "Multi Text",
-        "schedules": [
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 0.25,
-                  "y": 0.25
-                }
-              }
-            ]
-          },
-          {
-            "description": "Alignment",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "left"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "top"
-              }
-            ]
-          },
-          {
-            "description": "Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 7.5
-              }
-            ]
-          },
-          {
-            "description": "Additional Line Height",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.15
-              }
-            ]
-          }
-        ],
-        "components": [
-          {
-            "registryKey": "Text Format",
-            "schedules": [
-              {
-                "description": "Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "#600060"
-                  },
-                  {
-                    "time": 5000,
-                    "value": "rgb(37.65% 0% 0%)"
-                  },
-                  {
-                    "time": 10000,
-                    "value": "#070"
-                  },
-                  {
-                    "time": 15000,
-                    "value": "rgb(0% 25% 0% )"
-                  },
-                  {
-                    "time": 20000,
-                    "value": "rgb(0% 0% 0%)"
-                  }
-                ]
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.25
-                  }
-                ]
-              },
-              {
-                "description": "Boldness",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1.3
-                  }
-                ]
-              },
-              {
-                "description": "Obliqueness",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0
-                  }
-                ]
-              },
-              {
-                "description": "Alpha",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.8
-                  }
-                ]
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Name",
-                "type": "string",
-                "value": ""
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "<svg xmlns=\"http://www.w3.org/2000/svg\">\n   <g transform=\"scale(2)\">\n      <g transform=\"translateX(1px)\">\n         <use href=\"#WinkingFace\" />\n      </g>\n   </g>\n</svg>"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": ""
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ]
+    "components": []
   },
   "some5|Slide 11": {
     "schedules": [
@@ -1667,7 +1573,7 @@
         ]
       },
       {
-        "description": "inner",
+        "description": "right",
         "type": "color",
         "keyframes": [
           {
@@ -1687,10 +1593,123 @@
         ]
       }
     ],
+    "components": []
+  },
+  "some5|Slide 12": {
+    "schedules": [
+      {
+        "description": "left",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(128, 0, 255)"
+          }
+        ]
+      },
+      {
+        "description": "right",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 128, 0)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
+      }
+    ],
+    "components": []
+  },
+  "some5|Slide 13": {
+    "schedules": [
+      {
+        "description": "left",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(128, 0, 255)"
+          }
+        ]
+      },
+      {
+        "description": "right",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "rgb(255, 128, 0)"
+          }
+        ]
+      },
+      {
+        "description": "base",
+        "type": "color",
+        "keyframes": [
+          {
+            "time": 0,
+            "value": "black"
+          }
+        ]
+      }
+    ],
+    "components": []
+  },
+  "some5|Try New Items": {
     "components": [
       {
-        "registryKey": "Multi Text",
+        "registryKey": "Rectangle",
         "schedules": [
+          {
+            "description": "Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "rgb(0% 100% 100% / 0%)"
+              }
+            ]
+          },
+          {
+            "description": "Rect",
+            "type": "rectangle",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "x": 5.901576576576576,
+                  "y": 4.035135135135135,
+                  "width": 2,
+                  "height": 2
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "registryKey": "Traditional Text",
+        "schedules": [
+          {
+            "description": "Text",
+            "type": "string",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "Peace"
+              }
+            ]
+          },
           {
             "description": "Position",
             "type": "point",
@@ -1698,19 +1717,125 @@
               {
                 "time": 0,
                 "value": {
-                  "x": 0.25,
-                  "y": 0.25
+                  "x": 6.870157657657658,
+                  "y": 4.747522522522523
                 }
               }
             ]
           },
           {
-            "description": "Alignment",
+            "description": "Fill Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+              },
+              {
+                "time": 1674,
+                "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+              },
+              {
+                "time": 3992,
+                "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+              },
+              {
+                "time": 5742,
+                "value": "color-mix(in srgb, transparent 80%, #0e0)"
+              },
+              {
+                "time": 8174,
+                "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+              },
+              {
+                "time": 11010,
+                "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+              },
+              {
+                "time": 12458,
+                "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+              },
+              {
+                "time": 13962.000000000002,
+                "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+              },
+              {
+                "time": 16676,
+                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+              },
+              {
+                "time": 20000,
+                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+              }
+            ]
+          },
+          {
+            "description": "Outline Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "black"
+              }
+            ]
+          },
+          {
+            "description": "Outline Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.02
+              }
+            ]
+          },
+          {
+            "description": "Font Size",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.75
+              }
+            ]
+          },
+          {
+            "description": "Font Style",
             "type": "select",
             "keyframes": [
               {
                 "time": 0,
-                "value": "left"
+                "value": "normal"
+              }
+            ]
+          },
+          {
+            "description": "Font Weight",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 400
+              }
+            ]
+          },
+          {
+            "description": "Font Family",
+            "type": "string",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "Ranchers"
+              }
+            ]
+          },
+          {
+            "description": "Align",
+            "type": "select",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "center"
               }
             ]
           },
@@ -1720,42 +1845,253 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "top"
+                "value": "alphabetic"
               }
             ]
-          },
+          }
+        ]
+      },
+      {
+        "registryKey": "Slide",
+        "schedules": [
           {
-            "description": "Width",
+            "description": "𝓐",
             "type": "number",
             "keyframes": [
               {
                 "time": 0,
-                "value": 8.5
+                "value": 1
               }
             ]
           },
           {
-            "description": "Additional Line Height",
+            "description": "𝓑",
             "type": "number",
             "keyframes": [
               {
                 "time": 0,
-                "value": 0.15
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
               }
             ]
           }
         ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translate(2px, 3px) rotate(180deg)"
+          }
+        ],
         "components": [
           {
-            "registryKey": "Text Format",
+            "registryKey": "Traditional Text",
             "schedules": [
               {
-                "description": "Color",
+                "description": "Text",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "Love"
+                  }
+                ]
+              },
+              {
+                "description": "Position",
+                "type": "point",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": {
+                      "x": -4.882995328827984,
+                      "y": -2.372860483532466
+                    }
+                  }
+                ]
+              },
+              {
+                "description": "Fill Color",
                 "type": "color",
                 "keyframes": [
                   {
+                    "time": -10000,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  },
+                  {
+                    "time": -8326,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+                  },
+                  {
+                    "time": -6008,
+                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+                  },
+                  {
+                    "time": -4258,
+                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
+                  },
+                  {
+                    "time": -1826,
+                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+                  },
+                  {
+                    "time": 1010,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+                  },
+                  {
+                    "time": 2458,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+                  },
+                  {
+                    "time": 3962.000000000002,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+                  },
+                  {
+                    "time": 6676,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+                  },
+                  {
                     "time": 10000,
-                    "value": "#070"
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  },
+                  {
+                    "time": 10000,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  },
+                  {
+                    "time": 11674,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+                  },
+                  {
+                    "time": 13992,
+                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+                  },
+                  {
+                    "time": 15742,
+                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
+                  },
+                  {
+                    "time": 18174,
+                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+                  },
+                  {
+                    "time": 21010,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+                  },
+                  {
+                    "time": 22458,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+                  },
+                  {
+                    "time": 23962,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+                  },
+                  {
+                    "time": 26676,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+                  },
+                  {
+                    "time": 30000,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  }
+                ]
+              },
+              {
+                "description": "Outline Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "rgb(0% 0% 0%)"
+                  }
+                ]
+              },
+              {
+                "description": "Outline Width",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.02
                   }
                 ]
               },
@@ -1765,69 +2101,695 @@
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": 0.3
+                    "value": 0.75
                   }
                 ]
               },
               {
-                "description": "Boldness",
-                "type": "number",
+                "description": "Font Style",
+                "type": "select",
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": 1.3
+                    "value": "normal"
                   }
                 ]
               },
               {
-                "description": "Obliqueness",
+                "description": "Font Weight",
                 "type": "number",
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": 0
+                    "value": 400
                   }
                 ]
               },
               {
-                "description": "Alpha",
+                "description": "Font Family",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "Bevan"
+                  }
+                ]
+              },
+              {
+                "description": "Align",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "center"
+                  }
+                ]
+              },
+              {
+                "description": "Baseline",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "alphabetic"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "registryKey": "Slide",
+        "schedules": [
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0
+              },
+              {
+                "time": 10000,
+                "value": 360
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              },
+              {
+                "time": 5000,
+                "value": 0.25
+              },
+              {
+                "time": 10000,
+                "value": 1
+              },
+              {
+                "time": 20000,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0
+              },
+              {
+                "time": 5000,
+                "value": 45
+              },
+              {
+                "time": 10000,
+                "value": 0
+              },
+              {
+                "time": 15000,
+                "value": -45
+              },
+              {
+                "time": 20000,
+                "value": 0
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translate(2px,5px) skewX(𝓒deg)"
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Rectangle",
+            "schedules": [
+              {
+                "description": "Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "transparent"
+                  }
+                ]
+              },
+              {
+                "description": "Rect",
+                "type": "rectangle",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": {
+                      "x": -1,
+                      "y": -1,
+                      "width": 2,
+                      "height": 2
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "registryKey": "Traditional Text",
+            "schedules": [
+              {
+                "description": "Text",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "Peace"
+                  }
+                ]
+              },
+              {
+                "description": "Position",
+                "type": "point",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": {
+                      "x": 0,
+                      "y": -0.35
+                    }
+                  }
+                ]
+              },
+              {
+                "description": "Fill Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  },
+                  {
+                    "time": 1674,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+                  },
+                  {
+                    "time": 3992,
+                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+                  },
+                  {
+                    "time": 5742,
+                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
+                  },
+                  {
+                    "time": 8174,
+                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+                  },
+                  {
+                    "time": 11010,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+                  },
+                  {
+                    "time": 12458,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+                  },
+                  {
+                    "time": 13962.000000000002,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+                  },
+                  {
+                    "time": 16676,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+                  },
+                  {
+                    "time": 20000,
+                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                  }
+                ]
+              },
+              {
+                "description": "Outline Color",
+                "type": "color",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "black"
+                  }
+                ]
+              },
+              {
+                "description": "Outline Width",
                 "type": "number",
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": 0.8
+                    "value": 0.02
+                  }
+                ]
+              },
+              {
+                "description": "Font Size",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 0.75
+                  }
+                ]
+              },
+              {
+                "description": "Font Style",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "normal"
+                  }
+                ]
+              },
+              {
+                "description": "Font Weight",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 400
+                  }
+                ]
+              },
+              {
+                "description": "Font Family",
+                "type": "string",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "Ranchers"
+                  }
+                ]
+              },
+              {
+                "description": "Align",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "center"
+                  }
+                ]
+              },
+              {
+                "description": "Baseline",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "alphabetic"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "registryKey": "Slide",
+            "schedules": [
+              {
+                "description": "𝓐",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓑",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓒",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓓",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓔",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓕",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓖",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓗",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓘",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓙",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
                   }
                 ]
               }
             ],
             "scalars": [
               {
-                "description": "Name",
+                "description": "Transform Template",
                 "type": "string",
-                "value": ""
+                "value": "rotate(180deg)"
               }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
+            ],
+            "components": [
               {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
+                "registryKey": "Traditional Text",
+                "schedules": [
                   {
-                    "time": 0,
-                    "value": "<svg>\n   <g transform=\"scale(2)\">\n      <g transform=\"translateX(1px)\">\n         <use href=\"#WinkingFace\" />\n      </g>\n   </g>\n</svg>\n \n \ncontext.rotate(45);\ncontext.scale(2, 2);\nWinkingFace.draw(context);"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
+                    "description": "Text",
+                    "type": "string",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "Love"
+                      }
+                    ]
+                  },
                   {
-                    "time": 0,
-                    "value": ""
+                    "description": "Position",
+                    "type": "point",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": {
+                          "x": 0,
+                          "y": -0.39
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "keyframes": [
+                      {
+                        "time": -10000,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                      },
+                      {
+                        "time": -8326,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+                      },
+                      {
+                        "time": -6008,
+                        "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+                      },
+                      {
+                        "time": -4258,
+                        "value": "color-mix(in srgb, transparent 80%, #0e0)"
+                      },
+                      {
+                        "time": -1826,
+                        "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+                      },
+                      {
+                        "time": 1010,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+                      },
+                      {
+                        "time": 2458,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+                      },
+                      {
+                        "time": 3962.000000000002,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+                      },
+                      {
+                        "time": 6676,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+                      },
+                      {
+                        "time": 10000,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                      },
+                      {
+                        "time": 10000,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                      },
+                      {
+                        "time": 11674,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
+                      },
+                      {
+                        "time": 13992,
+                        "value": "color-mix(in srgb, transparent 80%, #d8d800)"
+                      },
+                      {
+                        "time": 15742,
+                        "value": "color-mix(in srgb, transparent 80%, #0e0)"
+                      },
+                      {
+                        "time": 18174,
+                        "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
+                      },
+                      {
+                        "time": 21010,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
+                      },
+                      {
+                        "time": 22458,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
+                      },
+                      {
+                        "time": 23962,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
+                      },
+                      {
+                        "time": 26676,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
+                      },
+                      {
+                        "time": 30000,
+                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "rgb(0% 0% 0%)"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 0.02
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 0.75
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "normal"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 400
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "Bevan"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "center"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "alphabetic"
+                      }
+                    ]
                   }
                 ]
               }

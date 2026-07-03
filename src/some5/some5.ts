@@ -1,15 +1,23 @@
-import { lerp, only, ReadOnlyRect } from "phil-lib/misc";
+import {
+  FULL_CIRCLE,
+  lerp,
+  only,
+  positiveModulo,
+  ReadOnlyRect,
+} from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
 import { makeLineFontRatio } from "../glib/line-font";
-import { myRainbow } from "../glib/my-rainbow";
+import { myRainbow, myRainbowPerceptualKeyframes } from "../glib/my-rainbow";
 import { ParagraphLayout } from "../glib/paragraph-layout";
-import { Point } from "../glib/path-shape";
+import { PathBuilder, Point } from "../glib/path-shape";
 import { applyTransform, transform } from "../glib/transforms";
 import {
   durationKeyframes,
   ease,
   easeIn,
   easeOut,
+  interpolateColor,
+  interpolateColors,
   interpolateNumbers,
   Keyframe,
 } from "../interpolate";
@@ -35,6 +43,17 @@ import {
   TextSpanComponent,
 } from "../slide-components";
 import slide1 from "./slide1.json";
+import {
+  FourierTerm,
+  getAnimationRules,
+  makePolygon,
+  samplesFromPath,
+  samplesToFourier,
+} from "../peano-fourier/fourier-shared";
+import { strokeColors } from "../stroke-colors";
+import { PathShapeSplitter } from "../glib/path-shape-splitter";
+import { matchShapes } from "../morph-animation";
+import { createPathShapeCrossFade } from "../cross-fade";
 
 const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
   { time: 0.15, value: 0, easeAfter: ease },
@@ -93,9 +112,10 @@ class WinkingFace {
   static draw(
     // Adapted from https://openmoji.org/,
     // https://vecta.io/symbols/190/smileys-emotion-face-smiling/8/winking-face
-    context: CanvasRenderingContext2D,
+    options: ShowOptions,
     transform?: DOMMatrixReadOnly,
   ) {
+    const { context } = options;
     if (transform) {
       context.save();
       applyTransform(context, transform);
@@ -114,16 +134,103 @@ class WinkingFace {
   }
 }
 
+class FourierStar {
+  static readonly #star5 = makePolygon(5, 1, undefined, 0).transform(
+    new DOMMatrix().rotateSelf(-90),
+  );
+  static readonly #samples = samplesFromPath(this.#star5, 256);
+  static readonly #terms: readonly FourierTerm[] = samplesToFourier(
+    this.#samples,
+  );
+  static readonly #livePathMakers = getAnimationRules(
+    this.#terms,
+    [1, 2, 3, 40],
+  );
+  static readonly #fourierIndex: readonly Keyframe<number>[] = [
+    { time: 0.4, value: 0 },
+    { time: 0.35, value: 1 },
+    { time: 0.25, value: 2 },
+  ];
+  /**
+   * @deprecated Do not call.
+   * This is a static class.
+   */
+  private constructor() {
+    throw new Error("wtf");
+  }
+  static show(options: ShowOptions, transform?: DOMMatrixReadOnly) {
+    const { context, globalTime } = options;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = 0.1;
+    context.strokeStyle = "brown";
+    const progress = positiveModulo(globalTime / 9_000, 1);
+    const currentState = durationKeyframes(progress, FourierStar.#fourierIndex);
+    const pathShape = FourierStar.#livePathMakers[currentState.value](
+      currentState.progress,
+    );
+    if (transform) {
+      context.save();
+      applyTransform(context, transform);
+    }
+    context.stroke(pathShape.canvasPath);
+    if (transform) {
+      context.restore();
+    }
+  }
+}
+
+/**
+ * Draw words inside the standard test square.
+ * "Peace" is on top.
+ * "Love" is upside down on the bottom.
+ *
+ * The outlines are in black.
+ * The inside is mostly transparent.
+ * The colors vary across the spectrum over time.
+ * The speed is fixed relative to options.globalTime, for simplicity.
+ * @param options
+ * @param transform
+ */
+function showPeaceAndLove(options: ShowOptions, transform?: DOMMatrixReadOnly) {
+  const { context, globalTime } = options;
+  function getColor(offset = 0) {
+    const progress = positiveModulo(globalTime / 3_000 + offset, 1);
+    const baseColor = interpolateColors(progress, myRainbowPerceptualKeyframes);
+    return interpolateColor(0.8, baseColor, "transparent");
+  }
+  if (transform) {
+    context.save();
+    applyTransform(context, transform);
+  }
+  //context.fillStyle = "#ccc";
+  //context.fillRect(-1,-1, 2,2);
+  context.strokeStyle = "black";
+  context.fillStyle = getColor();
+  context.font = "0.75px Ranchers";
+  context.textAlign = "center";
+  context.textBaseline = "alphabetic";
+  context.lineWidth = 0.02;
+  context.fillText("Peace", 0, -0.35);
+  context.strokeText("Peace", 0, -0.35);
+  context.rotate(FULL_CIRCLE / 2);
+  context.fillStyle = getColor(0.5);
+  context.font = "0.75px Bevan";
+  context.fillText("Love", 0, -0.39);
+  context.strokeText("Love", 0, -0.39);
+  if (transform) {
+    context.restore();
+  }
+}
+
 /**
  * A sample made to demonstrate transforms.
  * @param context Where to draw
  * @param transform By default the box is centered on (0, 0), with a hole punched in the top left corder, (-1, -1).
  */
-function showColorfulBox(
-  context: CanvasRenderingContext2D,
-  transform?: DOMMatrixReadOnly,
-) {
+function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
   const lineWidth = 0.25;
+  const { context } = options;
   context.save();
   if (transform) {
     applyTransform(context, transform);
@@ -155,6 +262,7 @@ function showColorfulBox(
   context.moveTo(1, -1);
   context.lineTo(1, 1);
   context.stroke();
+  context.lineWidth = lineWidth / 2;
   context.strokeStyle = myRainbow.cssBlue;
   context.beginPath();
   context.moveTo(-1, 0);
@@ -269,17 +377,13 @@ class MatrixLayout {
    *
    * Do this up front so we can easily reserve space.
    */
-  private readonly laidOutTimes: ReturnType<
-    InstanceType<typeof ParagraphLayout>["align"]
-  >;
+  private readonly laidOutTimes: ReturnType<ParagraphLayout["align"]>;
   /**
    * The = sign.
    *
    * Do this up front so we can easily reserve space.
    */
-  private readonly laidOutEquals: ReturnType<
-    InstanceType<typeof ParagraphLayout>["align"]
-  >;
+  private readonly laidOutEquals: ReturnType<ParagraphLayout["align"]>;
   private readonly pointContentWidth: number;
   private readonly pointWidth: number;
   /**
@@ -810,10 +914,7 @@ function drawGrid(
 }
 
 type Sample = {
-  draw(
-    context: CanvasRenderingContext2D,
-    transform?: DOMMatrixReadOnly | undefined,
-  ): void;
+  draw(options: ShowOptions, transform?: DOMMatrixReadOnly | undefined): void;
   readonly svg: string;
   readonly typescript: string;
 };
@@ -821,12 +922,22 @@ type Sample = {
 const WINK: Sample = {
   draw: WinkingFace.draw,
   svg: "#winkingFace",
-  typescript: "WinkingFace.draw();",
+  typescript: "WinkingFace.draw(options);",
 };
 const BOX: Sample = {
   draw: showColorfulBox,
   svg: "#colorfulBox",
-  typescript: "showColorfulBox();",
+  typescript: "showColorfulBox(options);",
+};
+const FOURIER_STAR: Sample = {
+  draw: FourierStar.show,
+  svg: "#fourierStar",
+  typescript: "FourierStar.show(options)",
+};
+const PEACE_AND_LOVE: Sample = {
+  draw: showPeaceAndLove,
+  svg: "#peaceAndLove",
+  typescript: "showPeaceAndLove(options)",
 };
 
 /**
@@ -842,7 +953,7 @@ class BeforeAndAfter implements Showable {
   static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
   static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
-  readonly duration = 20_000;
+  readonly duration = 40_000;
   readonly components: Showable[] = [];
   readonly schedules: ScheduleInfo[] = [];
   readonly textForTransform = new TextComponent();
@@ -883,12 +994,23 @@ class BeforeAndAfter implements Showable {
     const angle = paddedEase(progress) * 360;
     return `rotate(${angle.toFixed(2)}deg)`;
   }
+  static readonly #sampleSchedule: readonly Keyframe<
+    typeof showPeaceAndLove
+  >[] = [
+    { time: 1 / 4, value: WINK.draw },
+    { time: 1 / 4, value: BOX.draw },
+    { time: 1 / 4, value: FOURIER_STAR.draw },
+    { time: 1 / 4, value: PEACE_AND_LOVE.draw },
+  ];
   show(options: ShowOptions) {
     for (const child of this.components!) child.show(options);
     const { timeInMs, context } = options;
-    const globalProgress = (timeInMs / this.duration) * 2;
-    const [progress, sample] =
-      globalProgress < 1 ? [globalProgress, WINK] : [globalProgress - 1, BOX];
+    const globalProgress = durationKeyframes(
+      timeInMs / this.duration,
+      BeforeAndAfter.#sampleSchedule,
+    );
+    const progress = globalProgress.progress;
+    const drawSample = globalProgress.value;
     const transformString = this.makeTransformString(progress);
     const matrix = new DOMMatrixReadOnly(transformString);
     const transformedPoint = transform(
@@ -912,7 +1034,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     context.lineWidth = 0.25;
-    sample.draw(context, this.rightMostTransform);
+    drawSample(options, this.rightMostTransform);
     context.setTransform(originalTransform);
     context.translate(12, 3.75);
     drawGrid(
@@ -921,7 +1043,7 @@ class BeforeAndAfter implements Showable {
       context,
     );
     applyTransform(context, matrix);
-    sample.draw(context, this.rightMostTransform);
+    drawSample(options, this.rightMostTransform);
     context.setTransform(originalTransform);
     this.textForTransform.textSchedule.set(transformString);
     this.textForTransform.show(options);
@@ -1091,23 +1213,43 @@ class ShowTwoTransforms {
     readonly sample: Sample;
   }>[] = [
     {
-      time: 1 / 4,
+      time: 1 / 8,
       value: { activeMatrix: "right", sample: WINK },
       easeAfter: ease,
     },
     {
-      time: 1 / 4,
+      time: 1 / 7,
       value: { activeMatrix: "left", sample: WINK },
       easeAfter: ease,
     },
     {
-      time: 1 / 4,
+      time: 1 / 8,
+      value: { activeMatrix: "right", sample: FOURIER_STAR },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 8,
+      value: { activeMatrix: "left", sample: FOURIER_STAR },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 8,
       value: { activeMatrix: "right", sample: BOX },
       easeAfter: ease,
     },
     {
-      time: 1 / 4,
+      time: 1 / 8,
       value: { activeMatrix: "left", sample: BOX },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 8,
+      value: { activeMatrix: "right", sample: PEACE_AND_LOVE },
+      easeAfter: ease,
+    },
+    {
+      time: 1 / 8,
+      value: { activeMatrix: "left", sample: PEACE_AND_LOVE },
       easeAfter: ease,
     },
   ];
@@ -1150,7 +1292,7 @@ class ShowTwoTransforms {
         .getTransform(leftProgress)
         .multiply(this.right.getTransform(rightProgress)),
     );
-    globalProgress.value.sample.draw(context);
+    globalProgress.value.sample.draw(options);
     context.setTransform(originalTransform);
     return {
       leftProgress,
@@ -1759,8 +1901,76 @@ ${status.sample.typescript}`);
   slideList.add(Slide13.instance);
 }
 
-// MARK: Slide 14
+// MARK: Try New Items
 {
+  const star5 = makePolygon(5, 1, undefined, 0).transform(
+    new DOMMatrix().rotateSelf(-90),
+  );
+  const circle = PathBuilder.M(0, -0.5)
+    .circle(0, 0, "cw")
+    .circle(0, 0, "cw").pathShape;
+  const shapeMaker = matchShapes(circle, star5);
+  const crossFade = createPathShapeCrossFade(circle, star5, 0.25, 100, ease);
+  const splitter = PathShapeSplitter.create(circle);
+
+  const samples = samplesFromPath(star5, 256);
+  const terms: readonly FourierTerm[] = samplesToFourier(samples);
+  const livePathMakers = getAnimationRules(terms, [1, 2, 3, 40]);
+  const fourierIndex: readonly Keyframe<number>[] = [
+    { time: 0.4, value: 0 },
+    { time: 0.35, value: 1 },
+    { time: 0.25, value: 2 },
+  ];
+  /*
+  const xx1 = myRainbowPerceptualKeyframes.map((original) => {
+    return {
+      time: original.time * 20_000,
+      value: interpolateColor(0.8, original.value, "transparent"),
+    };
+  });
+  console.log(xx1);
+  const xx2 = xx1.map((base) => {
+    return { time: base.time - 10_000, value: base.value };
+  });
+  const xx3 = xx1.map((base) => {
+    return { time: base.time + 10_000, value: base.value };
+  });
+  console.log([...xx2, ...xx3]);
+  */
+
+  const tryNewItems: Showable = {
+    description: "Try New Items",
+    duration: 20_000,
+    components: [],
+    show(options) {
+      this.components?.forEach((component) => component.show(options));
+      const { context, timeInMs, globalTime } = options;
+      const progress = timeInMs / this.duration;
+      context.lineCap = "round";
+      context.lineJoin = "round";
+      context.lineWidth = 0.05;
+      strokeColors({
+        context,
+        pathShape: star5.translate(1.5, 1.5),
+        relativeOffset: globalTime / 2500,
+      });
+      context.strokeStyle = myRainbow.myBlue;
+      context.stroke(
+        splitter.trim(0, progress * splitter.length).translate(4.5, 1.5)
+          .canvasPath,
+      );
+      context.strokeStyle = "magenta";
+      context.stroke(shapeMaker(progress).translate(7.5, 1.5).canvasPath);
+      context.strokeStyle = myRainbow.cssBlue;
+      context.stroke(crossFade(progress).translate(10.5, 1.5).canvasPath);
+      context.strokeStyle = myRainbow.orange;
+      const f = durationKeyframes(progress, fourierIndex);
+      context.stroke(
+        livePathMakers[f.value](f.progress).translate(13.5, 1.5).canvasPath,
+      );
+    },
+  };
+  slideList.add(tryNewItems);
 }
 
 // MARK: Parallel Combination

@@ -2,7 +2,6 @@ import {
   FULL_CIRCLE,
   initializedArray,
   lerp,
-  makeBoundedLinear,
   makeLinear,
   only,
   positiveModulo,
@@ -64,12 +63,17 @@ import { fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, distribute } from "./utility";
 import { zipper } from "./zipper";
 import { SingleImageComponent } from "./slide-components";
-import {
-  NumberScheduleInfo,
-  RectangleScheduleInfo,
-} from "./schedule-helper";
+import { NumberScheduleInfo, RectangleScheduleInfo } from "./schedule-helper";
 import { makeCornerRounder } from "./corner-rounder";
 import { compare, convertCSS } from "colorizr";
+// Example of Vite's static asset handling.
+// https://vite.dev/guide/assets
+import imageUrl from "./Philip Smolen.jpeg";
+import {
+  constantToParametric,
+  createCrossFadeFunction,
+  pathToParametric,
+} from "./cross-fade";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.
@@ -3064,9 +3068,6 @@ What the hand, dare sieze the fire?`);
 }
 
 // MARK: <img src="...">
-// Example of Vite's static asset handling.
-// https://vite.dev/guide/assets
-import imageUrl from "./Philip Smolen.jpeg";
 {
   /**
    * Draw four images.
@@ -3082,7 +3083,10 @@ import imageUrl from "./Philip Smolen.jpeg";
   const path = pathShape.canvasPath;
   const schedules: ScheduleInfo[] = [];
   const components = new Map<string, Showable>();
-  components.set("Peano", new SingleImageComponent({ url: "./Giuseppe_Peano.jpg" }));
+  components.set(
+    "Peano",
+    new SingleImageComponent({ url: "./Giuseppe_Peano.jpg" }),
+  );
   components.set("Philip", new SingleImageComponent({ url: imageUrl }));
   components.set(
     "Pi Creature",
@@ -3422,82 +3426,6 @@ import imageUrl from "./Philip Smolen.jpeg";
 // MARK: Cross-Fade
 {
   /**
-   * A function that takes a number from 0 to 1 (inclusive) as input, and returns x and y coordinates.
-   * This is a nice way to describe a curve using math.
-   * And it is a perfect input for some other tools, like {@link PathShape.parametric}().
-   */
-  type ParametricFunction = (progress: number) => Point;
-  /**
-   *
-   * @param from Start with this input.
-   * @param to End up looking like this input.
-   * @param overlap How big a region to average over.
-   * A small region will show two distinct curves with a line connecting them.
-   * Larger regions can have more space to make the curve naturally connect the two sides.
-   * Large enough regions can make whole sections of your graph appear to move over time, often a pleasant result.
-   *
-   * This number is measured relative to the input to `from`, `to`, and the result of `createCrossFade()`.
-   * That is slightly different from the scale used for `crossFadeProgress`.
-   * @param crossFadeProgress How much of a change we've made.
-   * 0 means to return the `from` function unchanged.
-   * 1 means to return the `to` function unchanged.
-   * 0.5 means to show about half and half, with a little overlap in the middle.
-   * If `overlap` is small, `overlap * 0.95` means to show most of `from` as originally specified, most of the averaged region, and no completely unaltered parts of `to`.
-   * @param easing A standard easing function mapping the range [0,1] to [0,1].
-   * Defaults to linear.
-   * When the underlying data comes from Fourier decomposition I find linear works well.
-   * But when moving between two arbitrary curves, sometimes it helps to set this to {@link ease}.
-   */
-  function createCrossFade(
-    from: ParametricFunction,
-    to: ParametricFunction,
-    overlap: number,
-    crossFadeProgress: number,
-    easing = (progress: number) => progress,
-  ): ParametricFunction {
-    if (crossFadeProgress <= 0) {
-      return from;
-    } else if (crossFadeProgress >= 1) {
-      return to;
-    } else {
-      const farSide = (1 - crossFadeProgress) * (1 + overlap);
-      const nearSide = farSide - overlap;
-      const progressToStrengthOfTo = makeBoundedLinear(nearSide, 0, farSide, 1);
-      function crossFadeResult(progress: number) {
-        const strengthOfTo = progressToStrengthOfTo(progress);
-        switch (strengthOfTo) {
-          case 0: {
-            return from(progress);
-          }
-          case 1: {
-            return to(progress);
-          }
-          default: {
-            return interpolatePoint(
-              easing(strengthOfTo),
-              from(progress),
-              to(progress),
-            );
-          }
-        }
-      }
-      return crossFadeResult;
-    }
-  }
-  function pathToParametric(pathShape: PathShape): ParametricFunction {
-    const splitter = PathShapeSplitter.create(pathShape);
-    function parametricFromPath(progress: number) {
-      return splitter.at(progress * splitter.length);
-    }
-    return parametricFromPath;
-  }
-  function constantToParametric(point: Point): ParametricFunction {
-    function parametricFromPoint() {
-      return point;
-    }
-    return parametricFromPoint;
-  }
-  /**
    * See https://tradeideasphilip.github.io/random-svg-tests/parametric-path.html for the source of this and other sample paths.
    * @param cuspCount A positive integer.
    * @param amplitude 0 makes a circle.
@@ -3781,7 +3709,7 @@ import imageUrl from "./Philip Smolen.jpeg";
       context.stroke(simplePathInterpolators[sampleIndex](progress).canvasPath);
 
       // Draw the right side.
-      const movingFunction = createCrossFade(
+      const movingFunction = createCrossFadeFunction(
         sample.from,
         sample.to,
         sample.overlap,
@@ -4169,9 +4097,7 @@ import imageUrl from "./Philip Smolen.jpeg";
         text: label,
         alignment: "left",
         width: BAR_WIDTH,
-      })
-        .translate(MARGIN_X, rowTop + LABEL_Y)
-        .canvasPath,
+      }).translate(MARGIN_X, rowTop + LABEL_Y).canvasPath,
     );
 
     // Color square
@@ -4192,9 +4118,7 @@ import imageUrl from "./Philip Smolen.jpeg";
         text: colorName,
         alignment: "left",
         width: 6,
-      })
-        .translate(MARGIN_X + SQ_SIZE + 0.3, rowTop + NAME_Y)
-        .canvasPath,
+      }).translate(MARGIN_X + SQ_SIZE + 0.3, rowTop + NAME_Y).canvasPath,
     );
 
     // Gradient bar
@@ -4243,8 +4167,22 @@ import imageUrl from "./Philip Smolen.jpeg";
       context.lineTo(16, 4.5);
       context.stroke();
 
-      drawRow(context, 0, "Equal Weights", progress, myRainbowEqualKeyframes, equalNameKfs);
-      drawRow(context, 4.5, "Perceptual", progress, myRainbowPerceptualKeyframes, perceptualNameKfs);
+      drawRow(
+        context,
+        0,
+        "Equal Weights",
+        progress,
+        myRainbowEqualKeyframes,
+        equalNameKfs,
+      );
+      drawRow(
+        context,
+        4.5,
+        "Perceptual",
+        progress,
+        myRainbowPerceptualKeyframes,
+        perceptualNameKfs,
+      );
     },
   };
   sceneList.add(rainbowSpacing);
@@ -4296,18 +4234,27 @@ import imageUrl from "./Philip Smolen.jpeg";
       text: info.name,
       alignment: "left",
       width: METRICS_X - TEXT_X - 0.2,
-    })
+    }),
   );
 
   // Static column header paths.
   const hdrRatioPath = ParagraphLayout.singlePathShape({
-    font: metricsFont, text: "contrast", alignment: "left", width: COL_RATIO_W,
+    font: metricsFont,
+    text: "contrast",
+    alignment: "left",
+    width: COL_RATIO_W,
   });
   const hdrAAPath = ParagraphLayout.singlePathShape({
-    font: metricsFont, text: "AA", alignment: "center", width: COL_AA_W,
+    font: metricsFont,
+    text: "AA",
+    alignment: "center",
+    width: COL_AA_W,
   });
   const hdrAAAPath = ParagraphLayout.singlePathShape({
-    font: metricsFont, text: "AAA", alignment: "center", width: COL_AAA_W,
+    font: metricsFont,
+    text: "AAA",
+    alignment: "center",
+    width: COL_AAA_W,
   });
 
   // Chrome returns 'color(srgb r g b)' (components in 0–1) when reading back a
@@ -4315,11 +4262,19 @@ import imageUrl from "./Philip Smolen.jpeg";
   // we detect it with a regex and convert manually. Everything else goes through
   // convertCSS() as a fallback.
   function canvasColorToHex(canvasColor: string): string {
-    const m = canvasColor.match(/^color\(srgb\s+([\d.e+-]+)\s+([\d.e+-]+)\s+([\d.e+-]+)\)/);
+    const m = canvasColor.match(
+      /^color\(srgb\s+([\d.e+-]+)\s+([\d.e+-]+)\s+([\d.e+-]+)\)/,
+    );
     if (m) {
-      const r = Math.round(parseFloat(m[1]) * 255).toString(16).padStart(2, "0");
-      const g = Math.round(parseFloat(m[2]) * 255).toString(16).padStart(2, "0");
-      const b = Math.round(parseFloat(m[3]) * 255).toString(16).padStart(2, "0");
+      const r = Math.round(parseFloat(m[1]) * 255)
+        .toString(16)
+        .padStart(2, "0");
+      const g = Math.round(parseFloat(m[2]) * 255)
+        .toString(16)
+        .padStart(2, "0");
+      const b = Math.round(parseFloat(m[3]) * 255)
+        .toString(16)
+        .padStart(2, "0");
       return `#${r}${g}${b}`;
     }
     return convertCSS(canvasColor, "hex");
@@ -4365,9 +4320,7 @@ import imageUrl from "./Philip Smolen.jpeg";
           text: `bg: ${bgLabel}`,
           alignment: "left",
           width: 16 - METRICS_X,
-        })
-          .translate(METRICS_X, HEADER_H * 0.2)
-          .canvasPath,
+        }).translate(METRICS_X, HEADER_H * 0.2).canvasPath,
       );
       // Column headers — each in its own fixed-width cell.
       context.lineWidth = metricsFont.strokeWidth;
@@ -4386,7 +4339,12 @@ import imageUrl from "./Philip Smolen.jpeg";
 
         // Color swatch rectangle.
         context.fillStyle = info.color;
-        context.fillRect(SWATCH_X, rowTop + ROW_H * 0.06, SWATCH_W, ROW_H * 0.88);
+        context.fillRect(
+          SWATCH_X,
+          rowTop + ROW_H * 0.06,
+          SWATCH_W,
+          ROW_H * 0.88,
+        );
 
         // Color name, stroked in that color, on top of the background.
         context.save();
