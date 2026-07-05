@@ -420,7 +420,7 @@ export class SlideComponent implements Showable {
   readonly placeI = new NumberScheduleInfo("𝓘", 1);
   readonly placeJ = new NumberScheduleInfo("𝓙", 1);
 
-  readonly schedules = [
+  protected schedulesInternal = [
     this.placeA,
     this.placeB,
     this.placeC,
@@ -431,13 +431,16 @@ export class SlideComponent implements Showable {
     this.placeH,
     this.placeI,
     this.placeJ,
-  ] as const;
+  ];
 
-  readonly description = "Slide";
+  readonly schedules: Showable["schedules"] = this.schedulesInternal;
+
+  readonly description: string;
   readonly duration = 0;
   readonly components: Showable[] = [];
   constructor(
     initialValues: {
+      description?: string;
       transformTemplate?: string;
       placeA?: number | readonly Keyframe<number>[];
       placeB?: number | readonly Keyframe<number>[];
@@ -451,6 +454,7 @@ export class SlideComponent implements Showable {
       placeJ?: number | readonly Keyframe<number>[];
     } = {},
   ) {
+    this.description = initialValues.description ?? "Slide";
     if (initialValues.transformTemplate !== undefined)
       this.transformTemplate.value = initialValues.transformTemplate;
     if (initialValues.placeA !== undefined)
@@ -499,26 +503,23 @@ export class SlideComponent implements Showable {
     const { context, timeInMs } = options;
     const transformString = this.transformStringAt(timeInMs);
     const originalTransform = context.getTransform();
-    let applied = false;
+    let transformMatrix: undefined | DOMMatrixReadOnly;
     try {
-      const tf = new DOMMatrixReadOnly(transformString);
-      applyTransform(context, tf);
-      applied = true;
-      const currentTf = context.getTransform();
-      this.components.forEach((component) => {
-        options.registerTransform?.(component, currentTf);
-        component.show(options);
-      });
-    } catch (ex) {
-      if (!applied) {
-        showError(context, "Invalid Transform:\n" + transformString);
-      } else {
-        throw ex;
-      }
-    } finally {
-      context.setTransform(originalTransform);
+      transformMatrix = new DOMMatrixReadOnly(transformString);
+    } catch {
+      showError(context, "Invalid Transform:\n" + transformString);
+      return;
     }
+    applyTransform(context, transformMatrix);
+    const currentTransform = context.getTransform();
+    this.components.forEach((component) => {
+      options.registerTransform?.(component, currentTransform);
+      component.show(options);
+    });
+    this.additionalDrawing(options);
+    context.setTransform(originalTransform);
   }
+  protected additionalDrawing(options: ShowOptions) {}
 }
 
 /**

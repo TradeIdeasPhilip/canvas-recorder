@@ -171,7 +171,7 @@ But I don't yet have a solution to that with a single schedule, either!
 **TO DO**!
 
 For now this feature has hard coded children.
-In the recent past I tried to focus on fully componentizing all my my infrastructure.
+In the recent past I tried to focus on fully componentizing all of my infrastructure.
 That is unnecessary in the example at hand.
 
 This would be a convenient place to insert a slide.
@@ -183,7 +183,7 @@ I could picture each slide being a child component, but without the ability to a
 
 That just needs to be a thing.
 Separate from the rest of this.
-`Showable` need _two_ lists of components.
+`Showable` needs _two_ lists of components.
 Keep the existing list which can be `undefined` to disable, otherwise is fully editable by the user.
 And add a fixed list of components.
 These cannot be added removed or reordered by the user.

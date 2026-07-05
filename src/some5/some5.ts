@@ -38,6 +38,7 @@ import {
 import {
   buildComponents,
   MultiTextComponent,
+  SlideComponent,
   TextComponent,
   TextFormatComponent,
   TextSpanComponent,
@@ -69,6 +70,8 @@ const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
 function paddedEase(progress: number) {
   return interpolateNumbers(progress, paddedEaseSubSchedule);
 }
+
+// MARK: Winking Face
 
 class WinkingFace {
   /**
@@ -134,6 +137,8 @@ class WinkingFace {
   }
 }
 
+// MARK: Fourier Star
+
 class FourierStar {
   static readonly #star5 = makePolygon(5, 1, undefined, 0).transform(
     new DOMMatrix().rotateSelf(-90),
@@ -180,6 +185,8 @@ class FourierStar {
   }
 }
 
+// MARK: Peace & Love
+
 /**
  * Draw words inside the standard test square.
  * "Peace" is on top.
@@ -222,6 +229,8 @@ function showPeaceAndLove(options: ShowOptions, transform?: DOMMatrixReadOnly) {
     context.restore();
   }
 }
+
+// MARK: Colorful Box
 
 /**
  * A sample made to demonstrate transforms.
@@ -276,22 +285,24 @@ function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
   context.restore();
 }
 
-function makeEmptySlide(description: string): Showable {
-  return {
-    description,
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    /**
-     * All of these are configurable, mostly for prototypes.
-     * This tells the Visual Editor that we can add things.
-     */
-    components: [],
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
-}
-
+/**
+ * Show all of these to the top level GUI.
+ */
 const slideList = new MakeShowableInSeries("SoME5");
+
+/**
+ * Add these to my prototype of a timeline editor.
+ */
+const forTimeline: Showable[] = [];
+
+/**
+ * Add this item to both {@link slideList} and {@link forTimeline}.
+ * @param toAdd The new slide.
+ */
+function addToBoth(toAdd: Showable) {
+  slideList.add(toAdd);
+  forTimeline.push(toAdd);
+}
 
 // MARK: Slide 1
 {
@@ -307,7 +318,7 @@ const slideList = new MakeShowableInSeries("SoME5");
       for (const child of this.components!) child.show(options);
     },
   };
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 /**
@@ -1053,7 +1064,7 @@ class BeforeAndAfter implements Showable {
 // MARK: Slide 2
 {
   const slide = new BeforeAndAfter("Slide 2");
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 // MARK: Slide 3
@@ -1076,7 +1087,7 @@ class BeforeAndAfter implements Showable {
     const angle = angleSchedule.at(progress);
     return `skewY(${angle.toFixed(2)}deg)`;
   };
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 // MARK: Slide 4
@@ -1099,7 +1110,7 @@ class BeforeAndAfter implements Showable {
     const scale = scaleSchedule.at(progress);
     return `scaleX(${scale.toFixed(2)})`;
   };
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 // MARK: Slide 5
@@ -1108,7 +1119,7 @@ class BeforeAndAfter implements Showable {
     "Slide 5",
     new DOMMatrixReadOnly("translateX(1.5px)"),
   );
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 // MARK: Slide 6
@@ -1143,7 +1154,7 @@ class BeforeAndAfter implements Showable {
       }
     }
   };
-  slideList.add(slide);
+  addToBoth(slide);
 }
 
 // MARK: ShowTwoTransforms
@@ -1404,7 +1415,7 @@ class SwapTransformOrder implements Showable {
 }
 
 // MARK: Slide 7
-slideList.add(
+addToBoth(
   new SwapTransformOrder(
     "Slide 7",
     {
@@ -1427,7 +1438,7 @@ slideList.add(
 );
 
 // MARK: Slide 8
-slideList.add(
+addToBoth(
   new SwapTransformOrder(
     "Slide 8",
     {
@@ -1450,7 +1461,7 @@ slideList.add(
 );
 
 // MARK: Slide 9
-slideList.add(
+addToBoth(
   new SwapTransformOrder(
     "Slide 9",
     {
@@ -1693,7 +1704,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
 }
 
 // MARK: Slide 10
-slideList.add(
+addToBoth(
   new CodeSampleAndTwoMatrices(
     "Slide 10",
     {
@@ -1718,7 +1729,7 @@ slideList.add(
 );
 
 // MARK: Slide 11
-slideList.add(
+addToBoth(
   new CodeSampleAndTwoMatrices(
     "Slide 11",
     {
@@ -1743,7 +1754,7 @@ slideList.add(
 );
 
 // MARK: Slide 12
-slideList.add(
+addToBoth(
   new CodeSampleAndTwoMatrices(
     "Slide 12",
     {
@@ -1898,7 +1909,7 @@ ${status.sample.typescript}`);
     }
     static readonly instance = new this();
   }
-  slideList.add(Slide13.instance);
+  addToBoth(Slide13.instance);
 }
 
 // MARK: Try New Items
@@ -1973,9 +1984,65 @@ ${status.sample.typescript}`);
   slideList.add(tryNewItems);
 }
 
+class ChildWrapper extends SlideComponent {
+  timeToProgressSchedule = new NumberScheduleInfo("Time to Progress", -1);
+  constructor(readonly child: Showable) {
+    super({ description: child.description });
+    this.schedulesInternal.unshift(this.timeToProgressSchedule);
+  }
+  protected override additionalDrawing(options: ShowOptions): void {
+    const progress = this.timeToProgressSchedule.at(options.timeInMs);
+    if (progress >= 0 && progress <= 1) {
+      const childTime = progress * this.child.duration;
+      const childOptions: ShowOptions = { ...options, timeInMs: childTime };
+      this.child.show(childOptions);
+    }
+  }
+}
+
 // MARK: Parallel Combination
 {
-  //
+  const duration = 600_000;
+  const slideChildren = forTimeline.map((child) => new ChildWrapper(child));
+  function spread() {
+    const endTime = duration;
+    const overlap = 350;
+    const freezeBeforeEnd = 500;
+    const freezeAfterStart = 500;
+    const availableForMain =
+      endTime -
+      (freezeBeforeEnd + freezeAfterStart) * slideChildren.length -
+      overlap * (slideChildren.length - 1);
+    if (availableForMain <= 0) {
+      throw new Error("wtf");
+    }
+    function getFrameStart(index: number) {
+      return (
+        index * (overlap + freezeBeforeEnd + freezeAfterStart) +
+        (index / slideChildren.length) * availableForMain
+      );
+    }
+    slideChildren.forEach((childWrapper, index, array) => {
+      const frameStart = getFrameStart(index);
+      const frameEnd = getFrameStart(index + 1) - overlap;
+      const timeToProgress: Keyframe<number>[] = [];
+      timeToProgress.push({ time: frameStart - overlap - 1000, value: -1 });
+      timeToProgress.push({ time: frameStart - overlap, value: 0 });
+      timeToProgress.push({ time: frameStart + freezeAfterStart, value: 0 });
+      timeToProgress.push({ time: frameEnd - freezeBeforeEnd, value: 1 });
+      timeToProgress.push({ time: frameEnd + overlap, value: 1 });
+      timeToProgress.push({ time: frameEnd + overlap + 1000, value: 2 });
+      childWrapper.timeToProgressSchedule.set(timeToProgress);
+      childWrapper.transformTemplate.value = "translateX(𝓐px)";
+      const translateX: Keyframe<number>[] = [];
+      translateX.push({ time: frameStart - overlap, value: 16 });
+      translateX.push({ time: frameStart, value: 0 });
+      translateX.push({ time: frameEnd, value: 0 });
+      translateX.push({ time: frameEnd + overlap, value: -16 });
+      childWrapper.placeA.set(translateX);
+    });
+  }
+  spread();
   /**
    * This slide is a test of the new {@link Showable.rootComponentEditor} property.
    * Eventually this will be filled with some type of timeline GUI.
@@ -2041,17 +2108,34 @@ ${status.sample.typescript}`);
   };
   const parallelCombination: Showable = {
     description: "Parallel Combination",
-    duration: 120_000,
+    duration,
     rootComponentEditor,
-    fixedComponents: [new TextComponent({ text: "coming soon" })],
+    fixedComponents: slideChildren,
     show(options) {
-      only(this.fixedComponents!).show(options);
+      this.fixedComponents!.forEach((component) => {
+        component.show(options);
+      });
     },
   };
   slideList.add(parallelCombination);
 }
 
 // MARK: Blank Sides
+
+function makeEmptySlide(description: string): Showable {
+  return {
+    description,
+    duration: DEFAULT_SLIDE_DURATION_MS,
+    /**
+     * All of these are configurable, mostly for prototypes.
+     * This tells the Visual Editor that we can add things.
+     */
+    components: [],
+    show(options) {
+      for (const child of this.components!) child.show(options);
+    },
+  };
+}
 
 // Use this to make blank slides.
 // Fill them in with the Visual Editors.
