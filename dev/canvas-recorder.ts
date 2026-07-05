@@ -1392,19 +1392,13 @@ function saveState() {
   const topRight = getById("top-right", HTMLDivElement);
   const leftCol = getById("left-col", HTMLDivElement);
   if (topLeft.style.height)
-    sessionStorage.setItem(
-      "pane-height-top-left",
-      topLeft.getBoundingClientRect().height.toString(),
-    );
+    sessionStorage.setItem("pane-height-top-left", topLeft.style.height);
   if (topRight.style.height)
-    sessionStorage.setItem(
-      "pane-height-top-right",
-      topRight.getBoundingClientRect().height.toString(),
-    );
+    sessionStorage.setItem("pane-height-top-right", topRight.style.height);
   if (leftCol.style.flex)
     sessionStorage.setItem(
       "pane-width-left-col",
-      leftCol.getBoundingClientRect().width.toString(),
+      leftCol.style.flex.split(" ")[2],
     );
 }
 
@@ -5198,21 +5192,24 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     }
 
     // Restore splitter positions (must read before sessionStorage.clear() below).
-    const topLeftH = parseFloat(
-      sessionStorage.getItem("pane-height-top-left") ?? "",
-    );
-    const topRightH = parseFloat(
-      sessionStorage.getItem("pane-height-top-right") ?? "",
-    );
-    const leftColW = parseFloat(
-      sessionStorage.getItem("pane-width-left-col") ?? "",
-    );
-    if (isFinite(topLeftH))
-      getById("top-left", HTMLDivElement).style.height = `${topLeftH}px`;
-    if (isFinite(topRightH))
-      getById("top-right", HTMLDivElement).style.height = `${topRightH}px`;
-    if (isFinite(leftColW))
-      getById("left-col", HTMLDivElement).style.flex = `0 0 ${leftColW}px`;
+    // Values are stored as "XX.XX%" (new format) or a bare number in pixels (old).
+    const topLeftH = sessionStorage.getItem("pane-height-top-left") ?? "";
+    const topRightH = sessionStorage.getItem("pane-height-top-right") ?? "";
+    const leftColW = sessionStorage.getItem("pane-width-left-col") ?? "";
+    const toHeight = (v: string) =>
+      v.endsWith("%") ? v : isFinite(parseFloat(v)) ? `${parseFloat(v)}px` : "";
+    const toFlex = (v: string) =>
+      v.endsWith("%")
+        ? `0 0 ${v}`
+        : isFinite(parseFloat(v))
+          ? `0 0 ${parseFloat(v)}px`
+          : "";
+    const hL = toHeight(topLeftH);
+    if (hL) getById("top-left", HTMLDivElement).style.height = hL;
+    const hR = toHeight(topRightH);
+    if (hR) getById("top-right", HTMLDivElement).style.height = hR;
+    const fL = toFlex(leftColW);
+    if (fL) getById("left-col", HTMLDivElement).style.flex = fL;
   } finally {
     sessionStorage.clear();
   }
@@ -5441,7 +5438,7 @@ function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
           startPaneH + (e.clientY - startClientY),
         ),
       );
-      topPane.style.height = `${newH}px`;
+      topPane.style.height = `${((newH / colH) * 100).toFixed(2)}%`;
       if (zoomSelect.value === "fit") zoomToFit();
     };
 
@@ -5449,10 +5446,7 @@ function initResizeHandle(handle: HTMLElement, topPane: HTMLElement): void {
       handle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      sessionStorage.setItem(
-        storageKey,
-        topPane.style.height.replace("px", ""),
-      );
+      sessionStorage.setItem(storageKey, topPane.style.height);
     };
 
     document.addEventListener("mousemove", onMove);
@@ -5491,7 +5485,7 @@ initResizeHandle(
           startColW + (e.clientX - startClientX),
         ),
       );
-      leftCol.style.flex = `0 0 ${newW}px`;
+      leftCol.style.flex = `0 0 ${((newW / totalW) * 100).toFixed(2)}%`;
       if (zoomSelect.value === "fit") zoomToFit();
     };
 
@@ -5499,10 +5493,8 @@ initResizeHandle(
       vhandle.classList.remove("dragging");
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
-      sessionStorage.setItem(
-        vStorageKey,
-        leftCol.getBoundingClientRect().width.toString(),
-      );
+      // flex is "0 0 X%" — store just the percentage part
+      sessionStorage.setItem(vStorageKey, leftCol.style.flex.split(" ")[2]);
     };
 
     document.addEventListener("mousemove", onMove);
