@@ -1429,6 +1429,7 @@ type DataHistoryEntry = {
   schedules: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
+  userEditableDescription?: string;
 };
 /** Marker written when the user deliberately chooses TypeScript defaults. */
 type MarkerHistoryEntry = {
@@ -1529,6 +1530,7 @@ function currentSnapshotJson(selectable: Showable): string {
     components: Array.isArray(selectable.components)
       ? serializeComponents(selectable.components)
       : undefined,
+    userEditableDescription: selectable.userEditableDescription,
   });
 }
 
@@ -1577,6 +1579,7 @@ function applyDataEntry(selectable: Showable, entry: DataHistoryEntry): void {
     selectable.components.length = 0;
     selectable.components.push(...buildComponents(entry.components));
   }
+  selectable.userEditableDescription = entry.userEditableDescription;
 }
 
 /** Apply TypeScript defaults to a selectable in-place. */
@@ -1626,6 +1629,8 @@ function captureDefaults(): void {
     };
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.components!);
+    if (sel.userEditableDescription !== undefined)
+      entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
   }
 }
@@ -1834,6 +1839,9 @@ function serializeComponents(components: Showable[]): SerializedChild[] {
     if (child.components !== undefined) {
       entry.components = serializeComponents(child.components);
     }
+    if (child.userEditableDescription !== undefined) {
+      entry.userEditableDescription = child.userEditableDescription;
+    }
     return [entry];
   });
 }
@@ -1894,6 +1902,8 @@ async function saveScheduleState(
   };
   if (newScalars !== undefined) entry.scalars = newScalars;
   if (newComponents !== undefined) entry.components = newComponents;
+  if (selectable.userEditableDescription !== undefined)
+    entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
   await writeHistory(key, entries);
@@ -1955,6 +1965,7 @@ function saveOnUnload() {
         schedules: SerializedSchedule[];
         scalars?: SerializedScalar[];
         components?: SerializedChild[];
+        userEditableDescription?: string;
       };
       const source = _preDialogSource;
       const dirty = _wasInitiallyDirty;
@@ -1974,6 +1985,9 @@ function saveOnUnload() {
           ...(preSnap.scalars !== undefined && { scalars: preSnap.scalars }),
           ...(preSnap.components !== undefined && {
             components: preSnap.components,
+          }),
+          ...(preSnap.userEditableDescription !== undefined && {
+            userEditableDescription: preSnap.userEditableDescription,
           }),
         },
         ...(selectedTimestamp !== undefined && { selectedTimestamp }),
@@ -2012,6 +2026,9 @@ function saveOnUnload() {
         schedules,
         ...(scalars !== undefined && { scalars }),
         ...(components !== undefined && { components }),
+        ...(sel.userEditableDescription !== undefined && {
+          userEditableDescription: sel.userEditableDescription,
+        }),
       },
       ...(selectedTimestamp !== undefined && { selectedTimestamp }),
     });
@@ -2241,6 +2258,7 @@ async function _applyDialogSelection(saveOld: boolean) {
       schedules: SerializedSchedule[];
       scalars?: SerializedScalar[];
       components?: SerializedChild[];
+      userEditableDescription?: string;
     };
     if (target.scalars?.length && origSnap.scalars?.length)
       applyScalarSnapshot(target.scalars, origSnap.scalars);
@@ -2250,6 +2268,7 @@ async function _applyDialogSelection(saveOld: boolean) {
       target.components.length = 0;
       target.components.push(...buildComponents(origSnap.components));
     }
+    target.userEditableDescription = origSnap.userEditableDescription;
     await saveScheduleState(target, false, true);
     // Re-apply the selected item
     if (item.kind === "ts-defaults") applyTsDefaults(target);
@@ -2302,6 +2321,7 @@ historyCancelBtn.addEventListener("click", () => {
       schedules: SerializedSchedule[];
       scalars?: SerializedScalar[];
       components?: SerializedChild[];
+      userEditableDescription?: string;
     };
     if (target.scalars?.length && snap.scalars?.length)
       applyScalarSnapshot(target.scalars, snap.scalars);
@@ -2311,6 +2331,7 @@ historyCancelBtn.addEventListener("click", () => {
       target.components.length = 0;
       target.components.push(...buildComponents(snap.components));
     }
+    target.userEditableDescription = snap.userEditableDescription;
     selectedSlideChild = null;
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(target);
@@ -4406,6 +4427,9 @@ function serializeComponent(child: Showable): SerializedChild {
   if (child.components !== undefined) {
     entry.components = serializeComponents(child.components);
   }
+  if (child.userEditableDescription !== undefined) {
+    entry.userEditableDescription = child.userEditableDescription;
+  }
   return entry;
 }
 
@@ -4479,7 +4503,8 @@ function updateComponentEditor(selectable: Showable) {
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.textContent = "✎ " + child.description;
+      editBtn.textContent =
+        "✎ " + (child.userEditableDescription ?? child.description);
       editBtn.style.cssText = "flex:1;text-align:left";
       if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
       editBtn.addEventListener("click", () => {
@@ -4590,7 +4615,8 @@ function updateComponentEditor(selectable: Showable) {
 
       const editBtn = document.createElement("button");
       editBtn.type = "button";
-      editBtn.textContent = "✎ " + child.description;
+      editBtn.textContent =
+        "✎ " + (child.userEditableDescription ?? child.description);
       editBtn.style.cssText = "flex:1;text-align:left";
       if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
       editBtn.addEventListener("click", () => {
@@ -4641,7 +4667,8 @@ function updateComponentEditor(selectable: Showable) {
 
   const rootEditBtn = document.createElement("button");
   rootEditBtn.type = "button";
-  rootEditBtn.textContent = "✎ " + selectable.description;
+  rootEditBtn.textContent =
+    "✎ " + (selectable.userEditableDescription ?? selectable.description);
   rootEditBtn.style.cssText = "flex:1;text-align:left";
   if (selectedSlideChild === null) rootEditBtn.style.fontWeight = "bold";
   rootEditBtn.addEventListener("click", () => {
@@ -4733,6 +4760,47 @@ function updateComponentEditor(selectable: Showable) {
   list.scrollTop = wasAtBottom ? list.scrollHeight : savedScrollTop;
 }
 
+/** Builds the "Name" fieldset for {@link Showable.userEditableDescription}. */
+function buildNameSection(selectable: Showable): HTMLElement {
+  const section = document.createElement("fieldset");
+  section.style.cssText = "margin-bottom:0.4em";
+  const legend = document.createElement("legend");
+  legend.textContent = "Name";
+  section.append(legend);
+
+  const row = document.createElement("div");
+  row.style.cssText = "display:flex;gap:0.4em;align-items:center";
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.style.cssText = "flex:1;min-width:0";
+  input.placeholder = selectable.description;
+  input.value = selectable.userEditableDescription ?? "";
+
+  const resetBtn = document.createElement("button");
+  resetBtn.type = "button";
+  resetBtn.textContent = "Reset";
+  resetBtn.disabled = selectable.userEditableDescription === undefined;
+
+  function syncName(value: string) {
+    selectable.userEditableDescription = value === "" ? undefined : value;
+    resetBtn.disabled = selectable.userEditableDescription === undefined;
+    const root = currentSaveTarget();
+    if (root) updateComponentEditor(root);
+  }
+
+  input.addEventListener("input", () => syncName(input.value));
+
+  resetBtn.addEventListener("click", () => {
+    input.value = "";
+    syncName("");
+  });
+
+  row.append(input, resetBtn);
+  section.append(row);
+  return section;
+}
+
 function updateScheduleEditor(selectable: Showable) {
   scheduleEditorFieldset.replaceChildren();
   editingRectKf = null;
@@ -4767,6 +4835,7 @@ function updateScheduleEditor(selectable: Showable) {
     return;
   }
   scheduleEditorFieldset.hidden = false;
+  scheduleEditorFieldset.append(buildNameSection(selectable));
 
   let customPanel: HTMLElement | null = null;
   if (isTraditionalText) {

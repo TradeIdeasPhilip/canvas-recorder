@@ -99,6 +99,39 @@ export type Showable = {
    */
   readonly description: string;
   /**
+   * What should we display in the tree of subcomponents in the Visual Editor?
+   * Each component should have a meaningful name.
+   * Display this:  `component.userEditableDescription??description`.
+   *
+   * Note:
+   * The chapterSelector only looks at the {@link Showable.description} field.
+   * `description` works well for items that are created mostly in TypeScript.
+   * For example, the top level items submitted to \<select id="chapterSelector">
+   * often have names like "Try New Items" or at least "Slide 1" and "Slide 2".
+   * However, when you are creating a lot of instances of components, they will all have boring and repetitive names,
+   * like "Traditional Text" or "Slide".
+   * In this new case of the Visual Editor and components, we need a way to edit the description from the GUI.
+   * These values will be up to the end user and completely unconstrained.
+   * Unfortunately a lot of the current code expects the `description` field to be immutable and sane.
+   * Otherwise I'd reuse that field.
+   *
+   * This field is only modified by the user and the Visual Editor.
+   * In particular, there is no callback to say that this has changed.
+   *
+   * Recommended GUI:  When you select a component in the Visual Editor, you see a list of properties for that component.
+   * That includes schedules and scalars.
+   * This new property should appear at the top of that scrollable list of properties.
+   * Call this property "Name" (a reference to Delphi and similar tools).
+   * The property editor should contain an \<input> for the string version of this property.
+   * And it should contain a \<button> labeled "Reset".
+   * If the user hits the reset button, the input is cleared and the reset button is disabled.
+   * If the user modifies the \<input> the reset button is reenabled.
+   * The reset button changes this field to `undefined` (or removes it completely).
+   *
+   * This field will get saved and loaded at the same time as we save and load the other properties of each component.
+   */
+  userEditableDescription?:string;
+  /**
    * Aimed at a person using our development console.
    * That type of user can navigate a tree of Showable objects.
    */

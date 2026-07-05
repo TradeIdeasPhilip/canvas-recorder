@@ -1273,6 +1273,7 @@ export type SerializedChild = {
   schedules: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
+  userEditableDescription?: string;
 };
 
 /**
@@ -1288,6 +1289,8 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     if (!factory) return [];
     const child = factory();
     child.registryKey = sc.registryKey;
+    if (sc.userEditableDescription !== undefined)
+      child.userEditableDescription = sc.userEditableDescription;
     if (child.scalars?.length && sc.scalars?.length) {
       applyScalarSnapshot(child.scalars, sc.scalars);
     }
