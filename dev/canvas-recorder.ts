@@ -1716,6 +1716,12 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
               entries.push(backup!);
               while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
               await writeHistory(key, entries);
+            } else if (last && !isMarker(last)) {
+              // Same content as the last DB entry — the backup timestamp isn't in
+              // the DB, so use the DB entry's timestamp for loadSources.  Without
+              // this, scheduleStatusDisplay shows a timestamp the history dialog
+              // can never find.
+              source = { kind: "db", timestamp: last.timestamp };
             }
           }
         }
