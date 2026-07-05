@@ -139,7 +139,7 @@ export const myRainbowPerceptualKeyframes: readonly {
   time: number;
   value: string;
 }[] = [
-  { time: 0.0000, value: myRainbow.red },
+  { time: 0.0, value: myRainbow.red },
   { time: 0.0837, value: myRainbow.orange },
   { time: 0.1996, value: myRainbow.yellow },
   { time: 0.2871, value: myRainbow.green },
@@ -148,7 +148,7 @@ export const myRainbowPerceptualKeyframes: readonly {
   { time: 0.6229, value: myRainbow.cssBlue },
   { time: 0.6981, value: myRainbow.violet },
   { time: 0.8338, value: myRainbow.magenta },
-  { time: 1.0000, value: myRainbow.red },
+  { time: 1.0, value: myRainbow.red },
 ];
 
 /**

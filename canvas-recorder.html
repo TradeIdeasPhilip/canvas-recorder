@@ -24,8 +24,25 @@
           </label>
           <button type="button" id="saveJsonBtn">💾 Save JSON</button>
           <button type="button" id="loadJsonTestBtn">📂 Test Load JSON</button>
-          <label hidden><input type="radio" name="quality" id="highQuality" value="High Quality" checked /> High Quality</label>
-          <label hidden><input type="radio" name="quality" id="lowPower" value="Low Power" /> Low Power</label>
+          <label hidden
+            ><input
+              type="radio"
+              name="quality"
+              id="highQuality"
+              value="High Quality"
+              checked
+            />
+            High Quality</label
+          >
+          <label hidden
+            ><input
+              type="radio"
+              name="quality"
+              id="lowPower"
+              value="Low Power"
+            />
+            Low Power</label
+          >
         </div>
         <div id="canvasViewport">
           <canvas id="main"></canvas>
@@ -125,7 +142,12 @@
             ⚠️ Unexpected problem playing audio. Falling back to silent mode.
           </div>
           <div
-            style="display: flex; align-items: center; gap: 0.75em; flex-wrap: wrap"
+            style="
+              display: flex;
+              align-items: center;
+              gap: 0.75em;
+              flex-wrap: wrap;
+            "
           >
             <label><input type="checkbox" id="muteAudio" /> Mute</label>
             <label
@@ -165,9 +187,8 @@
           <div id="info"><i>status goes here</i>...</div>
         </div>
         <p>
-          Hot keys: ⌥Space to play/pause. ⌥B to go back 5 seconds and play.
-          ⌥0 to jump to the start of the current section. Alt instead of ⌥ on
-          a PC.
+          Hot keys: ⌥Space to play/pause. ⌥B to go back 5 seconds and play. ⌥0
+          to jump to the start of the current section. Alt instead of ⌥ on a PC.
         </p>
         <br />
         <h1>Assets</h1>
@@ -213,8 +234,27 @@
           <span id="scheduleHistoryControls" hidden>
             &nbsp;
             <button id="saveScheduleNowBtn" type="button">💾 Save</button>
-            <span id="scheduleStatusDisplay" style="font-size:0.85em;font-style:italic;max-width:18em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;vertical-align:middle;cursor:default"></span>
-            <button id="openHistoryDialogBtn" type="button" title="Browse save history">📋</button>
+            <span
+              id="scheduleStatusDisplay"
+              style="
+                font-size: 0.85em;
+                font-style: italic;
+                max-width: 18em;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                display: inline-block;
+                vertical-align: middle;
+                cursor: default;
+              "
+            ></span>
+            <button
+              id="openHistoryDialogBtn"
+              type="button"
+              title="Browse History"
+            >
+              📜 History
+            </button>
           </span>
         </div>
         <fieldset id="componentsEditor" hidden>
@@ -230,17 +270,49 @@
       </div>
     </div>
 
-    <dialog id="historyDialog" style="min-width:30em;padding:1em">
-      <h3 style="margin:0 0 0.6em 0">Save History</h3>
-      <div id="historyDialogHint" style="margin-bottom:0.5em;font-size:0.85em;color:#555;font-style:italic;min-height:1.2em"></div>
-      <ul id="historyList" style="list-style:none;padding:0;margin:0 0 1em 0;max-height:22em;overflow-y:auto;border:1px solid #ccc;border-radius:4px;min-height:2em"></ul>
-      <div style="display:flex;gap:0.5em;align-items:center">
-        <button id="historyDeleteBtn" type="button" disabled title="Remove this entry from the database">🗑 Delete</button>
-        <div style="flex:1"></div>
-        <button id="historyAbandonBtn" type="button" hidden>Switch &amp; Abandon</button>
-        <button id="historySaveBtn" type="button" hidden>Switch &amp; Save</button>
-        <button id="historyOkBtn" type="button">OK</button>
-        <button id="historyCancelBtn" type="button">Cancel</button>
+    <dialog id="historyDialog" style="min-width: 30em; padding: 1em">
+      <h3 style="margin: 0 0 0.6em 0">History</h3>
+      <div
+        id="historyDialogHint"
+        style="
+          margin-bottom: 0.5em;
+          font-size: 0.85em;
+          color: #555;
+          font-style: italic;
+          min-height: 1.2em;
+        "
+      ></div>
+      <ul
+        id="historyList"
+        style="
+          list-style: none;
+          padding: 0;
+          margin: 0 0 1em 0;
+          max-height: 22em;
+          overflow-y: auto;
+          border: 1px solid #ccc;
+          border-radius: 4px;
+          min-height: 2em;
+        "
+      ></ul>
+      <div style="display: flex; gap: 0.5em; align-items: center">
+        <button
+          id="historyDeleteBtn"
+          type="button"
+          disabled
+          title="Remove this entry from the database"
+        >
+          🗑 Delete
+        </button>
+        <div style="flex: 1"></div>
+        <button id="historyAbandonBtn" type="button" hidden>
+          Switch &amp; Abandon
+        </button>
+        <button id="historySaveBtn" type="button" hidden>
+          Switch &amp; Save
+        </button>
+        <button id="historyOkBtn" type="button">Keep</button>
+        <button id="historyCancelBtn" type="button">Revert</button>
       </div>
     </dialog>
 
