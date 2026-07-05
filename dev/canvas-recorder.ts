@@ -1199,9 +1199,7 @@ const rootComponentEditorContainer = getById(
 
 const visualEditorAPI: VisualEditorAPI = {
   getCurrentlySelected(): Showable {
-    return (
-      selectedSlideChild ?? chapterList[select.selectedIndex]!.selectable
-    );
+    return selectedSlideChild ?? chapterList[select.selectedIndex]!.selectable;
   },
   refreshGUI(howMuch) {
     const selectable = chapterList[select.selectedIndex]?.selectable;
@@ -2512,7 +2510,9 @@ function scheduleToTypeScript(
   return `${header}\n[\n${rows.join("\n")}\n]`;
 }
 
-function easeFromName(name: string | undefined): ((t: number) => number) | undefined {
+function easeFromName(
+  name: string | undefined,
+): ((t: number) => number) | undefined {
   if (name === "ease") return ease;
   if (name === "easeIn") return easeIn;
   if (name === "easeOut") return easeOut;
@@ -2550,7 +2550,9 @@ function validateKfValue(value: unknown, type: ScheduleInfo["type"]): boolean {
 function parseScheduleFromClipboard(
   text: string,
   type: ScheduleInfo["type"],
-): { time: number; value: unknown; easeAfter?: (t: number) => number }[] | null {
+):
+  | { time: number; value: unknown; easeAfter?: (t: number) => number }[]
+  | null {
   try {
     let cleaned = text
       .split("\n")
@@ -2587,9 +2589,14 @@ function parseScheduleFromClipboard(
       if (!validateKfValue(r.value, type)) return null;
       const easeStr = r.easeAfter;
       if (easeStr !== undefined && typeof easeStr !== "string") return null;
-      const kf: { time: number; value: unknown; easeAfter?: (t: number) => number } =
-        { time: r.time, value: r.value };
-      const fn = easeFromName(typeof easeStr === "string" ? easeStr : undefined);
+      const kf: {
+        time: number;
+        value: unknown;
+        easeAfter?: (t: number) => number;
+      } = { time: r.time, value: r.value };
+      const fn = easeFromName(
+        typeof easeStr === "string" ? easeStr : undefined,
+      );
       if (fn) kf.easeAfter = fn;
       result.push(kf);
     }
@@ -2599,7 +2606,10 @@ function parseScheduleFromClipboard(
   }
 }
 
-function buildScalarSection(info: ScalarInfo, selectable: Showable): HTMLElement {
+function buildScalarSection(
+  info: ScalarInfo,
+  selectable: Showable,
+): HTMLElement {
   const section = document.createElement("fieldset");
   section.style.cssText = "margin-bottom:0.4em";
   const legend = document.createElement("legend");
@@ -3914,7 +3924,16 @@ function buildScheduleSection(
     rebuild();
   });
 
-  legend.append(addBtn, " ", sortBtn, " ", copyBtn, " ", pasteBtn, pasteErrorSpan);
+  legend.append(
+    addBtn,
+    " ",
+    sortBtn,
+    " ",
+    copyBtn,
+    " ",
+    pasteBtn,
+    pasteErrorSpan,
+  );
   section.append(legend);
 
   const table = document.createElement("table");
@@ -4734,9 +4753,7 @@ function rectHandlePositions(
 function getMarkerRelTf(): DOMMatrix | null {
   const component =
     selectedSlideChild ??
-    (chapterList[select.selectedIndex]?.selectable as
-      | Showable
-      | undefined);
+    (chapterList[select.selectedIndex]?.selectable as Showable | undefined);
   if (!component) return null;
   const compTf = componentTransforms.get(component);
   if (!compTf) return null;
