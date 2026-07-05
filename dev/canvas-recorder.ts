@@ -1413,6 +1413,7 @@ if (import.meta.hot) {
   // Changing a css file would cause vite:beforeUpdate, instead.
   import.meta.hot.on("vite:beforeFullReload", (_data) => {
     saveState();
+    saveOnUnload();
   });
 }
 
@@ -1641,18 +1642,38 @@ function captureDefaults(): void {
  * hot-reloads don't wipe out in-progress edits.
  * Refreshes the schedule editor for the currently visible chapter when done.
  */
-async function initFromDB(unloadBackup?: string | null): Promise<void> {
+async function initFromDB(
+  unloadBackup?: string | null,
+  tsDefaultsBackup?: string | null,
+): Promise<void> {
   // Parse the backup map synchronously before any async work, so each per-item
   // promise can apply the backup in the same async round as the DB read.
-  const backupMap = new Map<string, DataHistoryEntry>();
+  type BackupItem = { entry: DataHistoryEntry; selectedTimestamp?: number };
+  const backupMap = new Map<string, BackupItem>();
   if (unloadBackup) {
     try {
       const parsed = JSON.parse(unloadBackup) as
-        | { key: string; entry: DataHistoryEntry }
-        | { key: string; entry: DataHistoryEntry }[];
-      for (const { key, entry } of Array.isArray(parsed) ? parsed : [parsed]) {
-        if (!isMarker(entry)) backupMap.set(key, entry);
+        | { key: string; entry: DataHistoryEntry; selectedTimestamp?: number }
+        | {
+            key: string;
+            entry: DataHistoryEntry;
+            selectedTimestamp?: number;
+          }[];
+      for (const { key, entry, selectedTimestamp } of Array.isArray(parsed)
+        ? parsed
+        : [parsed]) {
+        if (!isMarker(entry)) backupMap.set(key, { entry, selectedTimestamp });
       }
+    } catch {
+      /* malformed backup — ignore */
+    }
+  }
+
+  const tsDefaultsSet = new Set<string>();
+  if (tsDefaultsBackup) {
+    try {
+      const parsed = JSON.parse(tsDefaultsBackup) as string[];
+      for (const key of parsed) tsDefaultsSet.add(key);
     } catch {
       /* malformed backup — ignore */
     }
@@ -1675,13 +1696,42 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
       readHistory(key).then(async (record) => {
         const entries = record?.entries ?? [];
         const last = entries.at(-1);
-        const backup = backupMap.get(key);
+        const backupItem = backupMap.get(key);
+        const backup = backupItem?.entry;
         const useBackup =
           backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
         const effective = useBackup ? backup : last;
 
         let source: LoadSource;
-        if (
+
+        // If the previous session deliberately selected a specific DB entry
+        // (not dirty, not ts-defaults), restore exactly that entry by timestamp.
+        const selectedTimestamp = backupItem?.selectedTimestamp;
+        if (selectedTimestamp !== undefined) {
+          const specificEntry = entries.find(
+            (e): e is DataHistoryEntry =>
+              !isMarker(e) && e.timestamp === selectedTimestamp,
+          );
+          if (specificEntry) {
+            applyDataEntry(sel, specificEntry);
+            source = { kind: "db", timestamp: selectedTimestamp };
+            loadSources.set(key, source);
+            loadedSnapshots.set(key, currentSnapshotJson(sel));
+            console.log(
+              `[initFromDB] key=${key} source=`,
+              source,
+              `selectedTimestamp hit`,
+            );
+            return;
+          }
+          // Entry not in DB (pruned?) — fall through to normal backup logic
+        }
+
+        if (tsDefaultsSet.has(key) && !useBackup) {
+          // The previous session explicitly selected "TypeScript defaults" for
+          // this key; honour that choice (no data entry from backup to override).
+          source = { kind: "ts-defaults" };
+        } else if (
           !effective ||
           (isMarker(effective) && effective.kind === "ts-defaults")
         ) {
@@ -1723,6 +1773,11 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
             }
           }
         }
+        console.log(
+          `[initFromDB] key=${key} source=`,
+          source,
+          `useBackup=${useBackup} tsDefaultsHit=${tsDefaultsSet.has(key)}`,
+        );
         loadSources.set(key, source);
         loadedSnapshots.set(key, currentSnapshotJson(sel));
       }),
@@ -1890,6 +1945,7 @@ function saveOnUnload() {
   // Save every slide that has editable state, not just the currently-visible one.
   const seen = new Set<string>();
   const backups: { key: string; entry: DataHistoryEntry }[] = [];
+  const tsDefaultsKeys: string[] = [];
 
   for (const item of chapterList) {
     const sel = item.selectable;
@@ -1907,8 +1963,8 @@ function saveOnUnload() {
 
     if (source?.kind === "ts-defaults" && !dirty) {
       // Remember that the user is on TypeScript defaults, not the last DB save.
-      // Fire-and-forget; sessionStorage backup not needed (no data to lose).
       writeMarkerIfNeeded(key);
+      tsDefaultsKeys.push(key); // synchronous backup for Vite-reload survival
       continue;
     }
 
@@ -1918,6 +1974,11 @@ function saveOnUnload() {
     const components = hasChildren
       ? serializeComponents(sel.components!)
       : undefined;
+    // For a clean DB selection (!dirty), remember the specific timestamp the user
+    // chose so the next startup can restore that exact entry without creating a
+    // spurious new DB record.
+    const selectedTimestamp =
+      source?.kind === "db" && !dirty ? source.timestamp : undefined;
     backups.push({
       key,
       entry: {
@@ -1926,13 +1987,27 @@ function saveOnUnload() {
         ...(scalars !== undefined && { scalars }),
         ...(components !== undefined && { components }),
       },
+      ...(selectedTimestamp !== undefined && { selectedTimestamp }),
     });
-    // Async DB write — succeeds on tab-hide, may be abandoned on navigation.
-    void saveScheduleState(sel, false);
+    // Only write to DB when there are actual uncommitted changes.
+    // Clean selections (dirty=false) don't need a new DB entry — the selected
+    // entry already exists in the history.
+    if (dirty) {
+      void saveScheduleState(sel, false);
+    }
   }
 
+  console.log(
+    "[saveOnUnload] backups:",
+    backups.map((b) => `${b.key}@${b.entry.timestamp}`),
+    "tsDefaults:",
+    tsDefaultsKeys,
+  );
   if (backups.length > 0) {
     sessionStorage.setItem("pendingScheduleSave", JSON.stringify(backups));
+  }
+  if (tsDefaultsKeys.length > 0) {
+    sessionStorage.setItem("pendingTsDefaults", JSON.stringify(tsDefaultsKeys));
   }
 }
 window.addEventListener("beforeunload", saveOnUnload);
@@ -5025,8 +5100,20 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
 
 // MARK: Load previous state.
 {
-  // Read the unload backup BEFORE sessionStorage.clear() wipes it below.
+  // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
+  const tsDefaultsBackup = sessionStorage.getItem("pendingTsDefaults");
+  console.log(
+    "[startup] pendingScheduleSave:",
+    unloadBackup
+      ? JSON.parse(unloadBackup).map(
+          (b: { key: string; entry: { timestamp: number } }) =>
+            `${b.key}@${b.entry.timestamp}`,
+        )
+      : null,
+    "pendingTsDefaults:",
+    tsDefaultsBackup ? JSON.parse(tsDefaultsBackup) : null,
+  );
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
@@ -5035,7 +5122,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   captureDefaults();
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
-  void initFromDB(unloadBackup);
+  void initFromDB(unloadBackup, tsDefaultsBackup);
   void testFetchJson();
 
   // When first loading this page, try to restore the settings from the last session.
