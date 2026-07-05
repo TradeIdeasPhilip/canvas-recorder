@@ -1717,11 +1717,6 @@ async function initFromDB(
             source = { kind: "db", timestamp: selectedTimestamp };
             loadSources.set(key, source);
             loadedSnapshots.set(key, currentSnapshotJson(sel));
-            console.log(
-              `[initFromDB] key=${key} source=`,
-              source,
-              `selectedTimestamp hit`,
-            );
             return;
           }
           // Entry not in DB (pruned?) — fall through to normal backup logic
@@ -1773,11 +1768,6 @@ async function initFromDB(
             }
           }
         }
-        console.log(
-          `[initFromDB] key=${key} source=`,
-          source,
-          `useBackup=${useBackup} tsDefaultsHit=${tsDefaultsSet.has(key)}`,
-        );
         loadSources.set(key, source);
         loadedSnapshots.set(key, currentSnapshotJson(sel));
       }),
@@ -1871,13 +1861,10 @@ async function saveScheduleState(
   if (!hasSchedules && !hasScalars && !hasChildren) return;
   const key = selectableKey(selectable);
 
-  // Skip auto-saving when the source is TypeScript defaults and state is clean.
-  // The user hasn't made changes — writing ts-defaults data to DB would mean the
-  // next restart would restore those values rather than picking up new TS code.
-  if (!force) {
-    const source = loadSources.get(key);
-    if (source?.kind === "ts-defaults" && !isDirty(selectable)) return;
-  }
+  // Skip auto-saving when state is clean — content matches what was loaded,
+  // so there is nothing new to persist.  (Force=true bypasses this for explicit
+  // user saves, which should always write regardless.)
+  if (!force && !isDirty(selectable)) return;
 
   const record = await readHistory(key);
   const entries = record?.entries ?? [];
@@ -1944,7 +1931,11 @@ saveScheduleNowBtn.addEventListener("click", () => {
 function saveOnUnload() {
   // Save every slide that has editable state, not just the currently-visible one.
   const seen = new Set<string>();
-  const backups: { key: string; entry: DataHistoryEntry }[] = [];
+  const backups: {
+    key: string;
+    entry: DataHistoryEntry;
+    selectedTimestamp?: number;
+  }[] = [];
   const tsDefaultsKeys: string[] = [];
 
   for (const item of chapterList) {
@@ -1957,6 +1948,47 @@ function saveOnUnload() {
     const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
     if (!hasSchedules && !hasScalars && !hasChildren) continue;
+
+    // When the history dialog is open, `sel` may contain a transient preview
+    // state from `_dialogSelectItem`.  Use the pre-dialog snapshot instead so
+    // we never accidentally persist a preview to the DB or sessionStorage.
+    if (
+      historyDialog.open &&
+      _historyTarget !== null &&
+      selectableKey(_historyTarget) === key
+    ) {
+      const preSnap = JSON.parse(_preDialogSnapshotJson) as {
+        schedules: SerializedSchedule[];
+        scalars?: SerializedScalar[];
+        components?: SerializedChild[];
+      };
+      const source = _preDialogSource;
+      const dirty = _wasInitiallyDirty;
+
+      if (source?.kind === "ts-defaults" && !dirty) {
+        writeMarkerIfNeeded(key);
+        tsDefaultsKeys.push(key);
+        continue;
+      }
+      const selectedTimestamp =
+        source?.kind === "db" && !dirty ? source.timestamp : undefined;
+      backups.push({
+        key,
+        entry: {
+          timestamp: Date.now(),
+          schedules: preSnap.schedules,
+          ...(preSnap.scalars !== undefined && { scalars: preSnap.scalars }),
+          ...(preSnap.components !== undefined && {
+            components: preSnap.components,
+          }),
+        },
+        ...(selectedTimestamp !== undefined && { selectedTimestamp }),
+      });
+      // For a dirty pre-dialog state, the backup carries the correct content;
+      // initFromDB will write it to DB on the next startup.  Do NOT call
+      // saveScheduleState here — sel has preview data, not the dirty pre-dialog data.
+      continue;
+    }
 
     const source = loadSources.get(key);
     const dirty = isDirty(sel);
@@ -1997,12 +2029,6 @@ function saveOnUnload() {
     }
   }
 
-  console.log(
-    "[saveOnUnload] backups:",
-    backups.map((b) => `${b.key}@${b.entry.timestamp}`),
-    "tsDefaults:",
-    tsDefaultsKeys,
-  );
   if (backups.length > 0) {
     sessionStorage.setItem("pendingScheduleSave", JSON.stringify(backups));
   }
@@ -2101,17 +2127,13 @@ function _dialogSelectItem(index: number, target: Showable) {
   }
 }
 
-async function openHistoryDialog(target: Showable) {
-  _historyTarget = target;
-  const key = selectableKey(target);
-  _preDialogSnapshotJson = currentSnapshotJson(target);
-  _preDialogSource = loadSources.get(key);
-  _wasInitiallyDirty = isDirty(target);
-
-  const record = await readHistory(key);
-  _allHistoryEntries = record?.entries ?? [];
-
-  // Build the item list
+/**
+ * Rebuilds _dialogItems and the list DOM from _allHistoryEntries, then
+ * selects the item at selectIndex (clamped to list bounds).
+ * Does NOT touch _wasInitiallyDirty / _preDialogSnapshotJson / _preDialogSource
+ * so it is safe to call after deletion without corrupting the dirty-state logic.
+ */
+function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   _dialogItems = [];
   if (_wasInitiallyDirty) {
     _dialogItems.push({
@@ -2119,7 +2141,6 @@ async function openHistoryDialog(target: Showable) {
       snapshotJson: _preDialogSnapshotJson,
     });
   }
-  // DB data entries, newest first, with isInitial flag
   const initialTimestamp =
     _preDialogSource?.kind === "db" ? _preDialogSource.timestamp : -1;
   const dataEntries: { entry: DataHistoryEntry; entryIndex: number }[] = [];
@@ -2136,10 +2157,8 @@ async function openHistoryDialog(target: Showable) {
       isInitial: entry.timestamp === initialTimestamp,
     });
   }
-  // TypeScript defaults (always last)
   _dialogItems.push({ kind: "ts-defaults" });
 
-  // Build list DOM
   historyList.replaceChildren();
   for (let i = 0; i < _dialogItems.length; i++) {
     const item = _dialogItems[i];
@@ -2168,7 +2187,6 @@ async function openHistoryDialog(target: Showable) {
     historyList.append(li);
   }
 
-  // Arrow key navigation
   historyList.tabIndex = 0;
   historyList.onkeydown = (e) => {
     if (
@@ -2181,21 +2199,35 @@ async function openHistoryDialog(target: Showable) {
     }
   };
 
-  // Update hint text
   historyDialogHint.textContent = _wasInitiallyDirty
     ? "You have unsaved changes. Switching will apply the selected state."
     : `Loaded from: ${formatLoadSource(_preDialogSource)}`;
 
-  // Select the initial/current item
-  const initialIdx = _wasInitiallyDirty
-    ? 0
-    : _dialogItems.findIndex(
-        (it) =>
-          (it.kind === "ts-defaults" &&
-            _preDialogSource?.kind === "ts-defaults") ||
-          (it.kind === "db-entry" && it.isInitial),
-      );
-  _dialogSelectItem(Math.max(0, initialIdx), target);
+  const idx =
+    selectIndex !== undefined
+      ? Math.min(Math.max(0, selectIndex), _dialogItems.length - 1)
+      : _wasInitiallyDirty
+        ? 0
+        : _dialogItems.findIndex(
+            (it) =>
+              (it.kind === "ts-defaults" &&
+                _preDialogSource?.kind === "ts-defaults") ||
+              (it.kind === "db-entry" && it.isInitial),
+          );
+  _dialogSelectItem(Math.max(0, idx), target);
+}
+
+async function openHistoryDialog(target: Showable) {
+  _historyTarget = target;
+  const key = selectableKey(target);
+  _preDialogSnapshotJson = currentSnapshotJson(target);
+  _preDialogSource = loadSources.get(key);
+  _wasInitiallyDirty = isDirty(target);
+
+  const record = await readHistory(key);
+  _allHistoryEntries = record?.entries ?? [];
+
+  _rebuildDialogList(target);
 
   historyDialog.showModal();
   historyList.focus();
@@ -2302,7 +2334,10 @@ historyDeleteBtn.addEventListener("click", async () => {
   sendToRecycleBin("deleted", item.entry);
   _allHistoryEntries.splice(item.entryIndex, 1);
   await writeHistory(key, _allHistoryEntries);
-  await openHistoryDialog(target); // Rebuild dialog after deletion
+  // Rebuild list without re-computing _wasInitiallyDirty — the current
+  // component state may have been altered by previewing, so calling
+  // openHistoryDialog here would incorrectly flag the session as dirty.
+  _rebuildDialogList(target, _selectedDialogIndex);
 });
 
 openHistoryDialogBtn.addEventListener("click", () => {
@@ -5103,17 +5138,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
   const tsDefaultsBackup = sessionStorage.getItem("pendingTsDefaults");
-  console.log(
-    "[startup] pendingScheduleSave:",
-    unloadBackup
-      ? JSON.parse(unloadBackup).map(
-          (b: { key: string; entry: { timestamp: number } }) =>
-            `${b.key}@${b.entry.timestamp}`,
-        )
-      : null,
-    "pendingTsDefaults:",
-    tsDefaultsBackup ? JSON.parse(tsDefaultsBackup) : null,
-  );
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
