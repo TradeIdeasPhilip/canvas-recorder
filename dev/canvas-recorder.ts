@@ -1455,7 +1455,7 @@ type LoadSource =
   | { kind: "db"; timestamp: number }
   | { kind: "json"; filename: string };
 
-const MAX_HISTORY_ENTRIES = 20;
+const MAX_HISTORY_ENTRIES = 200;
 
 /**
  * TypeScript defaults captured at page load — before any DB restoration.
