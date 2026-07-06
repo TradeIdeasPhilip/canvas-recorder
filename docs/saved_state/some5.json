@@ -295,7 +295,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "userEditableDescription": "Hello World!"
           }
         ]
       },
@@ -542,7 +543,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "userEditableDescription": "שָׁלוֹם עוֹלָם"
           }
         ]
       },
@@ -799,7 +801,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "userEditableDescription": "你好世界"
           }
         ]
       },
@@ -1063,7 +1066,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "userEditableDescription": "Witaj, świecie!"
           }
         ]
       },
@@ -1329,7 +1333,8 @@
                   }
                 ]
               }
-            ]
+            ],
+            "userEditableDescription": "हैलो वर्ल्ड"
           }
         ]
       }

@@ -741,6 +741,7 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
 
   // User picks file
   const fileHandle = await window.showSaveFilePicker({
+    id: "video-save",
     suggestedName: "canvas-recording.mp4",
     types: [
       {
@@ -5210,7 +5211,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup, tsDefaultsBackup);
-  void testFetchJson();
 
   // When first loading this page, try to restore the settings from the last session.
   // So when you configure the web page, and you hit refresh, or the page automatically
@@ -5406,9 +5406,11 @@ type JsonFileEntry = {
   schedules?: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
+  userEditableDescription?: string;
 };
 
-async function saveToJsonFile(): Promise<void> {
+/** Serialize the current in-memory state to a `Record<key, JsonFileEntry>`. */
+function buildJsonSnapshot(): Record<string, JsonFileEntry> {
   const result: Record<string, JsonFileEntry> = {};
   const seen = new Set<string>();
 
@@ -5427,12 +5429,21 @@ async function saveToJsonFile(): Promise<void> {
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.components!);
+    if (sel.userEditableDescription !== undefined)
+      entry.userEditableDescription = sel.userEditableDescription;
     result[key] = entry;
   }
+  return result;
+}
+
+async function saveToJsonFile(): Promise<void> {
+  const snapshot = buildJsonSnapshot();
+  const body = JSON.stringify(snapshot, null, 2);
 
   let fileHandle: FileSystemFileHandle;
   try {
     fileHandle = await window.showSaveFilePicker({
+      id: "json-state",
       suggestedName: `${toShowKey}.json`,
       types: [
         { description: "JSON", accept: { "application/json": [".json"] } },
@@ -5444,39 +5455,133 @@ async function saveToJsonFile(): Promise<void> {
   }
 
   const writable = await fileHandle.createWritable();
-  await writable.write(JSON.stringify(result, null, 2));
+  await writable.write(body);
   await writable.close();
+
+  // Verify: fetch the file through the dev server to confirm it landed in the
+  // right place (under public/saved_state/, reachable via HTTP).
+  const verifyResult = await fetchJsonSnapshot();
+  if (!verifyResult.ok) {
+    const hint =
+      verifyResult.reason === "not-found"
+        ? "File not found at the expected URL — did you save outside public/saved_state/?"
+        : verifyResult.reason === "parse-error"
+          ? "File saved but could not be re-parsed — the file may be corrupted."
+          : "Dev server unreachable — start the Vite dev server and try again.";
+    alert(
+      `Save succeeded but verification failed.\n\n${hint}\n\nExpected URL: ./saved_state/${toShowKey}.json`,
+    );
+  } else if (verifyResult.data !== undefined) {
+    // Spot-check: re-serialize what we read back and compare length.
+    const readBack = JSON.stringify(verifyResult.data, null, 2);
+    if (readBack.length !== body.length) {
+      alert(
+        "Save warning: the file on disk does not match what was written.\n" +
+          `Written: ${body.length} chars, read back: ${readBack.length} chars.`,
+      );
+    }
+  }
 }
 
 getById("saveJsonBtn", HTMLButtonElement).addEventListener(
   "click",
-  saveToJsonFile,
+  () => void saveToJsonFile(),
 );
 
-// MARK: Load JSON file (test/probe)
+// MARK: Load JSON file
 
-async function testFetchJson(): Promise<void> {
+type FetchJsonResult =
+  | { ok: true; data: Record<string, JsonFileEntry> }
+  | { ok: false; reason: "not-found" | "parse-error" | "network-error" };
+
+/** Fetch and parse `./saved_state/<toShowKey>.json`. */
+async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
   const url = `./saved_state/${toShowKey}.json`;
-  const t0 = performance.now();
-  console.log(`[testFetchJson] fetch → ${url}`);
+  let response: Response;
   try {
-    const response = await fetch(url);
-    const elapsed = (performance.now() - t0).toFixed(1);
-    console.log(`[testFetchJson] response after ${elapsed}ms:`, response);
-    const text = await response.text();
-    console.log(
-      `[testFetchJson] body (${text.length} chars):`,
-      JSON.parse(text),
-    );
-  } catch (e) {
-    const elapsed = (performance.now() - t0).toFixed(1);
-    console.error(`[testFetchJson] failed after ${elapsed}ms:`, e);
+    response = await fetch(url);
+  } catch {
+    return { ok: false, reason: "network-error" };
   }
+  if (!response.ok) return { ok: false, reason: "not-found" };
+  try {
+    const data = (await response.json()) as Record<string, JsonFileEntry>;
+    return { ok: true, data };
+  } catch {
+    return { ok: false, reason: "parse-error" };
+  }
+}
+
+/**
+ * Apply a parsed JSON snapshot to all matching selectables in `chapterList`,
+ * then refresh the schedule editor for the active chapter.
+ *
+ * @param snapshot - the parsed `Record<key, JsonFileEntry>` object
+ * @param onlyIfNoDb - when true, skip any key that already has a DB entry
+ *   (used during startup so the DB remains the highest-priority source)
+ */
+function applyJsonSnapshot(
+  snapshot: Record<string, JsonFileEntry>,
+  onlyIfNoDb = false,
+): void {
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const entry = snapshot[key];
+    if (!entry) continue;
+
+    if (onlyIfNoDb) {
+      const src = loadSources.get(key);
+      if (src?.kind === "db") continue;
+    }
+
+    // Convert JsonFileEntry → DataHistoryEntry shape expected by applyDataEntry.
+    const dataEntry: DataHistoryEntry = {
+      timestamp: Date.now(),
+      schedules: entry.schedules ?? [],
+      ...(entry.scalars !== undefined && { scalars: entry.scalars }),
+      ...(entry.components !== undefined && { components: entry.components }),
+      ...(entry.userEditableDescription !== undefined && {
+        userEditableDescription: entry.userEditableDescription,
+      }),
+    };
+    applyDataEntry(sel, dataEntry);
+    loadSources.set(key, { kind: "db", timestamp: dataEntry.timestamp });
+    loadedSnapshots.set(key, currentSnapshotJson(sel));
+  }
+
+  // Refresh the schedule editor to reflect the newly loaded state.
+  const current = currentSaveTarget();
+  if (current) {
+    selectedSlideChild = null;
+    activeRootComponentEditor?.resetAll();
+    updateComponentEditor(current);
+    updateScheduleEditor(current);
+  }
+}
+
+async function loadFromJsonFile(): Promise<void> {
+  const result = await fetchJsonSnapshot();
+  if (!result.ok) {
+    const details =
+      result.reason === "not-found"
+        ? "File not found (404). Save it first, or check the file name."
+        : result.reason === "parse-error"
+          ? "File is corrupted or not valid JSON. Fix or re-save it."
+          : "Could not reach the server. Check that the Vite dev server is running.";
+    alert(`Could not load ./saved_state/${toShowKey}.json\n\n${details}`);
+    return;
+  }
+  applyJsonSnapshot(result.data);
 }
 
 getById("loadJsonTestBtn", HTMLButtonElement).addEventListener(
   "click",
-  () => void testFetchJson(),
+  () => void loadFromJsonFile(),
 );
 
 // MARK: Resizable pane dividers

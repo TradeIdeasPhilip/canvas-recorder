@@ -986,6 +986,10 @@ And you only need to change the location when you are changing your development 
 
 It would be nice if `window.showSaveFilePicker()` could remember the last saved location.
 
+**Status**:
+The rest of this section is wrong.
+There are better ideas later in this document.
+
 My research says showSaveFilePicker does NOT remember the last location across page loads.
 We'd need to store the FileSystemFileHandle (or at least the path) in our code.
 
