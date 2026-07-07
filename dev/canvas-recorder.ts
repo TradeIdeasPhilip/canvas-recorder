@@ -1555,6 +1555,62 @@ function formatLoadSource(source: LoadSource | undefined): string {
 }
 
 /** Updates the inline status label to show source and dirty flag. */
+// MARK: JSON save status
+
+const jsonSaveStatusEl = getById("jsonSaveStatus", HTMLSpanElement);
+
+/**
+ * The JSON body we last successfully fetched or wrote, used to detect
+ * unsaved changes. `undefined` = haven't checked yet.
+ */
+let _lastKnownJsonBody: string | undefined;
+
+/**
+ * The last fetch failure reason, if any. Cleared when a fetch or save succeeds.
+ */
+let _jsonFetchFailReason:
+  | "not-found"
+  | "parse-error"
+  | "network-error"
+  | undefined;
+
+function updateJsonSaveStatus(): void {
+  if (_jsonFetchFailReason === "not-found") {
+    jsonSaveStatusEl.textContent = "JSON: never saved";
+    jsonSaveStatusEl.style.color = "gray";
+    jsonSaveStatusEl.title = `No file at ./saved_state/${toShowKey}.json`;
+    return;
+  }
+  if (_jsonFetchFailReason === "network-error") {
+    jsonSaveStatusEl.textContent = "JSON: server unreachable";
+    jsonSaveStatusEl.style.color = "gray";
+    jsonSaveStatusEl.title = "Could not reach the Vite dev server";
+    return;
+  }
+  if (_jsonFetchFailReason === "parse-error") {
+    jsonSaveStatusEl.textContent = "JSON: file corrupted";
+    jsonSaveStatusEl.style.color = "red";
+    jsonSaveStatusEl.title = `./saved_state/${toShowKey}.json is not valid JSON`;
+    return;
+  }
+  if (_lastKnownJsonBody === undefined) {
+    jsonSaveStatusEl.textContent = "Checking…";
+    jsonSaveStatusEl.style.color = "gray";
+    jsonSaveStatusEl.title = "";
+    return;
+  }
+  const current = JSON.stringify(buildJsonSnapshot(), null, 2);
+  if (current === _lastKnownJsonBody) {
+    jsonSaveStatusEl.textContent = "JSON: saved ✓";
+    jsonSaveStatusEl.style.color = "green";
+    jsonSaveStatusEl.title = "";
+  } else {
+    jsonSaveStatusEl.textContent = "JSON: unsaved changes";
+    jsonSaveStatusEl.style.color = "darkorange";
+    jsonSaveStatusEl.title = "In-memory state differs from the saved JSON file";
+  }
+}
+
 function updateStatusDisplay(selectable: Showable) {
   const source = loadSources.get(selectableKey(selectable));
   const dirty = isDirty(selectable);
@@ -1563,6 +1619,7 @@ function updateStatusDisplay(selectable: Showable) {
   scheduleStatusDisplay.title = dirty
     ? "Unsaved changes since last load or save"
     : "";
+  updateJsonSaveStatus();
 }
 
 /**
@@ -5208,9 +5265,23 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Capture TypeScript defaults before any DB restoration, so they're available
   // as the "reset" option in the history select throughout this session.
   captureDefaults();
+  // Fetch the JSON file in parallel with DB init so startup latency stays low.
+  const startupJsonFetch = fetchJsonSnapshot();
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
-  void initFromDB(unloadBackup, tsDefaultsBackup);
+  void initFromDB(unloadBackup, tsDefaultsBackup).then(async () => {
+    // After DB init: apply JSON as medium-priority fallback for any key that
+    // still has ts-defaults (i.e. nothing was in the DB for that key).
+    const jsonResult = await startupJsonFetch;
+    if (jsonResult.ok) {
+      applyJsonSnapshot(jsonResult.data, true, false);
+      _jsonFetchFailReason = undefined;
+      _lastKnownJsonBody = JSON.stringify(jsonResult.data, null, 2);
+    } else {
+      _jsonFetchFailReason = jsonResult.reason;
+    }
+    updateJsonSaveStatus();
+  });
 
   // When first loading this page, try to restore the settings from the last session.
   // So when you configure the web page, and you hit refresh, or the page automatically
@@ -5471,8 +5542,9 @@ async function saveToJsonFile(): Promise<void> {
     alert(
       `Save succeeded but verification failed.\n\n${hint}\n\nExpected URL: ./saved_state/${toShowKey}.json`,
     );
-  } else if (verifyResult.data !== undefined) {
-    // Spot-check: re-serialize what we read back and compare length.
+    _jsonFetchFailReason = verifyResult.reason;
+    _lastKnownJsonBody = undefined;
+  } else {
     const readBack = JSON.stringify(verifyResult.data, null, 2);
     if (readBack.length !== body.length) {
       alert(
@@ -5480,7 +5552,10 @@ async function saveToJsonFile(): Promise<void> {
           `Written: ${body.length} chars, read back: ${readBack.length} chars.`,
       );
     }
+    _jsonFetchFailReason = undefined;
+    _lastKnownJsonBody = body;
   }
+  updateJsonSaveStatus();
 }
 
 getById("saveJsonBtn", HTMLButtonElement).addEventListener(
@@ -5523,6 +5598,7 @@ async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
 function applyJsonSnapshot(
   snapshot: Record<string, JsonFileEntry>,
   onlyIfNoDb = false,
+  persist = false,
 ): void {
   const seen = new Set<string>();
   for (const item of chapterList) {
@@ -5552,6 +5628,9 @@ function applyJsonSnapshot(
     applyDataEntry(sel, dataEntry);
     loadSources.set(key, { kind: "db", timestamp: dataEntry.timestamp });
     loadedSnapshots.set(key, currentSnapshotJson(sel));
+
+    // Write to IndexedDB so this state survives a Vite hot-reload.
+    if (persist) void saveScheduleState(sel, false, true);
   }
 
   // Refresh the schedule editor to reflect the newly loaded state.
@@ -5574,9 +5653,14 @@ async function loadFromJsonFile(): Promise<void> {
           ? "File is corrupted or not valid JSON. Fix or re-save it."
           : "Could not reach the server. Check that the Vite dev server is running.";
     alert(`Could not load ./saved_state/${toShowKey}.json\n\n${details}`);
+    _jsonFetchFailReason = result.reason;
+    updateJsonSaveStatus();
     return;
   }
-  applyJsonSnapshot(result.data);
+  applyJsonSnapshot(result.data, false, true);
+  _jsonFetchFailReason = undefined;
+  _lastKnownJsonBody = JSON.stringify(result.data, null, 2);
+  updateJsonSaveStatus();
 }
 
 getById("loadJsonTestBtn", HTMLButtonElement).addEventListener(

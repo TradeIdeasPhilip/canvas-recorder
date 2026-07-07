@@ -1431,3 +1431,170 @@ canvas-recorder.ts:4658 [testFetchJson] failed after 6.9ms: TypeError: Failed to
     at testFetchJson (canvas-recorder.ts:4648:28)
     at HTMLButtonElement.<anonymous> (canvas-recorder.ts:4663:8)
 ```
+
+# 4/6/2026 brain dump
+
+This commit includes lot of recent progress on the JSON file, as described in a few sections, above.
+Short version:
+
+- We now save to the JSON file on demand.
+- We load from JSON over HTTP on request.
+- We load from JSON over HTTP automatically in some cases.
+
+I am concerned about how complicated the code is getting.
+At the same time I am impressed with how well VS Code's built in diff window works with this JSON file.
+
+## Proposal:
+
+Do more with files!
+Save multiple copies of the file on disk, as needed.
+Use indexedDB only as a _safe_ and _immediate_ place to store recent changes that haven't been saved to disk yet.
+
+Use VS Code and other standard tools to mange the files.
+
+### What to Save to IndexedDB
+
+Maybe just one copy of the settings for each slide.
+If you need multiple options, use a disk files for that.
+
+Maybe save more aggressively.
+I don't think we want to save on _every_ change.
+An \<input> with `type="range"` can update multiple times per animation frame!
+If the first change creates a 5 second timer, and we batched changes within that time period, that would be consistent with other modern tools.
+I.e. autosave every 5 seconds, but only if something actually changed.
+
+Note:
+We still need the logic that catches the refresh to force a save.
+And the logic that sends a copy of the changes to the sessionStorage, just in case.
+So we haven't really saved any code.
+Maybe faster autosaves are not necessary.
+
+The point is that we _can_ save more aggressively.
+We are not worried about keeping old versions around.
+Any time it is convenient we can do a save.
+
+We should still check and avoid duplicating the most recent entry.
+Keep that code in place.
+But there were a bunch of times in the past when I complained that we were making unnecessary saves.
+That won't be an issue any more.
+
+Do we keep multiple versions at all?
+Maybe keep it as a _simple_ undo feature.
+Get rid of the part where we can remember which version we saved.
+Go back to what we did originally, where restoring a version adds a new entry with the current time.
+Would it be easier to keep this code or remove it entirely?
+
+**Keep the pointer to the source**.
+_Each slide_ should remember where it last loaded from.
+This could be a specific file or the typescript defaults.
+Or the slide could be dirty, and we load from the latest details that we saved to IndexedDB for this slide.
+
+As soon as the user edits anything we mark the slide as dirty.
+The next time we save to IndexedDB we'll save the current state and we'll update the pointer to use this state.
+
+This pointer is required for one purpose.
+This says where to load the item from on restart.
+Or when the user requests a refresh.
+We display it for the user as helpful information.
+
+The old value is not required after the slide is marked dirty.
+In particular, there is no way to save a single slide.
+You can load a single slide or the entire project at once.
+And you can save individual slides to IndexedDB as they get dirty.
+But when you want to save a JSON file, you do it for the whole project at once.
+
+When the user saves to a JSON file, the program automatically marks that JSON file as the source for every scene.
+While you're working you can select scenes from different sources (different files, typescript, dirty and IndexedDB).
+But when you save, that file becomes the master for everything.
+
+This simplifies things for the user:
+After you save you always know exactly what you have.
+After you save the live version in the browser will always match the file you saved to.
+After you save you're not worried that the original source material will change under you.
+Before you save you always want the most current version of the source material for each slide.
+
+### Selecting a Source
+
+I like our History dialog box.
+I like the way we can quickly browse between options for an individual slide.
+
+We need to update that so you can easily compare the state saved in the different files.
+We still list the dates as recent undo items.
+And we keep "typescript defaults" as an option.
+And we need to add options for all of the files that are available.
+The user might have to enter a new file name, but we should also remember the ones that have been saved.
+
+We need a way to reread a JSON file when it changes on disk.
+In fact, that's the default.
+Don't cache the files.
+(Maybe address that later if there's an actual problem.)
+Always read all of the relevant files when displaying the dialog box.
+Show "please wait" while awaiting.
+(It's very annoying and confusing when an application doesn't respond right away.)
+
+Instead of "History" the button and dialog box should be labeled "Load".
+
+### Auto Load
+
+Process each slide separately.
+If we don't have a pointer back to the source for this section, assume it's new, grab from typescript.
+Otherwise, listen to what the pointer says, a specific file or typescript or latest IndexedDB.
+
+If a section is not available, maybe it's pointing to a JSON file that is missing or corrupt, we need to report that to the user.
+Those sections should keep their typescript defaults.
+The parts of the video that can be loaded should still be loaded (i.e. don't abort).
+
+Similar to what we have now but (a) we can now select from multiple JSON files and (b) we now only select the most recent history entry.
+
+### Storage Details
+
+This proposal brings up issues about how to save and load and get a directory listing.
+Previously I _tried_ to keep this simple with just a single file.
+Now we might have to worry about loading from a lot of different files.
+
+#### Simplest Solution
+
+We can keep the save option as is.
+I have already created files like "\_some5.json" right next to "some5.json".
+Maybe we remember the names because we don't yet have a way to ask for a directory listing.
+We keep the structure where the loads are done over http, to minimize the user impact.
+We allow the user to pick which file to load.
+
+This is good enough for our prototypes and thought experiments.
+
+#### Local Server
+
+I wonder if we could solve a lot of these problems with a simple local http server, seperate from the Vite dev server.
+We'd need to lock the requests into one directory, for security reasons.
+We'd need GET to read files from a directory.
+We'd need some sort of directory listing.
+We'd need a way to save files to that directory. (Is that a PUT?)
+These are all standard web server operations!
+It should not be hard to configure an existing server or create one in node to do this.
+
+#### Saved Permissions
+
+I have notes above about an idea to cache file handles.
+I made notes about something I'd read about but never tried.
+It would make it easy to constantly access several files.
+You would still need a dialog box to access a new file.
+But if you wanted to save frequently, or you wanted to browse through your recently saved options, the browser cached the user's permission.
+
+This can be good for lots of reasons.
+For one thing, some people might want to modify JSON files, but not run the full dev environment.
+This would allow you to run code that someone else posted.
+This was never an urgent use case, but I always knew this was an eventual use case.
+
+## Final Thoughts
+
+I originally thought this proposal would simplify the code.
+Now that I've written more of the details, I'm not sure that's true.
+
+The only requirement that I removed was remembering which version of the IndexedDB saved data to use.
+But we are still remembering which source to read from on each reset, so that doesn't save much code, maybe none.
+It's probably still the right way to go.
+It seems simpler for the user.
+
+That said, I still have a sense of relief.
+We're moving more responsibly to the file system.
+We won't be pushing the IndexedDB part as hard.
