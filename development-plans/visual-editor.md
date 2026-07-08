@@ -1513,6 +1513,15 @@ After you save the live version in the browser will always match the file you sa
 After you save you're not worried that the original source material will change under you.
 Before you save you always want the most current version of the source material for each slide.
 
+**No**.
+You get a choice.
+The "Save and Link" button works as described above.
+I'd use that when saving for a git commit.
+So I'd be using exactly what I was committing.
+The "Save Temporary" button saves a JSON file the same way but does not change the source for anything.
+Sometime I want to save to a new file just to diff it with a different file.
+Then I'd throw the temporary file away.
+
 ### Selecting a Source
 
 I like our History dialog box.
@@ -1598,3 +1607,25 @@ It seems simpler for the user.
 That said, I still have a sense of relief.
 We're moving more responsibly to the file system.
 We won't be pushing the IndexedDB part as hard.
+
+## Status July 8
+
+Testing after a lot more progress.
+
+"Save and Link" vs "Save Only" buttons are confusing.
+I don't know the right way to say that.
+Maybe it just needs help for the first time user.
+
+**Or** maybe we need more status to go with the "Save and Link" and "Save Only" buttons.
+Right next to the save buttons you should have a status indicator.
+Something like "All from some5.json" or "Some dirty, all from some5.json" or "Loaded from multiple sources."
+And a way to jump directly to the scenes that are dirty or from different sources.
+I'm not 100% sure what the GUI should be for the linking, but if it's next to the list of stuff to be linked, that might make it make more sense.
+
+The "Save" and "Load" buttons on the right are a little bit confusing.
+"Save" means something totally different on the left and right sides of the screen!
+I'm not 100% sure what this should say.
+"save to undo list" is accurate but doesn't sound right.
+I'm thinking that maybe the words aren't the problem, it's the action.
+It's odd to explicitly save to an undo list or an automatic backup.
+I really like my idea above to auto save every 30 seconds or so, and report status, and then the button becomes irrelevant and can be removed.

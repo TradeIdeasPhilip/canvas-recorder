@@ -22,7 +22,8 @@
               <option value="2.00">200%</option>
             </select>
           </label>
-          <button type="button" id="saveJsonBtn">💾 Save JSON</button>
+          <button type="button" id="saveJsonLinkBtn">💾 Save &amp; Link</button>
+          <button type="button" id="saveJsonOnlyBtn">📎 Save Only</button>
           <button type="button" id="loadJsonTestBtn">📂 Load JSON</button>
           <span
             id="jsonSaveStatus"
@@ -255,9 +256,9 @@
             <button
               id="openHistoryDialogBtn"
               type="button"
-              title="Browse History"
+              title="Load / Browse History"
             >
-              📜 History
+              📂 Load
             </button>
           </span>
         </div>
@@ -275,7 +276,7 @@
     </div>
 
     <dialog id="historyDialog" style="min-width: 30em; padding: 1em">
-      <h3 style="margin: 0 0 0.6em 0">History</h3>
+      <h3 style="margin: 0 0 0.6em 0">Load</h3>
       <div
         id="historyDialogHint"
         style="

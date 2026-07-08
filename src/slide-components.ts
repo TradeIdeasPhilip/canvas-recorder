@@ -454,7 +454,7 @@ export class SlideComponent implements Showable {
       placeJ?: number | readonly Keyframe<number>[];
     } = {},
   ) {
-    this.description = initialValues.description ?? "Slide";
+     this.description = initialValues.description ?? "Slide";
     if (initialValues.transformTemplate !== undefined)
       this.transformTemplate.value = initialValues.transformTemplate;
     if (initialValues.placeA !== undefined)

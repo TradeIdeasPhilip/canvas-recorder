@@ -5,7 +5,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📽️ Canvas Recorder</title>
-    <script type="module" crossorigin src="./assets/canvas-recorder-DhiFFT00.js"></script>
+    <script type="module" crossorigin src="./assets/canvas-recorder-rhBjLBRa.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="modulepreload" crossorigin href="./assets/lib-CeXd4wlL.js">
     <link rel="modulepreload" crossorigin href="./assets/client-misc-DG2oP2rc.js">
@@ -26,7 +26,8 @@
               <option value="2.00">200%</option>
             </select>
           </label>
-          <button type="button" id="saveJsonBtn">💾 Save JSON</button>
+          <button type="button" id="saveJsonLinkBtn">💾 Save &amp; Link</button>
+          <button type="button" id="saveJsonOnlyBtn">📎 Save Only</button>
           <button type="button" id="loadJsonTestBtn">📂 Load JSON</button>
           <span
             id="jsonSaveStatus"
@@ -259,9 +260,9 @@
             <button
               id="openHistoryDialogBtn"
               type="button"
-              title="Browse History"
+              title="Load / Browse History"
             >
-              📜 History
+              📂 Load
             </button>
           </span>
         </div>
@@ -279,7 +280,7 @@
     </div>
 
     <dialog id="historyDialog" style="min-width: 30em; padding: 1em">
-      <h3 style="margin: 0 0 0.6em 0">History</h3>
+      <h3 style="margin: 0 0 0.6em 0">Load</h3>
       <div
         id="historyDialogHint"
         style="
