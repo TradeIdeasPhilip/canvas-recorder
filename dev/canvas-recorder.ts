@@ -1286,7 +1286,6 @@ let draggingPoint: PointKf | null = null;
 // MARK: Component Editor
 
 /** Maps dynamically-added component instances back to their registry key for serialization. */
-const componentRegistryKey = new WeakMap<Showable, string>();
 
 /**
  * Populated during each live showFrame() call via the registerTransform callback.
@@ -1932,15 +1931,7 @@ function serializeScalars(scalars: readonly ScalarInfo[]): SerializedScalar[] {
 
 function serializeComponents(components: Showable[]): SerializedChild[] {
   return components.flatMap((child) => {
-    // Fall back to description when it exactly matches a registry key — this
-    // handles TypeScript-hardcoded components that were never stamped by
-    // buildComponents or the visual editor's "add component" path.
-    const rk =
-      child.registryKey ??
-      componentRegistryKey.get(child) ??
-      (componentRegistry.has(child.description)
-        ? child.description
-        : undefined);
+    const rk = child.registryKey;
     if (!rk) return [];
     const entry: SerializedChild = {
       registryKey: rk,
@@ -4605,15 +4596,8 @@ function buildScheduleSection(
 }
 
 function serializeComponent(child: Showable): SerializedChild {
-  const rk =
-    child.registryKey ??
-    componentRegistryKey.get(child) ??
-    (componentRegistry.has(child.description)
-      ? child.description
-      : undefined) ??
-    "";
   const entry: SerializedChild = {
-    registryKey: rk,
+    registryKey: child.registryKey ?? "",
     schedules: child.schedules?.length
       ? serializeSchedules(child.schedules)
       : [],
@@ -4941,8 +4925,6 @@ function updateComponentEditor(selectable: Showable) {
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
     const newChild = factory();
-    newChild.registryKey = addSelect.value;
-    componentRegistryKey.set(newChild, addSelect.value);
     addTarget.components!.push(newChild);
     selectedSlideChild = newChild;
     activeRootComponentEditor?.resetAll();

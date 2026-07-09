@@ -62,7 +62,16 @@ import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
 import { blackBackground, distribute } from "./utility";
 import { zipper } from "./zipper";
-import { SingleImageComponent } from "./slide-components";
+import {
+  FunctionGraphComponent,
+  SingleImageComponent,
+} from "./slide-components";
+
+FunctionGraphComponent.functions.set("sin", Math.sin);
+FunctionGraphComponent.functions.set("cos", Math.cos);
+FunctionGraphComponent.functions.set("tan", Math.tan);
+FunctionGraphComponent.functions.set("x²", (x) => x * x);
+FunctionGraphComponent.functions.set("x³", (x) => x * x * x);
 import { NumberScheduleInfo, RectangleScheduleInfo } from "./schedule-helper";
 import { makeCornerRounder } from "./corner-rounder";
 import { compare, convertCSS } from "colorizr";

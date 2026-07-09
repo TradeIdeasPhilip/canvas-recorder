@@ -1,11 +1,5 @@
 import { ReadOnlyRect } from "phil-lib/misc";
-import {
-  discreteKeyframes,
-  interpolateColors,
-  interpolateNumbers,
-  interpolateRects,
-  Keyframe,
-} from "./interpolate";
+import { Keyframe } from "./interpolate";
 import {
   applyScalarSnapshot,
   applySnapshot,
@@ -87,6 +81,7 @@ export function showError(context: CanvasRenderingContext2D, text: string) {
  * the component-specific Font Info panel.
  */
 export class TraditionalTextComponent implements Showable {
+  readonly registryKey = "Traditional Text";
   /**
    * What to display.
    */
@@ -347,6 +342,7 @@ export class TraditionalTextComponent implements Showable {
  * For now let's focus on the durations and just use a number for the value.
  */
 export class SlideDeckComponent implements Showable {
+  readonly registryKey = "Slide Deck";
   readonly whichSlideSchedule = new NumberDurationScheduleInfo(
     "Which Slide",
     0,
@@ -403,6 +399,7 @@ export const TRANSFORM_PLACEHOLDERS = [
  * Exported so dev/canvas-recorder.ts can use instanceof for the custom panel.
  */
 export class SlideComponent implements Showable {
+  readonly registryKey = "Slide";
   readonly transformTemplate = new StringScalarInfo(
     "Transform Template",
     "scale(1)",
@@ -454,7 +451,7 @@ export class SlideComponent implements Showable {
       placeJ?: number | readonly Keyframe<number>[];
     } = {},
   ) {
-     this.description = initialValues.description ?? "Slide";
+    this.description = initialValues.description ?? "Slide";
     if (initialValues.transformTemplate !== undefined)
       this.transformTemplate.value = initialValues.transformTemplate;
     if (initialValues.placeA !== undefined)
@@ -577,6 +574,7 @@ function setTextFormatList(
  * But the plan is for descendants to have access to this component's formatters.
  */
 export class MultiTextComponent implements Showable {
+  readonly registryKey = "Multi Text";
   /**
    * Create, initialize, and add a TextSpanComponent to this MultiTextComponent.
    * @param style The name of the style to apply to this text.
@@ -751,6 +749,7 @@ export class MultiTextComponent implements Showable {
 }
 
 export class TextSpanComponent implements Showable {
+  readonly registryKey = "Text Span";
   public contentSchedule = new StringScheduleInfo("Content", "");
   // TODO do not allow easing in styleSchedule.
   public styleSchedule = new StringScheduleInfo("Style", "");
@@ -790,6 +789,7 @@ type CachedFont = {
 };
 
 export class TextFormatComponent implements Showable {
+  readonly registryKey = "Text Format";
   readonly nameScalar = new StringScalarInfo("Name", "");
   readonly scalars = [this.nameScalar] as const;
   readonly colorSchedule: ColorScheduleInfo;
@@ -874,6 +874,7 @@ export class TextFormatComponent implements Showable {
 }
 
 export class TextComponent implements Showable {
+  readonly registryKey = "Text";
   readonly description = "Text";
   readonly duration = 0;
   readonly colorSchedule = new ColorScheduleInfo("Color", "#888");
@@ -1007,6 +1008,7 @@ export class TextComponent implements Showable {
  * position/size schedule.
  */
 export class RectangleComponent implements Showable {
+  readonly registryKey = "Rectangle";
   readonly colorSchedule = new ColorScheduleInfo("Color", "cyan");
   readonly rectSchedule = new RectangleScheduleInfo("Rect", {
     x: 2,
@@ -1047,6 +1049,7 @@ export class RectangleComponent implements Showable {
  * load.  The dest-rect schedule is interpolated so you can animate placement.
  */
 export class SingleImageComponent implements Showable {
+  readonly registryKey = "Static Image";
   readonly urlSchedule = new StringScheduleInfo("URL", "");
   readonly destRectSchedule = new RectangleScheduleInfo("Dest Rect", {
     x: 1,
@@ -1108,149 +1111,143 @@ export class SingleImageComponent implements Showable {
   }
 }
 
-export function createFunctionGraphComponent(
-  f: (x: number) => number = Math.sin,
-): Showable {
-  const SAMPLE_COUNT = 300;
-  const X_DEFAULT_MIN = -Math.PI * 2;
-  const X_DEFAULT_MAX = Math.PI * 2;
+export class FunctionGraphComponent implements Showable {
+  /**
+   * Register a named function here so it can be selected via the "Function Name"
+   * schedule in the visual editor.  Call this from your video's TypeScript file
+   * before the component is rendered.
+   *
+   * @example
+   * FunctionGraphComponent.functions.set("sin", Math.sin);
+   * FunctionGraphComponent.functions.set("x²", x => x * x);
+   */
+  static readonly functions = new Map<string, (x: number) => number>();
 
-  // Sample f to auto-range the y axis.
-  const yValues: number[] = [];
-  for (let i = 0; i <= SAMPLE_COUNT; i++) {
-    const x =
-      X_DEFAULT_MIN + ((X_DEFAULT_MAX - X_DEFAULT_MIN) * i) / SAMPLE_COUNT;
-    yValues.push(f(x));
+  readonly registryKey = "Function Graph";
+  readonly description = "Function Graph";
+  readonly duration = 0;
+
+  readonly functionNameSchedule = new StringScheduleInfo(
+    "Function Name",
+    "sin",
+  );
+  readonly destRectSchedule = new RectangleScheduleInfo("Dest Rect", {
+    x: 2,
+    y: 2,
+    width: 6,
+    height: 4,
+  });
+  readonly xMinSchedule = new NumberScheduleInfo("X Min", -Math.PI * 2);
+  readonly xMaxSchedule = new NumberScheduleInfo("X Max", Math.PI * 2);
+  readonly yMinSchedule = new NumberScheduleInfo("Y Min", -1.5);
+  readonly yMaxSchedule = new NumberScheduleInfo("Y Max", 1.5);
+  readonly gridColorSchedule = new StringScheduleInfo(
+    "Grid Color",
+    "rgba(255,255,255,0.35)",
+  );
+  readonly gridLineWidthSchedule = new NumberScheduleInfo(
+    "Grid Line Width",
+    0.02,
+  );
+  readonly fontSchedule = new StringScheduleInfo("Font", "0.28px sans-serif");
+  readonly curveColorSchedule = new ColorScheduleInfo(
+    "Curve Color",
+    "rgb(0,128,255)",
+  );
+
+  readonly schedules = [
+    this.functionNameSchedule,
+    this.destRectSchedule,
+    this.xMinSchedule,
+    this.xMaxSchedule,
+    this.yMinSchedule,
+    this.yMaxSchedule,
+    this.gridColorSchedule,
+    this.gridLineWidthSchedule,
+    this.fontSchedule,
+    this.curveColorSchedule,
+  ] as const;
+
+  show({ context, timeInMs }: ShowOptions): void {
+    const functionName = this.functionNameSchedule.at(timeInMs);
+    const f = FunctionGraphComponent.functions.get(functionName);
+    if (!f) {
+      showError(context, `Unknown function:\n"${functionName}"`);
+      return;
+    }
+
+    const destRect = this.destRectSchedule.at(timeInMs);
+    const xMin = this.xMinSchedule.at(timeInMs);
+    const xMax = this.xMaxSchedule.at(timeInMs);
+    const yMin = this.yMinSchedule.at(timeInMs);
+    const yMax = this.yMaxSchedule.at(timeInMs);
+    if (xMax <= xMin || yMax <= yMin) return;
+
+    const gridColor = this.gridColorSchedule.at(timeInMs);
+    const gridLineWidth = this.gridLineWidthSchedule.at(timeInMs);
+    const font = this.fontSchedule.at(timeInMs);
+    const curveColor = this.curveColorSchedule.at(timeInMs);
+
+    const viewRect: ReadOnlyRect = {
+      x: xMin,
+      y: yMin,
+      width: xMax - xMin,
+      height: yMax - yMin,
+    };
+
+    drawGrid(context, {
+      destRect,
+      viewRect,
+      color: gridColor,
+      majorLineWidth: gridLineWidth,
+      font,
+    });
+
+    // Use the same transform as drawGrid so the curve aligns with the grid.
+    const xf = computeGridTransform(destRect, viewRect);
+    if (!xf) return;
+    const { toCanvasX, toCanvasY, effectiveRect } = xf;
+
+    // Border — drawn around the actual letterboxed area.
+    context.strokeStyle = gridColor;
+    context.lineWidth = gridLineWidth * 1.5;
+    context.setLineDash([]);
+    context.lineCap = "butt";
+    context.strokeRect(
+      effectiveRect.x,
+      effectiveRect.y,
+      effectiveRect.width,
+      effectiveRect.height,
+    );
+
+    // Function curve — clipped to effectiveRect.
+    context.save();
+    context.beginPath();
+    context.rect(
+      effectiveRect.x,
+      effectiveRect.y,
+      effectiveRect.width,
+      effectiveRect.height,
+    );
+    context.clip();
+
+    const SAMPLE_COUNT = 300;
+    context.beginPath();
+    for (let i = 0; i <= SAMPLE_COUNT; i++) {
+      const mx = xMin + ((xMax - xMin) * i) / SAMPLE_COUNT;
+      const cx = toCanvasX(mx);
+      const cy = toCanvasY(f(mx));
+      if (i === 0) context.moveTo(cx, cy);
+      else context.lineTo(cx, cy);
+    }
+    context.strokeStyle = curveColor;
+    context.lineWidth = 0.04;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.stroke();
+
+    context.restore();
   }
-  const yDataMin = Math.min(...yValues);
-  const yDataMax = Math.max(...yValues);
-  const yPad = Math.max((yDataMax - yDataMin) * 0.1, 0.1);
-
-  const destRectSchedule: Keyframe<ReadOnlyRect>[] = [
-    { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
-  ];
-  const xMinSchedule: Keyframe<number>[] = [{ time: 0, value: X_DEFAULT_MIN }];
-  const xMaxSchedule: Keyframe<number>[] = [{ time: 0, value: X_DEFAULT_MAX }];
-  const yMinSchedule: Keyframe<number>[] = [
-    { time: 0, value: yDataMin - yPad },
-  ];
-  const yMaxSchedule: Keyframe<number>[] = [
-    { time: 0, value: yDataMax + yPad },
-  ];
-  const gridColorSchedule: Keyframe<string>[] = [
-    { time: 0, value: "rgba(255,255,255,0.35)" },
-  ];
-  const gridLineWidthSchedule: Keyframe<number>[] = [{ time: 0, value: 0.02 }];
-  const fontSchedule: Keyframe<string>[] = [
-    { time: 0, value: "0.28px sans-serif" },
-  ];
-  const curveColorSchedule: Keyframe<string>[] = [
-    { time: 0, value: "rgb(0,128,255)" },
-  ];
-
-  return {
-    description: "Function Graph",
-    duration: 0,
-    schedules: [
-      {
-        description: "Dest Rect",
-        type: "rectangle",
-        schedule: destRectSchedule,
-      },
-      { description: "X Min", type: "number", schedule: xMinSchedule },
-      { description: "X Max", type: "number", schedule: xMaxSchedule },
-      { description: "Y Min", type: "number", schedule: yMinSchedule },
-      { description: "Y Max", type: "number", schedule: yMaxSchedule },
-      {
-        description: "Grid Color",
-        type: "string",
-        schedule: gridColorSchedule,
-      },
-      {
-        description: "Grid Line Width",
-        type: "number",
-        schedule: gridLineWidthSchedule,
-      },
-      { description: "Font", type: "string", schedule: fontSchedule },
-      {
-        description: "Curve Color",
-        type: "color",
-        schedule: curveColorSchedule,
-      },
-    ],
-    show({ context, timeInMs }) {
-      const destRect = interpolateRects(timeInMs, destRectSchedule);
-      const xMin = interpolateNumbers(timeInMs, xMinSchedule);
-      const xMax = interpolateNumbers(timeInMs, xMaxSchedule);
-      const yMin = interpolateNumbers(timeInMs, yMinSchedule);
-      const yMax = interpolateNumbers(timeInMs, yMaxSchedule);
-      if (xMax <= xMin || yMax <= yMin) return;
-
-      const gridColor = discreteKeyframes(timeInMs, gridColorSchedule);
-      const gridLineWidth = interpolateNumbers(timeInMs, gridLineWidthSchedule);
-      const font = discreteKeyframes(timeInMs, fontSchedule);
-      const curveColor = interpolateColors(timeInMs, curveColorSchedule);
-
-      const viewRect: ReadOnlyRect = {
-        x: xMin,
-        y: yMin,
-        width: xMax - xMin,
-        height: yMax - yMin,
-      };
-
-      drawGrid(context, {
-        destRect,
-        viewRect,
-        color: gridColor,
-        majorLineWidth: gridLineWidth,
-        font,
-      });
-
-      // Use the same transform as drawGrid so the curve aligns with the grid.
-      const xf = computeGridTransform(destRect, viewRect);
-      if (!xf) return;
-      const { toCanvasX, toCanvasY, effectiveRect } = xf;
-
-      // Border — drawn around the actual letterboxed area.
-      context.strokeStyle = gridColor;
-      context.lineWidth = gridLineWidth * 1.5;
-      context.setLineDash([]);
-      context.lineCap = "butt";
-      context.strokeRect(
-        effectiveRect.x,
-        effectiveRect.y,
-        effectiveRect.width,
-        effectiveRect.height,
-      );
-
-      // Function curve — clipped to effectiveRect.
-      context.save();
-      context.beginPath();
-      context.rect(
-        effectiveRect.x,
-        effectiveRect.y,
-        effectiveRect.width,
-        effectiveRect.height,
-      );
-      context.clip();
-
-      context.beginPath();
-      for (let i = 0; i <= SAMPLE_COUNT; i++) {
-        const mx = xMin + ((xMax - xMin) * i) / SAMPLE_COUNT;
-        const cx = toCanvasX(mx);
-        const cy = toCanvasY(f(mx));
-        if (i === 0) context.moveTo(cx, cy);
-        else context.lineTo(cx, cy);
-      }
-      context.strokeStyle = curveColor;
-      context.lineWidth = 0.04;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.stroke();
-
-      context.restore();
-    },
-  };
 }
 
 /** Registry of component factories available in the "Add" dropdown. */
@@ -1260,8 +1257,7 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
   ["Rectangle", () => new RectangleComponent()],
-  ["Function Graph (sin)", () => createFunctionGraphComponent()],
-  ["Function Graph (x²)", () => createFunctionGraphComponent((x) => x * x)],
+  ["Function Graph", () => new FunctionGraphComponent()],
   ["Static Image", () => new SingleImageComponent()],
   ["Multi Text", () => new MultiTextComponent()],
   ["Text Span", () => new TextSpanComponent()],
