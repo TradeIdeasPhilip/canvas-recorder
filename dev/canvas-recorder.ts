@@ -22,11 +22,8 @@ import {
   QUALITY_HIGH,
 } from "mediabunny";
 import {
-  applyScalarSnapshot,
-  applySnapshot,
   RootComponentEditor,
   ScalarInfo,
-  SerializedKf,
   SerializedScalar,
   SerializedSchedule,
   Showable,
@@ -43,6 +40,14 @@ import {
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
+import {
+  applyJsonEntry,
+  easeName,
+  JsonFileEntry,
+  serializeComponents,
+  serializeScalars,
+  serializeSchedules,
+} from "../src/snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
 import { myRainbow, myRainbowInfo } from "../src/glib/my-rainbow.ts";
 import { AudioBuilder } from "./audio-builder.ts";
@@ -1640,28 +1645,10 @@ function updateStatusDisplay(selectable: Showable) {
   updateJsonSaveStatus();
 }
 
-/**
- * Apply a DataHistoryEntry to a selectable in-place.
- * Does NOT update loadSources / loadedSnapshots — caller must do that.
- */
-function applyDataEntry(selectable: Showable, entry: DataHistoryEntry): void {
-  if (selectable.scalars?.length && entry.scalars?.length) {
-    applyScalarSnapshot(selectable.scalars, entry.scalars);
-  }
-  if (selectable.schedules?.length && entry.schedules.length) {
-    applySnapshot(selectable.schedules, entry.schedules);
-  }
-  if (selectable.components !== undefined && entry.components !== undefined) {
-    selectable.components.length = 0;
-    selectable.components.push(...buildComponents(entry.components));
-  }
-  selectable.userEditableDescription = entry.userEditableDescription;
-}
-
 /** Apply TypeScript defaults to a selectable in-place. */
 function applyTsDefaults(selectable: Showable): void {
   const defaults = tsDefaults.get(selectableKey(selectable));
-  if (defaults) applyDataEntry(selectable, defaults);
+  if (defaults) applyJsonEntry(selectable, defaults);
 }
 
 /**
@@ -1788,7 +1775,7 @@ async function initFromDB(
             // backup but saveScheduleState may not have completed before unload.
             // Apply the backup and clear the source pointer so future startups
             // use IndexedDB.
-            applyDataEntry(sel, backup!);
+            applyJsonEntry(sel, backup!);
             source = { kind: "db", timestamp: backup!.timestamp };
             const backupJson = JSON.stringify({
               schedules: backup!.schedules,
@@ -1826,7 +1813,7 @@ async function initFromDB(
               !isMarker(e) && e.timestamp === selectedTimestamp,
           );
           if (specificEntry) {
-            applyDataEntry(sel, specificEntry);
+            applyJsonEntry(sel, specificEntry);
             source = { kind: "db", timestamp: selectedTimestamp };
             loadSources.set(key, source);
             loadedSnapshots.set(key, currentSnapshotJson(sel));
@@ -1850,7 +1837,7 @@ async function initFromDB(
           source = { kind: "ts-defaults" };
         } else {
           // Full data entry: apply it
-          applyDataEntry(sel, effective);
+          applyJsonEntry(sel, effective);
           source = { kind: "db", timestamp: effective.timestamp };
 
           if (useBackup) {
@@ -1898,59 +1885,6 @@ async function initFromDB(
   }
 }
 
-function easeName(fn: ((t: number) => number) | undefined): string | undefined {
-  if (!fn) return undefined;
-  if (fn === ease) return "ease";
-  if (fn === easeIn) return "easeIn";
-  if (fn === easeOut) return "easeOut";
-  return "hold";
-}
-
-function serializeSchedules(
-  schedules: readonly ScheduleInfo[],
-): SerializedSchedule[] {
-  return schedules.map((info) => ({
-    description: info.description,
-    type: info.type,
-    keyframes: info.schedule.map((kf) => {
-      const entry: SerializedKf = { time: kf.time, value: kf.value };
-      const name = easeName(kf.easeAfter);
-      if (name) entry.easeAfter = name;
-      return entry;
-    }),
-  }));
-}
-
-function serializeScalars(scalars: readonly ScalarInfo[]): SerializedScalar[] {
-  return scalars.map((info) => ({
-    description: info.description,
-    type: info.type,
-    value: info.value,
-  }));
-}
-
-function serializeComponents(components: Showable[]): SerializedChild[] {
-  return components.flatMap((child) => {
-    const rk = child.registryKey;
-    if (!rk) return [];
-    const entry: SerializedChild = {
-      registryKey: rk,
-      schedules: child.schedules?.length
-        ? serializeSchedules(child.schedules)
-        : [],
-    };
-    if (child.scalars?.length) {
-      entry.scalars = serializeScalars(child.scalars);
-    }
-    if (child.components !== undefined) {
-      entry.components = serializeComponents(child.components);
-    }
-    if (child.userEditableDescription !== undefined) {
-      entry.userEditableDescription = child.userEditableDescription;
-    }
-    return [entry];
-  });
-}
 
 function selectableKey(selectable: Showable): string {
   return `${toShowKey}|${selectable.description}`;
@@ -2225,36 +2159,13 @@ function _dialogSelectItem(index: number, target: Showable) {
   // Preview the selected state
   if (item.kind === "current-unsaved") {
     // Revert to the unsaved state captured when the dialog opened
-    const snap = JSON.parse(_preDialogSnapshotJson) as {
-      schedules: SerializedSchedule[];
-      scalars?: SerializedScalar[];
-      components?: SerializedChild[];
-    };
-    if (target.scalars?.length && snap.scalars?.length)
-      applyScalarSnapshot(target.scalars, snap.scalars);
-    if (target.schedules?.length && snap.schedules.length)
-      applySnapshot(target.schedules, snap.schedules);
-    if (target.components !== undefined && snap.components !== undefined) {
-      target.components.length = 0;
-      target.components.push(...buildComponents(snap.components));
-    }
+    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
   } else if (item.kind === "ts-defaults") {
     applyTsDefaults(target);
   } else if (item.kind === "json-entry") {
-    const dataEntry: DataHistoryEntry = {
-      timestamp: Date.now(),
-      schedules: item.entry.schedules ?? [],
-      ...(item.entry.scalars !== undefined && { scalars: item.entry.scalars }),
-      ...(item.entry.components !== undefined && {
-        components: item.entry.components,
-      }),
-      ...(item.entry.userEditableDescription !== undefined && {
-        userEditableDescription: item.entry.userEditableDescription,
-      }),
-    };
-    applyDataEntry(target, dataEntry);
+    applyJsonEntry(target, item.entry);
   } else {
-    applyDataEntry(target, item.entry);
+    applyJsonEntry(target, item.entry);
   }
   selectedSlideChild = null;
   activeRootComponentEditor?.resetAll();
@@ -2421,39 +2332,12 @@ async function _applyDialogSelection(saveOld: boolean) {
 
   if (saveOld && _wasInitiallyDirty) {
     // Temporarily restore the old state to save it, then re-apply selection
-    const origSnap = JSON.parse(_preDialogSnapshotJson) as {
-      schedules: SerializedSchedule[];
-      scalars?: SerializedScalar[];
-      components?: SerializedChild[];
-      userEditableDescription?: string;
-    };
-    if (target.scalars?.length && origSnap.scalars?.length)
-      applyScalarSnapshot(target.scalars, origSnap.scalars);
-    if (target.schedules?.length && origSnap.schedules.length)
-      applySnapshot(target.schedules, origSnap.schedules);
-    if (target.components !== undefined && origSnap.components !== undefined) {
-      target.components.length = 0;
-      target.components.push(...buildComponents(origSnap.components));
-    }
-    target.userEditableDescription = origSnap.userEditableDescription;
+    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
     await saveScheduleState(target, false, true);
     // Re-apply the selected item
     if (item.kind === "ts-defaults") applyTsDefaults(target);
-    else if (item.kind === "db-entry") applyDataEntry(target, item.entry);
-    else if (item.kind === "json-entry") {
-      const dataEntry: DataHistoryEntry = {
-        timestamp: Date.now(),
-        schedules: item.entry.schedules ?? [],
-        ...(item.entry.scalars !== undefined && { scalars: item.entry.scalars }),
-        ...(item.entry.components !== undefined && {
-          components: item.entry.components,
-        }),
-        ...(item.entry.userEditableDescription !== undefined && {
-          userEditableDescription: item.entry.userEditableDescription,
-        }),
-      };
-      applyDataEntry(target, dataEntry);
-    }
+    else if (item.kind === "db-entry" || item.kind === "json-entry")
+      applyJsonEntry(target, item.entry);
     // "current-unsaved" is already applied (it IS the old state we just saved)
   }
 
@@ -2505,21 +2389,7 @@ historyCancelBtn.addEventListener("click", () => {
   // Revert to the state before the dialog opened
   const target = _historyTarget;
   if (target) {
-    const snap = JSON.parse(_preDialogSnapshotJson) as {
-      schedules: SerializedSchedule[];
-      scalars?: SerializedScalar[];
-      components?: SerializedChild[];
-      userEditableDescription?: string;
-    };
-    if (target.scalars?.length && snap.scalars?.length)
-      applyScalarSnapshot(target.scalars, snap.scalars);
-    if (target.schedules?.length && snap.schedules.length)
-      applySnapshot(target.schedules, snap.schedules);
-    if (target.components !== undefined && snap.components !== undefined) {
-      target.components.length = 0;
-      target.components.push(...buildComponents(snap.components));
-    }
-    target.userEditableDescription = snap.userEditableDescription;
+    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
     selectedSlideChild = null;
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(target);
@@ -5593,13 +5463,6 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
 
 // MARK: Save JSON file
 
-/** File format: one entry per selectable that has editable state. No timestamps. */
-type JsonFileEntry = {
-  schedules?: SerializedSchedule[];
-  scalars?: SerializedScalar[];
-  components?: SerializedChild[];
-  userEditableDescription?: string;
-};
 
 /** Serialize the current in-memory state to a `Record<key, JsonFileEntry>`. */
 function buildJsonSnapshot(): Record<string, JsonFileEntry> {
@@ -5764,17 +5627,7 @@ function applyJsonSnapshot(
       if (src?.kind === "db" || src?.kind === "ts-defaults-explicit") continue;
     }
 
-    // Convert JsonFileEntry → DataHistoryEntry shape expected by applyDataEntry.
-    const dataEntry: DataHistoryEntry = {
-      timestamp: Date.now(),
-      schedules: entry.schedules ?? [],
-      ...(entry.scalars !== undefined && { scalars: entry.scalars }),
-      ...(entry.components !== undefined && { components: entry.components }),
-      ...(entry.userEditableDescription !== undefined && {
-        userEditableDescription: entry.userEditableDescription,
-      }),
-    };
-    applyDataEntry(sel, dataEntry);
+    applyJsonEntry(sel, entry);
     loadSources.set(key, { kind: "json", filename: `${toShowKey}.json` });
     loadedSnapshots.set(key, currentSnapshotJson(sel));
 
