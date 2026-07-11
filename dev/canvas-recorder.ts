@@ -1207,10 +1207,8 @@ let selectedSlideChild: Showable | null = null;
 /** The active {@link RootComponentEditor}, if the current root has one. */
 let activeRootComponentEditor: RootComponentEditor | undefined = undefined;
 
-const rootComponentEditorContainer = getById(
-  "rootComponentEditorContainer",
-  HTMLDivElement,
-);
+/** The element returned by {@link activeRootComponentEditor}.start(), shown at the top of .components-list. */
+let activeRootComponentEditorElement: HTMLElement | undefined = undefined;
 
 const visualEditorAPI: VisualEditorAPI = {
   getCurrentlySelected(): Showable {
@@ -1350,13 +1348,9 @@ function updateFromSelect() {
   if (newRootEditor !== activeRootComponentEditor) {
     activeRootComponentEditor?.suspend();
     activeRootComponentEditor = newRootEditor;
-    if (newRootEditor) {
-      rootComponentEditorContainer.replaceChildren(
-        newRootEditor.start(visualEditorAPI),
-      );
-    } else {
-      rootComponentEditorContainer.replaceChildren();
-    }
+    activeRootComponentEditorElement = newRootEditor
+      ? newRootEditor.start(visualEditorAPI)
+      : undefined;
   }
   selectedSlideChild = null;
   updateComponentEditor(info.selectable);
@@ -3004,9 +2998,16 @@ async function pasteInto(target: Showable, selectable: Showable) {
 function updateComponentEditor(selectable: Showable) {
   const rootComponents = selectable.components;
   const rootFixed = selectable.fixedComponents;
-  componentsEditorFieldset.hidden =
-    rootComponents === undefined && !(rootFixed && rootFixed.length > 0);
-  if (componentsEditorFieldset.hidden) return;
+  const shouldHide =
+    rootComponents === undefined &&
+    !(rootFixed && rootFixed.length > 0) &&
+    !activeRootComponentEditorElement;
+  if (shouldHide) {
+    componentsEditorFieldset.replaceChildren();
+    componentsEditorFieldset.hidden = true;
+    return;
+  }
+  componentsEditorFieldset.hidden = false;
 
   // Preserve scroll position so clicking a component doesn't jump to the top.
   // If the list was scrolled to the bottom, stick to the bottom even if content
@@ -3031,6 +3032,10 @@ function updateComponentEditor(selectable: Showable) {
   const list = document.createElement("div");
   list.className = "components-list";
   list.style.cssText = "display:flex;flex-direction:column;gap:0.25em";
+
+  if (activeRootComponentEditorElement) {
+    list.append(activeRootComponentEditorElement);
+  }
 
   function renderComponentTree(container: Showable, depth: number) {
     const siblings = container.components ?? [];

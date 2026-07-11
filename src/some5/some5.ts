@@ -2055,7 +2055,6 @@ class ChildWrapper extends SlideComponent {
   // This makes some assumptions about the container.
   // I don't actually know the details right now, so this is just a straw man:
   element.style.maxHeight = "100%";
-  element.style.width = "100%";
   // Motif style so it's very obvious.
   element.style.border = "0.5em outset #A3A0A4";
   const rootComponentEditor: RootComponentEditor = {

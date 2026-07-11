@@ -142,6 +142,11 @@ body {
   border-top: none;
   border-radius: 0;
 }
+/* The `display: flex` above would beat UA-level `[hidden] { display: none }`,
+   so restore hiding behavior with a more-specific selector. */
+#componentsEditor[hidden] {
+  display: none;
+}
 
 /* List div injected by updateComponentEditor() */
 #componentsEditor .components-list {
