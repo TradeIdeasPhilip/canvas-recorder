@@ -13,7 +13,7 @@ export type VisualEditorAPI = {
   /**
    * @returns Which component's properties are currently available in the bottom right of the screen.
    */
-  getCurrentlySelected() : Showable;
+  getCurrentlySelected(): Showable;
   /**
    *
    * @param howMuch "sound" means to rebuild the sound from clips.
@@ -21,8 +21,8 @@ export type VisualEditorAPI = {
    * "structure" means that something bigger has changed, like adding or removing a component.
    * "structure" pretty much implies that the sounds and properties should be reread.
    */
-  refreshGUI(howMuch : "sound"|"properties"|"structure" ):void;
-}
+  refreshGUI(howMuch: "sound" | "properties" | "structure"): void;
+};
 
 /**
  * The "root" component refers to the showable at the top of the tree on the top right side of the screen.
@@ -39,29 +39,29 @@ export type RootComponentEditor = {
    * Trying to use the object after that is forbidden and the results are undefined.
    * @returns This element should be displayed so this object can interact with the user.
    */
-  start(visualEditor : VisualEditorAPI) : HTMLElement;
+  start(visualEditor: VisualEditorAPI): HTMLElement;
   /**
    * This is called when a new root element is put in place.
    * This object might have created other listeners or callbacks and now would be a good time to cancel those.
    */
-  suspend() : void;
+  suspend(): void;
   /**
    * This is called whenever the Visual Editor updates something.
    * @param component What changed?
    * @param property What changed?
    */
-  update(component: Showable, property: ScalarInfo | ScheduleInfo) : void;
+  update(component: Showable, property: ScalarInfo | ScheduleInfo): void;
   /**
    * This is called whenever
    * @param selected Which component's properties are currently available in the bottom right of the screen.
    */
-  selectionChanged(selected:Showable) : void;
+  selectionChanged(selected: Showable): void;
   /**
    * If there are a lot of updates, or if something other than a property value changed, this will be called.
    * E.g. a new component was added or the entire thing was reloaded from a snapshot.
    */
-  resetAll():void;
-}
+  resetAll(): void;
+};
 
 /**
  * This represents an animation.
@@ -130,7 +130,7 @@ export type Showable = {
    *
    * This field will get saved and loaded at the same time as we save and load the other properties of each component.
    */
-  userEditableDescription?:string;
+  userEditableDescription?: string;
   /**
    * Aimed at a person using our development console.
    * That type of user can navigate a tree of Showable objects.
@@ -184,7 +184,7 @@ export type Showable = {
    * Any time a new root component is selected, see if that component has this property set.
    * If so, call {@link RootComponentEditor.start}() and honer the other callbacks in {@link RootComponentEditor}.
    */
-  readonly rootComponentEditor? : RootComponentEditor;
+  readonly rootComponentEditor?: RootComponentEditor;
 
   /**
    * Key in `componentRegistry` that can recreate this component.

@@ -330,6 +330,11 @@ function addToBoth(toAdd: Showable) {
  * As you change the numbers, nothing should jump around.
  */
 class MatrixLayout {
+  static readonly BOTTOM_ROW_COLOR_BASE = "rgba(0, 0, 0, 0.4)";
+  static bottomRowColor = this.BOTTOM_ROW_COLOR_BASE;
+  static resetBottomRowColor() {
+    this.bottomRowColor = this.BOTTOM_ROW_COLOR_BASE;
+  }
   /**
    * This matches the results of {@link formatNumber}().
    *
@@ -581,7 +586,7 @@ class MatrixLayout {
     // Remember that we are using the halftone shadow.
     // That is sensitive to alpha.
     // Partially transparent black looks a lot like gray at first, but the shadow will be lighter.
-    context.strokeStyle = "rgba(0, 0, 0, 0.4)";
+    context.strokeStyle = MatrixLayout.bottomRowColor;
     this.strokeEntry(left, top, "0", 0, 2, context);
     this.strokeEntry(left, top, "0", 1, 2, context);
     this.strokeEntry(left, top, "1", 2, 2, context);
@@ -615,7 +620,7 @@ class MatrixLayout {
     const textLeft = left + this.margin;
     ["x", "y", "1"].forEach((text, rowIndex) => {
       if (rowIndex == 2) {
-        context.strokeStyle = "rgba(0, 0, 0, 0.4)";
+        context.strokeStyle = MatrixLayout.bottomRowColor;
       }
       const entryTop = top + this.rowTop(rowIndex);
       context.stroke(
@@ -657,7 +662,7 @@ class MatrixLayout {
     context.lineJoin = "round";
     this.strokeEntry(left, top, point.x, 0, 0, context);
     this.strokeEntry(left, top, point.y, 0, 1, context);
-    context.strokeStyle = "rgba(0, 0, 0, 0.4)";
+    context.strokeStyle = MatrixLayout.bottomRowColor;
     this.strokeEntry(left, top, "1", 0, 2, context);
   }
   /**
@@ -2395,7 +2400,7 @@ class ChildWrapper extends SlideComponent {
         pointyEnd: { x: 6, y: 0.5 },
         color: MatrixLayout.MAGENTA,
         angleToFlatEnd: FULL_CIRCLE / 2,
-        startMs: 91_500,
+        startMs: 93_000,
         endMs: 98_000,
       }),
     );
@@ -2409,6 +2414,14 @@ class ChildWrapper extends SlideComponent {
       }),
     );
   }
+  const bottomRowColorSchedule: Keyframe<string>[] = [
+    { time: 120_000, value: MatrixLayout.BOTTOM_ROW_COLOR_BASE },
+    { time: 122_000, value: myRainbow.red },
+    { time: 124_000, value: myRainbow.red },
+    { time: 126_000, value: "transparent" },
+    { time: 129_000, value: "transparent" },
+    { time: 131_000, value: MatrixLayout.BOTTOM_ROW_COLOR_BASE },
+  ];
   const parallelCombination: Showable = {
     description: "Parallel Combination",
     duration,
@@ -2417,6 +2430,10 @@ class ChildWrapper extends SlideComponent {
     fixedComponents: slideChildren,
     components: [],
     show(options) {
+      MatrixLayout.bottomRowColor = interpolateColors(
+        options.timeInMs,
+        bottomRowColorSchedule,
+      );
       this.fixedComponents!.forEach((component) => {
         component.show(options);
       });
