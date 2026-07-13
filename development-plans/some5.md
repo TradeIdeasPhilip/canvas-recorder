@@ -1,24 +1,21 @@
 # #SoME5 Script
 
-Let's discuss matrices.
+Let's watch some matrices in their natural habitat.
+These examples are all affine transforms, more about that in a moment.
+The important thing, this is all implemented with matrix multiplication.
 
+This is an explainer, but don't worry, it's an easy one.
 The good news, the computer will help you create matrices.
 And the computer will multiply the matrices for you.
-All you have to do is put them in order.
+All you have to do is put them in the right order.
 
-I've got a math question.
-Any math people out there?
-How do I put my matrices in the wrong order almost every time!
-There are only two choices, I should be right half the time just by luck.
-
+Am I the only one who gets these things backwards?
+There are are only two possibilities, so how did I guess the wrong one every time?
 Let me show you how I stopped guessing and really learned to understand what's going on.
 
 ## Affine Transforms
 
-The focus of this video is matrix multiplication.
-My examples will all be affine transforms.
-I'm using these because I know them well, and because they they show off well.
-
+These examples are all affine transforms.
 Let me give you the short version.
 Affine transforms are very popular for 2d graphics on modern computers.
 They describe things like rotations and translations...
@@ -27,14 +24,13 @@ They describe things like rotations and translations...
 Each point is represented by a column vector.
 That's a matrix that's only one column wide.
 Shapes are, of course, just a collection of points.
+In these examples I'm doing the math for the top left corner of that square.
 
 Each operation is represented by a square matrix.
-There is an affine matrix that will double the size of your image.
-And a different matrix will quadruple the size of your image.
-Others will slide it or rotate it.
+Notice how the computer translates from an English-like description of each operation into a square matrix for you.
 
 You apply a transform to a point by multiplying the two matrices.
-You apply a transform to an image by applying the transform to each of the image's points individually.
+When you apply a transform to an image, to computer transforms each point in the image individually.
 
 There are a few more details.
 If you've studied matrix transforms, but not affine transforms, you might notice that affine matrices are bigger.

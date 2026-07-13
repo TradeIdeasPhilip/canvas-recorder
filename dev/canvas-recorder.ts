@@ -1241,6 +1241,10 @@ philDebug.VisualEditor = {
   get selectedComponent(): Showable | null {
     return selectedSlideChild;
   },
+  /** Current time in ms relative to the start of the selected chapter. */
+  get localTimeMs(): number {
+    return playPositionSeconds.valueAsNumber * 1000 - sectionStartTime;
+  },
 };
 
 const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);

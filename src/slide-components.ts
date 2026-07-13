@@ -1039,6 +1039,108 @@ export class RectangleComponent implements Showable {
 }
 
 /**
+ * Standard registry component: a directed arrow with a rectangular shaft and
+ * filled triangular head.  Uses a single filled {@link Path2D} so partially
+ * transparent colors don't double-blend where the head overlaps the shaft.
+ *
+ * Both endpoints are {@link PointScheduleInfo} schedules, so the Visual Editor
+ * renders them as draggable circles directly on the canvas.
+ */
+export class ArrowComponent implements Showable {
+  readonly registryKey = "Arrow";
+  readonly description = "Arrow";
+  readonly duration = 0;
+
+  readonly flatPositionSchedule = new PointScheduleInfo("Flat Position", {
+    x: 2,
+    y: 4.5,
+  });
+  readonly pointyPositionSchedule = new PointScheduleInfo("Pointy Position", {
+    x: 12,
+    y: 4.5,
+  });
+  readonly widthSchedule = new NumberScheduleInfo("Width", 0.5);
+  readonly colorSchedule = new ColorScheduleInfo("Color", "#555");
+
+  readonly schedules = [
+    this.flatPositionSchedule,
+    this.pointyPositionSchedule,
+    this.widthSchedule,
+    this.colorSchedule,
+  ] as const;
+
+  constructor(
+    initialValues: {
+      flat?: Point | readonly Keyframe<Point>[];
+      pointy?: Point | readonly Keyframe<Point>[];
+      width?: number | readonly Keyframe<number>[];
+      color?: string | readonly Keyframe<string>[];
+    } = {},
+  ) {
+    if (initialValues.flat !== undefined)
+      this.flatPositionSchedule.set(initialValues.flat);
+    if (initialValues.pointy !== undefined)
+      this.pointyPositionSchedule.set(initialValues.pointy);
+    if (initialValues.width !== undefined)
+      this.widthSchedule.set(initialValues.width);
+    if (initialValues.color !== undefined)
+      this.colorSchedule.set(initialValues.color);
+  }
+  static show(options :{context:CanvasRenderingContext2D, flat:Point,tip:Point, width:number,color:string}){
+    const {color,context,flat,tip,width} = options;
+
+    const dx = tip.x - flat.x;
+    const dy = tip.y - flat.y;
+    const length = Math.hypot(dx, dy);
+    // **Bad Math**
+    if (length < 1e-9) return;
+
+    // Unit vector along arrow, and 90°-CCW perpendicular.
+    const ux = dx / length;
+    const uy = dy / length;
+    const px = -uy;
+    const py = ux;
+
+    const halfWidth = width / 2;
+
+    // Arrowhead geometry (Google Slides style concave chevron).
+    // Scale the head down proportionally when the arrow is shorter than the desired head length.
+    const headScale = Math.min(1, length / (width * 6.5));
+    // Notch: where the shaft ends and the arrowhead begins.  ±hw wide, 4.8w back from tip.
+    const notchBack = width * 4.8 * headScale;
+    // Wing tips: the outermost corners.  ±2.4w wide, 6.5w back from tip.
+    const wingBack = width * 6.5 * headScale;
+    const wingHW   = width * 2.4 * headScale;
+
+    // Positions along the arrow axis.
+    const notchX = tip.x - ux * notchBack;
+    const notchY = tip.y - uy * notchBack;
+    const wingX  = tip.x - ux * wingBack;
+    const wingY  = tip.y - uy * wingBack;
+
+    const path = new Path2D();
+    path.moveTo(flat.x  + px * halfWidth,   flat.y  + py * halfWidth);
+    path.lineTo(notchX  + px * halfWidth,   notchY  + py * halfWidth);
+    path.lineTo(wingX   + px * wingHW, wingY + py * wingHW);
+    path.lineTo(tip.x,                tip.y);
+    path.lineTo(wingX   - px * wingHW, wingY - py * wingHW);
+    path.lineTo(notchX  - px * halfWidth,   notchY  - py * halfWidth);
+    path.lineTo(flat.x  - px * halfWidth,   flat.y  - py * halfWidth);
+    path.closePath();
+
+    context.fillStyle = color;
+    context.fill(path);
+   }
+  show({ context, timeInMs }: ShowOptions) {
+    const flat = this.flatPositionSchedule.at(timeInMs);
+    const tip = this.pointyPositionSchedule.at(timeInMs);
+    const width = this.widthSchedule.at(timeInMs);
+    const color = this.colorSchedule.at(timeInMs);
+    ArrowComponent.show({context, flat,tip,width,color})
+ }
+}
+
+/**
  * Standard registry component: draws a single image loaded from a URL.
  *
  * While the image is loading (or if the URL is empty), the destination
@@ -1257,6 +1359,7 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
   ["Rectangle", () => new RectangleComponent()],
+  ["Arrow", () => new ArrowComponent()],
   ["Function Graph", () => new FunctionGraphComponent()],
   ["Static Image", () => new SingleImageComponent()],
   ["Multi Text", () => new MultiTextComponent()],

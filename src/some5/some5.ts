@@ -1,8 +1,9 @@
 import {
   FULL_CIRCLE,
   lerp,
-  only,
+  polarToRectangular,
   positiveModulo,
+  radiansPerDegree,
   ReadOnlyRect,
 } from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
@@ -36,6 +37,7 @@ import {
   VisualEditorAPI,
 } from "../showable";
 import {
+  ArrowComponent,
   buildComponents,
   MultiTextComponent,
   SlideComponent,
@@ -970,6 +972,11 @@ class BeforeAndAfter implements Showable {
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
   /**
+   * This is updated on each call to show().
+   * This is the value that we print in the matrix.
+   */
+  transformedPoint: Point = { x: NaN, y: NaN };
+  /**
    *
    * @param description This is used when saving to the database and it is display in the menu.
    * @param rightMostTransform This is applied directly to the sample image.
@@ -1024,7 +1031,7 @@ class BeforeAndAfter implements Showable {
     const drawSample = globalProgress.value;
     const transformString = this.makeTransformString(progress);
     const matrix = new DOMMatrixReadOnly(transformString);
-    const transformedPoint = transform(
+    this.transformedPoint = transform(
       this.originalPoint.x,
       this.originalPoint.y,
       matrix,
@@ -1034,7 +1041,7 @@ class BeforeAndAfter implements Showable {
       8.75 - BeforeAndAfter.matrixLayout.layout311.total.height,
       matrix,
       this.originalPoint,
-      transformedPoint,
+      this.transformedPoint,
       options.context,
     );
     const originalTransform = context.getTransform();
@@ -1068,6 +1075,7 @@ class BeforeAndAfter implements Showable {
 }
 
 // MARK: Slide 3
+const slide3 = new BeforeAndAfter("Slide 3");
 {
   const angleSchedule = new NumberScheduleInfo(
     "Angle",
@@ -1081,13 +1089,12 @@ class BeforeAndAfter implements Showable {
     ],
     progressAxisLabel,
   );
-  const slide = new BeforeAndAfter("Slide 3");
-  slide.schedules.push(angleSchedule);
-  slide.makeTransformString = (progress: number): string => {
+  slide3.schedules.push(angleSchedule);
+  slide3.makeTransformString = (progress: number): string => {
     const angle = angleSchedule.at(progress);
     return `skewY(${angle.toFixed(2)}deg)`;
   };
-  addToBoth(slide);
+  addToBoth(slide3);
 }
 
 // MARK: Slide 4
@@ -2004,25 +2011,41 @@ class ChildWrapper extends SlideComponent {
 {
   const duration = 600_000;
   const slideChildren = forTimeline.map((child) => new ChildWrapper(child));
-  function spread() {
-    const endTime = duration;
+  function spread(
+    startIndex: number,
+    endIndex: number,
+    startTime: number,
+    endTime: number,
+  ) {
+    const numberOfSlides = endIndex - startIndex;
+    if (numberOfSlides < 1) {
+      throw new Error("wtf");
+    }
     const overlap = 350;
+    if (endIndex < slideChildren.length) {
+      endTime -= overlap;
+    } else if (endIndex > slideChildren.length) {
+      throw new Error("wtf");
+    }
     const freezeBeforeEnd = 500;
     const freezeAfterStart = 500;
     const availableForMain =
       endTime -
-      (freezeBeforeEnd + freezeAfterStart) * slideChildren.length -
-      overlap * (slideChildren.length - 1);
+      startTime -
+      (freezeBeforeEnd + freezeAfterStart) * numberOfSlides -
+      overlap * (numberOfSlides - 1);
     if (availableForMain <= 0) {
       throw new Error("wtf");
     }
     function getFrameStart(index: number) {
       return (
-        index * (overlap + freezeBeforeEnd + freezeAfterStart) +
-        (index / slideChildren.length) * availableForMain
+        startTime +
+        (index - startIndex) * (overlap + freezeBeforeEnd + freezeAfterStart) +
+        ((index - startIndex) / numberOfSlides) * availableForMain
       );
     }
-    slideChildren.forEach((childWrapper, index, array) => {
+    for (let index = startIndex; index < endIndex; index++) {
+      const childWrapper = slideChildren[index];
       const frameStart = getFrameStart(index);
       const frameEnd = getFrameStart(index + 1) - overlap;
       const timeToProgress: Keyframe<number>[] = [];
@@ -2040,9 +2063,12 @@ class ChildWrapper extends SlideComponent {
       translateX.push({ time: frameEnd, value: 0 });
       translateX.push({ time: frameEnd + overlap, value: -16 });
       childWrapper.placeA.set(translateX);
-    });
+    }
   }
-  spread();
+  spread(0, 1, 0, 12_000);
+  spread(1, 3, 12_000, 120_000);
+  spread(3, slideChildren.length, 120_000, duration);
+  console.log(slideChildren);
   /**
    * This slide is a test of the new {@link Showable.rootComponentEditor} property.
    * Eventually this will be filled with some type of timeline GUI.
@@ -2105,15 +2131,299 @@ class ChildWrapper extends SlideComponent {
       visualEditorAPI = undefined;
     },
   };
+  const soundClips: {
+    notes: string;
+    source: string;
+    startMsIntoScene: number;
+    startMsIntoClip: number;
+    lengthMs: number;
+  }[] = [
+    {
+      notes: "Let’s watch some matrices in their natural habitat.\n",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 2152.48,
+      lengthMs: 3332.88,
+    },
+    {
+      notes: "These examples ... matrix multiplication.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 6100.35,
+      lengthMs: 9497.02,
+    },
+    {
+      notes: "This is an explainer... an easy one.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 18100.33,
+      lengthMs: 3146.46,
+    },
+    {
+      notes: "The good news: the computer will help you create the matrices.\n",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 21659.03,
+      lengthMs: 3964.26,
+    },
+    {
+      notes: "And the computer will multiply the matrices for you.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 26308.06,
+      lengthMs: 2798.21,
+    },
+    {
+      notes: "All you have to do is put them in the right order.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 29656.19,
+      lengthMs: 2488.9,
+    },
+    {
+      notes: "Am I the only one who gets these things backwards",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 33409.17,
+      lengthMs: 2792.56,
+    },
+    {
+      notes: "There are only two possibilities. ... wrong every time?",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 37355.25,
+      lengthMs: 4913.68,
+    },
+    {
+      notes: "How I stopped guessing ... what's really going on.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 43156.5,
+      lengthMs: 3852.06,
+    },
+    {
+      notes: "Affine transform overview",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 52174.38,
+      lengthMs: 19280.38,
+    },
+    {
+      notes: "Point = column vector = matrix.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 72176.1,
+      lengthMs: 6636.04,
+    },
+    {
+      notes: "Shapes are just a collection of points.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 79339.19,
+      lengthMs: 3877.48,
+    },
+    {
+      notes: "Top left corner of square",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 83676.98,
+      lengthMs: 5009.33,
+    },
+    {
+      notes:
+        "Each operation is a square matrix ... computer creates it for you.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 89969.63,
+      lengthMs: 12498.48,
+    },
+    {
+      notes: "Apply transform to point ... each point in image.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 106089.79,
+      lengthMs: 11654.98,
+    },
+    {
+      notes: "More details... affine matrices are bigger.\n",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 119657.4,
+      lengthMs: 10484.96,
+    },
+    {
+      notes: "And sometimes people don't bother to list out all the terms.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 130630.46,
+      lengthMs: 3829.13,
+    },
+    {
+      notes:
+        "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.",
+      source: "./Some 5 part 1.m4a",
+      startMsIntoScene: 0,
+      startMsIntoClip: 135655.83,
+      lengthMs: 17360.6,
+    },
+  ];
+  {
+    let startTime = 1000;
+    soundClips.forEach((clip) => {
+      clip.startMsIntoScene = startTime;
+      startTime += clip.lengthMs + 1000;
+    });
+  }
+  const moreToShow: Pick<Showable, "show">[] = [];
+  {
+    type SimpleArrowDescription = {
+      pointyEnd: Point;
+      color: string;
+      /**
+       * Radians.
+       * 0 means to the right.
+       * Positive numbers mean clockwise.
+       */
+      angleToFlatEnd: number;
+      /**
+       * First fully visible at this time in milliseconds.
+       * Some animation might appear before this to bring it in.
+       */
+      startMs: number;
+      /**
+       * Last fully visible at this time in milliseconds.
+       * Some animation might appear after to hide it.
+       */
+      endMs: number;
+    };
+    class SimpleArrow implements Pick<Showable, "show"> {
+      readonly flatEnd: Point;
+      readonly #length = 1.6;
+      readonly #width = 0.16;
+      readonly #alphaSchedule: Keyframe<number>[];
+      readonly #color: string;
+      protected readonly pointyEnd: { x: number; y: number };
+      constructor(description: SimpleArrowDescription) {
+        this.#color = description.color;
+        this.pointyEnd = description.pointyEnd;
+        const vectorBack = polarToRectangular(
+          this.#length,
+          description.angleToFlatEnd,
+        );
+        this.flatEnd = {
+          x: description.pointyEnd.x + vectorBack.x,
+          y: description.pointyEnd.y + vectorBack.y,
+        };
+        const fadeInTime = 1_000;
+        const fadeOutTime = 500;
+        this.#alphaSchedule = [
+          { time: description.startMs - fadeInTime, value: 0 },
+          { time: description.startMs, value: 1 },
+          { time: description.endMs, value: 1 },
+          { time: description.endMs + fadeOutTime, value: 0 },
+        ];
+      }
+      show(options: ShowOptions): void {
+        const { context, timeInMs } = options;
+        const alpha = interpolateNumbers(timeInMs, this.#alphaSchedule);
+        if (alpha > 0) {
+          const tip = this.pointyEnd;
+          context.globalAlpha = alpha;
+          ArrowComponent.show({
+            context,
+            color: this.#color,
+            flat: this.flatEnd,
+            tip,
+            width: this.#width,
+          });
+          context.globalAlpha = 1;
+        }
+      }
+    }
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 8.316318737270876, y: 6.794551934826884 },
+        color: MatrixLayout.CYAN,
+        angleToFlatEnd: -135 * radiansPerDegree,
+        startMs: 68_000,
+        endMs: 87_000,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 12.4, y: 7.77 },
+        color: MatrixLayout.GREEN,
+        angleToFlatEnd: 0,
+        startMs: 68_000,
+        endMs: 87_000,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 3, y: 2.75 },
+        color: MatrixLayout.CYAN,
+        angleToFlatEnd: FULL_CIRCLE / 2,
+        startMs: 81_500,
+        endMs: 87_000,
+      }),
+    );
+    class RightCornerArrow extends SimpleArrow {
+      show(options: ShowOptions): void {
+        this.pointyEnd.y = 3.75 + slide3.transformedPoint.y;
+        super.show(options);
+      }
+    }
+    const rightCornerArrow = new RightCornerArrow({
+      pointyEnd: { x: 11, y: 2.75 },
+      color: MatrixLayout.GREEN,
+      angleToFlatEnd: FULL_CIRCLE / 2,
+      startMs: 81_500,
+      endMs: 87_000,
+    });
+    moreToShow.push(rightCornerArrow);
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 3.6, y: 7.77 },
+        color: MatrixLayout.MAGENTA,
+        angleToFlatEnd: FULL_CIRCLE / 2,
+        startMs: 88_000,
+        endMs: 98_000,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 6, y: 0.5 },
+        color: MatrixLayout.MAGENTA,
+        angleToFlatEnd: FULL_CIRCLE / 2,
+        startMs: 91_500,
+        endMs: 98_000,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 7.96, y: 7.6 },
+        color: "black",
+        angleToFlatEnd: FULL_CIRCLE * (3 / 4),
+        startMs: 101_500,
+        endMs: 110_000,
+      }),
+    );
+  }
   const parallelCombination: Showable = {
     description: "Parallel Combination",
     duration,
     rootComponentEditor,
+    soundClips,
     fixedComponents: slideChildren,
+    components: [],
     show(options) {
       this.fixedComponents!.forEach((component) => {
         component.show(options);
       });
+      moreToShow.forEach((component) => {
+        component.show(options);
+      });
+      this.components?.forEach((component) => component.show(options));
     },
   };
   slideList.add(parallelCombination);

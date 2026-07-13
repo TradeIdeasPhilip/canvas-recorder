@@ -1294,6 +1294,7 @@ function showErrorPage(message: string): never {
   throw new Error("Showing audio load error page.");
 }
 
+const copyAllButton = getById("copyAll", HTMLButtonElement);
 (async () => {
   try {
     await loadAudio();
@@ -1305,6 +1306,28 @@ function showErrorPage(message: string): never {
     redraw();
   });
   (window as any).PDS = { redraw, setSourceRange, clipManager, Color };
+  copyAllButton.addEventListener("click", () => {
+    let result = `const soundClips: {
+  notes: string;
+  source: string;
+  startMsIntoScene: number;
+  startMsIntoClip: number;
+  lengthMs: number;
+}[] = [\n`;
+    clipManager.clips.forEach((clip) => {
+      result += `  {
+    notes: ${JSON.stringify(clip.notes)},
+    source: ${JSON.stringify(clipManager.key)},
+    startMsIntoScene: 0,
+    startMsIntoClip: ${((clip.startIndex / audioContext.sampleRate) * 1000).toFixed(2)},
+    lengthMs: ${(((clip.endIndex - clip.startIndex) / audioContext.sampleRate) * 1000).toFixed(2)},
+  },
+`;
+    });
+    result += "];\n";
+    navigator.clipboard.writeText(result);
+  });
+  copyAllButton.disabled = false;
 })();
 
 {
