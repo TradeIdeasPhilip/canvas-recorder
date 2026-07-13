@@ -332,9 +332,7 @@ function addToBoth(toAdd: Showable) {
 class MatrixLayout {
   static readonly BOTTOM_ROW_COLOR_BASE = "rgba(0, 0, 0, 0.4)";
   static bottomRowColor = this.BOTTOM_ROW_COLOR_BASE;
-  static resetBottomRowColor() {
-    this.bottomRowColor = this.BOTTOM_ROW_COLOR_BASE;
-  }
+  static bottomRowBoldnessRatio = 1;
   /**
    * This matches the results of {@link formatNumber}().
    *
@@ -587,6 +585,7 @@ class MatrixLayout {
     // That is sensitive to alpha.
     // Partially transparent black looks a lot like gray at first, but the shadow will be lighter.
     context.strokeStyle = MatrixLayout.bottomRowColor;
+    context.lineWidth *= MatrixLayout.bottomRowBoldnessRatio;
     this.strokeEntry(left, top, "0", 0, 2, context);
     this.strokeEntry(left, top, "0", 1, 2, context);
     this.strokeEntry(left, top, "1", 2, 2, context);
@@ -621,6 +620,8 @@ class MatrixLayout {
     ["x", "y", "1"].forEach((text, rowIndex) => {
       if (rowIndex == 2) {
         context.strokeStyle = MatrixLayout.bottomRowColor;
+        context.lineWidth =
+          this.font.strokeWidth * MatrixLayout.bottomRowBoldnessRatio;
       }
       const entryTop = top + this.rowTop(rowIndex);
       context.stroke(
@@ -663,6 +664,7 @@ class MatrixLayout {
     this.strokeEntry(left, top, point.x, 0, 0, context);
     this.strokeEntry(left, top, point.y, 0, 1, context);
     context.strokeStyle = MatrixLayout.bottomRowColor;
+    context.lineWidth *= MatrixLayout.bottomRowBoldnessRatio;
     this.strokeEntry(left, top, "1", 0, 2, context);
   }
   /**
@@ -1103,6 +1105,7 @@ const slide3 = new BeforeAndAfter("Slide 3");
 }
 
 // MARK: Slide 4
+const slide4 = new BeforeAndAfter("Slide 4");
 {
   const scaleSchedule = new NumberScheduleInfo(
     "Scale X",
@@ -1116,13 +1119,12 @@ const slide3 = new BeforeAndAfter("Slide 3");
     ],
     progressAxisLabel,
   );
-  const slide = new BeforeAndAfter("Slide 4");
-  slide.schedules.push(scaleSchedule);
-  slide.makeTransformString = (progress: number): string => {
+  slide4.schedules.push(scaleSchedule);
+  slide4.makeTransformString = (progress: number): string => {
     const scale = scaleSchedule.at(progress);
     return `scaleX(${scale.toFixed(2)})`;
   };
-  addToBoth(slide);
+  addToBoth(slide4);
 }
 
 // MARK: Slide 5
@@ -2345,6 +2347,7 @@ class ChildWrapper extends SlideComponent {
         }
       }
     }
+    // Initial point as a matrix:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 8.316318737270876, y: 6.794551934826884 },
@@ -2354,6 +2357,7 @@ class ChildWrapper extends SlideComponent {
         endMs: 87_000,
       }),
     );
+    // Transformed point as a matrix:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 12.4, y: 7.77 },
@@ -2363,6 +2367,7 @@ class ChildWrapper extends SlideComponent {
         endMs: 87_000,
       }),
     );
+    // Initial point in the image:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 3, y: 2.75 },
@@ -2372,6 +2377,7 @@ class ChildWrapper extends SlideComponent {
         endMs: 87_000,
       }),
     );
+    // Transformed point in the image:
     class RightCornerArrow extends SimpleArrow {
       show(options: ShowOptions): void {
         this.pointyEnd.y = 3.75 + slide3.transformedPoint.y;
@@ -2386,6 +2392,7 @@ class ChildWrapper extends SlideComponent {
       endMs: 87_000,
     });
     moreToShow.push(rightCornerArrow);
+    // Transform as a matrix:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 3.6, y: 7.77 },
@@ -2395,6 +2402,7 @@ class ChildWrapper extends SlideComponent {
         endMs: 98_000,
       }),
     );
+    // Transform as a css string:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 6, y: 0.5 },
@@ -2404,6 +2412,7 @@ class ChildWrapper extends SlideComponent {
         endMs: 98_000,
       }),
     );
+    // The multiplication sign:
     moreToShow.push(
       new SimpleArrow({
         pointyEnd: { x: 7.96, y: 7.6 },
@@ -2411,6 +2420,68 @@ class ChildWrapper extends SlideComponent {
         angleToFlatEnd: FULL_CIRCLE * (3 / 4),
         startMs: 101_500,
         endMs: 110_000,
+      }),
+    );
+    // Point to the points again.
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 8.316318737270876, y: 6.794551934826884 },
+        color: MatrixLayout.CYAN,
+        angleToFlatEnd: -135 * radiansPerDegree,
+        startMs: 134_000,
+        endMs: 138_500,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 12.4, y: 7.77 },
+        color: MatrixLayout.GREEN,
+        angleToFlatEnd: 0,
+        startMs: 134_000,
+        endMs: 138_500,
+      }),
+    );
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 3, y: 2.75 },
+        color: MatrixLayout.CYAN,
+        angleToFlatEnd: FULL_CIRCLE * (3 / 4),
+        startMs: 134_000,
+        endMs: 138_500,
+      }),
+    );
+    class RightCornerArrow2 extends SimpleArrow {
+      show(options: ShowOptions): void {
+        this.pointyEnd.x = 12 + slide4.transformedPoint.x;
+        super.show(options);
+      }
+    }
+    const rightCornerArrow2 = new RightCornerArrow2({
+      pointyEnd: { x: 11, y: 2.75 },
+      color: MatrixLayout.GREEN,
+      angleToFlatEnd: FULL_CIRCLE * (3 / 4),
+      startMs: 134_000,
+      endMs: 138_500,
+    });
+    moreToShow.push(rightCornerArrow2);
+    // Transform as a matrix again:
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 3.6, y: 7.77 },
+        color: MatrixLayout.MAGENTA,
+        angleToFlatEnd: FULL_CIRCLE / 2,
+        startMs: 139_000,
+        endMs: 143_000,
+      }),
+    );
+    // Transform as a css string again:
+    moreToShow.push(
+      new SimpleArrow({
+        pointyEnd: { x: 6.6, y: 0.5 },
+        color: MatrixLayout.MAGENTA,
+        angleToFlatEnd: FULL_CIRCLE / 2,
+        startMs: 139_000,
+        endMs: 143_000,
       }),
     );
   }
@@ -2421,6 +2492,12 @@ class ChildWrapper extends SlideComponent {
     { time: 126_000, value: "transparent" },
     { time: 129_000, value: "transparent" },
     { time: 131_000, value: MatrixLayout.BOTTOM_ROW_COLOR_BASE },
+  ];
+  const bottomRowBoldnessSchedule: Keyframe<number>[] = [
+    { time: 122_000, value: 1 },
+    { time: 124_000, value: 1.5 },
+    { time: 127_000, value: 1.5 },
+    { time: 128_000, value: 1 },
   ];
   const parallelCombination: Showable = {
     description: "Parallel Combination",
@@ -2433,6 +2510,10 @@ class ChildWrapper extends SlideComponent {
       MatrixLayout.bottomRowColor = interpolateColors(
         options.timeInMs,
         bottomRowColorSchedule,
+      );
+      MatrixLayout.bottomRowBoldnessRatio = interpolateNumbers(
+        options.timeInMs,
+        bottomRowBoldnessSchedule,
       );
       this.fixedComponents!.forEach((component) => {
         component.show(options);
