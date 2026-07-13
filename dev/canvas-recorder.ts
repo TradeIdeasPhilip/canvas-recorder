@@ -69,6 +69,7 @@ import {
   openFontPickerDialog,
 } from "./font-widgets.ts";
 import { buildSlideComponentPanel } from "./slide-panel.ts";
+import { WaveformDisplay } from "./waveform-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
 // Expose for manual testing from the browser devtools console.
@@ -131,6 +132,10 @@ const toShow = await resolveToShow();
 
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
+
+const waveformDisplay = new WaveformDisplay(
+  getById("waveformCanvas", HTMLCanvasElement),
+);
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.
@@ -293,6 +298,7 @@ viewport.addEventListener(
  * input (pointermove, etc.).
  */
 function showFrame(timeInMs: number, live: boolean) {
+  waveformDisplay.setPlayMs(timeInMs);
   context.reset();
   context.setTransform(mainTransform());
   if (live) {
@@ -586,6 +592,7 @@ async function initAudio(): Promise<void> {
   }
   audioBuilder = newBuilder;
   audioReady = true;
+  waveformDisplay.setAudioBuffer(newBuilder.getAudioBuffer());
   console.log(`Audio ready in ${(time2 - time1).toFixed(0)} ms.`);
 }
 
@@ -1342,6 +1349,7 @@ function updateFromSelect() {
     // Floor first so that subtracting 0.1 lands on a clean 0.1 ms boundary.
     sectionEndTime = Math.floor(sectionEndTime * 10) / 10 - 0.1;
   }
+  waveformDisplay.setChapter(sectionStartTime, sectionEndTime);
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically clamps to [min, max].  Make the number match.
@@ -1362,6 +1370,12 @@ function updateFromSelect() {
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
+
+waveformDisplay.onSeek = (ms) => {
+  stopAudio();
+  loadPlayPositionSeconds(ms);
+  loadPlayPositionRange();
+};
 querySelectorAll("table button", HTMLButtonElement).forEach((button) => {
   button.addEventListener("click", () => {
     const info = buttonDestination.get(button)!;
