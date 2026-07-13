@@ -131,12 +131,22 @@ export class WaveformDisplay {
 
   private setupEvents(): void {
     const { canvas } = this;
-    /** clientX when the pointer went down. */
     let downX = 0;
-    /** View range when the pointer went down, for pan math. */
     let downStart = 0;
     let downEnd = 0;
     let panning = false;
+
+    const seekFromEvent = (e: PointerEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const ms =
+        this.viewStartMs + (x / rect.width) * (this.viewEndMs - this.viewStartMs);
+      const clamped = Math.max(
+        this.chapterStartMs,
+        Math.min(this.chapterEndMs, ms),
+      );
+      this.onSeek?.(clamped);
+    };
 
     canvas.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
@@ -145,19 +155,24 @@ export class WaveformDisplay {
       downStart = this.viewStartMs;
       downEnd = this.viewEndMs;
       panning = false;
+      if (e.shiftKey) seekFromEvent(e);
     });
 
     canvas.addEventListener("pointermove", (e) => {
       if (!(e.buttons & 1)) return;
+      if (e.shiftKey) {
+        // Shift held: scrub the play position.
+        seekFromEvent(e);
+        return;
+      }
+      // No shift: pan the view.
       const dx = e.clientX - downX;
       if (!panning && Math.abs(dx) > 4) panning = true;
       if (!panning) return;
-
       const rect = canvas.getBoundingClientRect();
       const msPerPx = (downEnd - downStart) / rect.width;
       const dur = downEnd - downStart;
       let s = downStart - dx * msPerPx;
-      // Clamp so we don't pan outside the chapter.
       s = Math.max(this.chapterStartMs, Math.min(this.chapterEndMs - dur, s));
       this.viewStartMs = s;
       this.viewEndMs = s + dur;
@@ -166,23 +181,12 @@ export class WaveformDisplay {
 
     canvas.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
-      if (!panning) {
-        // Treat as a click → seek.
-        const rect = canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const ms =
-          this.viewStartMs +
-          (x / rect.width) * (this.viewEndMs - this.viewStartMs);
-        const clamped = Math.max(
-          this.chapterStartMs,
-          Math.min(this.chapterEndMs, ms),
-        );
-        this.onSeek?.(clamped);
-      }
+      // A click (no pan, no shift) seeks to that position.
+      if (!panning && !e.shiftKey) seekFromEvent(e);
       panning = false;
     });
 
-    // Scroll wheel: zoom centered on the cursor position.
+    // Scroll wheel: zoom centered on cursor.
     canvas.addEventListener(
       "wheel",
       (e) => {
@@ -192,17 +196,13 @@ export class WaveformDisplay {
         const cursorMs =
           this.viewStartMs +
           (cx / rect.width) * (this.viewEndMs - this.viewStartMs);
-
-        // deltaY > 0 → scroll down → zoom out (show more).
         const sensitivity = 1 / 7;
-        const factor = e.deltaY > 0 ? 1.5 ** sensitivity : 1.5 ** -sensitivity;
+        const factor =
+          e.deltaY > 0 ? 1.5 ** sensitivity : 1.5 ** -sensitivity;
         let newStart = cursorMs + (this.viewStartMs - cursorMs) * factor;
         let newEnd = cursorMs + (this.viewEndMs - cursorMs) * factor;
-
-        // Keep inside the chapter.
         newStart = Math.max(this.chapterStartMs, newStart);
         newEnd = Math.min(this.chapterEndMs, newEnd);
-
         if (newEnd - newStart >= WaveformDisplay.MIN_WINDOW_MS) {
           this.viewStartMs = newStart;
           this.viewEndMs = newEnd;
