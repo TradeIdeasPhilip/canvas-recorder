@@ -2018,6 +2018,57 @@ class ChildWrapper extends SlideComponent {
 {
   const duration = 600_000;
   const slideChildren = forTimeline.map((child) => new ChildWrapper(child));
+  /**
+   * For each new scene freeze on the first frame for this many milliseconds before starting the action.
+   * Scenes can be uncomfortable if we start the action immediately.
+   *
+   * This is part of the time reserved for the scene.
+   */
+  const freezeBeforeEnd = 500;
+  /**
+   * As each scene ends freeze on the last frame for this many milliseconds.
+   * Scenes can be uncomfortable if the action goes all the way to the end.
+   *
+   * This is part of the time reserved for the scene.
+   */
+  const freezeAfterStart = 500;
+  /**
+   * Allow this many milliseconds between scenes.
+   *
+   * During this time there may be an animated transition.
+   * Currently that means sliding the old scene off to the left while sliding the new scene in from the right.
+   */
+  const overlap = 350;
+  /**
+   * Tell a child when and how to display itself.
+   * Each gets assigned after the next, with a brief transition period in between.
+   * @param childWrapper Schedule this.
+   * @param startTime This comes after the {@link overlap} period and before the {@link freezeAfterStart}.
+   * This is the time allocated to this child alone.
+   * @param endTime This comes after the {@link freezeBeforeEnd} period and before the next {@link overlap}.
+   * This is the time allocated to this child alone.
+   */
+  function setSchedule(
+    childWrapper: ChildWrapper,
+    startTime: number,
+    endTime: number,
+  ) {
+    const timeToProgress: Keyframe<number>[] = [];
+    timeToProgress.push({ time: startTime - overlap - 1000, value: -1 });
+    timeToProgress.push({ time: startTime - overlap, value: 0 });
+    timeToProgress.push({ time: startTime + freezeAfterStart, value: 0 });
+    timeToProgress.push({ time: endTime - freezeBeforeEnd, value: 1 });
+    timeToProgress.push({ time: endTime + overlap, value: 1 });
+    timeToProgress.push({ time: endTime + overlap + 1000, value: 2 });
+    childWrapper.timeToProgressSchedule.set(timeToProgress);
+    childWrapper.transformTemplate.value = "translateX(𝓐px)";
+    const translateX: Keyframe<number>[] = [];
+    translateX.push({ time: startTime - overlap, value: 16 });
+    translateX.push({ time: startTime, value: 0 });
+    translateX.push({ time: endTime, value: 0 });
+    translateX.push({ time: endTime + overlap, value: -16 });
+    childWrapper.placeA.set(translateX);
+  }
   function spread(
     startIndex: number,
     endIndex: number,
@@ -2028,14 +2079,11 @@ class ChildWrapper extends SlideComponent {
     if (numberOfSlides < 1) {
       throw new Error("wtf");
     }
-    const overlap = 350;
     if (endIndex < slideChildren.length) {
       endTime -= overlap;
     } else if (endIndex > slideChildren.length) {
       throw new Error("wtf");
     }
-    const freezeBeforeEnd = 500;
-    const freezeAfterStart = 500;
     const availableForMain =
       endTime -
       startTime -
@@ -2055,21 +2103,7 @@ class ChildWrapper extends SlideComponent {
       const childWrapper = slideChildren[index];
       const frameStart = getFrameStart(index);
       const frameEnd = getFrameStart(index + 1) - overlap;
-      const timeToProgress: Keyframe<number>[] = [];
-      timeToProgress.push({ time: frameStart - overlap - 1000, value: -1 });
-      timeToProgress.push({ time: frameStart - overlap, value: 0 });
-      timeToProgress.push({ time: frameStart + freezeAfterStart, value: 0 });
-      timeToProgress.push({ time: frameEnd - freezeBeforeEnd, value: 1 });
-      timeToProgress.push({ time: frameEnd + overlap, value: 1 });
-      timeToProgress.push({ time: frameEnd + overlap + 1000, value: 2 });
-      childWrapper.timeToProgressSchedule.set(timeToProgress);
-      childWrapper.transformTemplate.value = "translateX(𝓐px)";
-      const translateX: Keyframe<number>[] = [];
-      translateX.push({ time: frameStart - overlap, value: 16 });
-      translateX.push({ time: frameStart, value: 0 });
-      translateX.push({ time: frameEnd, value: 0 });
-      translateX.push({ time: frameEnd + overlap, value: -16 });
-      childWrapper.placeA.set(translateX);
+      setSchedule(childWrapper, frameStart, frameEnd);
     }
   }
   spread(0, 1, 0, 12_000);
@@ -2354,7 +2388,7 @@ class ChildWrapper extends SlideComponent {
         color: MatrixLayout.CYAN,
         angleToFlatEnd: -135 * radiansPerDegree,
         startMs: 68_000,
-        endMs: 87_000,
+        endMs: 87_000 + 2416,
       }),
     );
     // Transformed point as a matrix:
@@ -2364,7 +2398,7 @@ class ChildWrapper extends SlideComponent {
         color: MatrixLayout.GREEN,
         angleToFlatEnd: 0,
         startMs: 68_000,
-        endMs: 87_000,
+        endMs: 87_000 + 2416,
       }),
     );
     // Initial point in the image:
@@ -2374,7 +2408,7 @@ class ChildWrapper extends SlideComponent {
         color: MatrixLayout.CYAN,
         angleToFlatEnd: FULL_CIRCLE / 2,
         startMs: 81_500,
-        endMs: 87_000,
+        endMs: 87_000 + 2416,
       }),
     );
     // Transformed point in the image:
@@ -2389,7 +2423,7 @@ class ChildWrapper extends SlideComponent {
       color: MatrixLayout.GREEN,
       angleToFlatEnd: FULL_CIRCLE / 2,
       startMs: 81_500,
-      endMs: 87_000,
+      endMs: 87_000 + 2416,
     });
     moreToShow.push(rightCornerArrow);
     // Transform as a matrix:
@@ -2398,7 +2432,7 @@ class ChildWrapper extends SlideComponent {
         pointyEnd: { x: 3.6, y: 7.77 },
         color: MatrixLayout.MAGENTA,
         angleToFlatEnd: FULL_CIRCLE / 2,
-        startMs: 88_000,
+        startMs: 88_000 + 2416,
         endMs: 98_000,
       }),
     );
@@ -2408,7 +2442,7 @@ class ChildWrapper extends SlideComponent {
         pointyEnd: { x: 6, y: 0.5 },
         color: MatrixLayout.MAGENTA,
         angleToFlatEnd: FULL_CIRCLE / 2,
-        startMs: 93_000,
+        startMs: 93_250,
         endMs: 98_000,
       }),
     );

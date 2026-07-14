@@ -1629,3 +1629,60 @@ I'm not 100% sure what this should say.
 I'm thinking that maybe the words aren't the problem, it's the action.
 It's odd to explicitly save to an undo list or an automatic backup.
 I really like my idea above to auto save every 30 seconds or so, and report status, and then the button becomes irrelevant and can be removed.
+
+## July 13
+
+What do typescript defaults mean?
+Is that just a way to bootstrap the system?
+If someone gets a video and starts from the typescript defaults, will it make any sense?
+If the program can’t find the json file, that seems like an error.
+
+Should we keep the typescript defaults?
+That’s wonderfully simple in terms of not needed a save and load option.
+Keep this part of the code useable on its own.
+Maybe.
+Maybe we need to finish the saved file solution and do a good job with that so there won’t be a need to focus on the typescript defaults.
+
+Is there a need to push changes out via the typescript defaults?
+It’s a clever way to do things, but it causes problems.
+It means that we have to decide which version to use.
+We should only use the typescript defaults for new items.
+But **warn** in that case.
+Let me know that we didn’t load a JSON file to get started,
+Or the JSON file did not have this slide.
+And even more fine grained things than that.
+Show a global warning so I know if anything was missing, and more details where appropriate.
+
+This will be relevant information.
+X, y and Z were added since the last time you saved.
+As soon as you save, the default values will be written into the file, and you won’t see that message any more.
+
+Currently I’m focused on making constant changes to the typescript code for the details of my script.
+I’m trying to coordinate the audio and visuals.
+I’m using code in some places because it seemed easier for things like evenly distributing some items for their initial positions.
+But then sometimes I want to use our GUI to make a change, to tweak something.
+At the moment I found the way we add new keyframes exactly what I needed.
+But whatever changes I make in the GUI I have to port back to the typescript code.
+And that is quickly becoming a mess.
+
+The problem is that the json file should be the main source and currently it isn’t.
+I want to improve the integration of JSON files in general.
+But, also, there’s a bug or missing feature in some5.ts where I have a list of fixedComponents and I can edit them but they don’t save to the JSON file.  (Or they save and don’t load back or something I need to check it out.)
+So those values are always read from the TypeScript code.
+And the Visual Editor isn’t living up to its potential here.
+
+How this task in some5.ts should work:
+I should have created my first best guess in the typescript defaults, as I did.
+And maybe I can tweak those a few times.
+But the first time I made a change by hand, I should not have cared about the typescript defaults ever again.
+The part saved in the JSON file is now the master.
+
+If I want to make programmatic changes I need to take a different approach.
+I need to wait until the system has loaded from the json file.
+Then I can run code to change what’s in memory.
+It will get saved just like if I’d changed it with the GUI.
+That code can be a combination of what’s in the *.ts files and what I type at the console.
+Common scripts can get promoted and added to the GUI.
+But one off scripts are also reasonable and common.
+
+Typescript defaults should remain a source that the user can *explicitly* load from.
