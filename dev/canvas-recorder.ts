@@ -41,8 +41,10 @@ import {
   applyJsonEntry,
   JsonFileEntry,
   serializeComponents,
+  serializeFixedComponents,
   serializeScalars,
   serializeSchedules,
+  SerializedFixedChild,
 } from "../src/snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
@@ -1455,6 +1457,7 @@ type DataHistoryEntry = {
   schedules: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
+  fixedComponents?: SerializedFixedChild[];
   userEditableDescription?: string;
 };
 /** Marker written when the user deliberately chooses TypeScript defaults. */
@@ -1573,6 +1576,9 @@ function currentSnapshotJson(selectable: Showable): string {
       : undefined,
     components: Array.isArray(selectable.components)
       ? serializeComponents(selectable.components)
+      : undefined,
+    fixedComponents: selectable.fixedComponents?.length
+      ? serializeFixedComponents(selectable.fixedComponents)
       : undefined,
     userEditableDescription: selectable.userEditableDescription,
   });
@@ -1707,13 +1713,15 @@ function captureDefaults(): void {
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
-    if (!hasSchedules && !hasScalars && !hasChildren) continue;
+    const hasFixed = !!sel.fixedComponents?.length;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
     const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.components!);
+    if (hasFixed) entry.fixedComponents = serializeFixedComponents(sel.fixedComponents!);
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
@@ -1773,7 +1781,8 @@ async function initFromDB(
     if (
       !sel.schedules?.length &&
       !sel.scalars?.length &&
-      !Array.isArray(sel.components)
+      !Array.isArray(sel.components) &&
+      !sel.fixedComponents?.length
     )
       continue;
     restores.push(
@@ -1802,6 +1811,7 @@ async function initFromDB(
               schedules: backup!.schedules,
               scalars: backup!.scalars,
               components: backup!.components,
+              fixedComponents: backup!.fixedComponents,
             });
             const lastJson =
               last && !isMarker(last)
@@ -1809,6 +1819,7 @@ async function initFromDB(
                     schedules: last.schedules,
                     scalars: last.scalars,
                     components: last.components,
+                    fixedComponents: last.fixedComponents,
                   })
                 : null;
             if (backupJson !== lastJson) {
@@ -1867,6 +1878,7 @@ async function initFromDB(
               schedules: backup!.schedules,
               scalars: backup!.scalars,
               components: backup!.components,
+              fixedComponents: backup!.fixedComponents,
             });
             const lastJson =
               last && !isMarker(last)
@@ -1874,6 +1886,7 @@ async function initFromDB(
                     schedules: last.schedules,
                     scalars: last.scalars,
                     components: last.components,
+                    fixedComponents: last.fixedComponents,
                   })
                 : null;
             if (backupJson !== lastJson) {
@@ -1921,7 +1934,8 @@ async function saveScheduleState(
   const hasSchedules = !!selectable.schedules?.length;
   const hasScalars = !!selectable.scalars?.length;
   const hasChildren = Array.isArray(selectable.components);
-  if (!hasSchedules && !hasScalars && !hasChildren) return;
+  const hasFixed = !!selectable.fixedComponents?.length;
+  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) return;
   const key = selectableKey(selectable);
 
   // Skip auto-saving when state is clean — content matches what was loaded,
@@ -1940,10 +1954,14 @@ async function saveScheduleState(
   const newComponents = hasChildren
     ? serializeComponents(selectable.components!)
     : undefined;
+  const newFixed = hasFixed
+    ? serializeFixedComponents(selectable.fixedComponents!)
+    : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
     scalars: newScalars,
     components: newComponents,
+    fixedComponents: newFixed,
   });
   // Skip saving if nothing changed since the last data entry.
   const last = entries.findLast((e) => !isMarker(e)) as
@@ -1954,6 +1972,7 @@ async function saveScheduleState(
       schedules: last.schedules,
       scalars: last.scalars,
       components: last.components,
+      fixedComponents: last.fixedComponents,
     });
     if (prevJson === newJson) return;
   }
@@ -1963,6 +1982,7 @@ async function saveScheduleState(
   };
   if (newScalars !== undefined) entry.scalars = newScalars;
   if (newComponents !== undefined) entry.components = newComponents;
+  if (newFixed !== undefined) entry.fixedComponents = newFixed;
   if (selectable.userEditableDescription !== undefined)
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
@@ -2013,7 +2033,8 @@ function saveOnUnload() {
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
-    if (!hasSchedules && !hasScalars && !hasChildren) continue;
+    const hasFixed = !!sel.fixedComponents?.length;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
 
     // When the history dialog is open, `sel` may contain a transient preview
     // state from `_dialogSelectItem`.  Use the pre-dialog snapshot instead so
@@ -2027,6 +2048,7 @@ function saveOnUnload() {
         schedules: SerializedSchedule[];
         scalars?: SerializedScalar[];
         components?: SerializedChild[];
+        fixedComponents?: SerializedFixedChild[];
         userEditableDescription?: string;
       };
       const source = _preDialogSource;
@@ -2054,6 +2076,9 @@ function saveOnUnload() {
           ...(preSnap.scalars !== undefined && { scalars: preSnap.scalars }),
           ...(preSnap.components !== undefined && {
             components: preSnap.components,
+          }),
+          ...(preSnap.fixedComponents !== undefined && {
+            fixedComponents: preSnap.fixedComponents,
           }),
           ...(preSnap.userEditableDescription !== undefined && {
             userEditableDescription: preSnap.userEditableDescription,
@@ -2093,6 +2118,9 @@ function saveOnUnload() {
     const components = hasChildren
       ? serializeComponents(sel.components!)
       : undefined;
+    const fixed = hasFixed
+      ? serializeFixedComponents(sel.fixedComponents!)
+      : undefined;
     // For a clean DB selection (!dirty), remember the specific timestamp the user
     // chose so the next startup can restore that exact entry without creating a
     // spurious new DB record.
@@ -2105,6 +2133,7 @@ function saveOnUnload() {
         schedules,
         ...(scalars !== undefined && { scalars }),
         ...(components !== undefined && { components }),
+        ...(fixed !== undefined && { fixedComponents: fixed }),
         ...(sel.userEditableDescription !== undefined && {
           userEditableDescription: sel.userEditableDescription,
         }),
@@ -3990,12 +4019,14 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
     const hasChildren = Array.isArray(sel.components);
-    if (!hasSchedules && !hasScalars && !hasChildren) continue;
+    const hasFixed = !!sel.fixedComponents?.length;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
 
     const entry: JsonFileEntry = {};
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.components!);
+    if (hasFixed) entry.fixedComponents = serializeFixedComponents(sel.fixedComponents!);
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     result[key] = entry;
