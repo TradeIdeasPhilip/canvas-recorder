@@ -301,6 +301,7 @@ viewport.addEventListener(
  */
 function showFrame(timeInMs: number, live: boolean) {
   waveformDisplay.setPlayMs(timeInMs);
+  for (const update of goToButtonUpdaters) update();
   context.reset();
   context.setTransform(mainTransform());
   if (live) {
@@ -1307,6 +1308,10 @@ const pointSyncCallbacks = new Map<
 
 /** The point keyframe currently being dragged. */
 let draggingPoint: PointKf | null = null;
+
+/** Per-frame callbacks that refresh the "Go To" button labels in the schedule editor.
+ *  Cleared whenever {@link updateScheduleEditor} rebuilds the table. */
+const goToButtonUpdaters: Array<() => void> = [];
 
 // MARK: Component Editor
 
@@ -2661,6 +2666,7 @@ function buildScheduleSection(
     ...valueHeaders,
     "Ease ↓",
     "",
+    ...(info.editDurations ? [] : ["Go To"]),
   ]) {
     const th = document.createElement("th");
     th.textContent = h;
@@ -2981,6 +2987,38 @@ function buildScheduleSection(
       actionCell.append(topBtn, upBtn, downBtn, bottomBtn, deleteBtn);
     } else {
       actionCell.append(deleteBtn);
+
+      // "Go To" button — jumps to this keyframe's time, updated every frame.
+      const goToBtn = document.createElement("button");
+      goToBtn.type = "button";
+      const updateGoTo = () => {
+        const delta = kf.time - localTimeMs();
+        const rounded = Math.round(delta);
+        if (delta === 0) {
+          goToBtn.textContent = "0";
+          goToBtn.disabled = true;
+        } else if (rounded === 0) {
+          goToBtn.textContent = delta > 0 ? "+0" : "-0";
+          goToBtn.disabled = false;
+        } else {
+          goToBtn.textContent = rounded > 0 ? `+${rounded}` : `${rounded}`;
+          goToBtn.disabled = false;
+        }
+      };
+      updateGoTo();
+      goToButtonUpdaters.push(updateGoTo);
+      goToBtn.addEventListener("click", () => {
+        const globalMs = Math.max(
+          sectionStartTime,
+          Math.min(sectionEndTime, kf.time + sectionStartTime),
+        );
+        stopAudio();
+        loadPlayPositionSeconds(globalMs);
+        loadPlayPositionRange();
+      });
+      const goToCell = row.insertCell();
+      goToCell.style.textAlign = "right";
+      goToCell.append(goToBtn);
     }
   }
   updateEaseVisibility();
@@ -3398,6 +3436,7 @@ function updateScheduleEditor(selectable: Showable) {
   viewingPointKfs.clear();
   pointSyncCallbacks.clear();
   draggingPoint = null;
+  goToButtonUpdaters.length = 0;
   // History is always saved/loaded at the slide level, even when the schedule
   // editor is open on an individual child component.
   const saveTarget = currentSaveTarget();

@@ -2591,3 +2591,55 @@ export const some5 = makeShadowDemo({
   dx: 0.2,
   dy: 0.2,
 });
+
+// function extrapolate(schedule: readonly Keyframe<number>[]) {
+//   const result: {
+//     time: number;
+//     initially: number;
+//     fromAbove?: number;
+//     fromBelow?: number;
+//   }[] = [];
+//   schedule.forEach((keyframe, index, {length}) => {
+//     /**
+//      * The time for this keyframe.
+//      */
+//     const time= keyframe.time;
+//     /**
+//      * The value to use at this time.
+//      */
+//     const initially = keyframe.value;
+//     /**
+//      * What value we could change this to so the previous transition will be smooth.
+//      * This might not be meaningful for some rows.
+//      */
+//     let fromAbove : undefined|number;
+//     /**
+//      * What value we could change this to so the next transition will be smooth.
+//      * This might not be meaningful for some rows.
+//      */
+//     let fromBelow : undefined|number;
+//     /**
+//      * This function is focused on four types of easing functions:
+//      * * Linear, the default, is our baseline.  We know how to {@link lerp}!
+//      * * {@link easeIn} has a derivative of 0 at the beginning and π/2 times what the linear case would have had at the end.
+//      * * {@link easeOut} has a derivative of 0 at the end and π/2 times what the linear case would have had at the beginning.
+//      * * {@link ease} has a derivative of 0 at both ends.
+//      * * Any other easing function, looking at an invalid array index, or any other problems are reported as "other".
+//      */
+//     type TerminalDisposition = "linear" | "π/2" | "fixed" | "other";
+//     const outgoingFromPrevious : TerminalDisposition = /* TODO */;
+//     const incomingToCurrent : TerminalDisposition = /* TODO */;
+//     const outgoingFromCurrent : TerminalDisposition = /* TODO */;
+//     const incomingToNext : TerminalDisposition = /* TODO */;
+//     // Set fromAbove and fromBelow here.
+//     // I imagine there will be a lot of if statements.
+//     // Leave the default, undefined, if any of the values don't make sense.
+//     result.push({time, initially, fromAbove,fromBelow})
+//   })
+//   console.table(result);
+//   return result;
+// }
+// // Not ready for a GUI yet.
+// // Eventually this should be built into the Visual Editor.
+// // But I need to explore first.
+// philDebug.extrapolate = extrapolate;
