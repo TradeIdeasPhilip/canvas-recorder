@@ -39,6 +39,13 @@ Affine matrices are really cool, and worthy of further study.
 But all you need to know for today is that points are represented by 3×1 matrices, and transforms are represented by 3×3 matrices.
 The computer will take care of the rest for you.
 
+## Next
+
+What could possibly go wrong?
+
+Notice that the transform is always centered about the origin.
+
+
 ## What could possibly go wrong?
 
 "Computer, move that 5 units to the left, and make it twice as big."

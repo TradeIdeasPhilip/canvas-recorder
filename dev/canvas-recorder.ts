@@ -1239,6 +1239,14 @@ const visualEditorAPI: VisualEditorAPI = {
       void saveScheduleState(selectable);
     }
   },
+  seek(ms) {
+    stopAudio();
+    loadPlayPositionSeconds(sectionStartTime + ms);
+    loadPlayPositionRange();
+  },
+  getCurrentTimeMs() {
+    return playPositionSeconds.valueAsNumber * 1000 - sectionStartTime;
+  },
 };
 
 // MARK: Console API

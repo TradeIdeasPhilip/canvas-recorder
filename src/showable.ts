@@ -22,6 +22,15 @@ export type VisualEditorAPI = {
    * "structure" pretty much implies that the sounds and properties should be reread.
    */
   refreshGUI(howMuch: "sound" | "properties" | "structure"): void;
+  /**
+   * Seek to a time within the currently active chapter.
+   * @param ms Local milliseconds from chapter start. Stops audio and updates the play position.
+   */
+  seek(ms: number): void;
+  /**
+   * @returns The current play position in milliseconds, relative to the chapter start.
+   */
+  getCurrentTimeMs(): number;
 };
 
 /**

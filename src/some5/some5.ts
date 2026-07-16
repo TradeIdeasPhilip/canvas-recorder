@@ -2584,6 +2584,528 @@ for (let i = 11; i <= 10; i++) {
   slideList.add(makeEmptySlide(`Slide ${i}`));
 }
 
+// MARK: Main Timeline Prototype
+
+type SlideWrapperItem = {
+  type: "slide";
+  /** References the `description` of a slide in `forTimeline`. */
+  slideDescription: string;
+  duration: number;
+  startProgress: number;
+  endProgress: number;
+};
+
+type TransitionItem = {
+  type: "transition";
+  duration: number;
+};
+
+type TimelineItem = SlideWrapperItem | TransitionItem;
+
+const MAIN_TIMELINE_HOLD_MS = 500;
+const MAIN_TIMELINE_TRANSITION_MS = 350;
+
+/** Self-contained canvas timeline bar: zoom, pan, click-to-seek, click-to-select. */
+class TimelineDisplay {
+  private viewStartMs = 0;
+  private viewEndMs = 1;
+  private playMs = 0;
+  private totalMs = 1;
+
+  onSeek?: (ms: number) => void;
+  onSelect?: (index: number) => void;
+
+  constructor(
+    readonly canvas: HTMLCanvasElement,
+    private readonly getItems: () => readonly TimelineItem[],
+    private readonly slideColors: Map<string, string>,
+  ) {
+    this.setupEvents();
+  }
+
+  setRange(startMs: number, endMs: number) {
+    this.totalMs = endMs;
+    this.viewStartMs = startMs;
+    this.viewEndMs = endMs;
+  }
+
+  setPlayMs(ms: number) {
+    this.playMs = ms;
+    this.draw();
+  }
+
+  private msToX(ms: number, w: number): number {
+    const dur = this.viewEndMs - this.viewStartMs;
+    return dur <= 0 ? 0 : ((ms - this.viewStartMs) / dur) * w;
+  }
+
+  draw() {
+    const { canvas } = this;
+    const dpr = window.devicePixelRatio ?? 1;
+    const rect = canvas.getBoundingClientRect();
+    const w = Math.round(rect.width * dpr);
+    const h = Math.round(rect.height * dpr);
+    if (w === 0 || h === 0) return;
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+
+    const ctx = canvas.getContext("2d")!;
+    ctx.clearRect(0, 0, w, h);
+
+    const items = this.getItems();
+    const itemH = Math.round(h * 0.7);
+    const itemY = Math.round((h - itemH) / 2);
+    const fontSize = Math.min(12 * dpr, Math.round(itemH * 0.4));
+
+    let cursor = 0;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]!;
+      const x0 = Math.round(this.msToX(cursor, w));
+      const x1 = Math.round(this.msToX(cursor + item.duration, w));
+      const iw = Math.max(1, x1 - x0);
+
+      if (item.type === "slide") {
+        const isHold = item.startProgress === item.endProgress;
+        const color = this.slideColors.get(item.slideDescription) ?? "#888";
+        ctx.globalAlpha = isHold ? 0.45 : 1;
+        ctx.fillStyle = color;
+        ctx.fillRect(x0, itemY, iw, itemH);
+        ctx.globalAlpha = 1;
+
+        if (iw > 4 * dpr) {
+          ctx.font = `${fontSize}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "rgba(0,0,0,0.7)";
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(x0, itemY, iw, itemH);
+          ctx.clip();
+          ctx.fillText(item.slideDescription, x0 + iw / 2, itemY + itemH / 2);
+          ctx.restore();
+        }
+      } else {
+        ctx.fillStyle = "#aaa";
+        ctx.fillRect(x0, itemY, iw, itemH);
+        if (iw > 3 * dpr) {
+          ctx.font = `${fontSize}px sans-serif`;
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "#555";
+          ctx.fillText("T", x0 + iw / 2, itemY + itemH / 2);
+        }
+      }
+
+      ctx.strokeStyle = "rgba(0,0,0,0.4)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x0 + 0.5, itemY + 0.5, iw - 1, itemH - 1);
+
+      cursor += item.duration;
+    }
+
+    // Play head
+    const px = Math.round(this.msToX(this.playMs, w));
+    ctx.fillStyle = "#d00";
+    ctx.fillRect(px, 0, Math.max(1, Math.round(dpr)), h);
+  }
+
+  private setupEvents() {
+    const { canvas } = this;
+    let downX = 0;
+    let downStart = 0;
+    let downEnd = 0;
+    let panning = false;
+
+    const msFromEvent = (e: PointerEvent): number => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      return (
+        this.viewStartMs +
+        (x / rect.width) * (this.viewEndMs - this.viewStartMs)
+      );
+    };
+
+    const indexAtMs = (ms: number): number => {
+      const items = this.getItems();
+      let cursor = 0;
+      for (let i = 0; i < items.length; i++) {
+        cursor += items[i]!.duration;
+        if (ms < cursor) return i;
+      }
+      return Math.max(0, items.length - 1);
+    };
+
+    canvas.addEventListener("pointerdown", (e) => {
+      if (e.button !== 0) return;
+      canvas.setPointerCapture(e.pointerId);
+      downX = e.clientX;
+      downStart = this.viewStartMs;
+      downEnd = this.viewEndMs;
+      panning = false;
+    });
+
+    canvas.addEventListener("pointermove", (e) => {
+      if (!(e.buttons & 1)) return;
+      const dx = e.clientX - downX;
+      if (!panning && Math.abs(dx) > 4) panning = true;
+      if (!panning) return;
+      const rect = canvas.getBoundingClientRect();
+      const msPerPx = (downEnd - downStart) / rect.width;
+      const dur = downEnd - downStart;
+      let s = downStart - dx * msPerPx;
+      s = Math.max(0, Math.min(this.totalMs - dur, s));
+      this.viewStartMs = s;
+      this.viewEndMs = s + dur;
+      this.draw();
+    });
+
+    canvas.addEventListener("pointerup", (e) => {
+      if (e.button !== 0) return;
+      if (!panning) {
+        const ms = msFromEvent(e);
+        const clamped = Math.max(0, Math.min(this.totalMs, ms));
+        this.onSeek?.(clamped);
+        this.onSelect?.(indexAtMs(ms));
+      }
+      panning = false;
+    });
+
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const cx = e.clientX - rect.left;
+        const cursorMs =
+          this.viewStartMs +
+          (cx / rect.width) * (this.viewEndMs - this.viewStartMs);
+        const sensitivity = 1 / 7;
+        const factor =
+          e.deltaY > 0 ? 1.5 ** sensitivity : 1.5 ** -sensitivity;
+        let newStart = cursorMs + (this.viewStartMs - cursorMs) * factor;
+        let newEnd = cursorMs + (this.viewEndMs - cursorMs) * factor;
+        newStart = Math.max(0, newStart);
+        newEnd = Math.min(this.totalMs, newEnd);
+        if (newEnd - newStart >= 100) {
+          this.viewStartMs = newStart;
+          this.viewEndMs = newEnd;
+          this.draw();
+        }
+      },
+      { passive: false },
+    );
+  }
+}
+
+class MainTimeline {
+  readonly description = "Main Timeline";
+  readonly items: TimelineItem[];
+  private readonly slides: readonly Showable[];
+  private readonly slideColors: Map<string, string>;
+  private selectedIndex = -1;
+  private visAPI: VisualEditorAPI | undefined;
+  private rafId = 0;
+
+  constructor(slides: readonly Showable[]) {
+    this.slides = slides;
+    this.items = [];
+
+    // Assign colors by unique description round-robin through myRainbow.
+    this.slideColors = new Map();
+    const seen: string[] = [];
+    for (const slide of slides) {
+      if (!this.slideColors.has(slide.description)) {
+        const color = myRainbow[(seen.length * 3) % myRainbow.length]!;
+        this.slideColors.set(slide.description, color);
+        seen.push(slide.description);
+      }
+    }
+
+    for (let i = 0; i < slides.length; i++) {
+      const slide = slides[i]!;
+      if (i > 0) {
+        this.items.push({
+          type: "transition",
+          duration: MAIN_TIMELINE_TRANSITION_MS,
+        });
+      }
+      this.items.push({
+        type: "slide",
+        slideDescription: slide.description,
+        duration: MAIN_TIMELINE_HOLD_MS,
+        startProgress: 0,
+        endProgress: 0,
+      });
+      this.items.push({
+        type: "slide",
+        slideDescription: slide.description,
+        duration: slide.duration,
+        startProgress: 0,
+        endProgress: 1,
+      });
+      this.items.push({
+        type: "slide",
+        slideDescription: slide.description,
+        duration: MAIN_TIMELINE_HOLD_MS,
+        startProgress: 1,
+        endProgress: 1,
+      });
+    }
+  }
+
+  get duration(): number {
+    return this.items.reduce((s, it) => s + it.duration, 0);
+  }
+
+  private getSlideByDescription(desc: string): Showable | undefined {
+    return this.slides.find((s) => s.description === desc);
+  }
+
+  private prevSlide(fromIndex: number): SlideWrapperItem | undefined {
+    for (let i = fromIndex - 1; i >= 0; i--) {
+      if (this.items[i]!.type === "slide")
+        return this.items[i] as SlideWrapperItem;
+    }
+    return undefined;
+  }
+
+  private nextSlide(fromIndex: number): SlideWrapperItem | undefined {
+    for (let i = fromIndex + 1; i < this.items.length; i++) {
+      if (this.items[i]!.type === "slide")
+        return this.items[i] as SlideWrapperItem;
+    }
+    return undefined;
+  }
+
+  show(options: ShowOptions): void {
+    let cursor = 0;
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i]!;
+      const localTime = options.timeInMs - cursor;
+      const isLast = i === this.items.length - 1;
+      if (localTime <= item.duration || isLast) {
+        if (item.type === "slide") {
+          const t =
+            item.duration > 0
+              ? Math.max(0, Math.min(1, localTime / item.duration))
+              : 0;
+          const progress = lerp(item.startProgress, item.endProgress, t);
+          const slide = this.getSlideByDescription(item.slideDescription);
+          if (slide) {
+            slide.show({ ...options, timeInMs: progress * slide.duration });
+          } else {
+            options.context.fillStyle = "rgba(255,0,0,0.3)";
+            options.context.fillRect(0, 0, 16, 9);
+          }
+        } else {
+          // Transition: slide prev out left, slide next in from right.
+          // Guard: only look at slide neighbors, not other transitions (no recursion).
+          const tran = item.duration > 0
+            ? Math.max(0, Math.min(1, localTime / item.duration))
+            : 0;
+          const prev = this.prevSlide(i);
+          const next = this.nextSlide(i);
+          if (!prev && !next) {
+            options.context.fillStyle = "rgba(255,0,0,0.3)";
+            options.context.fillRect(0, 0, 16, 9);
+          } else {
+            const { context } = options;
+            context.save();
+            context.beginPath();
+            context.rect(0, 0, 16, 9);
+            context.clip();
+            if (prev) {
+              const slide = this.getSlideByDescription(prev.slideDescription);
+              if (slide) {
+                context.save();
+                context.translate(lerp(0, -16, tran), 0);
+                slide.show({ ...options, timeInMs: prev.endProgress * slide.duration });
+                context.restore();
+              }
+            }
+            if (next) {
+              const slide = this.getSlideByDescription(next.slideDescription);
+              if (slide) {
+                context.save();
+                context.translate(lerp(16, 0, tran), 0);
+                slide.show({ ...options, timeInMs: next.startProgress * slide.duration });
+                context.restore();
+              }
+            }
+            context.restore();
+          }
+        }
+        break;
+      }
+      cursor += item.duration;
+    }
+  }
+
+  readonly rootComponentEditor: RootComponentEditor = {
+    start: (visAPI) => {
+      this.visAPI = visAPI;
+      return this.buildEditorPanel();
+    },
+    suspend: () => {
+      cancelAnimationFrame(this.rafId);
+      this.visAPI = undefined;
+    },
+    update: () => {},
+    selectionChanged: () => {},
+    resetAll: () => {},
+  };
+
+  private buildEditorPanel(): HTMLElement {
+    const slideNames = this.slides.map((s) => s.description);
+
+    const container = document.createElement("div");
+    container.style.cssText =
+      "display:flex;flex-direction:column;gap:6px;padding:6px;";
+
+    // Timeline canvas
+    const canvas = document.createElement("canvas");
+    canvas.style.cssText =
+      "width:100%;height:60px;cursor:crosshair;display:block;touch-action:none;";
+    canvas.title = "Click to seek & select · Drag to pan · Scroll to zoom";
+    container.appendChild(canvas);
+
+    const display = new TimelineDisplay(canvas, () => this.items, this.slideColors);
+    display.setRange(0, this.duration);
+
+    display.onSeek = (ms) => this.visAPI?.seek(ms);
+    display.onSelect = (idx) => {
+      this.selectedIndex = idx;
+      refreshEditor();
+    };
+
+    // RAF loop to animate play head
+    const tick = () => {
+      display.setPlayMs(this.visAPI?.getCurrentTimeMs() ?? 0);
+      this.rafId = requestAnimationFrame(tick);
+    };
+    this.rafId = requestAnimationFrame(tick);
+
+    // Item editor (rebuilt on each selection change)
+    const editorDiv = document.createElement("div");
+    editorDiv.style.cssText =
+      "display:flex;flex-direction:column;gap:4px;font-size:12px;";
+    container.appendChild(editorDiv);
+
+    const row = (labelText: string, input: HTMLElement): HTMLElement => {
+      const r = document.createElement("div");
+      r.style.cssText = "display:flex;gap:4px;align-items:center;";
+      const l = document.createElement("label");
+      l.textContent = labelText;
+      l.style.minWidth = "90px";
+      r.append(l, input);
+      return r;
+    };
+
+    const refreshEditor = () => {
+      editorDiv.innerHTML = "";
+      const idx = this.selectedIndex;
+      if (idx < 0 || idx >= this.items.length) {
+        editorDiv.textContent = "Click an item to edit.";
+        return;
+      }
+      const item = this.items[idx]!;
+
+      const title = document.createElement("div");
+      title.style.fontWeight = "bold";
+      title.textContent =
+        item.type === "slide"
+          ? `Slide wrapper [${idx}]`
+          : `Transition [${idx}]`;
+      editorDiv.appendChild(title);
+
+      // Duration
+      const durInput = document.createElement("input");
+      durInput.type = "number";
+      durInput.min = "1";
+      durInput.value = String(Math.round(item.duration));
+      durInput.style.width = "80px";
+      durInput.addEventListener("change", () => {
+        const v = parseFloat(durInput.value);
+        if (v > 0) {
+          item.duration = v;
+          display.setRange(0, this.duration);
+          display.draw();
+        }
+      });
+      editorDiv.appendChild(row("Duration ms", durInput));
+
+      if (item.type === "slide") {
+        // Slide selector
+        const sel = document.createElement("select");
+        for (const desc of slideNames) {
+          const opt = document.createElement("option");
+          opt.value = desc;
+          opt.textContent = desc;
+          if (desc === item.slideDescription) opt.selected = true;
+          sel.appendChild(opt);
+        }
+        sel.addEventListener("change", () => {
+          item.slideDescription = sel.value;
+          display.draw();
+        });
+        editorDiv.appendChild(row("Slide", sel));
+
+        // startProgress
+        const spInput = document.createElement("input");
+        spInput.type = "number";
+        spInput.step = "0.01";
+        spInput.min = "0";
+        spInput.max = "1";
+        spInput.value = String(item.startProgress);
+        spInput.style.width = "80px";
+        spInput.addEventListener("change", () => {
+          item.startProgress = Math.max(
+            0,
+            Math.min(1, parseFloat(spInput.value)),
+          );
+        });
+        editorDiv.appendChild(row("Start progress", spInput));
+
+        // endProgress
+        const epInput = document.createElement("input");
+        epInput.type = "number";
+        epInput.step = "0.01";
+        epInput.min = "0";
+        epInput.max = "1";
+        epInput.value = String(item.endProgress);
+        epInput.style.width = "80px";
+        epInput.addEventListener("change", () => {
+          item.endProgress = Math.max(
+            0,
+            Math.min(1, parseFloat(epInput.value)),
+          );
+        });
+        editorDiv.appendChild(row("End progress", epInput));
+      }
+
+      // Delete
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete item";
+      delBtn.addEventListener("click", () => {
+        this.items.splice(idx, 1);
+        this.selectedIndex = -1;
+        display.setRange(0, this.duration);
+        display.draw();
+        refreshEditor();
+        this.visAPI?.refreshGUI("structure");
+      });
+      editorDiv.appendChild(delBtn);
+    };
+
+    refreshEditor();
+    return container;
+  }
+}
+
+slideList.add(new MainTimeline(forTimeline));
+
 export const some5 = makeShadowDemo({
   base: slideList.build(),
   background: "white",
