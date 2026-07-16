@@ -274,6 +274,10 @@ export type ScheduleInfo = {
   | { readonly type: "number"; readonly schedule: Keyframe<number>[] }
   | { readonly type: "rectangle"; readonly schedule: Keyframe<ReadOnlyRect>[] }
   | { readonly type: "point"; readonly schedule: Keyframe<Point>[] }
+  | {
+      readonly type: "arrow";
+      readonly schedule: Keyframe<{ flat: Point; pointy: Point }>[];
+    }
 );
 
 /**

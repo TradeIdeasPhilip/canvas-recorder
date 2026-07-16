@@ -37,6 +37,7 @@ import {
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
+import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
   JsonFileEntry,
@@ -1317,6 +1318,34 @@ const pointSyncCallbacks = new Map<
 /** The point keyframe currently being dragged. */
 let draggingPoint: PointKf | null = null;
 
+// MARK: Arrow marker drag state
+type ArrowKf = Keyframe<ArrowValue>;
+type ArrowHandle = "flat" | "pointy" | "center";
+
+/** The single arrow keyframe currently in "edit" mode. */
+let editingArrowKf: ArrowKf | null = null;
+
+/** Arrow keyframes in "view" mode (shown as overlays, not draggable). */
+const viewingArrowKfs = new Set<ArrowKf>();
+
+/** Maps each arrow keyframe to a callback that syncs editor inputs when a drag changes the value. */
+const arrowSyncCallbacks = new Map<ArrowKf, (v: ArrowValue) => void>();
+
+let draggingArrow: {
+  kf: ArrowKf;
+  handle: ArrowHandle;
+  startFlat: { x: number; y: number };
+  startPointy: { x: number; y: number };
+  startLocalX: number;
+  startLocalY: number;
+  pointerId: number;
+} | null = null;
+
+/** Last known local mouse position during an arrow drag (for constraint guide drawing). */
+let draggingArrowMouseLocal: { x: number; y: number } | null = null;
+/** Active constraint mode during arrow drag. */
+let draggingArrowConstraint: "none" | "axial" | "radial" = "none";
+
 /** Per-frame callbacks that refresh the "Go To" button labels in the schedule editor.
  *  Cleared whenever {@link updateScheduleEditor} rebuilds the table. */
 const goToButtonUpdaters: Array<() => void> = [];
@@ -2528,6 +2557,13 @@ function buildScheduleSection(
         if (!kfSet.has(kf)) viewingPointKfs.delete(kf);
       }
     }
+    if (info.type === "arrow") {
+      const kfSet = new Set(info.schedule as ArrowKf[]);
+      if (editingArrowKf && !kfSet.has(editingArrowKf)) editingArrowKf = null;
+      for (const kf of viewingArrowKfs) {
+        if (!kfSet.has(kf)) viewingArrowKfs.delete(kf);
+      }
+    }
     activeRootComponentEditor?.resetAll();
     section.replaceWith(buildScheduleSection(info, selectable));
   }
@@ -2550,6 +2586,11 @@ function buildScheduleSection(
     else if (info.type === "rectangle")
       value = interpolateRects(t, info.schedule);
     else if (info.type === "point") value = interpolatePoints(t, info.schedule);
+    else if (info.type === "arrow")
+      value =
+        info.schedule.length > 0
+          ? interpolateArrow(t, info.schedule as ArrowKf[])
+          : { flat: { x: 2, y: 4.5 }, pointy: { x: 12, y: 4.5 } };
     else value = discreteKeyframes(t, info.schedule);
     const insertAt = info.schedule.findIndex((kf) => kf.time > t);
     const newKf = { time: t, value } as (typeof info.schedule)[number];
@@ -2589,7 +2630,9 @@ function buildScheduleSection(
               ? { x: 0, y: 0, width: 4, height: 3 }
               : info.type === "point"
                 ? { x: 0, y: 0 }
-                : "";
+                : info.type === "arrow"
+                  ? { flat: { x: 2, y: 4.5 }, pointy: { x: 12, y: 4.5 } }
+                  : "";
       schedule.push({ time: 5000, value } as (typeof info.schedule)[number]);
       rebuild();
     });
@@ -2666,9 +2709,11 @@ function buildScheduleSection(
   const valueHeaders =
     info.type === "point"
       ? ["x", "y", "Canvas"]
-      : info.type === "rectangle"
-        ? ["x", "y", "width", "height", "Canvas"]
-        : ["Value"];
+      : info.type === "arrow"
+        ? ["x0", "y0", "x1", "y1", "Canvas"]
+        : info.type === "rectangle"
+          ? ["x", "y", "width", "height", "Canvas"]
+          : ["Value"];
   for (const h of [
     info.timeAxisLabel ?? (info.editDurations ? "Duration (ms)" : "Time (ms)"),
     ...valueHeaders,
@@ -2936,6 +2981,70 @@ function buildScheduleSection(
         if (editingRectKf) editBtn.classList.add("active");
       });
 
+      canvasCell.append(viewBtn, "\u00a0", editBtn);
+    } else if (info.type === "arrow") {
+      const arKf = kf as ArrowKf;
+      const fieldInputs: Record<string, HTMLInputElement> = {};
+      const makeInput = (get: () => number, setter: (n: number) => void) => {
+        const input = buildNumericInput(get(), setter);
+        return input;
+      };
+      fieldInputs["fx"] = makeInput(
+        () => arKf.value.flat.x,
+        (n) => { arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, x: n } }; },
+      );
+      fieldInputs["fy"] = makeInput(
+        () => arKf.value.flat.y,
+        (n) => { arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, y: n } }; },
+      );
+      fieldInputs["px"] = makeInput(
+        () => arKf.value.pointy.x,
+        (n) => { arKf.value = { ...arKf.value, pointy: { ...arKf.value.pointy, x: n } }; },
+      );
+      fieldInputs["py"] = makeInput(
+        () => arKf.value.pointy.y,
+        (n) => { arKf.value = { ...arKf.value, pointy: { ...arKf.value.pointy, y: n } }; },
+      );
+      row.insertCell().append(fieldInputs["fx"]!);
+      row.insertCell().append(fieldInputs["fy"]!);
+      row.insertCell().append(fieldInputs["px"]!);
+      row.insertCell().append(fieldInputs["py"]!);
+      arrowSyncCallbacks.set(arKf, (v) => {
+        fieldInputs["fx"]!.valueAsNumber = v.flat.x;
+        fieldInputs["fy"]!.valueAsNumber = v.flat.y;
+        fieldInputs["px"]!.valueAsNumber = v.pointy.x;
+        fieldInputs["py"]!.valueAsNumber = v.pointy.y;
+      });
+
+      const canvasCell = row.insertCell();
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.textContent = "\ud83d\udc41";
+      viewBtn.title = "Show on canvas";
+      if (viewingArrowKfs.has(arKf)) viewBtn.classList.add("active");
+      viewBtn.addEventListener("click", () => {
+        if (viewingArrowKfs.has(arKf)) {
+          viewingArrowKfs.delete(arKf);
+          viewBtn.classList.remove("active");
+        } else {
+          viewingArrowKfs.add(arKf);
+          viewBtn.classList.add("active");
+        }
+      });
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "\u270e";
+      editBtn.title = "Edit on canvas";
+      editBtn.classList.add("edit-btn");
+      if (editingArrowKf === arKf) editBtn.classList.add("active");
+      editBtn.addEventListener("click", () => {
+        const wasEditing = editingArrowKf === arKf;
+        section
+          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
+          .forEach((b) => b.classList.remove("active"));
+        editingArrowKf = wasEditing ? null : arKf;
+        if (editingArrowKf) editBtn.classList.add("active");
+      });
       canvasCell.append(viewBtn, "\u00a0", editBtn);
     }
 
@@ -3444,6 +3553,12 @@ function updateScheduleEditor(selectable: Showable) {
   viewingPointKfs.clear();
   pointSyncCallbacks.clear();
   draggingPoint = null;
+  editingArrowKf = null;
+  viewingArrowKfs.clear();
+  arrowSyncCallbacks.clear();
+  draggingArrow = null;
+  draggingArrowMouseLocal = null;
+  draggingArrowConstraint = "none";
   goToButtonUpdaters.length = 0;
   // History is always saved/loaded at the slide level, even when the schedule
   // editor is open on an individual child component.
@@ -3595,7 +3710,9 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     !editingRectKf &&
     viewingRectKfs.size === 0 &&
     !editingPointKf &&
-    viewingPointKfs.size === 0
+    viewingPointKfs.size === 0 &&
+    !editingArrowKf &&
+    viewingArrowKfs.size === 0
   )
     return;
 
@@ -3696,6 +3813,118 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     ctx.stroke();
   }
 
+  // View-mode arrows
+  for (const kf of viewingArrowKfs) {
+    if (kf === editingArrowKf) continue;
+    const f = relTf ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf) : kf.value.flat;
+    const p = relTf ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf) : kf.value.pointy;
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = "rgba(52,152,219,0.5)";
+    ctx.lineWidth = 0.04;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    for (const pt of [f, p]) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 0.15, 0, 2 * Math.PI);
+      ctx.fillStyle = "rgba(52,152,219,0.3)";
+      ctx.fill();
+      ctx.strokeStyle = "#3498db";
+      ctx.lineWidth = 0.04;
+      ctx.stroke();
+    }
+  }
+
+  // Edit-mode arrow: line + 3 drag handles + optional constraint guides
+  if (editingArrowKf) {
+    const kf = editingArrowKf;
+    const f = relTf ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf) : kf.value.flat;
+    const p = relTf ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf) : kf.value.pointy;
+    const c = { x: (f.x + p.x) / 2, y: (f.y + p.y) / 2 };
+
+    // Constraint guides while dragging a non-center handle
+    if (draggingArrow && draggingArrowMouseLocal && draggingArrow.handle !== "center" && draggingArrow.kf === kf) {
+      const isFlat = draggingArrow.handle === "flat";
+      const movingLocal = isFlat ? draggingArrow.startFlat : draggingArrow.startPointy;
+      const fixedLocal = isFlat ? draggingArrow.startPointy : draggingArrow.startFlat;
+      const fixedLog = relTf ? localToLogical(fixedLocal.x, fixedLocal.y, relTf) : fixedLocal;
+      const mouseLog = relTf
+        ? localToLogical(draggingArrowMouseLocal.x, draggingArrowMouseLocal.y, relTf)
+        : draggingArrowMouseLocal;
+      ctx.setLineDash([0.12, 0.12]);
+      ctx.lineWidth = 0.035;
+      if (draggingArrowConstraint === "axial") {
+        const sdx = movingLocal.x - fixedLocal.x;
+        const sdy = movingLocal.y - fixedLocal.y;
+        const len = Math.hypot(sdx, sdy);
+        if (len > 1e-9) {
+          const ux = sdx / len;
+          const uy = sdy / len;
+          const t = (draggingArrowMouseLocal.x - fixedLocal.x) * ux + (draggingArrowMouseLocal.y - fixedLocal.y) * uy;
+          const projLocal = { x: fixedLocal.x + t * ux, y: fixedLocal.y + t * uy };
+          const projLog = relTf ? localToLogical(projLocal.x, projLocal.y, relTf) : projLocal;
+          // Dashed perpendicular drop from raw mouse to the axis
+          ctx.beginPath();
+          ctx.moveTo(mouseLog.x, mouseLog.y);
+          ctx.lineTo(projLog.x, projLog.y);
+          ctx.strokeStyle = "rgba(180,0,180,0.6)";
+          ctx.stroke();
+          // Extended axis guide
+          const EXT = 20;
+          ctx.beginPath();
+          ctx.moveTo(fixedLog.x - ux * EXT, fixedLog.y - uy * EXT);
+          ctx.lineTo(fixedLog.x + ux * EXT, fixedLog.y + uy * EXT);
+          ctx.strokeStyle = "rgba(180,0,180,0.3)";
+          ctx.stroke();
+        }
+      } else if (draggingArrowConstraint === "radial") {
+        const movingLog = relTf ? localToLogical(movingLocal.x, movingLocal.y, relTf) : movingLocal;
+        const r = Math.hypot(movingLog.x - fixedLog.x, movingLog.y - fixedLog.y);
+        ctx.beginPath();
+        ctx.arc(fixedLog.x, fixedLog.y, r, 0, 2 * Math.PI);
+        ctx.strokeStyle = "rgba(180,0,180,0.5)";
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(fixedLog.x, fixedLog.y);
+        ctx.lineTo(mouseLog.x, mouseLog.y);
+        ctx.strokeStyle = "rgba(180,0,180,0.4)";
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    // Arrow line
+    ctx.beginPath();
+    ctx.moveTo(f.x, f.y);
+    ctx.lineTo(p.x, p.y);
+    ctx.strokeStyle = "#e74c3c";
+    ctx.lineWidth = 0.04;
+    ctx.setLineDash([]);
+    ctx.stroke();
+
+    // Three handles: flat, center, pointy
+    const RADIUS = 0.18;
+    const isDraggingThis = draggingArrow?.kf === kf;
+    for (const [handle, pt] of [["flat", f], ["center", c], ["pointy", p]] as [ArrowHandle, { x: number; y: number }][]) {
+      const isActive = isDraggingThis && draggingArrow!.handle === handle;
+      // Endpoint is hollow when it's the one being moved (directly or via center drag).
+      const isEndpoint = handle === "flat" || handle === "pointy";
+      const hollow = isEndpoint && isDraggingThis &&
+        (draggingArrow!.handle === handle || draggingArrow!.handle === "center");
+      const r = isActive ? RADIUS * 1.4 : RADIUS;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, r, 0, 2 * Math.PI);
+      if (!hollow) {
+        ctx.fillStyle = "#e74c3c";
+        ctx.fill();
+      }
+      ctx.strokeStyle = "#e74c3c";
+      ctx.lineWidth = 0.04;
+      ctx.stroke();
+    }
+  }
+
   ctx.restore();
 }
 
@@ -3735,6 +3964,74 @@ function applyPointDrag(localX: number, localY: number) {
   if (!draggingPoint) return;
   draggingPoint.value = { x: localX, y: localY };
   pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
+}
+
+function hitTestArrowMarker(logX: number, logY: number): { kf: ArrowKf; handle: ArrowHandle } | null {
+  if (!editingArrowKf) return null;
+  const relTf = getMarkerRelTf();
+  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
+  const { flat, pointy } = editingArrowKf.value;
+  const center = { x: (flat.x + pointy.x) / 2, y: (flat.y + pointy.y) / 2 };
+  const HIT = 0.35;
+  for (const [handle, pt] of [["flat", flat], ["pointy", pointy], ["center", center]] as [ArrowHandle, { x: number; y: number }][]) {
+    const dx = local.x - pt.x;
+    const dy = local.y - pt.y;
+    if (dx * dx + dy * dy <= HIT * HIT) return { kf: editingArrowKf, handle };
+  }
+  return null;
+}
+
+function applyArrowDrag(localX: number, localY: number, e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) {
+  if (!draggingArrow) return;
+  const { kf, handle, startFlat, startPointy, startLocalX, startLocalY } = draggingArrow;
+  const dx = localX - startLocalX;
+  const dy = localY - startLocalY;
+
+  if (handle === "center") {
+    kf.value = {
+      flat: { x: startFlat.x + dx, y: startFlat.y + dy },
+      pointy: { x: startPointy.x + dx, y: startPointy.y + dy },
+    };
+  } else {
+    const movingStart = handle === "flat" ? startFlat : startPointy;
+    const fixedPt = handle === "flat" ? startPointy : startFlat;
+    const rawX = movingStart.x + dx;
+    const rawY = movingStart.y + dy;
+    let newX = rawX;
+    let newY = rawY;
+
+    if (e.shiftKey) {
+      // Axial: project mouse onto the original arrow axis through fixedPt
+      const sdx = movingStart.x - fixedPt.x;
+      const sdy = movingStart.y - fixedPt.y;
+      const len = Math.hypot(sdx, sdy);
+      if (len > 1e-9) {
+        const ux = sdx / len;
+        const uy = sdy / len;
+        const t = (rawX - fixedPt.x) * ux + (rawY - fixedPt.y) * uy;
+        newX = fixedPt.x + t * ux;
+        newY = fixedPt.y + t * uy;
+      }
+    } else if (e.ctrlKey || e.metaKey) {
+      // Radial: project mouse onto circle of original radius around fixedPt
+      const r = Math.hypot(movingStart.x - fixedPt.x, movingStart.y - fixedPt.y);
+      const mdx = rawX - fixedPt.x;
+      const mdy = rawY - fixedPt.y;
+      const mdist = Math.hypot(mdx, mdy);
+      if (mdist > 1e-9) {
+        newX = fixedPt.x + (mdx / mdist) * r;
+        newY = fixedPt.y + (mdy / mdist) * r;
+      }
+    }
+
+    const newMoving = { x: newX, y: newY };
+    kf.value =
+      handle === "flat"
+        ? { flat: newMoving, pointy: startPointy }
+        : { flat: startFlat, pointy: newMoving };
+  }
+
+  arrowSyncCallbacks.get(kf)?.(kf.value);
 }
 
 function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
@@ -3966,6 +4263,23 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
     draggingPoint = hitPt;
     return;
   }
+  const hitArrow = hitTestArrowMarker(logical.x, logical.y);
+  if (hitArrow) {
+    canvas.setPointerCapture(pointerEvent.pointerId);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    draggingArrow = {
+      kf: hitArrow.kf,
+      handle: hitArrow.handle,
+      startFlat: { ...hitArrow.kf.value.flat },
+      startPointy: { ...hitArrow.kf.value.pointy },
+      startLocalX: local.x,
+      startLocalY: local.y,
+      pointerId: pointerEvent.pointerId,
+    };
+    draggingArrowConstraint = "none";
+    return;
+  }
   if (zoomSelect.value === "fit") return;
   canvas.setPointerCapture(pointerEvent.pointerId);
   isDragging = true;
@@ -3979,6 +4293,8 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
     isDragging = false;
     draggingMarker = null;
     draggingPoint = null;
+    draggingArrow = null;
+    draggingArrowMouseLocal = null;
     return;
   }
   if (draggingMarker) {
@@ -3995,6 +4311,19 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
     applyPointDrag(local.x, local.y);
     return;
   }
+  if (draggingArrow) {
+    const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    draggingArrowMouseLocal = local;
+    draggingArrowConstraint = pointerEvent.shiftKey
+      ? "axial"
+      : pointerEvent.ctrlKey || pointerEvent.metaKey
+        ? "radial"
+        : "none";
+    applyArrowDrag(local.x, local.y, pointerEvent);
+    return;
+  }
   if (isDragging) {
     applyZoom(
       currentZoomFactor,
@@ -4007,11 +4336,48 @@ canvas.addEventListener("pointerup", () => {
   isDragging = false;
   draggingMarker = null;
   draggingPoint = null;
+  draggingArrow = null;
+  draggingArrowMouseLocal = null;
+  draggingArrowConstraint = "none";
 });
 canvas.addEventListener("pointercancel", () => {
   isDragging = false;
   draggingMarker = null;
   draggingPoint = null;
+  draggingArrow = null;
+  draggingArrowMouseLocal = null;
+  draggingArrowConstraint = "none";
+});
+
+// Arrow drag keyboard handling (document-level so focus doesn't matter).
+function refreshArrowConstraint(e: KeyboardEvent) {
+  if (!draggingArrow || !draggingArrowMouseLocal) return;
+  draggingArrowConstraint = e.shiftKey ? "axial"
+    : e.ctrlKey || e.metaKey ? "radial"
+    : "none";
+  applyArrowDrag(draggingArrowMouseLocal.x, draggingArrowMouseLocal.y, e);
+}
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && draggingArrow) {
+    draggingArrow.kf.value = {
+      flat: draggingArrow.startFlat,
+      pointy: draggingArrow.startPointy,
+    };
+    arrowSyncCallbacks.get(draggingArrow.kf)?.(draggingArrow.kf.value);
+    canvas.releasePointerCapture(draggingArrow.pointerId);
+    draggingArrow = null;
+    draggingArrowMouseLocal = null;
+    draggingArrowConstraint = "none";
+    return;
+  }
+  if (e.key === "Shift" || e.key === "Control" || e.key === "Meta") {
+    refreshArrowConstraint(e);
+  }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.key === "Shift" || e.key === "Control" || e.key === "Meta") {
+    refreshArrowConstraint(e);
+  }
 });
 
 getById("recordJustSound", HTMLButtonElement).addEventListener(

@@ -276,6 +276,46 @@ export class RectangleScheduleInfo {
   }
 }
 
+// MARK: Arrow schedule
+
+export type ArrowValue = { flat: Point; pointy: Point };
+
+export function interpolateArrow(
+  timeInMs: number,
+  schedule: readonly Keyframe<ArrowValue>[],
+): ArrowValue {
+  return {
+    flat: interpolatePoints(timeInMs, schedule.map((kf) => ({ ...kf, value: kf.value.flat }))),
+    pointy: interpolatePoints(timeInMs, schedule.map((kf) => ({ ...kf, value: kf.value.pointy }))),
+  };
+}
+
+export class ArrowScheduleInfo {
+  readonly type = "arrow" as const;
+  readonly schedule: Keyframe<ArrowValue>[];
+  at(timeInMs: number): ArrowValue {
+    return interpolateArrow(timeInMs, this.schedule);
+  }
+  set(overwriteWith: ArrowValue | readonly Keyframe<ArrowValue>[]) {
+    this.schedule.length = 0;
+    if (overwriteWith instanceof Array) {
+      this.schedule.push(...overwriteWith);
+    } else {
+      this.schedule.push({ time: 0, value: overwriteWith });
+    }
+  }
+  constructor(
+    readonly description: string,
+    schedule: readonly Keyframe<ArrowValue>[] | ArrowValue,
+  ) {
+    if (schedule instanceof Array) {
+      this.schedule = schedule.slice();
+    } else {
+      this.schedule = [{ time: 0, value: schedule }];
+    }
+  }
+}
+
 export class PointScheduleInfo {
   readonly type = "point";
   readonly schedule: Keyframe<Point>[];

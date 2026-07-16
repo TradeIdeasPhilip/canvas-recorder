@@ -142,6 +142,13 @@ export function validateKfValue(
         typeof v.height === "number"
       );
     }
+    case "arrow": {
+      if (typeof value !== "object" || value === null) return false;
+      const v = value as Record<string, unknown>;
+      const isPoint = (p: unknown): boolean =>
+        typeof p === "object" && p !== null && typeof (p as Record<string, unknown>).x === "number" && typeof (p as Record<string, unknown>).y === "number";
+      return isPoint(v.flat) && isPoint(v.pointy);
+    }
   }
 }
 

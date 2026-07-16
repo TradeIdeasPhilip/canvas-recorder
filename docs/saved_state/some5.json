@@ -1443,7 +1443,7 @@
         "keyframes": [
           {
             "time": 0,
-            "value": "color-mix(in oklab, red, blue)"
+            "value": "rgb(255, 0, 0)"
           }
         ]
       },
@@ -1671,561 +1671,83 @@
     "components": []
   },
   "some5|Try New Items": {
-    "components": [
+    "components": []
+  },
+  "some5|Parallel Combination": {
+    "components": [],
+    "fixedComponents": [
       {
-        "registryKey": "Rectangle",
+        "description": "Slide 1",
         "schedules": [
           {
-            "description": "Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(0% 100% 100% / 0%)"
-              }
-            ]
-          },
-          {
-            "description": "Rect",
-            "type": "rectangle",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 5.901576576576576,
-                  "y": 4.035135135135135,
-                  "width": 2,
-                  "height": 2
-                }
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "registryKey": "Traditional Text",
-        "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Peace"
-              }
-            ]
-          },
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 6.870157657657658,
-                  "y": 4.747522522522523
-                }
-              }
-            ]
-          },
-          {
-            "description": "Fill Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-              },
-              {
-                "time": 1674,
-                "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-              },
-              {
-                "time": 3992,
-                "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-              },
-              {
-                "time": 5742,
-                "value": "color-mix(in srgb, transparent 80%, #0e0)"
-              },
-              {
-                "time": 8174,
-                "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-              },
-              {
-                "time": 11010,
-                "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-              },
-              {
-                "time": 12458,
-                "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-              },
-              {
-                "time": 13962.000000000002,
-                "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-              },
-              {
-                "time": 16676,
-                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-              },
-              {
-                "time": 20000,
-                "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-              }
-            ]
-          },
-          {
-            "description": "Outline Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          },
-          {
-            "description": "Outline Width",
+            "description": "Time to Progress",
             "type": "number",
             "keyframes": [
               {
-                "time": 0,
-                "value": 0.02
-              }
-            ]
-          },
-          {
-            "description": "Font Size",
-            "type": "number",
-            "keyframes": [
+                "time": -1350,
+                "value": -1
+              },
               {
-                "time": 0,
-                "value": 0.75
-              }
-            ]
-          },
-          {
-            "description": "Font Style",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "normal"
-              }
-            ]
-          },
-          {
-            "description": "Font Weight",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 400
-              }
-            ]
-          },
-          {
-            "description": "Font Family",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Ranchers"
-              }
-            ]
-          },
-          {
-            "description": "Align",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "alphabetic"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "registryKey": "Slide",
-        "schedules": [
-          {
-            "description": "𝓐",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
+                "time": -350,
                 "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓑",
-            "type": "number",
-            "keyframes": [
+              },
               {
-                "time": 0,
+                "time": 500,
                 "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓒",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓓",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓔",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓕",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓖",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓗",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓘",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          },
-          {
-            "description": "𝓙",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
-          }
-        ],
-        "scalars": [
-          {
-            "description": "Transform Template",
-            "type": "string",
-            "value": "translate(2px, 3px) rotate(180deg)"
-          }
-        ],
-        "components": [
-          {
-            "registryKey": "Traditional Text",
-            "schedules": [
-              {
-                "description": "Text",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Love"
-                  }
-                ]
               },
               {
-                "description": "Position",
-                "type": "point",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": {
-                      "x": -4.882995328827984,
-                      "y": -2.372860483532466
-                    }
-                  }
-                ]
-              },
-              {
-                "description": "Fill Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": -10000,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  },
-                  {
-                    "time": -8326,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-                  },
-                  {
-                    "time": -6008,
-                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-                  },
-                  {
-                    "time": -4258,
-                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
-                  },
-                  {
-                    "time": -1826,
-                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-                  },
-                  {
-                    "time": 1010,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-                  },
-                  {
-                    "time": 2458,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-                  },
-                  {
-                    "time": 3962.000000000002,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-                  },
-                  {
-                    "time": 6676,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-                  },
-                  {
-                    "time": 10000,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  },
-                  {
-                    "time": 10000,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  },
-                  {
-                    "time": 11674,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-                  },
-                  {
-                    "time": 13992,
-                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-                  },
-                  {
-                    "time": 15742,
-                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
-                  },
-                  {
-                    "time": 18174,
-                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-                  },
-                  {
-                    "time": 21010,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-                  },
-                  {
-                    "time": 22458,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-                  },
-                  {
-                    "time": 23962,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-                  },
-                  {
-                    "time": 26676,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-                  },
-                  {
-                    "time": 30000,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  }
-                ]
-              },
-              {
-                "description": "Outline Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "rgb(0% 0% 0%)"
-                  }
-                ]
-              },
-              {
-                "description": "Outline Width",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.02
-                  }
-                ]
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.75
-                  }
-                ]
-              },
-              {
-                "description": "Font Style",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "normal"
-                  }
-                ]
-              },
-              {
-                "description": "Font Weight",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 400
-                  }
-                ]
-              },
-              {
-                "description": "Font Family",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Bevan"
-                  }
-                ]
-              },
-              {
-                "description": "Align",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "center"
-                  }
-                ]
-              },
-              {
-                "description": "Baseline",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "alphabetic"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "registryKey": "Slide",
-        "schedules": [
-          {
-            "description": "𝓐",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
+                "time": 11150,
                 "value": 0
               },
               {
-                "time": 10000,
-                "value": 360
-              }
-            ]
-          },
-          {
-            "description": "𝓑",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
+                "time": 12000,
+                "value": 0
               },
               {
-                "time": 5000,
-                "value": 0.25
-              },
-              {
-                "time": 10000,
-                "value": 1
-              },
-              {
-                "time": 20000,
+                "time": 13000,
                 "value": 2
               }
             ]
           },
           {
-            "description": "𝓒",
+            "description": "𝓐",
             "type": "number",
             "keyframes": [
+              {
+                "time": -350,
+                "value": 16
+              },
               {
                 "time": 0,
                 "value": 0
               },
               {
-                "time": 5000,
-                "value": 45
-              },
-              {
-                "time": 10000,
+                "time": 11650,
                 "value": 0
               },
               {
-                "time": 15000,
-                "value": -45
-              },
+                "time": 12000,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
               {
-                "time": 20000,
-                "value": 0
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
               }
             ]
           },
@@ -2304,503 +1826,1854 @@
           {
             "description": "Transform Template",
             "type": "string",
-            "value": "translate(2px,5px) skewX(𝓒deg)"
+            "value": "translateX(𝓐px)"
           }
         ],
-        "components": [
+        "components": []
+      },
+      {
+        "description": "Slide 2",
+        "schedules": [
           {
-            "registryKey": "Rectangle",
-            "schedules": [
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
               {
-                "description": "Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "transparent"
-                  }
-                ]
+                "time": 10650,
+                "value": -1
               },
               {
-                "description": "Rect",
-                "type": "rectangle",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": {
-                      "x": -1,
-                      "y": -1,
-                      "width": 2,
-                      "height": 2
-                    }
-                  }
-                ]
+                "time": 11650,
+                "value": 0
+              },
+              {
+                "time": 12500,
+                "value": 0
+              },
+              {
+                "time": 65150,
+                "value": 1
+              },
+              {
+                "time": 66000,
+                "value": 1
+              },
+              {
+                "time": 67000,
+                "value": 2
               }
             ]
           },
           {
-            "registryKey": "Traditional Text",
-            "schedules": [
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
               {
-                "description": "Text",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Peace"
-                  }
-                ]
+                "time": 11650,
+                "value": 16
               },
               {
-                "description": "Position",
-                "type": "point",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": {
-                      "x": 0,
-                      "y": -0.35
-                    }
-                  }
-                ]
+                "time": 12000,
+                "value": 0
               },
               {
-                "description": "Fill Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  },
-                  {
-                    "time": 1674,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-                  },
-                  {
-                    "time": 3992,
-                    "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-                  },
-                  {
-                    "time": 5742,
-                    "value": "color-mix(in srgb, transparent 80%, #0e0)"
-                  },
-                  {
-                    "time": 8174,
-                    "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-                  },
-                  {
-                    "time": 11010,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-                  },
-                  {
-                    "time": 12458,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-                  },
-                  {
-                    "time": 13962.000000000002,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-                  },
-                  {
-                    "time": 16676,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-                  },
-                  {
-                    "time": 20000,
-                    "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                  }
-                ]
+                "time": 65650,
+                "value": 0
               },
               {
-                "description": "Outline Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "black"
-                  }
-                ]
-              },
-              {
-                "description": "Outline Width",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.02
-                  }
-                ]
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.75
-                  }
-                ]
-              },
-              {
-                "description": "Font Style",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "normal"
-                  }
-                ]
-              },
-              {
-                "description": "Font Weight",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 400
-                  }
-                ]
-              },
-              {
-                "description": "Font Family",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Ranchers"
-                  }
-                ]
-              },
-              {
-                "description": "Align",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "center"
-                  }
-                ]
-              },
-              {
-                "description": "Baseline",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "alphabetic"
-                  }
-                ]
+                "time": 66000,
+                "value": -16
               }
             ]
           },
           {
-            "registryKey": "Slide",
-            "schedules": [
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
               {
-                "description": "𝓐",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓑",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓒",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓓",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓔",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓕",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓖",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓗",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓘",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
-              },
-              {
-                "description": "𝓙",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 1
-                  }
-                ]
+                "time": 0,
+                "value": 1
               }
-            ],
-            "scalars": [
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
               {
-                "description": "Transform Template",
-                "type": "string",
-                "value": "rotate(180deg)"
+                "time": 0,
+                "value": 1
               }
-            ],
-            "components": [
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
               {
-                "registryKey": "Traditional Text",
-                "schedules": [
-                  {
-                    "description": "Text",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "Love"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Position",
-                    "type": "point",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": {
-                          "x": 0,
-                          "y": -0.39
-                        }
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Fill Color",
-                    "type": "color",
-                    "keyframes": [
-                      {
-                        "time": -10000,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                      },
-                      {
-                        "time": -8326,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-                      },
-                      {
-                        "time": -6008,
-                        "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-                      },
-                      {
-                        "time": -4258,
-                        "value": "color-mix(in srgb, transparent 80%, #0e0)"
-                      },
-                      {
-                        "time": -1826,
-                        "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-                      },
-                      {
-                        "time": 1010,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-                      },
-                      {
-                        "time": 2458,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-                      },
-                      {
-                        "time": 3962.000000000002,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-                      },
-                      {
-                        "time": 6676,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-                      },
-                      {
-                        "time": 10000,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                      },
-                      {
-                        "time": 10000,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                      },
-                      {
-                        "time": 11674,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 128, 0))"
-                      },
-                      {
-                        "time": 13992,
-                        "value": "color-mix(in srgb, transparent 80%, #d8d800)"
-                      },
-                      {
-                        "time": 15742,
-                        "value": "color-mix(in srgb, transparent 80%, #0e0)"
-                      },
-                      {
-                        "time": 18174,
-                        "value": "color-mix(in srgb, transparent 80%, #00d8d8)"
-                      },
-                      {
-                        "time": 21010,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(0, 128, 255))"
-                      },
-                      {
-                        "time": 22458,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(32, 64, 255))"
-                      },
-                      {
-                        "time": 23962,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(128, 0, 255))"
-                      },
-                      {
-                        "time": 26676,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 255))"
-                      },
-                      {
-                        "time": 30000,
-                        "value": "color-mix(in srgb, transparent 80%, rgb(255, 0, 0))"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Outline Color",
-                    "type": "color",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "rgb(0% 0% 0%)"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Outline Width",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 0.02
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Font Size",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 0.75
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Font Style",
-                    "type": "select",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "normal"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Font Weight",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 400
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Font Family",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "Bevan"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Align",
-                    "type": "select",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "center"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Baseline",
-                    "type": "select",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "alphabetic"
-                      }
-                    ]
-                  }
-                ]
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
               }
             ]
           }
-        ]
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 3",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 64650,
+                "value": -1
+              },
+              {
+                "time": 65650,
+                "value": 0
+              },
+              {
+                "time": 66500,
+                "value": 0
+              },
+              {
+                "time": 119150,
+                "value": 1
+              },
+              {
+                "time": 120000,
+                "value": 1
+              },
+              {
+                "time": 121000,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 65650,
+                "value": 16
+              },
+              {
+                "time": 66000,
+                "value": 0
+              },
+              {
+                "time": 119650,
+                "value": 0
+              },
+              {
+                "time": 120000,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 4",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 118650,
+                "value": -1
+              },
+              {
+                "time": 119650,
+                "value": 0
+              },
+              {
+                "time": 120500,
+                "value": 0
+              },
+              {
+                "time": 167185,
+                "value": 1
+              },
+              {
+                "time": 168035,
+                "value": 1
+              },
+              {
+                "time": 169035,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 119650,
+                "value": 16
+              },
+              {
+                "time": 120000,
+                "value": 0
+              },
+              {
+                "time": 167685,
+                "value": 0
+              },
+              {
+                "time": 168035,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 5",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 166685,
+                "value": -1
+              },
+              {
+                "time": 167685,
+                "value": 0
+              },
+              {
+                "time": 168535,
+                "value": 0
+              },
+              {
+                "time": 215220,
+                "value": 1
+              },
+              {
+                "time": 216070,
+                "value": 1
+              },
+              {
+                "time": 217070,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 167685,
+                "value": 16
+              },
+              {
+                "time": 168035,
+                "value": 0
+              },
+              {
+                "time": 215720,
+                "value": 0
+              },
+              {
+                "time": 216070,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 6",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 214720,
+                "value": -1
+              },
+              {
+                "time": 215720,
+                "value": 0
+              },
+              {
+                "time": 216570,
+                "value": 0
+              },
+              {
+                "time": 263255,
+                "value": 1
+              },
+              {
+                "time": 264105,
+                "value": 1
+              },
+              {
+                "time": 265105,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 215720,
+                "value": 16
+              },
+              {
+                "time": 216070,
+                "value": 0
+              },
+              {
+                "time": 263755,
+                "value": 0
+              },
+              {
+                "time": 264105,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 7",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 262755,
+                "value": -1
+              },
+              {
+                "time": 263755,
+                "value": 0
+              },
+              {
+                "time": 264605,
+                "value": 0
+              },
+              {
+                "time": 311290,
+                "value": 1
+              },
+              {
+                "time": 312140,
+                "value": 1
+              },
+              {
+                "time": 313140,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 263755,
+                "value": 16
+              },
+              {
+                "time": 264105,
+                "value": 0
+              },
+              {
+                "time": 311790,
+                "value": 0
+              },
+              {
+                "time": 312140,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 8",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 310790,
+                "value": -1
+              },
+              {
+                "time": 311790,
+                "value": 0
+              },
+              {
+                "time": 312640,
+                "value": 0
+              },
+              {
+                "time": 359325,
+                "value": 1
+              },
+              {
+                "time": 360175,
+                "value": 1
+              },
+              {
+                "time": 361175,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 311790,
+                "value": 16
+              },
+              {
+                "time": 312140,
+                "value": 0
+              },
+              {
+                "time": 359825,
+                "value": 0
+              },
+              {
+                "time": 360175,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 9",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 358825,
+                "value": -1
+              },
+              {
+                "time": 359825,
+                "value": 0
+              },
+              {
+                "time": 360675,
+                "value": 0
+              },
+              {
+                "time": 407360,
+                "value": 1
+              },
+              {
+                "time": 408210,
+                "value": 1
+              },
+              {
+                "time": 409210,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 359825,
+                "value": 16
+              },
+              {
+                "time": 360175,
+                "value": 0
+              },
+              {
+                "time": 407860,
+                "value": 0
+              },
+              {
+                "time": 408210,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 10",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 406860,
+                "value": -1
+              },
+              {
+                "time": 407860,
+                "value": 0
+              },
+              {
+                "time": 408710,
+                "value": 0
+              },
+              {
+                "time": 455395,
+                "value": 1
+              },
+              {
+                "time": 456245,
+                "value": 1
+              },
+              {
+                "time": 457245,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 407860,
+                "value": 16
+              },
+              {
+                "time": 408210,
+                "value": 0
+              },
+              {
+                "time": 455895,
+                "value": 0
+              },
+              {
+                "time": 456245,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 11",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 454895,
+                "value": -1
+              },
+              {
+                "time": 455895,
+                "value": 0
+              },
+              {
+                "time": 456745,
+                "value": 0
+              },
+              {
+                "time": 503430,
+                "value": 1
+              },
+              {
+                "time": 504280,
+                "value": 1
+              },
+              {
+                "time": 505280,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 455895,
+                "value": 16
+              },
+              {
+                "time": 456245,
+                "value": 0
+              },
+              {
+                "time": 503930,
+                "value": 0
+              },
+              {
+                "time": 504280,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 12",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 503930,
+                "value": 0
+              },
+              {
+                "time": 504780,
+                "value": 0
+              },
+              {
+                "time": 551465,
+                "value": 1
+              },
+              {
+                "time": 552315,
+                "value": 1
+              },
+              {
+                "time": 553315,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 504280,
+                "value": 0
+              },
+              {
+                "time": 551965,
+                "value": 0
+              },
+              {
+                "time": 552315,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
+      },
+      {
+        "description": "Slide 13",
+        "schedules": [
+          {
+            "description": "Time to Progress",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0
+              },
+              {
+                "time": 550965,
+                "value": -1
+              },
+              {
+                "time": 599500,
+                "value": 1
+              },
+              {
+                "time": 600350,
+                "value": 1
+              },
+              {
+                "time": 601350,
+                "value": 2
+              }
+            ]
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 552315,
+                "value": 0
+              },
+              {
+                "time": 600000,
+                "value": 0
+              },
+              {
+                "time": 600350,
+                "value": -16
+              }
+            ]
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 1
+              }
+            ]
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "translateX(𝓐px)"
+          }
+        ],
+        "components": []
       }
     ]
   }
