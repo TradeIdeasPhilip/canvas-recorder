@@ -49,18 +49,28 @@ export class AudioBuilder {
   }
 
   readonly #cache = new Map<string, Promise<AudioBuffer>>();
+  readonly #resolved = new Map<string, AudioBuffer>();
 
   clearCache() {
     this.#cache.clear();
+    this.#resolved.clear();
   }
 
   warmCache(url: string) {
     this.#findAudioBuffer(url);
   }
 
+  /** Returns the decoded buffer synchronously if already cached, otherwise null. */
+  getDecodedBuffer(url: string): AudioBuffer | null {
+    return this.#resolved.get(url) ?? null;
+  }
+
   #findAudioBuffer(url: string): Promise<AudioBuffer> {
     return this.#cache.getOrInsertComputed(url, (missingUrl) =>
-      this.#createNewAudioBuffer(missingUrl),
+      this.#createNewAudioBuffer(missingUrl).then((buf) => {
+        this.#resolved.set(missingUrl, buf);
+        return buf;
+      }),
     );
   }
 

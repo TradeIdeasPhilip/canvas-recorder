@@ -134,3 +134,292 @@ A voiceover clip is set to start 1 second before this event.
 And an arrow will be drawn from 2 seconds before this event through 6 seconds after this event.
 Even before we add interesting attachment points, the start of the clip can already change because of a ripple effect in the timeline.
 So the custom code in the component will have to send a notification for lots of things to rebuild.
+
+# Sounds on the Timeline
+
+Let's make some *real* progress.
+The "main timeline" currently plays all of the slides, just like the "Parallel Combination" does.
+Let's copy the existing sounds, and add to the Visual Editor so I can make adjustments and add more sounds via a GUI.
+
+The existing sound clips are are all good.
+I plan to keep doing more of the same, adding sound clips and arrows and other callouts, adjusting the speed and other small details of the numbered slides.
+Today I want a tool to help me finish this one video.
+
+Eventually I still want a lot more, as described in the previous section, but let's focus on something simple and concrete for today.
+
+## Basic Functionality
+
+Now let's create a GUI for attaching sound clips to the timeline.
+I want the ability to see all of the relevant numbers.
+(e.g. the clip starts 123,456ms into the referenced sound file and plays for 1,200ms.)
+And I want to edit these as HTML fields, just like we normally edit numbers in the Visual Editor.
+And a string field for the name of the file (a url).
+
+I also need a way to *see* the sound and video clips together.
+A "normal" CapCut-style timeline with the video elements on one row and the sound clips on another row seems like a good place to start.
+The *waveform display* is very *important* here.
+The exact start and end times of the clip are a little bit random.
+I try to leave a little padding on each side of the clip but the process is not consistent.
+
+It should be easy to move either end of a sound clip or to move the entire clip.
+(We just did something very similar with the ArrowComponent's editor!)
+When I move just one end, I'm adding or removing some sound, but the unchanged part of the sound clip plays as the exact same time as before!
+When the user moves the entire clip, the software only changes the `startMsIntoScene` property of the clip, not the `startMsIntoClip` or `lengthMs`.
+
+And the changes should all save to the JSON file and the IndexedDB, like other details of our components.
+
+And any changes should automatically get pushed back to the player, so it will play the right clips at the right time.
+As discussed in the previous section, it shouldn't be hard to do a decent job.
+Let's just try the obvious thing of sending all updates.
+The sound class already automatically deals with updates coming in too quickly.
+I suspect this will be sufficient for now.
+
+## Attachment Points
+
+I can imagine drawing a vertical line connecting each sound clip to a slide wrapper or a transition.
+We are attaching one point in the sound clip to one point in the slide.
+
+~~In some cases we might be making an attachment before or after an element is playing.
+That might make the timeline GUI a little bit tricky.
+But the rest of the code shouldn't care.~~
+(This sounded interesting but it makes the GUI unnecessarily complicated, especially for a first draft!)
+
+Sound clips can only be extended or clipped, never stretched or squeezed.
+(CapCut lets me speed up or slow down a sound clip but it always sounds terrible, so let's just skip that.)
+These operations leave the attachment point at the same place on the screen, and the same time in the video.
+
+The slide wrappers and transitions can move, when previous things change.
+The sound clip should automatically move with the item from the "main" timeline.
+As discussed above, the main timeline never depends on anything but itself.
+Other things will be linked to the main timeline.
+
+Slide wrappers can be split.
+If the split happens before an the attachment point, then the attached sound clip gets attached to the second part of the slide wrapper.
+Otherwise it gets attached to the first part.
+This should look like no change at all on the GUI.
+
+Adjusting the end time of the slide wrapper doesn't affect any attachments.
+Adjusting the start time of the slide wrapper means moving the content of this slide wrapper and that means moving the attached sound clips accordingly.
+
+The user can also stretch or shrink a slide, adjusting its speed.
+The program should do the math so the attachment point sticks to the same "progress" in the underlying slide.
+All slides are required to move at a linear pace, so this should be trivial.
+
+### Initial Attachment Points
+
+When importing from "Parallel Combination" there will not be enough information.
+Keep it simple.
+Use the start of each sound clip as its attachment point.
+And find the element on the "main" timeline that is running at that time and attach to that.
+
+The tools described below should make it easy for me to adjust that if needed.
+
+### Adjusting Attachment Points
+
+On the timeline view I should be able to slide the vertical line that attaches a sound clip to an item on the "main" timeline.
+This doesn't immediately change the timing of anything.
+But it might have an affect later, when editing the timeline.
+
+While you drag that line the program should update the current frame that we are displaying to match that time.
+The user can see exactly what will be on the screen, and can see the waveform diagram.
+
+And presumably a way to do this with numbers in that part of the GUI, too.
+
+### Rehoming
+
+It should be easy to attach a sound clip to a different part of the video without changing the video or the sound clip.
+Just like sliding the vertical bar in the "Adjusting Attachment Points," this does not have any immediate effect on the timing of anything.
+It only affects the way the future edits work.
+
+For this first version, let's say that the attachment point has to be in the subcomponent that is currently playing.
+That makes the GUI much simpler.
+Things automatically get rehomed as you move the line.
+
+## Overlapping Sound Clips
+
+The common case is that no clips will overlap.
+
+In fact, we don't currently support overlapping sounds.
+One will overwrite the other.
+I plan to fix that one day but it's not high on my priority list.
+I'm currently focused on a voiceover, not music or sound effects.
+
+However, there is *no need* for a CapCut style sound timeline, where you *can't* have overlap.
+I don't see any value to sound clips "snapping" together like the video clips do.
+The sound clips will be organized relative to the video, not each other.
+
+It is possible that two sound clips will overlap temporarily.
+While I'm rearranging the video and sound clips, some sound clips might *temporarily* overlap each other.
+The correct answer is to keep the sound clips attached as requested.
+The timeline display should make it clear that the two sounds are overlapping.
+Maybe one of the sounds is moved to a different row to avoid overlap, but by default all sounds are in the same row.
+
+## Importing Clips
+
+I might start fresh by typing the name of a file and a few numbers into the Visual Editor.
+More often I'm going to copy and paste from [our sound editor](http://localhost:5173/sound-explorer.html?src=.%2FSome+5+part+1.m4a).
+It currently exports in the following two formats, both to the clipboard.
+
+### Copy One
+
+```json
+{
+  // "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you."
+  source: "./Some 5 part 1.m4a",
+  startMsIntoScene: 0,
+  startMsIntoClip: 135655.83,
+  lengthMs: 17360.60,
+},
+```
+
+### Copy All
+
+```json
+const soundClips: {
+  notes: string;
+  source: string;
+  startMsIntoScene: number;
+  startMsIntoClip: number;
+  lengthMs: number;
+}[] = [
+  {
+    notes: "Let’s watch some matrices in their natural habitat.\n",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 2152.48,
+    lengthMs: 3332.88,
+  },
+  {
+    notes: "These examples ... matrix multiplication.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 6100.35,
+    lengthMs: 9497.02,
+  },
+  {
+    notes: "This is an explainer... an easy one.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 18100.33,
+    lengthMs: 3146.46,
+  },
+  {
+    notes: "The good news: the computer will help you create the matrices.\n",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 21659.03,
+    lengthMs: 3964.26,
+  },
+  {
+    notes: "And the computer will multiply the matrices for you.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 26308.06,
+    lengthMs: 2798.21,
+  },
+  {
+    notes: "All you have to do is put them in the right order.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 29656.19,
+    lengthMs: 2488.90,
+  },
+  {
+    notes: "Am I the only one who gets these things backwards",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 33409.17,
+    lengthMs: 2792.56,
+  },
+  {
+    notes: "There are only two possibilities. ... wrong every time?",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 37355.25,
+    lengthMs: 4913.68,
+  },
+  {
+    notes: "How I stopped guessing ... what's really going on.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 43156.50,
+    lengthMs: 3852.06,
+  },
+  {
+    notes: "Affine transform overview",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 52174.38,
+    lengthMs: 19280.38,
+  },
+  {
+    notes: "Point = column vector = matrix.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 72176.10,
+    lengthMs: 6636.04,
+  },
+  {
+    notes: "Shapes are just a collection of points.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 79339.19,
+    lengthMs: 3877.48,
+  },
+  {
+    notes: "Top left corner of square",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 83676.98,
+    lengthMs: 5009.33,
+  },
+  {
+    notes: "Each operation is a square matrix ... computer creates it for you.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 89969.63,
+    lengthMs: 12498.48,
+  },
+  {
+    notes: "Apply transform to point ... each point in image.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 106089.79,
+    lengthMs: 11654.98,
+  },
+  {
+    notes: "More details... affine matrices are bigger.\n",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 119657.40,
+    lengthMs: 10484.96,
+  },
+  {
+    notes: "And sometimes people don't bother to list out all the terms.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 130630.46,
+    lengthMs: 3829.13,
+  },
+  {
+    notes: "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.",
+    source: "./Some 5 part 1.m4a",
+    startMsIntoScene: 0,
+    startMsIntoClip: 135655.83,
+    lengthMs: 17360.60,
+  },
+];
+```
+
+### The notes field
+
+The notes field should be displayed as a description of the clip.
+This is completely analogous to `Showable.userEditableDescription`.
+It has no meaning except in development.
+It will be essential if you have a lot of clips!
+
+This is a comment, instead of a field, in some older code.
+We can change the way the Sound Explorer exports single items to look more like the way it exports the entire list.
+
+In the past I've always pasted that directly into TypeScript source code, so comments were all I needed.
+"Copy All" is new and is intended for use with this new code we are building.

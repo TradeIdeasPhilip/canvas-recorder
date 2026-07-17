@@ -297,6 +297,23 @@ const slideList = new MakeShowableInSeries("SoME5");
  */
 const forTimeline: Showable[] = [];
 
+// MARK: Sound Clips
+
+/** A single audio clip attached to the scene. */
+type SoundClip = {
+  notes: string;
+  source: string;
+  startMsIntoScene: number;
+  startMsIntoClip: number;
+  lengthMs: number;
+};
+
+/**
+ * Late-initialized from the Parallel Combination chapter so both that
+ * chapter and Main Timeline share the same mutable array.
+ */
+let mainTimelineSoundClips: SoundClip[] = [];
+
 /**
  * Add this item to both {@link slideList} and {@link forTimeline}.
  * @param toAdd The new slide.
@@ -2315,6 +2332,8 @@ class ChildWrapper extends SlideComponent {
       startTime += clip.lengthMs + 1000;
     });
   }
+  // Share with Main Timeline so the GUI can edit the same array.
+  mainTimelineSoundClips = soundClips;
   const moreToShow: Pick<Showable, "show">[] = [];
   {
     type SimpleArrowDescription = {
@@ -2612,13 +2631,22 @@ class TimelineDisplay {
   private playMs = 0;
   private totalMs = 1;
 
+  selectedSoundClip: SoundClip | null = null;
+
   onSeek?: (ms: number) => void;
   onSelect?: (index: number) => void;
+  /** Called on every sound clip mutation so the audio player can be refreshed. */
+  onSoundChange?: () => void;
+  /** Called when a sound clip is selected or deselected in the timeline. */
+  onSoundSelect?: (clip: SoundClip | null) => void;
+  /** Provide decoded PCM for waveform rendering. Set this after audio is ready. */
+  getDecodedBuffer?: (url: string) => AudioBuffer | null;
 
   constructor(
     readonly canvas: HTMLCanvasElement,
     private readonly getItems: () => readonly TimelineItem[],
     private readonly slideColors: Map<string, string>,
+    private readonly getSoundClips?: () => SoundClip[],
   ) {
     this.setupEvents();
   }
@@ -2654,11 +2682,17 @@ class TimelineDisplay {
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, w, h);
 
-    const items = this.getItems();
-    const itemH = Math.round(h * 0.7);
-    const itemY = Math.round((h - itemH) / 2);
-    const fontSize = Math.min(12 * dpr, Math.round(itemH * 0.4));
+    const hasSoundRow = !!this.getSoundClips;
 
+    // Layout: video row on top, sound row below (when present).
+    const videoH = hasSoundRow ? Math.round(h * 0.48) : Math.round(h * 0.7);
+    const videoY = hasSoundRow ? 0 : Math.round((h - videoH) / 2);
+    const soundY = Math.round(h * 0.56);
+    const soundH = h - soundY;
+    const fontSize = Math.min(12 * dpr, Math.round(videoH * 0.45));
+
+    // Draw video items
+    const items = this.getItems();
     let cursor = 0;
     for (let i = 0; i < items.length; i++) {
       const item = items[i]!;
@@ -2671,7 +2705,7 @@ class TimelineDisplay {
         const color = this.slideColors.get(item.slideDescription) ?? "#888";
         ctx.globalAlpha = isHold ? 0.45 : 1;
         ctx.fillStyle = color;
-        ctx.fillRect(x0, itemY, iw, itemH);
+        ctx.fillRect(x0, videoY, iw, videoH);
         ctx.globalAlpha = 1;
 
         if (iw > 4 * dpr) {
@@ -2681,31 +2715,110 @@ class TimelineDisplay {
           ctx.fillStyle = "rgba(0,0,0,0.7)";
           ctx.save();
           ctx.beginPath();
-          ctx.rect(x0, itemY, iw, itemH);
+          ctx.rect(x0, videoY, iw, videoH);
           ctx.clip();
-          ctx.fillText(item.slideDescription, x0 + iw / 2, itemY + itemH / 2);
+          ctx.fillText(item.slideDescription, x0 + iw / 2, videoY + videoH / 2);
           ctx.restore();
         }
       } else {
         ctx.fillStyle = "#aaa";
-        ctx.fillRect(x0, itemY, iw, itemH);
+        ctx.fillRect(x0, videoY, iw, videoH);
         if (iw > 3 * dpr) {
           ctx.font = `${fontSize}px sans-serif`;
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
           ctx.fillStyle = "#555";
-          ctx.fillText("T", x0 + iw / 2, itemY + itemH / 2);
+          ctx.fillText("T", x0 + iw / 2, videoY + videoH / 2);
         }
       }
 
       ctx.strokeStyle = "rgba(0,0,0,0.4)";
       ctx.lineWidth = 1;
-      ctx.strokeRect(x0 + 0.5, itemY + 0.5, iw - 1, itemH - 1);
+      ctx.strokeRect(x0 + 0.5, videoY + 0.5, iw - 1, videoH - 1);
 
       cursor += item.duration;
     }
 
-    // Play head
+    // Draw sound row
+    if (hasSoundRow && soundH > 0) {
+      ctx.fillStyle = "rgba(0,0,0,0.07)";
+      ctx.fillRect(0, soundY, w, soundH);
+
+      const clips = this.getSoundClips!();
+      const soundFontSize = Math.min(11 * dpr, Math.round(soundH * 0.3));
+      const EDGE_W = Math.max(3, Math.round(4 * dpr));
+
+      for (const clip of clips) {
+        const cx0 = Math.round(this.msToX(clip.startMsIntoScene, w));
+        const cx1 = Math.round(this.msToX(clip.startMsIntoScene + clip.lengthMs, w));
+        const cw = Math.max(2, cx1 - cx0);
+        const isSelected = clip === this.selectedSoundClip;
+
+        // Background fill
+        ctx.fillStyle = isSelected ? "#1f618d" : "#2e86c1";
+        ctx.fillRect(cx0, soundY, cw, soundH);
+
+        // Waveform (min/max bars per pixel, drawn in the clip's own region)
+        const buf = this.getDecodedBuffer?.(clip.source) ?? null;
+        if (buf && cw > 2) {
+          const data = buf.getChannelData(0);
+          const rate = buf.sampleRate;
+          const msToSample = (ms: number) => (ms / 1000) * rate;
+          const total = data.length;
+          const waveColor = isSelected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.7)";
+          ctx.fillStyle = waveColor;
+          const mid = soundY + soundH / 2;
+          for (let px = 0; px < cw; px++) {
+            // Map this pixel column to a window in the source file
+            const frac0 = px / cw;
+            const frac1 = (px + 1) / cw;
+            const s0 = Math.floor(msToSample(clip.startMsIntoClip + frac0 * clip.lengthMs));
+            const s1 = Math.floor(msToSample(clip.startMsIntoClip + frac1 * clip.lengthMs));
+            const from = Math.max(0, s0);
+            const to = Math.min(total, Math.max(s0 + 1, s1));
+            if (to <= from) continue;
+            let mn = data[from]!;
+            let mx = mn;
+            for (let i = from + 1; i < to; i++) {
+              const v = data[i]!;
+              if (v < mn) mn = v;
+              else if (v > mx) mx = v;
+            }
+            const top = mid + mn * (soundH / 2);
+            const bot = mid + mx * (soundH / 2);
+            ctx.fillRect(cx0 + px, Math.round(top), 1, Math.max(1, Math.round(bot - top)));
+          }
+        }
+
+        // Darker edge handles
+        ctx.fillStyle = isSelected ? "#0e3a52" : "#1a5276";
+        ctx.fillRect(cx0, soundY, Math.min(EDGE_W, cw), soundH);
+        ctx.fillRect(Math.max(cx0, cx1 - EDGE_W), soundY, Math.min(EDGE_W, cw), soundH);
+
+        // Notes label (bottom strip)
+        if (cw > 10 * dpr) {
+          const labelH = Math.round(soundH * 0.28);
+          ctx.fillStyle = "rgba(0,0,0,0.45)";
+          ctx.fillRect(cx0, soundY + soundH - labelH, cw, labelH);
+          ctx.font = `${soundFontSize}px sans-serif`;
+          ctx.textAlign = "left";
+          ctx.textBaseline = "middle";
+          ctx.fillStyle = "white";
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(cx0 + EDGE_W + 2, soundY + soundH - labelH, Math.max(0, cw - 2 * EDGE_W - 4), labelH);
+          ctx.clip();
+          ctx.fillText(clip.notes.trim(), cx0 + EDGE_W + 4, soundY + soundH - labelH / 2);
+          ctx.restore();
+        }
+
+        ctx.strokeStyle = isSelected ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.3)";
+        ctx.lineWidth = isSelected ? 2 : 1;
+        ctx.strokeRect(cx0 + 0.5, soundY + 0.5, cw - 1, soundH - 1);
+      }
+    }
+
+    // Play head (full height)
     const px = Math.round(this.msToX(this.playMs, w));
     ctx.fillStyle = "#d00";
     ctx.fillRect(px, 0, Math.max(1, Math.round(dpr)), h);
@@ -2718,6 +2831,14 @@ class TimelineDisplay {
     let downEnd = 0;
     let panning = false;
 
+    // Sound clip drag state
+    let soundDragClip: SoundClip | null = null;
+    let soundDragHandle: "left" | "right" | "center" = "center";
+    let soundDragStartMs = 0;
+    let soundDragStartScene = 0;
+    let soundDragStartClipStart = 0;
+    let soundDragStartLength = 0;
+
     const msFromEvent = (e: PointerEvent): number => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -2725,6 +2846,27 @@ class TimelineDisplay {
         this.viewStartMs +
         (x / rect.width) * (this.viewEndMs - this.viewStartMs)
       );
+    };
+
+    /** Returns which sound clip and handle zone the pointer is over, or null. */
+    const soundHitTest = (e: PointerEvent): { clip: SoundClip; handle: "left" | "right" | "center" } | null => {
+      if (!this.getSoundClips) return null;
+      const rect = canvas.getBoundingClientRect();
+      if ((e.clientY - rect.top) / rect.height < 0.5) return null; // video row
+      const ms = msFromEvent(e);
+      const edgeMs = (8 / rect.width) * (this.viewEndMs - this.viewStartMs);
+      const clips = this.getSoundClips();
+      // Reverse so last-drawn (visually on top) wins on overlap
+      for (let i = clips.length - 1; i >= 0; i--) {
+        const clip = clips[i]!;
+        const start = clip.startMsIntoScene;
+        const end = start + clip.lengthMs;
+        if (ms < start - edgeMs || ms > end + edgeMs) continue;
+        if (Math.abs(ms - start) <= edgeMs) return { clip, handle: "left" };
+        if (Math.abs(ms - end) <= edgeMs) return { clip, handle: "right" };
+        if (ms >= start && ms <= end) return { clip, handle: "center" };
+      }
+      return null;
     };
 
     const indexAtMs = (ms: number): number => {
@@ -2740,6 +2882,21 @@ class TimelineDisplay {
     canvas.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       canvas.setPointerCapture(e.pointerId);
+
+      const soundHit = soundHitTest(e);
+      if (soundHit) {
+        soundDragClip = soundHit.clip;
+        soundDragHandle = soundHit.handle;
+        soundDragStartMs = msFromEvent(e);
+        soundDragStartScene = soundHit.clip.startMsIntoScene;
+        soundDragStartClipStart = soundHit.clip.startMsIntoClip;
+        soundDragStartLength = soundHit.clip.lengthMs;
+        this.selectedSoundClip = soundHit.clip;
+        this.onSoundSelect?.(soundHit.clip);
+        this.draw();
+        return;
+      }
+
       downX = e.clientX;
       downStart = this.viewStartMs;
       downEnd = this.viewEndMs;
@@ -2748,6 +2905,32 @@ class TimelineDisplay {
 
     canvas.addEventListener("pointermove", (e) => {
       if (!(e.buttons & 1)) return;
+
+      if (soundDragClip) {
+        const delta = msFromEvent(e) - soundDragStartMs;
+        if (soundDragHandle === "center") {
+          soundDragClip.startMsIntoScene = Math.max(0, soundDragStartScene + delta);
+        } else if (soundDragHandle === "left") {
+          // Right end stays fixed; trim from the start of the audio clip.
+          const rightEnd = soundDragStartScene + soundDragStartLength;
+          const newScene = soundDragStartScene + delta;
+          const newClipStart = soundDragStartClipStart + delta;
+          const newLength = rightEnd - newScene;
+          if (newScene >= 0 && newClipStart >= 0 && newLength >= 100) {
+            soundDragClip.startMsIntoScene = newScene;
+            soundDragClip.startMsIntoClip = newClipStart;
+            soundDragClip.lengthMs = newLength;
+          }
+        } else {
+          // Right edge: extend or shorten the clip; startMsIntoClip stays fixed.
+          const newLength = soundDragStartLength + delta;
+          if (newLength >= 100) soundDragClip.lengthMs = newLength;
+        }
+        this.draw();
+        this.onSoundChange?.();
+        return;
+      }
+
       const dx = e.clientX - downX;
       if (!panning && Math.abs(dx) > 4) panning = true;
       if (!panning) return;
@@ -2763,11 +2946,30 @@ class TimelineDisplay {
 
     canvas.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
+
+      if (soundDragClip) {
+        soundDragClip = null;
+        return;
+      }
+
       if (!panning) {
         const ms = msFromEvent(e);
-        const clamped = Math.max(0, Math.min(this.totalMs, ms));
-        this.onSeek?.(clamped);
-        this.onSelect?.(indexAtMs(ms));
+        const rect = canvas.getBoundingClientRect();
+        const inSoundRow = this.getSoundClips &&
+          (e.clientY - rect.top) / rect.height >= 0.5;
+        if (inSoundRow) {
+          // Click in sound row but not starting a drag → select / deselect
+          const hit = soundHitTest(e);
+          if (!hit) {
+            this.selectedSoundClip = null;
+            this.onSoundSelect?.(null);
+            this.draw();
+          }
+        } else {
+          const clamped = Math.max(0, Math.min(this.totalMs, ms));
+          this.onSeek?.(clamped);
+          this.onSelect?.(indexAtMs(ms));
+        }
       }
       panning = false;
     });
@@ -2799,17 +3001,58 @@ class TimelineDisplay {
   }
 }
 
+/** Parse a single "Copy One" JSON-ish object from the sound explorer clipboard. */
+function parseCopyOneClip(text: string): SoundClip | null {
+  try {
+    let s = text.trim();
+    // Strip optional trailing comma
+    if (s.endsWith(",")) s = s.slice(0, -1);
+    // Strip outer braces if present
+    if (s.startsWith("{") && s.endsWith("}")) {
+      s = s.slice(1, -1);
+    }
+    // Remove // comment lines (these contain the notes text)
+    let notes = "";
+    s = s.replace(/\/\/\s*"([^"]*)"/g, (_, captured) => {
+      notes = captured;
+      return "";
+    });
+    s = s.replace(/\/\/[^\n]*/g, "");
+    // Quote unquoted keys
+    s = s.replace(/\b(notes|source|startMsIntoScene|startMsIntoClip|lengthMs)\s*:/g, '"$1":');
+    // Remove trailing commas before } or ]
+    s = s.replace(/,(\s*[}\]])/g, "$1");
+    const obj = JSON.parse(`{${s}}`) as Record<string, unknown>;
+    const clip: SoundClip = {
+      notes: typeof obj.notes === "string" ? obj.notes : notes,
+      source: typeof obj.source === "string" ? obj.source : "",
+      startMsIntoScene: typeof obj.startMsIntoScene === "number" ? obj.startMsIntoScene : 0,
+      startMsIntoClip: typeof obj.startMsIntoClip === "number" ? obj.startMsIntoClip : 0,
+      lengthMs: typeof obj.lengthMs === "number" ? obj.lengthMs : 1000,
+    };
+    if (!clip.source) return null;
+    return clip;
+  } catch {
+    return null;
+  }
+}
+
 class MainTimeline {
   readonly description = "Main Timeline";
   readonly items: TimelineItem[];
+  readonly soundClips: SoundClip[];
   private readonly slides: readonly Showable[];
   private readonly slideColors: Map<string, string>;
   private selectedIndex = -1;
+  private selectedSoundClip: SoundClip | null = null;
+  private display: TimelineDisplay | null = null;
+  private soundEditorDiv: HTMLElement | null = null;
   private visAPI: VisualEditorAPI | undefined;
   private rafId = 0;
 
-  constructor(slides: readonly Showable[]) {
+  constructor(slides: readonly Showable[], soundClips: SoundClip[] = []) {
     this.slides = slides;
+    this.soundClips = soundClips;
     this.items = [];
 
     // Assign colors by unique description round-robin through myRainbow.
@@ -2964,20 +3207,35 @@ class MainTimeline {
     container.style.cssText =
       "display:flex;flex-direction:column;gap:6px;padding:6px;";
 
-    // Timeline canvas
+    // Timeline canvas (taller to accommodate sound row)
     const canvas = document.createElement("canvas");
     canvas.style.cssText =
-      "width:100%;height:60px;cursor:crosshair;display:block;touch-action:none;";
+      "width:100%;height:100px;cursor:crosshair;display:block;touch-action:none;";
     canvas.title = "Click to seek & select · Drag to pan · Scroll to zoom";
     container.appendChild(canvas);
 
-    const display = new TimelineDisplay(canvas, () => this.items, this.slideColors);
+    const display = new TimelineDisplay(
+      canvas,
+      () => this.items,
+      this.slideColors,
+      () => this.soundClips,
+    );
+    this.display = display;
     display.setRange(0, this.duration);
+    display.getDecodedBuffer = (url) => this.visAPI?.getDecodedBuffer?.(url) ?? null;
 
     display.onSeek = (ms) => this.visAPI?.seek(ms);
     display.onSelect = (idx) => {
       this.selectedIndex = idx;
-      refreshEditor();
+      refreshVideoEditor();
+    };
+    display.onSoundChange = () => {
+      this.visAPI?.refreshGUI("sound");
+      refreshSoundEditor();
+    };
+    display.onSoundSelect = (clip) => {
+      this.selectedSoundClip = clip;
+      refreshSoundEditor();
     };
 
     // RAF loop to animate play head
@@ -2987,27 +3245,27 @@ class MainTimeline {
     };
     this.rafId = requestAnimationFrame(tick);
 
-    // Item editor (rebuilt on each selection change)
-    const editorDiv = document.createElement("div");
-    editorDiv.style.cssText =
-      "display:flex;flex-direction:column;gap:4px;font-size:12px;";
-    container.appendChild(editorDiv);
-
     const row = (labelText: string, input: HTMLElement): HTMLElement => {
       const r = document.createElement("div");
       r.style.cssText = "display:flex;gap:4px;align-items:center;";
       const l = document.createElement("label");
       l.textContent = labelText;
-      l.style.minWidth = "90px";
+      l.style.minWidth = "100px";
       r.append(l, input);
       return r;
     };
 
-    const refreshEditor = () => {
+    // ── Video item editor ──────────────────────────────────────────────────
+    const editorDiv = document.createElement("div");
+    editorDiv.style.cssText =
+      "display:flex;flex-direction:column;gap:4px;font-size:12px;";
+    container.appendChild(editorDiv);
+
+    const refreshVideoEditor = () => {
       editorDiv.innerHTML = "";
       const idx = this.selectedIndex;
       if (idx < 0 || idx >= this.items.length) {
-        editorDiv.textContent = "Click an item to edit.";
+        editorDiv.textContent = "Click a video item to edit.";
         return;
       }
       const item = this.items[idx]!;
@@ -3020,7 +3278,6 @@ class MainTimeline {
           : `Transition [${idx}]`;
       editorDiv.appendChild(title);
 
-      // Duration
       const durInput = document.createElement("input");
       durInput.type = "number";
       durInput.min = "1";
@@ -3037,7 +3294,6 @@ class MainTimeline {
       editorDiv.appendChild(row("Duration ms", durInput));
 
       if (item.type === "slide") {
-        // Slide selector
         const sel = document.createElement("select");
         for (const desc of slideNames) {
           const opt = document.createElement("option");
@@ -3052,7 +3308,6 @@ class MainTimeline {
         });
         editorDiv.appendChild(row("Slide", sel));
 
-        // startProgress
         const spInput = document.createElement("input");
         spInput.type = "number";
         spInput.step = "0.01";
@@ -3061,14 +3316,10 @@ class MainTimeline {
         spInput.value = String(item.startProgress);
         spInput.style.width = "80px";
         spInput.addEventListener("change", () => {
-          item.startProgress = Math.max(
-            0,
-            Math.min(1, parseFloat(spInput.value)),
-          );
+          item.startProgress = Math.max(0, Math.min(1, parseFloat(spInput.value)));
         });
         editorDiv.appendChild(row("Start progress", spInput));
 
-        // endProgress
         const epInput = document.createElement("input");
         epInput.type = "number";
         epInput.step = "0.01";
@@ -3077,15 +3328,11 @@ class MainTimeline {
         epInput.value = String(item.endProgress);
         epInput.style.width = "80px";
         epInput.addEventListener("change", () => {
-          item.endProgress = Math.max(
-            0,
-            Math.min(1, parseFloat(epInput.value)),
-          );
+          item.endProgress = Math.max(0, Math.min(1, parseFloat(epInput.value)));
         });
         editorDiv.appendChild(row("End progress", epInput));
       }
 
-      // Delete
       const delBtn = document.createElement("button");
       delBtn.textContent = "Delete item";
       delBtn.addEventListener("click", () => {
@@ -3093,18 +3340,169 @@ class MainTimeline {
         this.selectedIndex = -1;
         display.setRange(0, this.duration);
         display.draw();
-        refreshEditor();
+        refreshVideoEditor();
         this.visAPI?.refreshGUI("structure");
       });
       editorDiv.appendChild(delBtn);
     };
 
-    refreshEditor();
+    refreshVideoEditor();
+
+    // ── Sound clip editor ──────────────────────────────────────────────────
+    const hr = document.createElement("hr");
+    hr.style.cssText = "margin:4px 0;border:none;border-top:1px solid #aaa;";
+    container.appendChild(hr);
+
+    const soundEditorDiv = document.createElement("div");
+    soundEditorDiv.style.cssText =
+      "display:flex;flex-direction:column;gap:4px;font-size:12px;";
+    this.soundEditorDiv = soundEditorDiv;
+    container.appendChild(soundEditorDiv);
+
+    const numInput = (value: number, onChange: (v: number) => void): HTMLInputElement => {
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.value = String(Math.round(value * 100) / 100);
+      inp.step = "100";
+      inp.style.width = "90px";
+      inp.addEventListener("change", () => {
+        const v = parseFloat(inp.value);
+        if (isFinite(v)) onChange(v);
+      });
+      return inp;
+    };
+
+    const refreshSoundEditor = () => {
+      soundEditorDiv.innerHTML = "";
+      const clip = this.selectedSoundClip;
+
+      // Toolbar: add + paste buttons
+      const toolbar = document.createElement("div");
+      toolbar.style.cssText = "display:flex;gap:4px;align-items:center;";
+      const soundTitle = document.createElement("span");
+      soundTitle.style.cssText = "font-weight:bold;flex:1;";
+      soundTitle.textContent = clip ? "Sound clip" : "Sounds";
+      toolbar.appendChild(soundTitle);
+
+      const addBtn = document.createElement("button");
+      addBtn.textContent = "Add clip";
+      addBtn.addEventListener("click", () => {
+        const newClip: SoundClip = {
+          notes: "",
+          source: "",
+          startMsIntoScene: this.visAPI?.getCurrentTimeMs() ?? 0,
+          startMsIntoClip: 0,
+          lengthMs: 3000,
+        };
+        this.soundClips.push(newClip);
+        display.selectedSoundClip = newClip;
+        this.selectedSoundClip = newClip;
+        display.draw();
+        this.visAPI?.refreshGUI("sound");
+        refreshSoundEditor();
+      });
+      toolbar.appendChild(addBtn);
+
+      const pasteBtn = document.createElement("button");
+      pasteBtn.textContent = "Paste clip";
+      pasteBtn.title = 'Paste a "Copy One" clip from the sound explorer';
+      pasteBtn.addEventListener("click", async () => {
+        try {
+          const text = await navigator.clipboard.readText();
+          const parsed = parseCopyOneClip(text);
+          if (!parsed) {
+            alert("Clipboard doesn't look like a sound clip. Expected the 'Copy One' format from the sound explorer.");
+            return;
+          }
+          parsed.startMsIntoScene = this.visAPI?.getCurrentTimeMs() ?? 0;
+          this.soundClips.push(parsed);
+          display.selectedSoundClip = parsed;
+          this.selectedSoundClip = parsed;
+          display.draw();
+          this.visAPI?.refreshGUI("sound");
+          refreshSoundEditor();
+        } catch {
+          alert("Could not read clipboard. Make sure you've granted clipboard permission.");
+        }
+      });
+      toolbar.appendChild(pasteBtn);
+
+      soundEditorDiv.appendChild(toolbar);
+
+      if (!clip) {
+        const hint = document.createElement("div");
+        hint.style.cssText = "color:#888;font-size:11px;";
+        hint.textContent = `${this.soundClips.length} clip(s). Click a clip in the timeline to edit.`;
+        soundEditorDiv.appendChild(hint);
+        return;
+      }
+
+      // Notes
+      const notesArea = document.createElement("textarea");
+      notesArea.rows = 2;
+      notesArea.value = clip.notes;
+      notesArea.style.cssText = "width:100%;box-sizing:border-box;resize:vertical;font-size:11px;";
+      notesArea.addEventListener("input", () => {
+        clip.notes = notesArea.value;
+        display.draw();
+      });
+      soundEditorDiv.appendChild(row("Notes", notesArea));
+
+      // Source
+      const srcInput = document.createElement("input");
+      srcInput.type = "text";
+      srcInput.value = clip.source;
+      srcInput.style.cssText = "flex:1;min-width:0;font-size:11px;";
+      srcInput.addEventListener("change", () => {
+        clip.source = srcInput.value;
+        this.visAPI?.refreshGUI("sound");
+      });
+      soundEditorDiv.appendChild(row("Source", srcInput));
+
+      // Numeric fields
+      const sceneInp = numInput(clip.startMsIntoScene, (v) => {
+        clip.startMsIntoScene = v;
+        display.draw();
+        this.visAPI?.refreshGUI("sound");
+      });
+      soundEditorDiv.appendChild(row("Start in scene", sceneInp));
+
+      const clipInp = numInput(clip.startMsIntoClip, (v) => {
+        clip.startMsIntoClip = v;
+        this.visAPI?.refreshGUI("sound");
+      });
+      soundEditorDiv.appendChild(row("Start in clip", clipInp));
+
+      const lenInp = numInput(clip.lengthMs, (v) => {
+        if (v > 0) {
+          clip.lengthMs = v;
+          display.draw();
+          this.visAPI?.refreshGUI("sound");
+        }
+      });
+      soundEditorDiv.appendChild(row("Length ms", lenInp));
+
+      // Delete
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "Delete clip";
+      delBtn.addEventListener("click", () => {
+        const i = this.soundClips.indexOf(clip);
+        if (i >= 0) this.soundClips.splice(i, 1);
+        this.selectedSoundClip = null;
+        display.selectedSoundClip = null;
+        display.draw();
+        this.visAPI?.refreshGUI("sound");
+        refreshSoundEditor();
+      });
+      soundEditorDiv.appendChild(delBtn);
+    };
+
+    refreshSoundEditor();
     return container;
   }
 }
 
-slideList.add(new MainTimeline(forTimeline));
+slideList.add(new MainTimeline(forTimeline, mainTimelineSoundClips));
 
 export const some5 = makeShadowDemo({
   base: slideList.build(),

@@ -1248,6 +1248,9 @@ const visualEditorAPI: VisualEditorAPI = {
   getCurrentTimeMs() {
     return playPositionSeconds.valueAsNumber * 1000 - sectionStartTime;
   },
+  getDecodedBuffer(url: string): AudioBuffer | null {
+    return audioBuilder.getDecodedBuffer(url);
+  },
 };
 
 // MARK: Console API

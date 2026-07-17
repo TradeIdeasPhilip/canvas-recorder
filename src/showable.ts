@@ -31,6 +31,12 @@ export type VisualEditorAPI = {
    * @returns The current play position in milliseconds, relative to the chapter start.
    */
   getCurrentTimeMs(): number;
+  /**
+   * Returns the decoded PCM buffer for a source URL if it has already been
+   * fetched and decoded by the audio system, or null if it hasn't yet.
+   * Used for drawing in-timeline waveforms without a second fetch.
+   */
+  getDecodedBuffer?(url: string): AudioBuffer | null;
 };
 
 /**
