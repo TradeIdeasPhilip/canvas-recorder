@@ -300,12 +300,31 @@ const forTimeline: Showable[] = [];
 // MARK: Sound Clips
 
 /** A single audio clip attached to the scene. */
+/** Pins a moment in a sound clip to a moment in a timeline item. */
+type Anchor = {
+  /** ID of the SlideWrapperItem or TransitionItem being attached to. */
+  targetId: string;
+  /** Milliseconds within the target's own duration (0 = target start). */
+  targetMs: number;
+  /** Which moment of the clip aligns with the target point.
+   *  "start" | "end" | a fraction 0–1 of the clip's lengthMs. */
+  selfHandle: "start" | "end" | number;
+  /** Additional shift in ms after alignment (negative = earlier). */
+  offsetMs: number;
+};
+
 type SoundClip = {
+  /** Stable identifier used by Anchor.targetId. Assigned at creation. */
+  id: string;
   notes: string;
   source: string;
+  /** Absolute ms from the MainTimeline start. Computed by resolveLayout()
+   *  when anchor is set; directly editable when floating. */
   startMsIntoScene: number;
   startMsIntoClip: number;
   lengthMs: number;
+  /** When set, startMsIntoScene is derived from the anchor on each tick. */
+  anchor?: Anchor;
 };
 
 /**
@@ -2189,13 +2208,9 @@ class ChildWrapper extends SlideComponent {
       visualEditorAPI = undefined;
     },
   };
-  const soundClips: {
-    notes: string;
-    source: string;
-    startMsIntoScene: number;
-    startMsIntoClip: number;
-    lengthMs: number;
-  }[] = [
+  // IDs are assigned in the forEach below; cast to SoundClip[] after that.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const soundClips = [
     {
       notes: "Let’s watch some matrices in their natural habitat.\n",
       source: "./Some 5 part 1.m4a",
@@ -2330,10 +2345,11 @@ class ChildWrapper extends SlideComponent {
     soundClips.forEach((clip) => {
       clip.startMsIntoScene = startTime;
       startTime += clip.lengthMs + 1000;
+      (clip as SoundClip).id = crypto.randomUUID();
     });
   }
   // Share with Main Timeline so the GUI can edit the same array.
-  mainTimelineSoundClips = soundClips;
+  mainTimelineSoundClips = soundClips as SoundClip[];
   const moreToShow: Pick<Showable, "show">[] = [];
   {
     type SimpleArrowDescription = {
@@ -2605,6 +2621,7 @@ for (let i = 11; i <= 10; i++) {
 // MARK: Main Timeline Prototype
 
 type SlideWrapperItem = {
+  readonly id: string;
   type: "slide";
   /** References the `description` of a slide in `forTimeline`. */
   slideDescription: string;
@@ -2614,6 +2631,7 @@ type SlideWrapperItem = {
 };
 
 type TransitionItem = {
+  readonly id: string;
   type: "transition";
   duration: number;
 };
@@ -2631,6 +2649,7 @@ class TimelineDisplay {
   private totalMs = 1;
 
   selectedSoundClip: SoundClip | null = null;
+  selectedItemIndex = -1;
 
   onSeek?: (ms: number) => void;
   onSelect?: (index: number) => void;
@@ -2746,11 +2765,66 @@ class TimelineDisplay {
         }
       }
 
-      ctx.strokeStyle = "rgba(0,0,0,0.4)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(x0 + 0.5, videoY + 0.5, iw - 1, videoH - 1);
+      if (i === this.selectedItemIndex) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2 * dpr;
+        ctx.strokeRect(x0 + dpr, videoY + dpr, iw - 2 * dpr, videoH - 2 * dpr);
+        ctx.strokeStyle = "#000";
+        ctx.lineWidth = dpr;
+        ctx.strokeRect(x0 + 0.5, videoY + 0.5, iw - 1, videoH - 1);
+      } else {
+        ctx.strokeStyle = "rgba(0,0,0,0.4)";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x0 + 0.5, videoY + 0.5, iw - 1, videoH - 1);
+      }
 
       cursor += item.duration;
+    }
+
+    // Draw anchor connectors (between video row and sound row)
+    if (hasSoundRow && soundH > 0) {
+      const items2 = this.getItems();
+      const itemStart2 = new Map<string, number>();
+      let c2 = 0;
+      for (const it of items2) {
+        itemStart2.set(it.id, c2);
+        c2 += it.duration;
+      }
+      const clips2 = this.getSoundClips!();
+      for (const clip of clips2) {
+        if (!clip.anchor) continue;
+        const start2 = itemStart2.get(clip.anchor.targetId);
+        if (start2 === undefined) continue;
+        const anchorMs = start2 + clip.anchor.targetMs;
+        const ax = Math.round(this.msToX(anchorMs, w));
+        const selfMs =
+          clip.anchor.selfHandle === "start"
+            ? 0
+            : clip.anchor.selfHandle === "end"
+              ? clip.lengthMs
+              : clip.anchor.selfHandle * clip.lengthMs;
+        const clipX = Math.round(this.msToX(clip.startMsIntoScene + selfMs, w));
+        const isSelected = clip === this.selectedSoundClip;
+        const connColor = isSelected ? "#f0b429" : "#e8a020";
+        ctx.strokeStyle = connColor;
+        ctx.lineWidth = isSelected ? 1.5 * dpr : dpr;
+        ctx.setLineDash([3 * dpr, 3 * dpr]);
+        ctx.beginPath();
+        ctx.moveTo(ax, videoY + videoH);
+        ctx.lineTo(clipX, soundY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        // Diamond at video row bottom
+        ctx.fillStyle = connColor;
+        const d = 4 * dpr;
+        ctx.beginPath();
+        ctx.moveTo(ax, videoY + videoH - d);
+        ctx.lineTo(ax + d, videoY + videoH);
+        ctx.lineTo(ax, videoY + videoH + d);
+        ctx.lineTo(ax - d, videoY + videoH);
+        ctx.closePath();
+        ctx.fill();
+      }
     }
 
     // Draw sound row
@@ -3058,6 +3132,7 @@ function parseCopyOneClip(text: string): SoundClip | null {
     s = s.replace(/,(\s*[}\]])/g, "$1");
     const obj = JSON.parse(`{${s}}`) as Record<string, unknown>;
     const clip: SoundClip = {
+      id: crypto.randomUUID(),
       notes: typeof obj.notes === "string" ? obj.notes : notes,
       source: typeof obj.source === "string" ? obj.source : "",
       startMsIntoScene: typeof obj.startMsIntoScene === "number" ? obj.startMsIntoScene : 0,
@@ -3104,11 +3179,13 @@ class MainTimeline {
       const slide = slides[i]!;
       if (i > 0) {
         this.items.push({
+          id: crypto.randomUUID(),
           type: "transition",
           duration: MAIN_TIMELINE_TRANSITION_MS,
         });
       }
       this.items.push({
+        id: crypto.randomUUID(),
         type: "slide",
         slideDescription: slide.description,
         duration: MAIN_TIMELINE_HOLD_MS,
@@ -3116,6 +3193,7 @@ class MainTimeline {
         endProgress: 0,
       });
       this.items.push({
+        id: crypto.randomUUID(),
         type: "slide",
         slideDescription: slide.description,
         duration: slide.duration,
@@ -3123,6 +3201,7 @@ class MainTimeline {
         endProgress: 1,
       });
       this.items.push({
+        id: crypto.randomUUID(),
         type: "slide",
         slideDescription: slide.description,
         duration: MAIN_TIMELINE_HOLD_MS,
@@ -3134,6 +3213,49 @@ class MainTimeline {
 
   get duration(): number {
     return this.items.reduce((s, it) => s + it.duration, 0);
+  }
+
+  /** Recomputes startMsIntoScene for every anchored clip from its anchor. */
+  private resolveLayout(): void {
+    const itemStart = new Map<string, number>();
+    let cursor = 0;
+    for (const item of this.items) {
+      itemStart.set(item.id, cursor);
+      cursor += item.duration;
+    }
+    for (const clip of this.soundClips) {
+      if (!clip.anchor) continue;
+      const { targetId, targetMs, selfHandle, offsetMs } = clip.anchor;
+      const start = itemStart.get(targetId);
+      if (start === undefined) continue;
+      const anchorSceneMs = start + targetMs;
+      const selfMs =
+        selfHandle === "start"
+          ? 0
+          : selfHandle === "end"
+            ? clip.lengthMs
+            : selfHandle * clip.lengthMs;
+      clip.startMsIntoScene = anchorSceneMs - selfMs + offsetMs;
+    }
+  }
+
+  /** Pins a clip's start to the slot playing at the current time. */
+  private autoAnchor(clip: SoundClip): void {
+    const playMs = this.visAPI?.getCurrentTimeMs() ?? clip.startMsIntoScene;
+    let cursor = 0;
+    for (let i = 0; i < this.items.length; i++) {
+      const item = this.items[i]!;
+      if (playMs <= cursor + item.duration || i === this.items.length - 1) {
+        clip.anchor = {
+          targetId: item.id,
+          targetMs: Math.max(0, Math.min(item.duration, playMs - cursor)),
+          selfHandle: "start",
+          offsetMs: 0,
+        };
+        return;
+      }
+      cursor += item.duration;
+    }
   }
 
   private getSlideByDescription(desc: string): Showable | undefined {
@@ -3262,9 +3384,12 @@ class MainTimeline {
     display.onSeek = (ms) => this.visAPI?.seek(ms);
     display.onSelect = (idx) => {
       this.selectedIndex = idx;
+      display.selectedItemIndex = idx;
+      display.draw();
       refreshVideoEditor();
     };
     display.onSoundChange = () => {
+      this.resolveLayout();
       this.visAPI?.refreshGUI("sound");
       refreshSoundEditor();
     };
@@ -3275,6 +3400,7 @@ class MainTimeline {
 
     // RAF loop to animate play head
     const tick = () => {
+      this.resolveLayout();
       display.setPlayMs(this.visAPI?.getCurrentTimeMs() ?? 0);
       this.rafId = requestAnimationFrame(tick);
     };
@@ -3423,12 +3549,14 @@ class MainTimeline {
       addBtn.textContent = "Add clip";
       addBtn.addEventListener("click", () => {
         const newClip: SoundClip = {
+          id: crypto.randomUUID(),
           notes: "",
           source: "",
           startMsIntoScene: this.visAPI?.getCurrentTimeMs() ?? 0,
           startMsIntoClip: 0,
           lengthMs: 3000,
         };
+        this.autoAnchor(newClip);
         this.soundClips.push(newClip);
         display.selectedSoundClip = newClip;
         this.selectedSoundClip = newClip;
@@ -3450,6 +3578,7 @@ class MainTimeline {
             return;
           }
           parsed.startMsIntoScene = this.visAPI?.getCurrentTimeMs() ?? 0;
+          this.autoAnchor(parsed);
           this.soundClips.push(parsed);
           display.selectedSoundClip = parsed;
           this.selectedSoundClip = parsed;
@@ -3494,12 +3623,66 @@ class MainTimeline {
       });
       soundEditorDiv.appendChild(row("Source", srcInput));
 
+      // Anchor section
+      const anchorDiv = document.createElement("div");
+      anchorDiv.style.cssText = "display:flex;flex-direction:column;gap:3px;";
+      if (clip.anchor) {
+        // Find the slot description for the label
+        const targetItem = this.items.find((it) => it.id === clip.anchor!.targetId);
+        const targetLabel =
+          targetItem?.type === "slide"
+            ? targetItem.slideDescription
+            : targetItem?.type === "transition"
+              ? "Transition"
+              : "(deleted slot)";
+        const anchorInfo = document.createElement("div");
+        anchorInfo.style.cssText = "color:#c8840a;font-size:11px;";
+        anchorInfo.textContent = `Anchored to: ${targetLabel}`;
+        anchorDiv.appendChild(anchorInfo);
+
+        const offsetInp = numInput(clip.anchor.offsetMs, (v) => {
+          clip.anchor!.offsetMs = v;
+          this.resolveLayout();
+          display.draw();
+          this.visAPI?.refreshGUI("sound");
+        });
+        anchorDiv.appendChild(row("Offset ms", offsetInp));
+
+        const detachBtn = document.createElement("button");
+        detachBtn.textContent = "Detach";
+        detachBtn.title = "Remove anchor — clip becomes floating";
+        detachBtn.addEventListener("click", () => {
+          delete clip.anchor;
+          display.draw();
+          refreshSoundEditor();
+        });
+        anchorDiv.appendChild(detachBtn);
+      } else {
+        const floatInfo = document.createElement("div");
+        floatInfo.style.cssText = "color:#888;font-size:11px;";
+        floatInfo.textContent = "Floating (not anchored)";
+        anchorDiv.appendChild(floatInfo);
+
+        const attachBtn = document.createElement("button");
+        attachBtn.textContent = "Attach here";
+        attachBtn.title = "Pin clip start to the current play head position";
+        attachBtn.addEventListener("click", () => {
+          this.autoAnchor(clip);
+          this.resolveLayout();
+          display.draw();
+          refreshSoundEditor();
+        });
+        anchorDiv.appendChild(attachBtn);
+      }
+      soundEditorDiv.appendChild(anchorDiv);
+
       // Numeric fields
       const sceneInp = numInput(clip.startMsIntoScene, (v) => {
         clip.startMsIntoScene = v;
         display.draw();
         this.visAPI?.refreshGUI("sound");
       });
+      if (clip.anchor) sceneInp.disabled = true;
       soundEditorDiv.appendChild(row("Start in scene", sceneInp));
 
       const clipInp = numInput(clip.startMsIntoClip, (v) => {
