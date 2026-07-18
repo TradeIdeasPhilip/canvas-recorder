@@ -2926,12 +2926,14 @@ class TimelineDisplay {
     let soundDragStartScene = 0;
     let soundDragStartClipStart = 0;
     let soundDragStartLength = 0;
+    let soundDragStartAnchorOffset = 0;
 
     const cancelSoundDrag = () => {
       if (!soundDragClip) return;
       soundDragClip.startMsIntoScene = soundDragStartScene;
       soundDragClip.startMsIntoClip = soundDragStartClipStart;
       soundDragClip.lengthMs = soundDragStartLength;
+      if (soundDragClip.anchor) soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset;
       soundDragClip = null;
       this.draw();
       this.onSoundChange?.();
@@ -2989,6 +2991,7 @@ class TimelineDisplay {
         soundDragStartScene = soundHit.clip.startMsIntoScene;
         soundDragStartClipStart = soundHit.clip.startMsIntoClip;
         soundDragStartLength = soundHit.clip.lengthMs;
+        soundDragStartAnchorOffset = soundHit.clip.anchor?.offsetMs ?? 0;
         this.selectedSoundClip = soundHit.clip;
         this.onSoundSelect?.(soundHit.clip);
         this.draw();
@@ -3008,6 +3011,9 @@ class TimelineDisplay {
         const delta = msFromEvent(e) - soundDragStartMs;
         if (soundDragHandle === "center") {
           soundDragClip.startMsIntoScene = Math.max(0, soundDragStartScene + delta);
+          if (soundDragClip.anchor) {
+            soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset + delta;
+          }
         } else if (soundDragHandle === "left") {
           // Right end stays fixed; trim from the start of the audio clip.
           const rightEnd = soundDragStartScene + soundDragStartLength;
@@ -3018,6 +3024,9 @@ class TimelineDisplay {
             soundDragClip.startMsIntoScene = newScene;
             soundDragClip.startMsIntoClip = newClipStart;
             soundDragClip.lengthMs = newLength;
+            if (soundDragClip.anchor) {
+              soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset + delta;
+            }
           }
         } else {
           // Right edge: extend or shorten the clip; startMsIntoClip stays fixed.
@@ -3246,11 +3255,14 @@ class MainTimeline {
     for (let i = 0; i < this.items.length; i++) {
       const item = this.items[i]!;
       if (playMs <= cursor + item.duration || i === this.items.length - 1) {
+        const targetMs = Math.max(0, Math.min(item.duration, playMs - cursor));
+        const anchorSceneMs = cursor + targetMs;
         clip.anchor = {
           targetId: item.id,
-          targetMs: Math.max(0, Math.min(item.duration, playMs - cursor)),
+          targetMs,
           selfHandle: "start",
-          offsetMs: 0,
+          // offsetMs keeps the clip at its current position.
+          offsetMs: clip.startMsIntoScene - anchorSceneMs,
         };
         return;
       }
