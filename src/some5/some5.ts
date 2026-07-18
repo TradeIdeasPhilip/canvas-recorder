@@ -2642,6 +2642,9 @@ class TimelineDisplay {
   /** Provide decoded PCM for waveform rendering. Set this after audio is ready. */
   getDecodedBuffer?: (url: string) => AudioBuffer | null;
 
+  private keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private resizeObserver: ResizeObserver | null = null;
+
   constructor(
     readonly canvas: HTMLCanvasElement,
     private readonly getItems: () => readonly TimelineItem[],
@@ -2649,6 +2652,18 @@ class TimelineDisplay {
     private readonly getSoundClips?: () => SoundClip[],
   ) {
     this.setupEvents();
+    this.resizeObserver = new ResizeObserver(() => this.draw());
+    this.resizeObserver.observe(canvas);
+  }
+
+  /** Release document-level listeners and the ResizeObserver. */
+  disconnect() {
+    if (this.keyDownHandler) {
+      document.removeEventListener("keydown", this.keyDownHandler);
+      this.keyDownHandler = null;
+    }
+    this.resizeObserver?.disconnect();
+    this.resizeObserver = null;
   }
 
   setRange(startMs: number, endMs: number) {
@@ -2839,6 +2854,16 @@ class TimelineDisplay {
     let soundDragStartClipStart = 0;
     let soundDragStartLength = 0;
 
+    const cancelSoundDrag = () => {
+      if (!soundDragClip) return;
+      soundDragClip.startMsIntoScene = soundDragStartScene;
+      soundDragClip.startMsIntoClip = soundDragStartClipStart;
+      soundDragClip.lengthMs = soundDragStartLength;
+      soundDragClip = null;
+      this.draw();
+      this.onSoundChange?.();
+    };
+
     const msFromEvent = (e: PointerEvent): number => {
       const rect = canvas.getBoundingClientRect();
       const x = e.clientX - rect.left;
@@ -2927,7 +2952,6 @@ class TimelineDisplay {
           if (newLength >= 100) soundDragClip.lengthMs = newLength;
         }
         this.draw();
-        this.onSoundChange?.();
         return;
       }
 
@@ -2944,11 +2968,22 @@ class TimelineDisplay {
       this.draw();
     });
 
+    canvas.addEventListener("pointercancel", cancelSoundDrag);
+
+    this.keyDownHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && soundDragClip) {
+        e.preventDefault();
+        cancelSoundDrag();
+      }
+    };
+    document.addEventListener("keydown", this.keyDownHandler);
+
     canvas.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
 
       if (soundDragClip) {
         soundDragClip = null;
+        this.onSoundChange?.();
         return;
       }
 
@@ -3193,6 +3228,7 @@ class MainTimeline {
     },
     suspend: () => {
       cancelAnimationFrame(this.rafId);
+      this.display?.disconnect();
       this.visAPI = undefined;
     },
     update: () => {},
