@@ -191,6 +191,12 @@ Use `Bezier.get()` to convert one of these to an (x, y) coordinate.
 See `BezierCommandSplitter.distanceToParametric()` to convert a distance along a Bezier curve into a "parameter."
 [More details](https://www.youtube.com/watch?v=HynEtQX96as) on YouTube.
 
+The "Visual Editor" refers to a collection of tools that let you make changes by dragging a mouse or possibly typing, but without recompiling.
+This comes with its own system for saving and loading settings.
+The Visual Editor is optional.
+You can build everything in TypeScript.
+Sometimes I use the Visual Editor to add prototypes, but the final result is all TypeScript.
+
 ## Project history
 
 I've had a few attempts at this.

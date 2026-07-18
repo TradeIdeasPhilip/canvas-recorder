@@ -2556,7 +2556,6 @@ class ChildWrapper extends SlideComponent {
     description: "Parallel Combination",
     duration,
     rootComponentEditor,
-    soundClips,
     fixedComponents: slideChildren,
     components: [],
     show(options) {
