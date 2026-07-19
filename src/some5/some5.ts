@@ -2690,6 +2690,11 @@ class TimelineDisplay {
     this.viewEndMs = endMs;
   }
 
+  /** Update the total duration used for pan clamping without touching the current view. */
+  setTotalMs(ms: number) {
+    this.totalMs = ms;
+  }
+
   setPlayMs(ms: number) {
     this.playMs = ms;
     this.draw();
@@ -3460,7 +3465,7 @@ class MainTimeline {
         const v = parseFloat(durInput.value);
         if (v > 0) {
           item.duration = v;
-          display.setRange(0, this.duration);
+          display.setTotalMs(this.duration);
           display.draw();
         }
       });
@@ -3511,7 +3516,8 @@ class MainTimeline {
       delBtn.addEventListener("click", () => {
         this.items.splice(idx, 1);
         this.selectedIndex = -1;
-        display.setRange(0, this.duration);
+        display.selectedItemIndex = -1;
+        display.setTotalMs(this.duration);
         display.draw();
         refreshVideoEditor();
         this.visAPI?.refreshGUI("structure");
