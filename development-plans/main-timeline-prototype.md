@@ -423,3 +423,43 @@ We can change the way the Sound Explorer exports single items to look more like 
 
 In the past I've always pasted that directly into TypeScript source code, so comments were all I needed.
 "Copy All" is new and is intended for use with this new code we are building.
+
+# Splitting, stretching and extending slots
+
+Starting from [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/50b68426aa8cef09bdb7c990ab77a604c9b44104) we have a good foundation for our new timeline.
+But now we need to add some interesting features.
+None of these should be hard, but they will be pushing our new linking rules.
+
+Just dragging, how do you know which clip you are addressing, the one before or the one after?
+Multiple questions:  Pan the display vs alter a slot, alter the current slot vs alter the next slot, and stretch vs extend.
+Solution:
+* You can only adjust the ends of the currently selected slot.
+* If you drag from anywhere other than the the edges of the selected slot, you are panning the video
+* When the mouse moves over the edges of the selected slot, the mouse cursor will change to show the user that he can do something.
+* “normal” drag resizes by changing the speed.
+* *shift* drag resizes by extending or reducing the range, extrapolating or interpolating the correct value of progress so that the slope of progress vs time remains constant.
+* The mouse cursor changes to show what mode you are in, ew-resize vs col-resize
+* You can change between shift and normal while dragging.
+
+Expanding is always constrained.  Progress can never go below 0 or above 1.
+
+Dragging the end to extend or stretch, that should work just fine the natural way.
+As soon as you drag left or right you update everything and you move the vertical line to stay right under the mouse.
+Dragging the start is a little different only because the line doesn’t move.
+Drag left to start later in the underlying slide.
+The ending vertical line and everything after will move to the left.
+The contents of the video aren’t directly visible on the timeline, but if they were you’d see them moving left.  They would disappear as they hit the vertical line representing the start.  Adjust the starting progress to make the content change as described.
+Dragging right will have the opposite effect, making new content appear.
+
+A common problem:
+In a lot of programs when I drag to the edge, it automatically scrolls for me.
+This seems like a good idea at first but it often goes crazy on me and moves too fast and too uncontrollably for me.
+We are *not* auto scrolling, and that’s good!
+We are doing a mouse capture and that’s perfect.
+As we drag past the end of the canvas, we keep updating things.
+12 pixels to the left is 12 pixels to the left.
+It doesn’t matter if my mouse was in the canvas or not for some of the pixels.
+
+Changing the duration *by typing a number* means to change the speed at which the item is playing.  The linking needs to respect that.  If a sound clip is linked to the beginning of a slot, currently that works perfectly.  But if I sound clip is linked to the end of a slot and the slot grows or shrinks, the attachment point should move to the new end of the slot.  If the attachment was anywhere in the middle of a slot, it needs to move proportional to where it is.  The progress fields are irrelevant to this operation.  If you use your mouse to resize, it should do the exact same thing.
+
+We need a way to split a slot into two pieces.  Only slides do this, not transitions.  Split at the current time.  Interpolate to find the correct progress value for the end of the first part and the start of the second part.  Any sound clips that were attached to the first part of the original slot are not attached to the first new slot, and any sound clips that were attached to the second part of the initial slot it should be attached to the second new slot.  The time right at the boundary is always given to the later element.    Immediately after a split, nothing should change, this is just preparing for future changes.  Adjust the start time property if required.

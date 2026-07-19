@@ -2653,6 +2653,8 @@ class TimelineDisplay {
 
   onSeek?: (ms: number) => void;
   onSelect?: (index: number) => void;
+  /** Called whenever a slot's duration, startProgress, or endProgress changes. */
+  onSlotChange?: () => void;
   /** Called on every sound clip mutation so the audio player can be refreshed. */
   onSoundChange?: () => void;
   /** Called when a sound clip is selected or deselected in the timeline. */
@@ -2661,6 +2663,7 @@ class TimelineDisplay {
   getDecodedBuffer?: (url: string) => AudioBuffer | null;
 
   private keyDownHandler: ((e: KeyboardEvent) => void) | null = null;
+  private keyUpHandler: ((e: KeyboardEvent) => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
   constructor(
@@ -2679,6 +2682,10 @@ class TimelineDisplay {
     if (this.keyDownHandler) {
       document.removeEventListener("keydown", this.keyDownHandler);
       this.keyDownHandler = null;
+    }
+    if (this.keyUpHandler) {
+      document.removeEventListener("keyup", this.keyUpHandler);
+      this.keyUpHandler = null;
     }
     this.resizeObserver?.disconnect();
     this.resizeObserver = null;
@@ -2716,6 +2723,8 @@ class TimelineDisplay {
       canvas.width = w;
       canvas.height = h;
     }
+    // Keep total duration in sync with items without resetting the view.
+    this.totalMs = this.getItems().reduce((s, it) => s + it.duration, 0);
 
     const ctx = canvas.getContext("2d")!;
     ctx.clearRect(0, 0, w, h);
@@ -2924,6 +2933,96 @@ class TimelineDisplay {
     let downEnd = 0;
     let panning = false;
 
+    // Selected-slot edge drag state
+    let edgeDragItem: TimelineItem | null = null;
+    let edgeDragEdge: "left" | "right" = "right";
+    let edgeDragStartMs = 0;
+    let edgeDragStartSp = 0;
+    let edgeDragStartEp = 0;
+    let edgeDragStartD = 0;
+    let edgeDragV = 0; // (ep - sp) / d at drag start
+    // clip → targetMs at drag start; used to rescale anchors proportionally
+    let edgeDragAnchorTargets: Map<SoundClip, number> = new Map();
+    let lastEdgeDelta = 0; // last computed drag delta in ms; re-used on Shift toggle
+    let lastHoverClientX = 0;
+    let lastHoverClientY = 0;
+
+    const cancelEdgeDrag = () => {
+      if (!edgeDragItem) return;
+      edgeDragItem.duration = edgeDragStartD;
+      if (edgeDragItem.type === "slide") {
+        edgeDragItem.startProgress = edgeDragStartSp;
+        edgeDragItem.endProgress = edgeDragStartEp;
+      }
+      for (const [clip, tMs] of edgeDragAnchorTargets) {
+        if (clip.anchor) clip.anchor.targetMs = tMs;
+      }
+      edgeDragItem = null;
+      canvas.style.cursor = "crosshair";
+      this.draw();
+      this.onSlotChange?.();
+    };
+
+    const applyEdgeDrag = (delta: number, isShift: boolean) => {
+      if (!edgeDragItem) return;
+      const slideItem = edgeDragItem.type === "slide"
+        ? (edgeDragItem as SlideWrapperItem)
+        : null;
+
+      if (edgeDragEdge === "right") {
+        if (isShift && slideItem && edgeDragV > 0) {
+          const rawD = Math.max(50, edgeDragStartD + delta);
+          const newEp = Math.min(1, edgeDragStartSp + edgeDragV * rawD);
+          slideItem.endProgress = newEp;
+          edgeDragItem.duration = (newEp - edgeDragStartSp) / edgeDragV;
+        } else {
+          edgeDragItem.duration = Math.max(50, edgeDragStartD + delta);
+          if (slideItem) slideItem.endProgress = edgeDragStartEp;
+        }
+      } else { // left
+        if (isShift && slideItem && edgeDragV > 0) {
+          const newSp = Math.max(
+            0,
+            Math.min(edgeDragStartEp - edgeDragV * 50, edgeDragStartSp - edgeDragV * delta),
+          );
+          slideItem.startProgress = newSp;
+          edgeDragItem.duration = Math.max(50, (edgeDragStartEp - newSp) / edgeDragV);
+        } else {
+          edgeDragItem.duration = Math.max(50, edgeDragStartD + delta);
+          if (slideItem) slideItem.startProgress = edgeDragStartSp;
+        }
+      }
+
+      if (!isShift && edgeDragStartD > 0) {
+        const ratio = edgeDragItem.duration / edgeDragStartD;
+        for (const [clip, tMs] of edgeDragAnchorTargets) {
+          if (clip.anchor) clip.anchor.targetMs = Math.min(edgeDragItem.duration, tMs * ratio);
+        }
+      }
+
+      canvas.style.cursor = isShift ? "col-resize" : "ew-resize";
+      this.draw();
+      this.onSlotChange?.();
+    };
+
+    /** Returns "left" or "right" if the pointer is near the edge of the selected slot. */
+    const selectedSlotEdgeHit = (e: PointerEvent): "left" | "right" | null => {
+      const idx = this.selectedItemIndex;
+      if (idx < 0) return null;
+      const items = this.getItems();
+      if (idx >= items.length) return null;
+      const rect = canvas.getBoundingClientRect();
+      if (this.getSoundClips && (e.clientY - rect.top) / rect.height >= 0.5) return null;
+      let cur = 0;
+      for (let i = 0; i < idx; i++) cur += items[i]!.duration;
+      const item = items[idx]!;
+      const ms = msFromEvent(e);
+      const edgeMs = (8 / rect.width) * (this.viewEndMs - this.viewStartMs);
+      if (Math.abs(ms - cur) <= edgeMs) return "left";
+      if (Math.abs(ms - (cur + item.duration)) <= edgeMs) return "right";
+      return null;
+    };
+
     // Sound clip drag state
     let soundDragClip: SoundClip | null = null;
     let soundDragHandle: "left" | "right" | "center" = "center";
@@ -2988,6 +3087,31 @@ class TimelineDisplay {
       if (e.button !== 0) return;
       canvas.setPointerCapture(e.pointerId);
 
+      const edgeHit = selectedSlotEdgeHit(e);
+      if (edgeHit) {
+        const items = this.getItems();
+        const item = items[this.selectedItemIndex]!;
+        edgeDragItem = item;
+        edgeDragEdge = edgeHit;
+        edgeDragStartMs = msFromEvent(e);
+        edgeDragStartD = item.duration;
+        edgeDragStartSp = item.type === "slide" ? item.startProgress : 0;
+        edgeDragStartEp = item.type === "slide" ? item.endProgress : 1;
+        edgeDragV = edgeDragStartD > 0
+          ? (edgeDragStartEp - edgeDragStartSp) / edgeDragStartD
+          : 0;
+        edgeDragAnchorTargets = new Map();
+        if (this.getSoundClips) {
+          for (const clip of this.getSoundClips()) {
+            if (clip.anchor?.targetId === item.id) {
+              edgeDragAnchorTargets.set(clip, clip.anchor.targetMs);
+            }
+          }
+        }
+        canvas.style.cursor = e.shiftKey ? "col-resize" : "ew-resize";
+        return;
+      }
+
       const soundHit = soundHitTest(e);
       if (soundHit) {
         soundDragClip = soundHit.clip;
@@ -3010,7 +3134,24 @@ class TimelineDisplay {
     });
 
     canvas.addEventListener("pointermove", (e) => {
+      // Cursor update while hovering (no button held)
+      if (e.buttons === 0) {
+        lastHoverClientX = e.clientX;
+        lastHoverClientY = e.clientY;
+        const hit = selectedSlotEdgeHit(e);
+        canvas.style.cursor = hit
+          ? (e.shiftKey ? "col-resize" : "ew-resize")
+          : "crosshair";
+        return;
+      }
       if (!(e.buttons & 1)) return;
+
+      // Edge drag on selected slot
+      if (edgeDragItem) {
+        lastEdgeDelta = msFromEvent(e) - edgeDragStartMs;
+        applyEdgeDrag(lastEdgeDelta, e.shiftKey);
+        return;
+      }
 
       if (soundDragClip) {
         const delta = msFromEvent(e) - soundDragStartMs;
@@ -3055,18 +3196,45 @@ class TimelineDisplay {
       this.draw();
     });
 
-    canvas.addEventListener("pointercancel", cancelSoundDrag);
+    canvas.addEventListener("pointercancel", () => {
+      cancelEdgeDrag();
+      cancelSoundDrag();
+    });
+
+    const updateHoverCursor = (shiftKey: boolean) => {
+      const fakeEvent = { clientX: lastHoverClientX, clientY: lastHoverClientY } as PointerEvent;
+      const hit = selectedSlotEdgeHit(fakeEvent);
+      canvas.style.cursor = hit ? (shiftKey ? "col-resize" : "ew-resize") : "crosshair";
+    };
 
     this.keyDownHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && soundDragClip) {
-        e.preventDefault();
-        cancelSoundDrag();
+      if (e.key === "Escape") {
+        if (edgeDragItem) { e.preventDefault(); cancelEdgeDrag(); }
+        else if (soundDragClip) { e.preventDefault(); cancelSoundDrag(); }
+      } else if (e.key === "Shift") {
+        if (edgeDragItem) applyEdgeDrag(lastEdgeDelta, true);
+        else updateHoverCursor(true);
       }
     };
     document.addEventListener("keydown", this.keyDownHandler);
 
+    this.keyUpHandler = (e: KeyboardEvent) => {
+      if (e.key === "Shift") {
+        if (edgeDragItem) applyEdgeDrag(lastEdgeDelta, false);
+        else updateHoverCursor(false);
+      }
+    };
+    document.addEventListener("keyup", this.keyUpHandler);
+
     canvas.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
+
+      if (edgeDragItem) {
+        edgeDragItem = null;
+        canvas.style.cursor = "crosshair";
+        this.onSlotChange?.();
+        return;
+      }
 
       if (soundDragClip) {
         soundDragClip = null;
@@ -3230,6 +3398,57 @@ class MainTimeline {
   }
 
   /** Recomputes startMsIntoScene for every anchored clip from its anchor. */
+  /** Scales targetMs for all clips anchored to item when its duration changes (speed-change mode). */
+  private rescaleAnchors(item: TimelineItem, oldDuration: number): void {
+    if (oldDuration <= 0) return;
+    const ratio = item.duration / oldDuration;
+    for (const clip of this.soundClips) {
+      if (clip.anchor?.targetId === item.id) {
+        clip.anchor.targetMs = Math.min(item.duration, clip.anchor.targetMs * ratio);
+      }
+    }
+  }
+
+  /** Splits the selected slide wrapper at the current play position. */
+  private splitSelected(): void {
+    const idx = this.selectedIndex;
+    if (idx < 0 || idx >= this.items.length) return;
+    const item = this.items[idx]!;
+    if (item.type !== "slide") return;
+
+    let itemStart = 0;
+    for (let i = 0; i < idx; i++) itemStart += this.items[i]!.duration;
+
+    const playMs = this.visAPI?.getCurrentTimeMs() ?? itemStart;
+    const splitMs = Math.max(1, Math.min(item.duration - 1, playMs - itemStart));
+    const splitT = splitMs / item.duration;
+    const splitProgress = item.startProgress + splitT * (item.endProgress - item.startProgress);
+
+    const secondId = crypto.randomUUID();
+    const secondItem: SlideWrapperItem = {
+      id: secondId,
+      type: "slide",
+      slideDescription: item.slideDescription,
+      duration: item.duration - splitMs,
+      startProgress: splitProgress,
+      endProgress: item.endProgress,
+    };
+
+    // Mutate first item in place to preserve its id (anchors to first half need no update)
+    item.duration = splitMs;
+    item.endProgress = splitProgress;
+
+    this.items.splice(idx + 1, 0, secondItem);
+
+    // Clips anchored at or after the split point move to the second item
+    for (const clip of this.soundClips) {
+      if (clip.anchor?.targetId === item.id && clip.anchor.targetMs >= splitMs) {
+        clip.anchor.targetId = secondId;
+        clip.anchor.targetMs -= splitMs;
+      }
+    }
+  }
+
   private resolveLayout(): void {
     const itemStart = new Map<string, number>();
     let cursor = 0;
@@ -3405,6 +3624,9 @@ class MainTimeline {
       display.draw();
       refreshVideoEditor();
     };
+    display.onSlotChange = () => {
+      refreshVideoEditor();
+    };
     display.onSoundChange = () => {
       this.resolveLayout();
       this.visAPI?.refreshGUI("sound");
@@ -3464,8 +3686,9 @@ class MainTimeline {
       durInput.addEventListener("change", () => {
         const v = parseFloat(durInput.value);
         if (v > 0) {
+          const oldD = item.duration;
           item.duration = v;
-          display.setTotalMs(this.duration);
+          this.rescaleAnchors(item, oldD);
           display.draw();
         }
       });
@@ -3509,6 +3732,17 @@ class MainTimeline {
           item.endProgress = Math.max(0, Math.min(1, parseFloat(epInput.value)));
         });
         editorDiv.appendChild(row("End progress", epInput));
+
+        const splitBtn = document.createElement("button");
+        splitBtn.textContent = "Split here";
+        splitBtn.title = "Split this slot at the current play position";
+        splitBtn.addEventListener("click", () => {
+          this.splitSelected();
+          display.selectedItemIndex = this.selectedIndex;
+          display.draw();
+          refreshVideoEditor();
+        });
+        editorDiv.appendChild(splitBtn);
       }
 
       const delBtn = document.createElement("button");
@@ -3517,7 +3751,6 @@ class MainTimeline {
         this.items.splice(idx, 1);
         this.selectedIndex = -1;
         display.selectedItemIndex = -1;
-        display.setTotalMs(this.duration);
         display.draw();
         refreshVideoEditor();
         this.visAPI?.refreshGUI("structure");
