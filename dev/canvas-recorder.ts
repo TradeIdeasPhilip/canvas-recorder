@@ -1652,7 +1652,7 @@ function formatLoadSource(source: LoadSource | undefined): string {
 /** Updates the inline status label to show source and dirty flag. */
 // MARK: JSON save status
 
-const jsonSaveStatusEl = getById("jsonSaveStatus", HTMLSpanElement);
+const jsonSaveStatusElement = getById("jsonSaveStatus", HTMLSpanElement);
 
 /**
  * The JSON body we last successfully fetched or wrote, used to detect
@@ -1671,38 +1671,38 @@ let _jsonFetchFailReason:
 
 function updateJsonSaveStatus(): void {
   if (_jsonFetchFailReason === "not-found") {
-    jsonSaveStatusEl.textContent = "JSON: never saved";
-    jsonSaveStatusEl.style.color = "gray";
-    jsonSaveStatusEl.title = `No file at ./saved_state/${toShowKey}.json`;
+    jsonSaveStatusElement.textContent = "JSON: never saved";
+    jsonSaveStatusElement.style.color = "gray";
+    jsonSaveStatusElement.title = `No file at ./saved_state/${toShowKey}.json`;
     return;
   }
   if (_jsonFetchFailReason === "network-error") {
-    jsonSaveStatusEl.textContent = "JSON: server unreachable";
-    jsonSaveStatusEl.style.color = "gray";
-    jsonSaveStatusEl.title = "Could not reach the Vite dev server";
+    jsonSaveStatusElement.textContent = "JSON: server unreachable";
+    jsonSaveStatusElement.style.color = "gray";
+    jsonSaveStatusElement.title = "Could not reach the Vite dev server";
     return;
   }
   if (_jsonFetchFailReason === "parse-error") {
-    jsonSaveStatusEl.textContent = "JSON: file corrupted";
-    jsonSaveStatusEl.style.color = "red";
-    jsonSaveStatusEl.title = `./saved_state/${toShowKey}.json is not valid JSON`;
+    jsonSaveStatusElement.textContent = "JSON: file corrupted";
+    jsonSaveStatusElement.style.color = "red";
+    jsonSaveStatusElement.title = `./saved_state/${toShowKey}.json is not valid JSON`;
     return;
   }
   if (_lastKnownJsonBody === undefined) {
-    jsonSaveStatusEl.textContent = "Checking…";
-    jsonSaveStatusEl.style.color = "gray";
-    jsonSaveStatusEl.title = "";
+    jsonSaveStatusElement.textContent = "Checking…";
+    jsonSaveStatusElement.style.color = "gray";
+    jsonSaveStatusElement.title = "";
     return;
   }
   const current = JSON.stringify(buildJsonSnapshot(), null, 2);
   if (current === _lastKnownJsonBody) {
-    jsonSaveStatusEl.textContent = "JSON: saved ✓";
-    jsonSaveStatusEl.style.color = "green";
-    jsonSaveStatusEl.title = "";
+    jsonSaveStatusElement.textContent = "JSON: saved ✓";
+    jsonSaveStatusElement.style.color = "green";
+    jsonSaveStatusElement.title = "";
   } else {
-    jsonSaveStatusEl.textContent = "JSON: unsaved changes";
-    jsonSaveStatusEl.style.color = "darkorange";
-    jsonSaveStatusEl.title = "In-memory state differs from the saved JSON file";
+    jsonSaveStatusElement.textContent = "JSON: unsaved changes";
+    jsonSaveStatusElement.style.color = "darkorange";
+    jsonSaveStatusElement.title = "In-memory state differs from the saved JSON file";
   }
 }
 
