@@ -277,7 +277,13 @@ export class TraditionalTextComponent implements Showable {
     if (outlineWidth > 0) {
       const outlineColor = this.outlineColorSchedule.at(timeInMs);
       context.lineWidth = outlineWidth;
-      context.lineJoin = "miter";
+      // Most of the time you want miter.  If there is a sharp corner in
+      // the filled version, there will be a corresponding corner in the
+      // stroked version.  Where the filled version is smooth, lineJoin
+      // is ignored and the stroked version is smooth.  Life Saves seems
+      // buggy.  The filled version appears round everywhere, but the
+      // stroked version had big pointy spikes.
+      context.lineJoin = fontFamily == "Life Savers" ? "round" : "miter";
       context.strokeStyle = outlineColor;
       context.strokeText(text, position.x, position.y);
     }
@@ -1081,7 +1087,13 @@ export class ArrowComponent implements Showable {
       this.colorSchedule.set(initialValues.color);
   }
 
-  static show(options: { context: CanvasRenderingContext2D; flat: Point; tip: Point; width: number; color: string }) {
+  static show(options: {
+    context: CanvasRenderingContext2D;
+    flat: Point;
+    tip: Point;
+    width: number;
+    color: string;
+  }) {
     const { color, context, flat, tip, width } = options;
 
     const dx = tip.x - flat.x;
