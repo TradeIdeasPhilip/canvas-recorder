@@ -1270,8 +1270,6 @@ philDebug.VisualEditor = {
 };
 
 const scheduleHistoryControls = getById("scheduleHistoryControls", HTMLElement);
-const saveScheduleNowBtn = getById("saveScheduleNowBtn", HTMLButtonElement);
-const scheduleStatusDisplay = getById("scheduleStatusDisplay", HTMLElement);
 const openHistoryDialogBtn = getById("openHistoryDialogBtn", HTMLButtonElement);
 const historyDialog = getById("historyDialog", HTMLDialogElement);
 const historyList = getById("historyList", HTMLUListElement);
@@ -1706,17 +1704,6 @@ function updateJsonSaveStatus(): void {
   }
 }
 
-function updateStatusDisplay(selectable: Showable) {
-  const source = loadSources.get(selectableKey(selectable));
-  const dirty = isDirty(selectable);
-  scheduleStatusDisplay.textContent =
-    formatLoadSource(source) + (dirty ? " *" : "");
-  scheduleStatusDisplay.title = dirty
-    ? "Unsaved changes since last load or save"
-    : "";
-  updateJsonSaveStatus();
-}
-
 /** Apply TypeScript defaults to a selectable in-place. */
 function applyTsDefaults(selectable: Showable): void {
   const defaults = tsDefaults.get(selectableKey(selectable));
@@ -1939,10 +1926,8 @@ async function initFromDB(
               while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
               await writeHistory(key, entries, record?.sourcePointer);
             } else if (last && !isMarker(last)) {
-              // Same content as the last DB entry — the backup timestamp isn't in
-              // the DB, so use the DB entry's timestamp for loadSources.  Without
-              // this, scheduleStatusDisplay shows a timestamp the history dialog
-              // can never find.
+              // Same content as the last DB entry — use its timestamp so the
+              // history dialog can find it by timestamp.
               source = { kind: "db", timestamp: last.timestamp };
             }
           }
@@ -1971,11 +1956,7 @@ function selectableKey(selectable: Showable): string {
 
 /** Saves current schedule state to IndexedDB as a full data entry.
  *  Pass force=true (💾 Save button) to bypass the ts-defaults-no-auto-save guard. */
-async function saveScheduleState(
-  selectable: Showable,
-  updateUI = true,
-  force = false,
-) {
+async function saveScheduleState(selectable: Showable, force = false) {
   const hasSchedules = !!selectable.schedules?.length;
   const hasScalars = !!selectable.scalars?.length;
   const hasChildren = Array.isArray(selectable.components);
@@ -2039,7 +2020,6 @@ async function saveScheduleState(
   loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
   loadedSnapshots.set(key, newJson);
 
-  if (updateUI) updateStatusDisplay(selectable);
 }
 
 // MARK: Auto-save timer
@@ -2060,7 +2040,7 @@ function _autosaveAllDirty(): void {
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
     seen.add(key);
-    if (isDirty(sel)) void saveScheduleState(sel, false);
+    if (isDirty(sel)) void saveScheduleState(sel);
   }
 }
 
@@ -2087,11 +2067,6 @@ function currentSaveTarget(): Showable | null {
   if (selectable.components !== undefined) return selectable;
   return selectable.schedules?.length ? selectable : null;
 }
-
-saveScheduleNowBtn.addEventListener("click", () => {
-  const target = currentSaveTarget();
-  if (target) void saveScheduleState(target, true, true); // force=true
-});
 
 function saveOnUnload() {
   // Save every slide that has editable state, not just the currently-visible one.
@@ -2223,7 +2198,7 @@ function saveOnUnload() {
     // Clean selections (dirty=false) don't need a new DB entry — the selected
     // entry already exists in the history.
     if (dirty) {
-      void saveScheduleState(sel, false);
+      void saveScheduleState(sel);
     }
   }
 
@@ -2462,7 +2437,7 @@ async function _applyDialogSelection(saveOld: boolean) {
   if (saveOld && _wasInitiallyDirty) {
     // Temporarily restore the old state to save it, then re-apply selection
     applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
-    await saveScheduleState(target, false, true);
+    await saveScheduleState(target, true);
     // Re-apply the selected item
     if (item.kind === "ts-defaults") applyTsDefaults(target);
     else if (item.kind === "db-entry" || item.kind === "json-entry")
@@ -2547,17 +2522,9 @@ openHistoryDialogBtn.addEventListener("click", () => {
   if (target) void openHistoryDialog(target);
 });
 
-// Live dirty indicator: any edit in the schedule editor triggers a status refresh and auto-save timer.
-scheduleEditorFieldset.addEventListener("input", () => {
-  markDirty();
-  const target = currentSaveTarget();
-  if (target) updateStatusDisplay(target);
-});
-scheduleEditorFieldset.addEventListener("change", () => {
-  markDirty();
-  const target = currentSaveTarget();
-  if (target) updateStatusDisplay(target);
-});
+// Any edit in the schedule editor kicks the auto-save timer.
+scheduleEditorFieldset.addEventListener("input", () => { markDirty(); });
+scheduleEditorFieldset.addEventListener("change", () => { markDirty(); });
 
 // MARK: Font info panel (TraditionalTextComponent)
 
@@ -3602,12 +3569,7 @@ function updateScheduleEditor(selectable: Showable) {
   // History is always saved/loaded at the slide level, even when the schedule
   // editor is open on an individual child component.
   const saveTarget = currentSaveTarget();
-  if (saveTarget) {
-    scheduleHistoryControls.hidden = false;
-    updateStatusDisplay(saveTarget);
-  } else {
-    scheduleHistoryControls.hidden = true;
-  }
+  scheduleHistoryControls.hidden = !saveTarget;
   const scalars = selectable.scalars;
   const schedules = selectable.schedules;
   const isTraditionalText = selectable instanceof TraditionalTextComponent;
@@ -4566,8 +4528,6 @@ async function saveToJsonFile(link: boolean): Promise<void> {
         loadedSnapshots.set(key, currentSnapshotJson(sel));
         void persistSourcePointer(key, pointer);
       }
-      const current = currentSaveTarget();
-      if (current) updateStatusDisplay(current);
     }
   }
   updateJsonSaveStatus();
@@ -4639,7 +4599,7 @@ function applyJsonSnapshot(
     loadedSnapshots.set(key, currentSnapshotJson(sel));
 
     // Write to IndexedDB so this state survives a Vite hot-reload.
-    if (persist) void saveScheduleState(sel, false, true);
+    if (persist) void saveScheduleState(sel, true);
   }
 
   // Refresh the schedule editor to reflect the newly loaded state.
