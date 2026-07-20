@@ -24,7 +24,8 @@ The system prominently displays the name of the file, and it adds an asterisk wh
 
 The software understands the special case where a file has never been involved yet.
 This is loads the TypeScript defaults, like always.
-In normal application the file name appears as "untitled", let's use the same terminology.
+Display "never saved" for the file name.
+In a normal application, in similar cases, the file name appears as "untitled".
 That also can be dirty or clean.
 
 We keep the continuous auto saves.
@@ -39,7 +40,7 @@ The dialog box will always ask if you want to overwrite a file or not.
 (Can we control that?  I don't think so.)
 We should be able to avoid that.
 Saving to the file that we most recently loaded or saved should be done through the existing file handle.
-If you just hit "save" (which is not available in the case of "untitled", i.e. we've never used a file before) you don't have to see the dialog box asking for the file name or the dialog box asking if you want to overwrite the file.
+If you just hit "save" (which is not available in the case of "never saved", i.e. we've never used a file before) you don't have to see the dialog box asking for the file name or the dialog box asking if you want to overwrite the file.
 "Save As" will always bring up the dialog box to select a file, and it will include the normal warning if you try to overwrite a file.
 
 ### Constant backups
@@ -119,7 +120,7 @@ Now we need 3 buttons:  "Save", "Save As" and "Save Copy As".
 ### Active File
 
 To the left of the save buttons there will be a field with the current state.
-This is the name of the active file or (as discussed above) "untitled" and (as discussed above) an optional asterisk.
+This is the name of the active file or (as discussed above) "never saved" and (as discussed above) an optional asterisk.
 
 This is very common in other applications.
 This is what most of my tabs look like in VS Code, with the name of a the file in each tab.
@@ -140,7 +141,7 @@ The save button will be available even if we don't think the active file is out 
 The file might have been changed outside of this program.
 
 The save button will be disabled if we are fresh from the TypeScript defaults with no file ever loaded.
-I.e. if there is no active file and the status us "untitled".
+I.e. if there is no active file and the status is "never saved".
 
 The save button will try to use the saved file handle.
 If that fails for any reason we tell the user.
@@ -272,6 +273,16 @@ This marks every top level component as dirty, and in need of save to IndexDB an
 It might be nice to clear everything and go back to a clean state sometimes.
 Also, this seems essential to do any serious testing of these requirements.
 
+This should set the active file to null or undefined.
+We have no references to it on the screen.
+The save button gets disabled.
+
+This should act just like a fresh install with an empty database.
+But with one difference.
+All of the old files are still available in the "Load" dialog box.
+Save an entry with a null file handle in the list of recent files in IndexedDB.
+This will prevent older files from being automatically loaded on restart.
+
 ### TypeScript Defaults are not sticky any more
 
 Currently we have a special mode where TypeScript code is always loaded for certain top level components.
@@ -322,6 +333,12 @@ This might come from a file or the TypeScript defaults.
 We explicitly do no track or care about the source.
 We just save the new state with the current time so any refreshes will start from here.
 
+Notice the special entry in the database when we hit the "Restore Defaults" button.
+This tells us the last time the user hit that button.
+When sorting the loadable items in the list, put TypeScript defaults in the list at this time.
+If there is no special entry, the leave TypeScript defaults at the bottom of the list.
+"Restore Defaults" is implicit for a new install, before you connect to any file.
+
 ## Trimming IndexedDB
 
 Let's remove duplicate entries in IndexedDB as we add new values.
@@ -352,6 +369,11 @@ If the user tries to Save Copy As over the active file, that was a mistake and w
 There is no maximum length of this table.
 I don't expect it to get very big.
 And the load window will have buttons to delete old entries.
+
+Notice the special entry for "Restore Defaults".
+The file handle is `null`.
+`null` should be treated just like any other file.
+At most there should be one `null` file in the list.
 
 ### List of Undo States
 

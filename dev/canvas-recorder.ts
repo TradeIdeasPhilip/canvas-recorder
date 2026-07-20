@@ -1615,6 +1615,28 @@ async function writeNoFileRecord(): Promise<void> {
   });
 }
 
+/** Read all records from the `files` table (active and inactive). */
+async function readAllFileRecords(): Promise<FileRecord[]> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const req = tx.objectStore("files").getAll();
+    req.onsuccess = () => resolve(req.result as FileRecord[]);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+/** Remove a single file record from the `files` table by its filename key. */
+async function deleteFileRecord(filename: string): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").delete(filename);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 async function readHistory(key: string): Promise<HistoryRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
@@ -2161,16 +2183,21 @@ document.addEventListener("visibilitychange", () => {
 
 // MARK: History dialog
 
+type FileEntryState =
+  | { status: "loading" }
+  | { status: "error" }
+  | { status: "loaded"; fullSnapshot: Record<string, JsonFileEntry> };
+
 /** Describes a single item in the history dialog's list. */
 type DialogListItem =
-  | { kind: "current-unsaved"; snapshotJson: string }
   | { kind: "ts-defaults" }
-  | { kind: "json-entry"; entry: JsonFileEntry }
+  | { kind: "db-entry"; entry: DataHistoryEntry; entryIndex: number }
   | {
-      kind: "db-entry";
-      entry: DataHistoryEntry;
-      entryIndex: number;
-      isInitial: boolean;
+      kind: "file-entry";
+      fileRecord: FileRecord;
+      /** Undefined while loading or on error; the entry for this selectable's key once loaded. */
+      jsonEntry: JsonFileEntry | undefined;
+      loadError: boolean;
     };
 
 let _historyTarget: Showable | null = null;
@@ -2180,102 +2207,86 @@ let _wasInitiallyDirty = false;
 let _dialogItems: DialogListItem[] = [];
 let _selectedDialogIndex = -1;
 let _allHistoryEntries: HistoryEntry[] = [];
-/** JSON snapshot fetched when the dialog opened, keyed by selectableKey. */
-let _dialogJsonData: Record<string, JsonFileEntry> | undefined;
+/** File records from the `files` IndexedDB table, populated when the dialog opens. */
+let _dialogFileRecords: FileRecord[] = [];
+/** Async load state for each filename; populated after the dialog opens. */
+const _dialogFileStates = new Map<string, FileEntryState>();
 
 function _dialogSelectItem(index: number, target: Showable) {
   if (index < 0 || index >= _dialogItems.length) return;
   _selectedDialogIndex = index;
 
-  // Highlight in list
   for (let i = 0; i < historyList.children.length; i++) {
     historyList.children[i].classList.toggle("selected", i === index);
   }
 
   const item = _dialogItems[index];
-  const isInitial =
-    item.kind === "current-unsaved" ||
-    (item.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
-    (item.kind === "json-entry" && _preDialogSource?.kind === "json") ||
-    (item.kind === "db-entry" && item.isInitial);
-  const isDeletable = item.kind === "db-entry" && !item.isInitial;
-  historyDeleteBtn.disabled = !isDeletable;
+  // Top item (index 0) and ts-defaults are never deletable.
+  historyDeleteBtn.disabled =
+    index === 0 || item.kind === "ts-defaults";
 
   // Preview the selected state
-  if (item.kind === "current-unsaved") {
-    // Revert to the unsaved state captured when the dialog opened
-    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
-  } else if (item.kind === "ts-defaults") {
+  if (item.kind === "ts-defaults") {
     applyTsDefaults(target);
-  } else if (item.kind === "json-entry") {
+  } else if (item.kind === "db-entry") {
     applyJsonEntry(target, item.entry);
-  } else {
-    applyJsonEntry(target, item.entry);
+  } else if (item.kind === "file-entry" && item.jsonEntry !== undefined) {
+    applyJsonEntry(target, item.jsonEntry);
+    // If still loading or has no entry for this key, leave the current preview.
   }
   selectedSlideChild = null;
   activeRootComponentEditor?.resetAll();
   updateComponentEditor(target);
   updateScheduleEditor(target);
 
-  // Show/hide OK vs Switch-and-Abandon/Switch-and-Save
-  const isOriginal =
-    index ===
-    (_wasInitiallyDirty
-      ? 0
-      : _dialogItems.findIndex(
-          (it) =>
-            (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
-            (it.kind === "json-entry" && _preDialogSource?.kind === "json") ||
-            (it.kind === "db-entry" && it.isInitial),
-        ));
-  if (_wasInitiallyDirty && !isOriginal) {
-    historyOkBtn.hidden = true;
-    historyAbandonBtn.hidden = false;
-    historySaveBtn.hidden = false;
-  } else {
-    historyOkBtn.hidden = false;
-    historyAbandonBtn.hidden = true;
-    historySaveBtn.hidden = true;
-  }
+  // The Abandon/Save buttons are no longer used; only Keep is shown.
+  historyOkBtn.hidden = false;
+  historyAbandonBtn.hidden = true;
+  historySaveBtn.hidden = true;
 }
 
 /**
- * Rebuilds _dialogItems and the list DOM from _allHistoryEntries, then
- * selects the item at selectIndex (clamped to list bounds).
- * Does NOT touch _wasInitiallyDirty / _preDialogSnapshotJson / _preDialogSource
- * so it is safe to call after deletion without corrupting the dirty-state logic.
+ * Rebuilds _dialogItems and the list DOM by merging DB entries, file records,
+ * and the TypeScript-defaults entry (positioned by the Restore-Defaults sentinel),
+ * then selects the item at selectIndex (clamped to list bounds).
+ * Safe to call after deletion or async file loads.
  */
 function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   const key = selectableKey(target);
-  _dialogItems = [];
-  if (_wasInitiallyDirty) {
-    _dialogItems.push({
-      kind: "current-unsaved",
-      snapshotJson: _preDialogSnapshotJson,
+
+  // Sentinel's savedAt determines where "TypeScript defaults" appears in the list.
+  const sentinel = _dialogFileRecords.find((r) => r.filename === "");
+  const tsDefaultsTimestamp = sentinel?.savedAt ?? -Infinity;
+
+  type Stamped = { timestamp: number; item: DialogListItem };
+  const stamped: Stamped[] = [];
+
+  // File entries (real files, not the null sentinel).
+  for (const fr of _dialogFileRecords) {
+    if (fr.filename === "") continue;
+    const state = _dialogFileStates.get(fr.filename);
+    const jsonEntry =
+      state?.status === "loaded" ? state.fullSnapshot[key] : undefined;
+    const loadError = state?.status === "error";
+    stamped.push({
+      timestamp: fr.savedAt,
+      item: { kind: "file-entry", fileRecord: fr, jsonEntry, loadError },
     });
   }
-  // JSON file entry (if available)
-  const jsonEntry = _dialogJsonData?.[key];
-  if (jsonEntry) {
-    _dialogItems.push({ kind: "json-entry", entry: jsonEntry });
-  }
-  const initialTimestamp =
-    _preDialogSource?.kind === "db" ? _preDialogSource.timestamp : -1;
-  const dataEntries: { entry: DataHistoryEntry; entryIndex: number }[] = [];
+
+  // DB entries.
   for (let i = 0; i < _allHistoryEntries.length; i++) {
     const e = _allHistoryEntries[i];
-    if (!isMarker(e)) dataEntries.push({ entry: e, entryIndex: i });
+    if (!isMarker(e)) {
+      stamped.push({ timestamp: e.timestamp, item: { kind: "db-entry", entry: e, entryIndex: i } });
+    }
   }
-  for (let i = dataEntries.length - 1; i >= 0; i--) {
-    const { entry, entryIndex } = dataEntries[i];
-    _dialogItems.push({
-      kind: "db-entry",
-      entry,
-      entryIndex,
-      isInitial: entry.timestamp === initialTimestamp,
-    });
-  }
-  _dialogItems.push({ kind: "ts-defaults" });
+
+  // TypeScript defaults — positioned by sentinel or pinned to the bottom.
+  stamped.push({ timestamp: tsDefaultsTimestamp, item: { kind: "ts-defaults" } });
+
+  stamped.sort((a, b) => b.timestamp - a.timestamp);
+  _dialogItems = stamped.map((s) => s.item);
 
   historyList.replaceChildren();
   for (let i = 0; i < _dialogItems.length; i++) {
@@ -2283,38 +2294,40 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
     const li = document.createElement("li");
     li.style.cssText =
       "padding:0.35em 0.6em;cursor:pointer;border-bottom:1px solid #eee";
-    let label = "";
-    if (item.kind === "current-unsaved") {
-      label = "★ Current (unsaved changes)";
-    } else if (item.kind === "json-entry") {
-      label = `📄 ${toShowKey}.json`;
-      if (_preDialogSource?.kind === "json") label += " ← initial load";
-    } else if (item.kind === "ts-defaults") {
-      label = "TypeScript defaults";
-      if (_preDialogSource?.kind === "ts-defaults")
-        label += " ← initial load";
+
+    if (item.kind === "ts-defaults") {
+      li.textContent = "TypeScript defaults";
+    } else if (item.kind === "db-entry") {
+      li.textContent = new Date(item.entry.timestamp).toLocaleString();
     } else {
-      label = new Date(item.entry.timestamp).toLocaleString();
-      if (item.isInitial) label += " ← initial load";
+      const fr = item.fileRecord;
+      const state = _dialogFileStates.get(fr.filename);
+      const ts = new Date(fr.savedAt).toLocaleString();
+      const isActive = _activeFileRecord?.filename === fr.filename;
+      if (!state || state.status === "loading") {
+        li.textContent = `📄 ${fr.filename}  …`;
+        li.style.color = "gray";
+      } else if (state.status === "error") {
+        li.textContent = `📄 ${fr.filename}  (failed to read)`;
+        li.style.color = "red";
+      } else if (!item.jsonEntry) {
+        li.textContent = `📄 ${fr.filename}  ${ts}  (not in file)`;
+        li.style.color = "gray";
+      } else {
+        li.textContent = `📄 ${fr.filename}  ${ts}${isActive ? "  ✓" : ""}`;
+      }
     }
-    li.textContent = label;
+
     const idx = i;
     li.addEventListener("click", () => _dialogSelectItem(idx, target));
-    li.addEventListener("mouseover", () => {
-      li.style.background = "#f0f0f0";
-    });
-    li.addEventListener("mouseout", () => {
-      li.style.background = "";
-    });
+    li.addEventListener("mouseover", () => { li.style.background = "#f0f0f0"; });
+    li.addEventListener("mouseout", () => { li.style.background = ""; });
     historyList.append(li);
   }
 
   historyList.tabIndex = 0;
   historyList.onkeydown = (e) => {
-    if (
-      e.key === "ArrowDown" &&
-      _selectedDialogIndex < _dialogItems.length - 1
-    ) {
+    if (e.key === "ArrowDown" && _selectedDialogIndex < _dialogItems.length - 1) {
       _dialogSelectItem(_selectedDialogIndex + 1, target);
     } else if (e.key === "ArrowUp" && _selectedDialogIndex > 0) {
       _dialogSelectItem(_selectedDialogIndex - 1, target);
@@ -2322,21 +2335,44 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   };
 
   historyDialogHint.textContent = _wasInitiallyDirty
-    ? "You have unsaved changes. Switching will apply the selected state."
-    : `Loaded from: ${formatLoadSource(_preDialogSource)}`;
+    ? "Changes saved to history — browse and preview previous states."
+    : `Currently: ${formatLoadSource(_preDialogSource)}`;
 
-  const idx =
-    selectIndex !== undefined
-      ? Math.min(Math.max(0, selectIndex), _dialogItems.length - 1)
-      : _wasInitiallyDirty
-        ? 0
-        : _dialogItems.findIndex(
-            (it) =>
-              (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
-              (it.kind === "json-entry" && _preDialogSource?.kind === "json") ||
-              (it.kind === "db-entry" && it.isInitial),
-          );
-  _dialogSelectItem(Math.max(0, idx), target);
+  let initialIndex: number;
+  if (selectIndex !== undefined) {
+    initialIndex = Math.min(Math.max(0, selectIndex), _dialogItems.length - 1);
+  } else if (_wasInitiallyDirty) {
+    // We just saved the dirty state; it lands as the most recent DB entry.
+    initialIndex = _dialogItems.findIndex((it) => it.kind === "db-entry");
+    if (initialIndex < 0) initialIndex = 0;
+  } else {
+    const src = _preDialogSource;
+    const found = _dialogItems.findIndex((it) => {
+      if (src?.kind === "ts-defaults" && it.kind === "ts-defaults") return true;
+      if (src?.kind === "db" && it.kind === "db-entry" && it.entry.timestamp === src.timestamp) return true;
+      if (src?.kind === "json" && it.kind === "file-entry" && it.fileRecord.filename === src.filename) return true;
+      return false;
+    });
+    initialIndex = found >= 0 ? found : 0;
+  }
+  _dialogSelectItem(initialIndex, target);
+}
+
+/** Async: fetch a file entry's content and refresh the list when done. */
+async function _loadFileEntry(fileRecord: FileRecord, target: Showable): Promise<void> {
+  const filename = fileRecord.filename;
+  try {
+    const perm = await fileRecord.handle!.queryPermission({ mode: "read" });
+    if (perm !== "granted") throw new Error("permission denied");
+    const file = await fileRecord.handle!.getFile();
+    const content = await file.text();
+    const fullSnapshot = JSON.parse(content) as Record<string, JsonFileEntry>;
+    _dialogFileStates.set(filename, { status: "loaded", fullSnapshot });
+  } catch {
+    _dialogFileStates.set(filename, { status: "error" });
+  }
+  if (!historyDialog.open || _historyTarget !== target) return;
+  _rebuildDialogList(target, _selectedDialogIndex);
 }
 
 async function openHistoryDialog(target: Showable) {
@@ -2346,51 +2382,59 @@ async function openHistoryDialog(target: Showable) {
   _preDialogSource = loadSources.get(key);
   _wasInitiallyDirty = isDirty(target);
 
-  const [record, jsonResult] = await Promise.all([
+  // Save dirty state immediately so it appears at the top of the history list.
+  if (_wasInitiallyDirty) {
+    await saveScheduleState(target, true);
+  }
+
+  // Read DB history and file records simultaneously (both are fast local reads).
+  const [record, fileRecords] = await Promise.all([
     readHistory(key),
-    fetchJsonSnapshot(),
+    readAllFileRecords(),
   ]);
   _allHistoryEntries = record?.entries ?? [];
-  _dialogJsonData = jsonResult.ok ? jsonResult.data : undefined;
+  _dialogFileRecords = fileRecords;
+  _dialogFileStates.clear();
+  for (const fr of fileRecords) {
+    if (fr.filename !== "" && fr.handle) {
+      _dialogFileStates.set(fr.filename, { status: "loading" });
+    }
+  }
 
   _rebuildDialogList(target);
-
   historyDialog.showModal();
   historyList.focus();
+
+  // Populate file entry contents asynchronously (grayed out until ready).
+  for (const fr of fileRecords) {
+    if (fr.filename !== "" && fr.handle) {
+      void _loadFileEntry(fr, target);
+    }
+  }
 }
 
-/** Apply the currently selected dialog item and update source tracking. */
-async function _applyDialogSelection(saveOld: boolean) {
+/**
+ * Apply the currently selected dialog item, save it to IndexedDB as the new
+ * top-of-history entry, then update source tracking.
+ */
+async function _applyDialogSelection() {
   const target = _historyTarget;
   if (!target) return;
-  const key = selectableKey(target);
   const item = _dialogItems[_selectedDialogIndex];
   if (!item) return;
 
-  if (saveOld && _wasInitiallyDirty) {
-    // Temporarily restore the old state to save it, then re-apply selection
-    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
-    await saveScheduleState(target, true);
-    // Re-apply the selected item
-    if (item.kind === "ts-defaults") applyTsDefaults(target);
-    else if (item.kind === "db-entry" || item.kind === "json-entry")
-      applyJsonEntry(target, item.entry);
-    // "current-unsaved" is already applied (it IS the old state we just saved)
+  // Re-apply the selected item (may already be previewed, but be explicit).
+  if (item.kind === "ts-defaults") {
+    applyTsDefaults(target);
+  } else if (item.kind === "db-entry") {
+    applyJsonEntry(target, item.entry);
+  } else if (item.kind === "file-entry" && item.jsonEntry !== undefined) {
+    applyJsonEntry(target, item.jsonEntry);
   }
 
-  // Update source tracking
-  if (item.kind === "ts-defaults") {
-    loadSources.set(key, { kind: "ts-defaults" });
-    loadedSnapshots.set(key, currentSnapshotJson(target));
-    writeMarkerIfNeeded(key);
-  } else if (item.kind === "db-entry") {
-    loadSources.set(key, { kind: "db", timestamp: item.entry.timestamp });
-    loadedSnapshots.set(key, currentSnapshotJson(target));
-  } else if (item.kind === "json-entry") {
-    const filename = `${toShowKey}.json`;
-    loadSources.set(key, { kind: "json", filename });
-    loadedSnapshots.set(key, currentSnapshotJson(target));
-  }
+  // Save the chosen state to IndexedDB so refreshes restore it.
+  await saveScheduleState(target, true);
+  // saveScheduleState already updates loadSources → { kind: "db", timestamp }.
 
   selectedSlideChild = null;
   activeRootComponentEditor?.resetAll();
@@ -2399,24 +2443,19 @@ async function _applyDialogSelection(saveOld: boolean) {
 }
 
 historyOkBtn.addEventListener("click", () => {
-  void _applyDialogSelection(false);
+  void _applyDialogSelection();
   historyDialog.close();
 });
 historyAbandonBtn.addEventListener("click", () => {
-  sendToRecycleBin(
-    "abandoned",
-    _preDialogSnapshotJson,
-    `from ${formatLoadSource(_preDialogSource)}`,
-  );
-  void _applyDialogSelection(false);
+  // No longer shown; kept for safety.
   historyDialog.close();
 });
 historySaveBtn.addEventListener("click", () => {
-  void _applyDialogSelection(true);
+  // No longer shown; kept for safety.
   historyDialog.close();
 });
 historyCancelBtn.addEventListener("click", () => {
-  // Revert to the state before the dialog opened
+  // Revert to the state before the dialog opened.
   const target = _historyTarget;
   if (target) {
     applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
@@ -2432,14 +2471,21 @@ historyDeleteBtn.addEventListener("click", async () => {
   const target = _historyTarget;
   if (!target) return;
   const item = _dialogItems[_selectedDialogIndex];
-  if (!item || item.kind !== "db-entry" || item.isInitial) return;
-  const key = selectableKey(target);
-  sendToRecycleBin("deleted", item.entry);
-  _allHistoryEntries.splice(item.entryIndex, 1);
-  await writeHistory(key, _allHistoryEntries);
-  // Rebuild list without re-computing _wasInitiallyDirty — the current
-  // component state may have been altered by previewing, so calling
-  // openHistoryDialog here would incorrectly flag the session as dirty.
+  if (!item || item.kind === "ts-defaults") return;
+
+  if (item.kind === "db-entry") {
+    const key = selectableKey(target);
+    sendToRecycleBin("deleted", item.entry);
+    _allHistoryEntries.splice(item.entryIndex, 1);
+    await writeHistory(key, _allHistoryEntries);
+  } else if (item.kind === "file-entry") {
+    await deleteFileRecord(item.fileRecord.filename);
+    _dialogFileRecords = _dialogFileRecords.filter(
+      (r) => r.filename !== item.fileRecord.filename,
+    );
+    _dialogFileStates.delete(item.fileRecord.filename);
+  }
+
   _rebuildDialogList(target, _selectedDialogIndex);
 });
 
