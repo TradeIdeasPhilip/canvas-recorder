@@ -4620,6 +4620,33 @@ getById("loadJsonTestBtn", HTMLButtonElement).addEventListener(
   () => void loadFromJsonFile(),
 );
 
+/** Apply TypeScript defaults to every selectable and mark everything dirty. */
+function loadDefaultsAction(): void {
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    // Don't update loadedSnapshots — leaves isDirty() true so auto-save fires.
+    applyTsDefaults(sel);
+    loadSources.set(key, { kind: "ts-defaults" });
+  }
+  markDirty();
+  const current = currentSaveTarget();
+  if (current) {
+    selectedSlideChild = null;
+    activeRootComponentEditor?.resetAll();
+    updateComponentEditor(current);
+    updateScheduleEditor(current);
+  }
+}
+
+getById("loadDefaultsBtn", HTMLButtonElement).addEventListener(
+  "click",
+  loadDefaultsAction,
+);
+
 // MARK: Resizable pane dividers
 
 /**

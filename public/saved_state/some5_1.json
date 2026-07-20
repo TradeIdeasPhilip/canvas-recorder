@@ -148,7 +148,7 @@
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": "Hello World!"
+                    "value": "Philip says “Hi!”"
                   }
                 ]
               },
@@ -295,8 +295,7 @@
                   }
                 ]
               }
-            ],
-            "userEditableDescription": "Hello World!"
+            ]
           }
         ]
       },
@@ -543,8 +542,7 @@
                   }
                 ]
               }
-            ],
-            "userEditableDescription": "שָׁלוֹם עוֹלָם"
+            ]
           }
         ]
       },
@@ -801,8 +799,7 @@
                   }
                 ]
               }
-            ],
-            "userEditableDescription": "你好世界"
+            ]
           }
         ]
       },
@@ -1066,8 +1063,7 @@
                   }
                 ]
               }
-            ],
-            "userEditableDescription": "Witaj, świecie!"
+            ]
           }
         ]
       },
@@ -1333,8 +1329,7 @@
                   }
                 ]
               }
-            ],
-            "userEditableDescription": "हैलो वर्ल्ड"
+            ]
           }
         ]
       }
@@ -1671,292 +1666,10 @@
     "components": []
   },
   "some5|Try New Items": {
-    "components": [
-      {
-        "registryKey": "Traditional Text",
-        "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Hello wor"
-              }
-            ]
-          },
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 7.4,
-                  "y": 5.5
-                }
-              }
-            ]
-          },
-          {
-            "description": "Fill Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "#FFFF00"
-              }
-            ]
-          },
-          {
-            "description": "Outline Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          },
-          {
-            "description": "Outline Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.3
-              }
-            ]
-          },
-          {
-            "description": "Font Size",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 2.9
-              }
-            ]
-          },
-          {
-            "description": "Font Style",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "normal"
-              }
-            ]
-          },
-          {
-            "description": "Font Weight",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 400
-              }
-            ]
-          },
-          {
-            "description": "Font Family",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Life Savers"
-              }
-            ]
-          },
-          {
-            "description": "Align",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "alphabetic"
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "registryKey": "Traditional Text",
-        "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Hello wor"
-              }
-            ]
-          },
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 7.4,
-                  "y": 7.5
-                }
-              }
-            ]
-          },
-          {
-            "description": "Fill Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "#FFFF00"
-              }
-            ]
-          },
-          {
-            "description": "Outline Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          },
-          {
-            "description": "Outline Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.3
-              }
-            ]
-          },
-          {
-            "description": "Font Size",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 2.9
-              }
-            ]
-          },
-          {
-            "description": "Font Style",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "normal"
-              }
-            ]
-          },
-          {
-            "description": "Font Weight",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 400
-              }
-            ]
-          },
-          {
-            "description": "Font Family",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Alfa Slab One"
-              }
-            ]
-          },
-          {
-            "description": "Align",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "alphabetic"
-              }
-            ]
-          }
-        ]
-      }
-    ]
+    "components": []
   },
   "some5|Parallel Combination": {
-    "components": [
-      {
-        "registryKey": "Arrow",
-        "schedules": [
-          {
-            "description": "Location",
-            "type": "arrow",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "flat": {
-                    "x": 2,
-                    "y": 4.5
-                  },
-                  "pointy": {
-                    "x": 8.299938331291841,
-                    "y": 6.470602690502491
-                  }
-                }
-              }
-            ]
-          },
-          {
-            "description": "Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.5
-              }
-            ]
-          },
-          {
-            "description": "Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "#555"
-              }
-            ]
-          }
-        ]
-      }
-    ],
+    "components": [],
     "fixedComponents": [
       {
         "description": "Slide 1",
@@ -2018,7 +1731,7 @@
             "type": "number",
             "keyframes": [
               {
-                "time": 0.1234567891234,
+                "time": 0,
                 "value": 1
               }
             ]
