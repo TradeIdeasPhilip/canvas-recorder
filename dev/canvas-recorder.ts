@@ -1560,7 +1560,8 @@ function openScheduleDB(): Promise<IDBDatabase> {
 
 type FileRecord = {
   filename: string;
-  handle: FileSystemFileHandle;
+  /** null for the sentinel entry written by "Load Defaults" (filename === ""). */
+  handle: FileSystemFileHandle | null;
   savedAt: number;
   isActive: boolean;
 };
@@ -1590,6 +1591,24 @@ async function writeActiveFileRecord(
         if (r.filename !== filename && r.isActive) store.put({ ...r, isActive: false });
       }
       store.put({ filename, handle, savedAt: Date.now(), isActive: true });
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Write a sentinel "no active file" record so startup skips file-handle loading. */
+async function writeNoFileRecord(): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    const store = tx.objectStore("files");
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      for (const r of getAllReq.result as FileRecord[]) {
+        if (r.isActive) store.put({ ...r, isActive: false });
+      }
+      store.put({ filename: "", handle: null, savedAt: Date.now(), isActive: true } satisfies FileRecord);
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -1675,6 +1694,7 @@ function formatLoadSource(source: LoadSource | undefined): string {
 
 const jsonSaveStatusElement = getById("jsonSaveStatus", HTMLSpanElement);
 const saveJsonBtn = getById("saveJsonBtn", HTMLButtonElement);
+const loadJsonBtn = getById("loadJsonTestBtn", HTMLButtonElement);
 
 /** In-memory reference to the currently active file (the last saved-to or saved-as file). */
 let _activeFileRecord: { filename: string; handle: FileSystemFileHandle } | null = null;
@@ -1685,12 +1705,12 @@ let _activeFileRecord: { filename: string; handle: FileSystemFileHandle } | null
  */
 let _lastKnownJsonBody: string | undefined;
 
-/** Updates the active-file display: shows filename + asterisk when dirty, or "untitled". */
+/** Updates the active-file display: shows filename + asterisk when dirty, or "never saved". */
 function updateJsonSaveStatus(): void {
   if (!_activeFileRecord) {
-    jsonSaveStatusElement.textContent = "untitled";
+    jsonSaveStatusElement.textContent = "never saved";
     jsonSaveStatusElement.style.color = "gray";
-    jsonSaveStatusElement.title = "No file saved yet — use Save As to create one";
+    jsonSaveStatusElement.title = "No file yet — use Save As to create one";
     saveJsonBtn.disabled = true;
     return;
   }
@@ -2120,6 +2140,14 @@ function saveOnUnload() {
     if (dirty) {
       void saveScheduleState(sel);
     }
+  }
+
+  // Persist the "no active file" state so a quick refresh (before the async
+  // IndexedDB sentinel write completes) still shows "never saved" on reload.
+  if (!_activeFileRecord) {
+    sessionStorage.setItem("noActiveFile", "true");
+  } else {
+    sessionStorage.removeItem("noActiveFile");
   }
 
   if (backups.length > 0) {
@@ -4042,6 +4070,8 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
 {
   // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
+  // Read before sessionStorage.clear() fires in the layout-restore block below.
+  const noActiveFileAtStartup = sessionStorage.getItem("noActiveFile") === "true";
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
@@ -4054,7 +4084,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup).then(async () => {
     // Try to auto-load from the most recently saved file handle.
-    const loadedFromFile = await tryLoadFromActiveFile();
+    const loadedFromFile = !noActiveFileAtStartup && await tryLoadFromActiveFile();
 
     if (!loadedFromFile) {
       // Fallback: URL-based JSON for any key that still has ts-defaults.
@@ -4574,7 +4604,8 @@ function applyJsonSnapshotFromFile(
  */
 async function tryLoadFromActiveFile(): Promise<boolean> {
   const fileRecord = await readActiveFileRecord();
-  if (!fileRecord) return false;
+  // A null handle (filename === "") is the sentinel written by "Load Defaults".
+  if (!fileRecord || !fileRecord.handle) return false;
 
   // Always populate `_activeFileRecord` so the Save button is available.
   _activeFileRecord = { filename: fileRecord.filename, handle: fileRecord.handle };
@@ -4600,28 +4631,71 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
 }
 
 async function loadFromJsonFile(): Promise<void> {
-  const result = await fetchJsonSnapshot();
-  if (!result.ok) {
-    const details =
-      result.reason === "not-found"
-        ? "File not found (404). Save it first, or check the file name."
-        : result.reason === "parse-error"
-          ? "File is corrupted or not valid JSON. Fix or re-save it."
-          : "Could not reach the server. Check that the Vite dev server is running.";
-    alert(`Could not load ./saved_state/${toShowKey}.json\n\n${details}`);
+  // Flush dirty state so the load can be undone from the history dialog.
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isDirty(sel)) await saveScheduleState(sel);
+  }
+
+  // Always show a picker — start in the same directory as the active file if there is one.
+  let handle: FileSystemFileHandle;
+  try {
+    const [picked] = await window.showOpenFilePicker({
+      id: "json-state",
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      startIn: _activeFileRecord?.handle ?? "documents",
+    });
+    handle = picked;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    throw e;
+  }
+
+  let fileContent: string;
+  try {
+    const file = await handle.getFile();
+    fileContent = await file.text();
+  } catch (e) {
+    alert(`Could not read "${handle.name}": ${e}`);
     return;
   }
-  applyJsonSnapshot(result.data, false, true);
+
+  let snapshot: Record<string, JsonFileEntry>;
+  try {
+    snapshot = JSON.parse(fileContent) as Record<string, JsonFileEntry>;
+  } catch {
+    alert(`"${handle.name}" is not valid JSON.`);
+    return;
+  }
+
+  // Apply all entries from the file (no timestamp arbitration — user explicitly opened).
+  applyJsonSnapshot(snapshot, false, false);
+
+  // Fix up loadSources with the real filename, then commit the active file.
+  const filename = handle.name;
+  const seen2 = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen2.has(key)) continue;
+    seen2.add(key);
+    if (!snapshot[key]) continue;
+    loadSources.set(key, { kind: "json", filename });
+  }
+  _activeFileRecord = { filename, handle };
+  _lastKnownJsonBody = fileContent;
+  void writeActiveFileRecord(filename, handle);
   updateJsonSaveStatus();
 }
 
-getById("loadJsonTestBtn", HTMLButtonElement).addEventListener(
-  "click",
-  () => void loadFromJsonFile(),
-);
+loadJsonBtn.addEventListener("click", () => void loadFromJsonFile());
 
-/** Apply TypeScript defaults to every selectable and mark everything dirty. */
-function loadDefaultsAction(): void {
+/** Apply TypeScript defaults to every selectable, clear the active file, and mark everything dirty. */
+async function loadDefaultsAction(): Promise<void> {
   const seen = new Set<string>();
   for (const item of chapterList) {
     const sel = item.selectable;
@@ -4632,6 +4706,10 @@ function loadDefaultsAction(): void {
     applyTsDefaults(sel);
     loadSources.set(key, { kind: "ts-defaults" });
   }
+  // Clear the active file so the display shows "never saved", matching a fresh install.
+  _activeFileRecord = null;
+  _lastKnownJsonBody = undefined;
+  // Update display immediately (synchronous), before the async sentinel write below.
   markDirty();
   const current = currentSaveTarget();
   if (current) {
@@ -4640,11 +4718,14 @@ function loadDefaultsAction(): void {
     updateComponentEditor(current);
     updateScheduleEditor(current);
   }
+  // Await so the sentinel is written before any possible page reload.
+  // saveOnUnload also writes noActiveFile to sessionStorage as a faster backstop.
+  await writeNoFileRecord();
 }
 
 getById("loadDefaultsBtn", HTMLButtonElement).addEventListener(
   "click",
-  loadDefaultsAction,
+  () => void loadDefaultsAction(),
 );
 
 // MARK: Resizable pane dividers
