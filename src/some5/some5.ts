@@ -2852,7 +2852,9 @@ class TimelineDisplay {
 
       for (const clip of clips) {
         const cx0 = Math.round(this.msToX(clip.startMsIntoScene, w));
-        const cx1 = Math.round(this.msToX(clip.startMsIntoScene + clip.lengthMs, w));
+        const cx1 = Math.round(
+          this.msToX(clip.startMsIntoScene + clip.lengthMs, w),
+        );
         const cw = Math.max(2, cx1 - cx0);
         const isSelected = clip === this.selectedSoundClip;
 
@@ -2867,15 +2869,21 @@ class TimelineDisplay {
           const rate = buf.sampleRate;
           const msToSample = (ms: number) => (ms / 1000) * rate;
           const total = data.length;
-          const waveColor = isSelected ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.7)";
+          const waveColor = isSelected
+            ? "rgba(255,255,255,0.9)"
+            : "rgba(255,255,255,0.7)";
           ctx.fillStyle = waveColor;
           const mid = soundY + soundH / 2;
           for (let px = 0; px < cw; px++) {
             // Map this pixel column to a window in the source file
             const frac0 = px / cw;
             const frac1 = (px + 1) / cw;
-            const s0 = Math.floor(msToSample(clip.startMsIntoClip + frac0 * clip.lengthMs));
-            const s1 = Math.floor(msToSample(clip.startMsIntoClip + frac1 * clip.lengthMs));
+            const s0 = Math.floor(
+              msToSample(clip.startMsIntoClip + frac0 * clip.lengthMs),
+            );
+            const s1 = Math.floor(
+              msToSample(clip.startMsIntoClip + frac1 * clip.lengthMs),
+            );
             const from = Math.max(0, s0);
             const to = Math.min(total, Math.max(s0 + 1, s1));
             if (to <= from) continue;
@@ -2888,14 +2896,24 @@ class TimelineDisplay {
             }
             const top = mid + mn * (soundH / 2);
             const bot = mid + mx * (soundH / 2);
-            ctx.fillRect(cx0 + px, Math.round(top), 1, Math.max(1, Math.round(bot - top)));
+            ctx.fillRect(
+              cx0 + px,
+              Math.round(top),
+              1,
+              Math.max(1, Math.round(bot - top)),
+            );
           }
         }
 
         // Darker edge handles
         ctx.fillStyle = isSelected ? "#0e3a52" : "#1a5276";
         ctx.fillRect(cx0, soundY, Math.min(EDGE_W, cw), soundH);
-        ctx.fillRect(Math.max(cx0, cx1 - EDGE_W), soundY, Math.min(EDGE_W, cw), soundH);
+        ctx.fillRect(
+          Math.max(cx0, cx1 - EDGE_W),
+          soundY,
+          Math.min(EDGE_W, cw),
+          soundH,
+        );
 
         // Notes label (bottom strip)
         if (cw > 10 * dpr) {
@@ -2908,13 +2926,24 @@ class TimelineDisplay {
           ctx.fillStyle = "white";
           ctx.save();
           ctx.beginPath();
-          ctx.rect(cx0 + EDGE_W + 2, soundY + soundH - labelH, Math.max(0, cw - 2 * EDGE_W - 4), labelH);
+          ctx.rect(
+            cx0 + EDGE_W + 2,
+            soundY + soundH - labelH,
+            Math.max(0, cw - 2 * EDGE_W - 4),
+            labelH,
+          );
           ctx.clip();
-          ctx.fillText(clip.notes.trim(), cx0 + EDGE_W + 4, soundY + soundH - labelH / 2);
+          ctx.fillText(
+            clip.notes.trim(),
+            cx0 + EDGE_W + 4,
+            soundY + soundH - labelH / 2,
+          );
           ctx.restore();
         }
 
-        ctx.strokeStyle = isSelected ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.3)";
+        ctx.strokeStyle = isSelected
+          ? "rgba(255,255,255,0.8)"
+          : "rgba(0,0,0,0.3)";
         ctx.lineWidth = isSelected ? 2 : 1;
         ctx.strokeRect(cx0 + 0.5, soundY + 0.5, cw - 1, soundH - 1);
       }
@@ -2965,9 +2994,10 @@ class TimelineDisplay {
 
     const applyEdgeDrag = (delta: number, isShift: boolean) => {
       if (!edgeDragItem) return;
-      const slideItem = edgeDragItem.type === "slide"
-        ? (edgeDragItem as SlideWrapperItem)
-        : null;
+      const slideItem =
+        edgeDragItem.type === "slide"
+          ? (edgeDragItem as SlideWrapperItem)
+          : null;
 
       if (edgeDragEdge === "right") {
         if (isShift && slideItem && edgeDragV > 0) {
@@ -2979,14 +3009,21 @@ class TimelineDisplay {
           edgeDragItem.duration = Math.max(50, edgeDragStartD + delta);
           if (slideItem) slideItem.endProgress = edgeDragStartEp;
         }
-      } else { // left
+      } else {
+        // left
         if (isShift && slideItem && edgeDragV > 0) {
           const newSp = Math.max(
             0,
-            Math.min(edgeDragStartEp - edgeDragV * 50, edgeDragStartSp - edgeDragV * delta),
+            Math.min(
+              edgeDragStartEp - edgeDragV * 50,
+              edgeDragStartSp - edgeDragV * delta,
+            ),
           );
           slideItem.startProgress = newSp;
-          edgeDragItem.duration = Math.max(50, (edgeDragStartEp - newSp) / edgeDragV);
+          edgeDragItem.duration = Math.max(
+            50,
+            (edgeDragStartEp - newSp) / edgeDragV,
+          );
         } else {
           edgeDragItem.duration = Math.max(50, edgeDragStartD + delta);
           if (slideItem) slideItem.startProgress = edgeDragStartSp;
@@ -2996,7 +3033,8 @@ class TimelineDisplay {
       if (!isShift && edgeDragStartD > 0) {
         const ratio = edgeDragItem.duration / edgeDragStartD;
         for (const [clip, tMs] of edgeDragAnchorTargets) {
-          if (clip.anchor) clip.anchor.targetMs = Math.min(edgeDragItem.duration, tMs * ratio);
+          if (clip.anchor)
+            clip.anchor.targetMs = Math.min(edgeDragItem.duration, tMs * ratio);
         }
       }
 
@@ -3012,7 +3050,8 @@ class TimelineDisplay {
       const items = this.getItems();
       if (idx >= items.length) return null;
       const rect = canvas.getBoundingClientRect();
-      if (this.getSoundClips && (e.clientY - rect.top) / rect.height >= 0.5) return null;
+      if (this.getSoundClips && (e.clientY - rect.top) / rect.height >= 0.5)
+        return null;
       let cur = 0;
       for (let i = 0; i < idx; i++) cur += items[i]!.duration;
       const item = items[idx]!;
@@ -3037,7 +3076,8 @@ class TimelineDisplay {
       soundDragClip.startMsIntoScene = soundDragStartScene;
       soundDragClip.startMsIntoClip = soundDragStartClipStart;
       soundDragClip.lengthMs = soundDragStartLength;
-      if (soundDragClip.anchor) soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset;
+      if (soundDragClip.anchor)
+        soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset;
       soundDragClip = null;
       this.draw();
       this.onSoundChange?.();
@@ -3053,7 +3093,9 @@ class TimelineDisplay {
     };
 
     /** Returns which sound clip and handle zone the pointer is over, or null. */
-    const soundHitTest = (e: PointerEvent): { clip: SoundClip; handle: "left" | "right" | "center" } | null => {
+    const soundHitTest = (
+      e: PointerEvent,
+    ): { clip: SoundClip; handle: "left" | "right" | "center" } | null => {
       if (!this.getSoundClips) return null;
       const rect = canvas.getBoundingClientRect();
       if ((e.clientY - rect.top) / rect.height < 0.5) return null; // video row
@@ -3097,9 +3139,10 @@ class TimelineDisplay {
         edgeDragStartD = item.duration;
         edgeDragStartSp = item.type === "slide" ? item.startProgress : 0;
         edgeDragStartEp = item.type === "slide" ? item.endProgress : 1;
-        edgeDragV = edgeDragStartD > 0
-          ? (edgeDragStartEp - edgeDragStartSp) / edgeDragStartD
-          : 0;
+        edgeDragV =
+          edgeDragStartD > 0
+            ? (edgeDragStartEp - edgeDragStartSp) / edgeDragStartD
+            : 0;
         edgeDragAnchorTargets = new Map();
         if (this.getSoundClips) {
           for (const clip of this.getSoundClips()) {
@@ -3140,7 +3183,9 @@ class TimelineDisplay {
         lastHoverClientY = e.clientY;
         const hit = selectedSlotEdgeHit(e);
         canvas.style.cursor = hit
-          ? (e.shiftKey ? "col-resize" : "ew-resize")
+          ? e.shiftKey
+            ? "col-resize"
+            : "ew-resize"
           : "crosshair";
         return;
       }
@@ -3156,7 +3201,10 @@ class TimelineDisplay {
       if (soundDragClip) {
         const delta = msFromEvent(e) - soundDragStartMs;
         if (soundDragHandle === "center") {
-          soundDragClip.startMsIntoScene = Math.max(0, soundDragStartScene + delta);
+          soundDragClip.startMsIntoScene = Math.max(
+            0,
+            soundDragStartScene + delta,
+          );
           if (soundDragClip.anchor) {
             soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset + delta;
           }
@@ -3171,7 +3219,8 @@ class TimelineDisplay {
             soundDragClip.startMsIntoClip = newClipStart;
             soundDragClip.lengthMs = newLength;
             if (soundDragClip.anchor) {
-              soundDragClip.anchor.offsetMs = soundDragStartAnchorOffset + delta;
+              soundDragClip.anchor.offsetMs =
+                soundDragStartAnchorOffset + delta;
             }
           }
         } else {
@@ -3202,15 +3251,27 @@ class TimelineDisplay {
     });
 
     const updateHoverCursor = (shiftKey: boolean) => {
-      const fakeEvent = { clientX: lastHoverClientX, clientY: lastHoverClientY } as PointerEvent;
+      const fakeEvent = {
+        clientX: lastHoverClientX,
+        clientY: lastHoverClientY,
+      } as PointerEvent;
       const hit = selectedSlotEdgeHit(fakeEvent);
-      canvas.style.cursor = hit ? (shiftKey ? "col-resize" : "ew-resize") : "crosshair";
+      canvas.style.cursor = hit
+        ? shiftKey
+          ? "col-resize"
+          : "ew-resize"
+        : "crosshair";
     };
 
     this.keyDownHandler = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (edgeDragItem) { e.preventDefault(); cancelEdgeDrag(); }
-        else if (soundDragClip) { e.preventDefault(); cancelSoundDrag(); }
+        if (edgeDragItem) {
+          e.preventDefault();
+          cancelEdgeDrag();
+        } else if (soundDragClip) {
+          e.preventDefault();
+          cancelSoundDrag();
+        }
       } else if (e.key === "Shift") {
         if (edgeDragItem) applyEdgeDrag(lastEdgeDelta, true);
         else updateHoverCursor(true);
@@ -3245,8 +3306,8 @@ class TimelineDisplay {
       if (!panning) {
         const ms = msFromEvent(e);
         const rect = canvas.getBoundingClientRect();
-        const inSoundRow = this.getSoundClips &&
-          (e.clientY - rect.top) / rect.height >= 0.5;
+        const inSoundRow =
+          this.getSoundClips && (e.clientY - rect.top) / rect.height >= 0.5;
         if (inSoundRow) {
           // Click in sound row but not starting a drag → select / deselect
           const hit = soundHitTest(e);
@@ -3274,8 +3335,7 @@ class TimelineDisplay {
           this.viewStartMs +
           (cx / rect.width) * (this.viewEndMs - this.viewStartMs);
         const sensitivity = 1 / 7;
-        const factor =
-          e.deltaY > 0 ? 1.5 ** sensitivity : 1.5 ** -sensitivity;
+        const factor = e.deltaY > 0 ? 1.5 ** sensitivity : 1.5 ** -sensitivity;
         let newStart = cursorMs + (this.viewStartMs - cursorMs) * factor;
         let newEnd = cursorMs + (this.viewEndMs - cursorMs) * factor;
         newStart = Math.max(0, newStart);
@@ -3309,7 +3369,10 @@ function parseCopyOneClip(text: string): SoundClip | null {
     });
     s = s.replace(/\/\/[^\n]*/g, "");
     // Quote unquoted keys
-    s = s.replace(/\b(notes|source|startMsIntoScene|startMsIntoClip|lengthMs)\s*:/g, '"$1":');
+    s = s.replace(
+      /\b(notes|source|startMsIntoScene|startMsIntoClip|lengthMs)\s*:/g,
+      '"$1":',
+    );
     // Remove trailing commas before } or ]
     s = s.replace(/,(\s*[}\]])/g, "$1");
     const obj = JSON.parse(`{${s}}`) as Record<string, unknown>;
@@ -3317,8 +3380,10 @@ function parseCopyOneClip(text: string): SoundClip | null {
       id: crypto.randomUUID(),
       notes: typeof obj.notes === "string" ? obj.notes : notes,
       source: typeof obj.source === "string" ? obj.source : "",
-      startMsIntoScene: typeof obj.startMsIntoScene === "number" ? obj.startMsIntoScene : 0,
-      startMsIntoClip: typeof obj.startMsIntoClip === "number" ? obj.startMsIntoClip : 0,
+      startMsIntoScene:
+        typeof obj.startMsIntoScene === "number" ? obj.startMsIntoScene : 0,
+      startMsIntoClip:
+        typeof obj.startMsIntoClip === "number" ? obj.startMsIntoClip : 0,
       lengthMs: typeof obj.lengthMs === "number" ? obj.lengthMs : 1000,
     };
     if (!clip.source) return null;
@@ -3404,7 +3469,10 @@ class MainTimeline {
     const ratio = item.duration / oldDuration;
     for (const clip of this.soundClips) {
       if (clip.anchor?.targetId === item.id) {
-        clip.anchor.targetMs = Math.min(item.duration, clip.anchor.targetMs * ratio);
+        clip.anchor.targetMs = Math.min(
+          item.duration,
+          clip.anchor.targetMs * ratio,
+        );
       }
     }
   }
@@ -3420,9 +3488,13 @@ class MainTimeline {
     for (let i = 0; i < idx; i++) itemStart += this.items[i]!.duration;
 
     const playMs = this.visAPI?.getCurrentTimeMs() ?? itemStart;
-    const splitMs = Math.max(1, Math.min(item.duration - 1, playMs - itemStart));
+    const splitMs = Math.max(
+      1,
+      Math.min(item.duration - 1, playMs - itemStart),
+    );
     const splitT = splitMs / item.duration;
-    const splitProgress = item.startProgress + splitT * (item.endProgress - item.startProgress);
+    const splitProgress =
+      item.startProgress + splitT * (item.endProgress - item.startProgress);
 
     const secondId = crypto.randomUUID();
     const secondItem: SlideWrapperItem = {
@@ -3442,7 +3514,10 @@ class MainTimeline {
 
     // Clips anchored at or after the split point move to the second item
     for (const clip of this.soundClips) {
-      if (clip.anchor?.targetId === item.id && clip.anchor.targetMs >= splitMs) {
+      if (
+        clip.anchor?.targetId === item.id &&
+        clip.anchor.targetMs >= splitMs
+      ) {
         clip.anchor.targetId = secondId;
         clip.anchor.targetMs -= splitMs;
       }
@@ -3537,9 +3612,10 @@ class MainTimeline {
         } else {
           // Transition: slide prev out left, slide next in from right.
           // Guard: only look at slide neighbors, not other transitions (no recursion).
-          const tran = item.duration > 0
-            ? Math.max(0, Math.min(1, localTime / item.duration))
-            : 0;
+          const tran =
+            item.duration > 0
+              ? Math.max(0, Math.min(1, localTime / item.duration))
+              : 0;
           const prev = this.prevSlide(i);
           const next = this.nextSlide(i);
           if (!prev && !next) {
@@ -3556,7 +3632,10 @@ class MainTimeline {
               if (slide) {
                 context.save();
                 context.translate(lerp(0, -16, tran), 0);
-                slide.show({ ...options, timeInMs: prev.endProgress * slide.duration });
+                slide.show({
+                  ...options,
+                  timeInMs: prev.endProgress * slide.duration,
+                });
                 context.restore();
               }
             }
@@ -3565,7 +3644,10 @@ class MainTimeline {
               if (slide) {
                 context.save();
                 context.translate(lerp(16, 0, tran), 0);
-                slide.show({ ...options, timeInMs: next.startProgress * slide.duration });
+                slide.show({
+                  ...options,
+                  timeInMs: next.startProgress * slide.duration,
+                });
                 context.restore();
               }
             }
@@ -3615,7 +3697,8 @@ class MainTimeline {
     );
     this.display = display;
     display.setRange(0, this.duration);
-    display.getDecodedBuffer = (url) => this.visAPI?.getDecodedBuffer?.(url) ?? null;
+    display.getDecodedBuffer = (url) =>
+      this.visAPI?.getDecodedBuffer?.(url) ?? null;
 
     display.onSeek = (ms) => this.visAPI?.seek(ms);
     display.onSelect = (idx) => {
@@ -3717,7 +3800,10 @@ class MainTimeline {
         spInput.value = String(item.startProgress);
         spInput.style.width = "80px";
         spInput.addEventListener("change", () => {
-          item.startProgress = Math.max(0, Math.min(1, parseFloat(spInput.value)));
+          item.startProgress = Math.max(
+            0,
+            Math.min(1, parseFloat(spInput.value)),
+          );
         });
         editorDiv.appendChild(row("Start progress", spInput));
 
@@ -3729,7 +3815,10 @@ class MainTimeline {
         epInput.value = String(item.endProgress);
         epInput.style.width = "80px";
         epInput.addEventListener("change", () => {
-          item.endProgress = Math.max(0, Math.min(1, parseFloat(epInput.value)));
+          item.endProgress = Math.max(
+            0,
+            Math.min(1, parseFloat(epInput.value)),
+          );
         });
         editorDiv.appendChild(row("End progress", epInput));
 
@@ -3771,7 +3860,10 @@ class MainTimeline {
     this.soundEditorDiv = soundEditorDiv;
     container.appendChild(soundEditorDiv);
 
-    const numInput = (value: number, onChange: (v: number) => void): HTMLInputElement => {
+    const numInput = (
+      value: number,
+      onChange: (v: number) => void,
+    ): HTMLInputElement => {
       const inp = document.createElement("input");
       inp.type = "number";
       inp.value = String(Math.round(value * 100) / 100);
@@ -3825,7 +3917,9 @@ class MainTimeline {
           const text = await navigator.clipboard.readText();
           const parsed = parseCopyOneClip(text);
           if (!parsed) {
-            alert("Clipboard doesn't look like a sound clip. Expected the 'Copy One' format from the sound explorer.");
+            alert(
+              "Clipboard doesn't look like a sound clip. Expected the 'Copy One' format from the sound explorer.",
+            );
             return;
           }
           parsed.startMsIntoScene = this.visAPI?.getCurrentTimeMs() ?? 0;
@@ -3837,7 +3931,9 @@ class MainTimeline {
           this.visAPI?.refreshGUI("sound");
           refreshSoundEditor();
         } catch {
-          alert("Could not read clipboard. Make sure you've granted clipboard permission.");
+          alert(
+            "Could not read clipboard. Make sure you've granted clipboard permission.",
+          );
         }
       });
       toolbar.appendChild(pasteBtn);
@@ -3856,7 +3952,8 @@ class MainTimeline {
       const notesArea = document.createElement("textarea");
       notesArea.rows = 2;
       notesArea.value = clip.notes;
-      notesArea.style.cssText = "width:100%;box-sizing:border-box;resize:vertical;font-size:11px;";
+      notesArea.style.cssText =
+        "width:100%;box-sizing:border-box;resize:vertical;font-size:11px;";
       notesArea.addEventListener("input", () => {
         clip.notes = notesArea.value;
         display.draw();
@@ -3879,7 +3976,9 @@ class MainTimeline {
       anchorDiv.style.cssText = "display:flex;flex-direction:column;gap:3px;";
       if (clip.anchor) {
         // Find the slot description for the label
-        const targetItem = this.items.find((it) => it.id === clip.anchor!.targetId);
+        const targetItem = this.items.find(
+          (it) => it.id === clip.anchor!.targetId,
+        );
         const targetLabel =
           targetItem?.type === "slide"
             ? targetItem.slideDescription

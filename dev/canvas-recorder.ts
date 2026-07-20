@@ -2076,6 +2076,7 @@ function _autosaveAllDirty(): void {
 function markDirty(): void {
   if (_autosaveTimer !== null) clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(_autosaveAllDirty, 5000);
+  updateJsonSaveStatus();
 }
 
 /**
@@ -4178,11 +4179,15 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup, tsDefaultsBackup).then(async () => {
-    // After DB init: apply JSON as medium-priority fallback for any key that
-    // still has ts-defaults (i.e. nothing was in the DB for that key).
-    const jsonResult = await startupJsonFetch;
-    if (jsonResult.ok) {
-      applyJsonSnapshot(jsonResult.data, true, false);
+    // Try to auto-load from the most recently saved file handle.
+    const loadedFromFile = await tryLoadFromActiveFile();
+
+    if (!loadedFromFile) {
+      // Fallback: URL-based JSON for any key that still has ts-defaults.
+      const jsonResult = await startupJsonFetch;
+      if (jsonResult.ok) {
+        applyJsonSnapshot(jsonResult.data, true, false);
+      }
     }
     updateJsonSaveStatus();
   });
@@ -4649,6 +4654,77 @@ function applyJsonSnapshot(
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(current);
     updateScheduleEditor(current);
+  }
+}
+
+/**
+ * Apply file entries to all selectables where the file is newer than the last
+ * IndexedDB save (`fileSavedAt > dbTimestamp`).  Called during startup after
+ * `initFromDB` has already restored the most recent DB state.
+ */
+function applyJsonSnapshotFromFile(
+  snapshot: Record<string, JsonFileEntry>,
+  fileSavedAt: number,
+): void {
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const entry = snapshot[key];
+    if (!entry) continue;
+
+    // Only apply where the file is strictly newer than the IndexedDB entry.
+    const src = loadSources.get(key);
+    const dbTimestamp = src?.kind === "db" ? src.timestamp : 0;
+    if (fileSavedAt <= dbTimestamp) continue;
+
+    applyJsonEntry(sel, entry);
+    loadSources.set(key, { kind: "json", filename: _activeFileRecord!.filename });
+    loadedSnapshots.set(key, currentSnapshotJson(sel));
+  }
+
+  const current = currentSaveTarget();
+  if (current) {
+    selectedSlideChild = null;
+    activeRootComponentEditor?.resetAll();
+    updateComponentEditor(current);
+    updateScheduleEditor(current);
+  }
+}
+
+/**
+ * On startup: read the stored active file handle, check browser permission,
+ * and apply its content where it is newer than the IndexedDB state.
+ * Sets `_activeFileRecord` and `_lastKnownJsonBody` on success.
+ * @returns true if the file was successfully read and applied.
+ */
+async function tryLoadFromActiveFile(): Promise<boolean> {
+  const fileRecord = await readActiveFileRecord();
+  if (!fileRecord) return false;
+
+  // Always populate `_activeFileRecord` so the Save button is available.
+  _activeFileRecord = { filename: fileRecord.filename, handle: fileRecord.handle };
+
+  try {
+    // `requestPermission` requires a user gesture at startup — only proceed if
+    // the browser already holds a "granted" permission for this handle.
+    const perm = await fileRecord.handle.queryPermission({ mode: "read" });
+    if (perm !== "granted") return false;
+
+    const file = await fileRecord.handle.getFile();
+    const fileContent = await file.text();
+    const snapshot = JSON.parse(fileContent) as Record<string, JsonFileEntry>;
+
+    applyJsonSnapshotFromFile(snapshot, fileRecord.savedAt);
+    // Record what the file currently looks like on disk so the dirty flag works.
+    _lastKnownJsonBody = fileContent;
+    return true;
+  } catch (e) {
+    console.warn(`Unable to load "${fileRecord.filename}". Using internal backups.`, e);
+    return false;
   }
 }
 
