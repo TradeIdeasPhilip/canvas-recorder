@@ -1547,12 +1547,55 @@ const loadedSnapshots = new Map<string, string>();
 
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("canvas-recorder-schedules", 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore("history", { keyPath: "selectableKey" });
+    const req = indexedDB.open("canvas-recorder-schedules", 2);
+    req.onupgradeneeded = (event) => {
+      const db = req.result;
+      const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
+      if (oldVersion < 1) db.createObjectStore("history", { keyPath: "selectableKey" });
+      if (oldVersion < 2) db.createObjectStore("files", { keyPath: "filename" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+  });
+}
+
+// MARK: File handle DB
+
+type FileRecord = {
+  filename: string;
+  handle: FileSystemFileHandle;
+  savedAt: number;
+  isActive: boolean;
+};
+
+async function readActiveFileRecord(): Promise<FileRecord | undefined> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const req = tx.objectStore("files").getAll();
+    req.onsuccess = () => resolve((req.result as FileRecord[]).find((r) => r.isActive));
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writeActiveFileRecord(
+  filename: string,
+  handle: FileSystemFileHandle,
+): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    const store = tx.objectStore("files");
+    const getAllReq = store.getAll();
+    getAllReq.onsuccess = () => {
+      // Clear isActive on any other record before setting the new one.
+      for (const r of getAllReq.result as FileRecord[]) {
+        if (r.filename !== filename && r.isActive) store.put({ ...r, isActive: false });
+      }
+      store.put({ filename, handle, savedAt: Date.now(), isActive: true });
+    };
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
   });
 }
 
@@ -1647,61 +1690,40 @@ function formatLoadSource(source: LoadSource | undefined): string {
   }
 }
 
-/** Updates the inline status label to show source and dirty flag. */
-// MARK: JSON save status
+// MARK: Active file display
 
 const jsonSaveStatusElement = getById("jsonSaveStatus", HTMLSpanElement);
+const saveJsonBtn = getById("saveJsonBtn", HTMLButtonElement);
+
+/** In-memory reference to the currently active file (the last saved-to or saved-as file). */
+let _activeFileRecord: { filename: string; handle: FileSystemFileHandle } | null = null;
 
 /**
- * The JSON body we last successfully fetched or wrote, used to detect
- * unsaved changes. `undefined` = haven't checked yet.
+ * The serialized JSON body last written to (or read from) the active file.
+ * Used to compute the dirty flag. `undefined` = no active file yet this session.
  */
 let _lastKnownJsonBody: string | undefined;
 
-/**
- * The last fetch failure reason, if any. Cleared when a fetch or save succeeds.
- */
-let _jsonFetchFailReason:
-  | "not-found"
-  | "parse-error"
-  | "network-error"
-  | undefined;
-
+/** Updates the active-file display: shows filename + asterisk when dirty, or "untitled". */
 function updateJsonSaveStatus(): void {
-  if (_jsonFetchFailReason === "not-found") {
-    jsonSaveStatusElement.textContent = "JSON: never saved";
+  if (!_activeFileRecord) {
+    jsonSaveStatusElement.textContent = "untitled";
     jsonSaveStatusElement.style.color = "gray";
-    jsonSaveStatusElement.title = `No file at ./saved_state/${toShowKey}.json`;
+    jsonSaveStatusElement.title = "No file saved yet — use Save As to create one";
+    saveJsonBtn.disabled = true;
     return;
   }
-  if (_jsonFetchFailReason === "network-error") {
-    jsonSaveStatusElement.textContent = "JSON: server unreachable";
-    jsonSaveStatusElement.style.color = "gray";
-    jsonSaveStatusElement.title = "Could not reach the Vite dev server";
-    return;
-  }
-  if (_jsonFetchFailReason === "parse-error") {
-    jsonSaveStatusElement.textContent = "JSON: file corrupted";
-    jsonSaveStatusElement.style.color = "red";
-    jsonSaveStatusElement.title = `./saved_state/${toShowKey}.json is not valid JSON`;
-    return;
-  }
+  saveJsonBtn.disabled = false;
   if (_lastKnownJsonBody === undefined) {
-    jsonSaveStatusElement.textContent = "Checking…";
-    jsonSaveStatusElement.style.color = "gray";
+    jsonSaveStatusElement.textContent = _activeFileRecord.filename;
+    jsonSaveStatusElement.style.color = "";
     jsonSaveStatusElement.title = "";
     return;
   }
-  const current = JSON.stringify(buildJsonSnapshot(), null, 2);
-  if (current === _lastKnownJsonBody) {
-    jsonSaveStatusElement.textContent = "JSON: saved ✓";
-    jsonSaveStatusElement.style.color = "green";
-    jsonSaveStatusElement.title = "";
-  } else {
-    jsonSaveStatusElement.textContent = "JSON: unsaved changes";
-    jsonSaveStatusElement.style.color = "darkorange";
-    jsonSaveStatusElement.title = "In-memory state differs from the saved JSON file";
-  }
+  const dirty = JSON.stringify(buildJsonSnapshot(), null, 2) !== _lastKnownJsonBody;
+  jsonSaveStatusElement.textContent = _activeFileRecord.filename + (dirty ? " *" : "");
+  jsonSaveStatusElement.style.color = dirty ? "darkorange" : "";
+  jsonSaveStatusElement.title = dirty ? "Unsaved changes" : "";
 }
 
 /** Apply TypeScript defaults to a selectable in-place. */
@@ -4161,10 +4183,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     const jsonResult = await startupJsonFetch;
     if (jsonResult.ok) {
       applyJsonSnapshot(jsonResult.data, true, false);
-      _jsonFetchFailReason = undefined;
-      _lastKnownJsonBody = JSON.stringify(jsonResult.data, null, 2);
-    } else {
-      _jsonFetchFailReason = jsonResult.reason;
     }
     updateJsonSaveStatus();
   });
@@ -4461,85 +4479,107 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
 }
 
 /**
- * @param link - when true, writes a source pointer for every saved key so that
- *   the next startup loads from JSON instead of IndexedDB.
+ * Write `body` to `handle`, then set it as the active file.
+ * Updates `_activeFileRecord`, `_lastKnownJsonBody`, source pointers, and the DB.
  */
-async function saveToJsonFile(link: boolean): Promise<void> {
+async function _commitActiveFile(
+  handle: FileSystemFileHandle,
+  body: string,
+  snapshot: Record<string, JsonFileEntry>,
+): Promise<void> {
+  const writable = await handle.createWritable();
+  await writable.write(body);
+  await writable.close();
+
+  _activeFileRecord = { filename: handle.name, handle };
+  _lastKnownJsonBody = body;
+
+  // Keep sourcePointer in sync (step 6 of the plan will remove this).
+  const filename = handle.name;
+  const pointer: HistoryRecord["sourcePointer"] = { kind: "json", filename };
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (!snapshot[key]) continue;
+    loadSources.set(key, { kind: "json", filename });
+    loadedSnapshots.set(key, currentSnapshotJson(sel));
+    void persistSourcePointer(key, pointer);
+  }
+  void writeActiveFileRecord(filename, handle);
+  updateJsonSaveStatus();
+}
+
+/** Save button: overwrite the active file without a dialog. */
+async function saveJsonToActiveFile(): Promise<void> {
+  if (!_activeFileRecord) return;
+  const snapshot = buildJsonSnapshot();
+  const body = JSON.stringify(snapshot, null, 2);
+  try {
+    await _commitActiveFile(_activeFileRecord.handle, body, snapshot);
+  } catch {
+    alert(
+      `Could not write to "${_activeFileRecord.filename}".\n\n` +
+        `The file may have been moved or deleted. Use Save As to choose a new location.`,
+    );
+  }
+}
+
+/**
+ * Save As / Save Copy As: prompt for a file, then write.
+ * @param setActive - true for Save As (updates active file), false for Save Copy As (does not).
+ */
+async function saveJsonAs(setActive: boolean): Promise<void> {
   const snapshot = buildJsonSnapshot();
   const body = JSON.stringify(snapshot, null, 2);
 
-  let fileHandle: FileSystemFileHandle;
+  let handle: FileSystemFileHandle;
   try {
-    fileHandle = await window.showSaveFilePicker({
+    handle = await window.showSaveFilePicker({
       id: "json-state",
-      suggestedName: `${toShowKey}.json`,
-      types: [
-        { description: "JSON", accept: { "application/json": [".json"] } },
-      ],
+      suggestedName: _activeFileRecord?.filename ?? `${toShowKey}.json`,
+      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
     throw e;
   }
 
-  const writable = await fileHandle.createWritable();
-  await writable.write(body);
-  await writable.close();
-
-  // Verify: fetch the file through the dev server to confirm it landed in the
-  // right place (under public/saved_state/, reachable via HTTP).
-  const verifyResult = await fetchJsonSnapshot();
-  if (!verifyResult.ok) {
-    const hint =
-      verifyResult.reason === "not-found"
-        ? "File not found at the expected URL — did you save outside public/saved_state/?"
-        : verifyResult.reason === "parse-error"
-          ? "File saved but could not be re-parsed — the file may be corrupted."
-          : "Dev server unreachable — start the Vite dev server and try again.";
+  if (!setActive && _activeFileRecord && handle.name === _activeFileRecord.filename) {
     alert(
-      `Save succeeded but verification failed.\n\n${hint}\n\nExpected URL: ./saved_state/${toShowKey}.json`,
+      `Cannot save a copy over the active file "${_activeFileRecord.filename}".\n\n` +
+        `Use Save or Save As instead.`,
     );
-    _jsonFetchFailReason = verifyResult.reason;
-    _lastKnownJsonBody = undefined;
-  } else {
-    const readBack = JSON.stringify(verifyResult.data, null, 2);
-    if (readBack.length !== body.length) {
-      alert(
-        "Save warning: the file on disk does not match what was written.\n" +
-          `Written: ${body.length} chars, read back: ${readBack.length} chars.`,
-      );
-    }
-    _jsonFetchFailReason = undefined;
-    _lastKnownJsonBody = body;
-
-    if (link) {
-      const filename = `${toShowKey}.json`;
-      const pointer: HistoryRecord["sourcePointer"] = { kind: "json", filename };
-      // Update in-memory source tracking immediately so status reflects the link
-      // and saveOnUnload skips these keys (source="json", dirty=false).
-      const seen = new Set<string>();
-      for (const item of chapterList) {
-        const sel = item.selectable;
-        const key = selectableKey(sel);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        if (!snapshot[key]) continue;
-        loadSources.set(key, { kind: "json", filename });
-        loadedSnapshots.set(key, currentSnapshotJson(sel));
-        void persistSourcePointer(key, pointer);
-      }
-    }
+    return;
   }
-  updateJsonSaveStatus();
+
+  try {
+    if (setActive) {
+      await _commitActiveFile(handle, body, snapshot);
+    } else {
+      // Save Copy As: write only, leave the active file unchanged.
+      const writable = await handle.createWritable();
+      await writable.write(body);
+      await writable.close();
+    }
+  } catch {
+    alert(`Could not write to "${handle.name}".`);
+  }
 }
 
-getById("saveJsonLinkBtn", HTMLButtonElement).addEventListener(
+getById("saveJsonBtn", HTMLButtonElement).addEventListener(
   "click",
-  () => void saveToJsonFile(true),
+  () => void saveJsonToActiveFile(),
 );
-getById("saveJsonOnlyBtn", HTMLButtonElement).addEventListener(
+getById("saveAsJsonBtn", HTMLButtonElement).addEventListener(
   "click",
-  () => void saveToJsonFile(false),
+  () => void saveJsonAs(true),
+);
+getById("saveCopyAsJsonBtn", HTMLButtonElement).addEventListener(
+  "click",
+  () => void saveJsonAs(false),
 );
 
 // MARK: Load JSON file
@@ -4622,13 +4662,9 @@ async function loadFromJsonFile(): Promise<void> {
           ? "File is corrupted or not valid JSON. Fix or re-save it."
           : "Could not reach the server. Check that the Vite dev server is running.";
     alert(`Could not load ./saved_state/${toShowKey}.json\n\n${details}`);
-    _jsonFetchFailReason = result.reason;
-    updateJsonSaveStatus();
     return;
   }
   applyJsonSnapshot(result.data, false, true);
-  _jsonFetchFailReason = undefined;
-  _lastKnownJsonBody = JSON.stringify(result.data, null, 2);
   updateJsonSaveStatus();
 }
 
