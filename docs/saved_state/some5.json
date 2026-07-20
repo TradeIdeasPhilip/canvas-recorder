@@ -1674,7 +1674,52 @@
     "components": []
   },
   "some5|Parallel Combination": {
-    "components": [],
+    "components": [
+      {
+        "registryKey": "Arrow",
+        "schedules": [
+          {
+            "description": "Location",
+            "type": "arrow",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": {
+                  "flat": {
+                    "x": 2,
+                    "y": 4.5
+                  },
+                  "pointy": {
+                    "x": 8.299938331291841,
+                    "y": 6.470602690502491
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "description": "Width",
+            "type": "number",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": 0.5
+              }
+            ]
+          },
+          {
+            "description": "Color",
+            "type": "color",
+            "keyframes": [
+              {
+                "time": 0,
+                "value": "#555"
+              }
+            ]
+          }
+        ]
+      }
+    ],
     "fixedComponents": [
       {
         "description": "Slide 1",
@@ -1689,19 +1734,19 @@
               },
               {
                 "time": -350,
-                "value": 1
+                "value": 0
               },
               {
                 "time": 500,
-                "value": 1
+                "value": 0
               },
               {
                 "time": 11150,
-                "value": 0
+                "value": 1
               },
               {
                 "time": 12000,
-                "value": 0
+                "value": 1
               },
               {
                 "time": 13000,
@@ -1736,7 +1781,7 @@
             "type": "number",
             "keyframes": [
               {
-                "time": 0,
+                "time": 0.1234567891234,
                 "value": 1
               }
             ]
@@ -3389,6 +3434,10 @@
             "type": "number",
             "keyframes": [
               {
+                "time": 502930,
+                "value": -1
+              },
+              {
                 "time": 503930,
                 "value": 0
               },
@@ -3414,6 +3463,10 @@
             "description": "𝓐",
             "type": "number",
             "keyframes": [
+              {
+                "time": 503930,
+                "value": 16
+              },
               {
                 "time": 504280,
                 "value": 0
@@ -3536,12 +3589,16 @@
             "type": "number",
             "keyframes": [
               {
-                "time": 0,
+                "time": 550965,
+                "value": -1
+              },
+              {
+                "time": 551965,
                 "value": 0
               },
               {
-                "time": 550965,
-                "value": -1
+                "time": 552815,
+                "value": 0
               },
               {
                 "time": 599500,
@@ -3561,6 +3618,10 @@
             "description": "𝓐",
             "type": "number",
             "keyframes": [
+              {
+                "time": 551965,
+                "value": 16
+              },
               {
                 "time": 552315,
                 "value": 0

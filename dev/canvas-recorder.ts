@@ -2042,6 +2042,40 @@ async function saveScheduleState(
   if (updateUI) updateStatusDisplay(selectable);
 }
 
+// MARK: Auto-save timer
+
+/** Pending auto-save timer handle, or null if no save is scheduled. */
+let _autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Save all currently dirty selectables to IndexedDB.
+ * Called by the auto-save timer; never needs to update the status display
+ * because the status is computed lazily when the display is next rebuilt.
+ */
+function _autosaveAllDirty(): void {
+  _autosaveTimer = null;
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isDirty(sel)) void saveScheduleState(sel, false);
+  }
+}
+
+/**
+ * Call this whenever the user makes any edit.
+ * Debounces auto-saves to IndexedDB: starts (or restarts) a 5-second timer
+ * so rapid changes produce one save, not hundreds.
+ * The unload handler remains the safety net for any changes the timer hasn't
+ * flushed yet.
+ */
+function markDirty(): void {
+  if (_autosaveTimer !== null) clearTimeout(_autosaveTimer);
+  _autosaveTimer = setTimeout(_autosaveAllDirty, 5000);
+}
+
 /**
  * Returns the slide-level selectable that should be saved/loaded as a unit.
  * For components slides this is always the slide itself (not the selected child),
@@ -2513,12 +2547,14 @@ openHistoryDialogBtn.addEventListener("click", () => {
   if (target) void openHistoryDialog(target);
 });
 
-// Live dirty indicator: any edit in the schedule editor triggers a status refresh
+// Live dirty indicator: any edit in the schedule editor triggers a status refresh and auto-save timer.
 scheduleEditorFieldset.addEventListener("input", () => {
+  markDirty();
   const target = currentSaveTarget();
   if (target) updateStatusDisplay(target);
 });
 scheduleEditorFieldset.addEventListener("change", () => {
+  markDirty();
   const target = currentSaveTarget();
   if (target) updateStatusDisplay(target);
 });
@@ -4346,6 +4382,9 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
 });
 canvas.addEventListener("pointerup", () => {
   isDragging = false;
+  // Marker drags update keyframe values without firing fieldset events,
+  // so kick the auto-save timer here when any drag just completed.
+  if (draggingMarker || draggingPoint || draggingArrow) markDirty();
   draggingMarker = null;
   draggingPoint = null;
   draggingArrow = null;
