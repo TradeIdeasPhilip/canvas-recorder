@@ -463,3 +463,138 @@ It doesn’t matter if my mouse was in the canvas or not for some of the pixels.
 Changing the duration *by typing a number* means to change the speed at which the item is playing.  The linking needs to respect that.  If a sound clip is linked to the beginning of a slot, currently that works perfectly.  But if I sound clip is linked to the end of a slot and the slot grows or shrinks, the attachment point should move to the new end of the slot.  If the attachment was anywhere in the middle of a slot, it needs to move proportional to where it is.  The progress fields are irrelevant to this operation.  If you use your mouse to resize, it should do the exact same thing.
 
 We need a way to split a slot into two pieces.  Only slides do this, not transitions.  Split at the current time.  Interpolate to find the correct progress value for the end of the first part and the start of the second part.  Any sound clips that were attached to the first part of the original slot are not attached to the first new slot, and any sound clips that were attached to the second part of the initial slot it should be attached to the second new slot.  The time right at the boundary is always given to the later element.    Immediately after a split, nothing should change, this is just preparing for future changes.  Adjust the start time property if required.
+
+# Splitting sound editor, callout editor and packed timeline editor
+
+As of [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/b4acb1d616daade4357bd305e090d8c65e1fafe2) we have a fairly complete first version of the timeline.
+Now I want to reorganize the code.
+
+I want to break things into smaller pieces.
+I want the code to be in smaller modules.
+And I want a video to be able to use only the pieces it needs without worrying about the rest.
+
+And now's a good time to clean up as we have a good picture of what the final result will look like and no one is using this code, yet.
+
+## Terminology
+
+I like the term *Packed* Timeline Component.
+It's a reference to gcc's `__attribute__((packed))` and Pascal's "packed" arrays.
+
+## Saving
+
+We still don't have a way to save these changes.
+We will get to that.
+But I'm still playing around, making big sweeping changes as I test, glad to reset to a sane state each refresh.
+
+Also, I have some ideas about our high level "business logic" for what we save and load and when.
+[This commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/d8d842b635b512a05aa660679a353573f9ae9bd0) confirms that we can save file handles.
+That means that, as long as we are dealing with the same files over and over, we don't have to ask the user's permission *each time* we open a file.
+So we can use files more now, and we don't have worry about saving in the right spot so the Vite server can serve that file.
+We can act more like a "normal" application!
+See saving-and-undoing.md for the detailed plan.
+
+My current plan is to get the rest of the timeline code stable, *then* improve the high level saving and loading logic, *then* add the code to save the timeline.
+
+## High Level Thoughts
+
+This section is rough, almost stream of consciousness, but I think it's a good start.
+
+Can we separate the sound editor from the packed timeline editor?
+
+Sounds can apply to anything.  (Any Showable object)  The packed timeline editor is a good example to say just how hard to have to push the idea of internal markers.  That is to say the packed timeline editor is going to push functionality of the sound editor to 99% of what we’ll ever need.   It’s relevant today, but it might not be needed on other types of projects.
+
+One option:  A showable already has an optional list of sound clips.
+Maybe the Visual Editor treats these just like the lists of subcomponents, schedules and scalars.  What are they linked to?  By default they are linked to the component that owns it.  That’s the current interpretation of sound clips, they move with their owner.
+
+If you want to “rehome” a sound, then it gets deleted from one component’s list and added to a different component’s list.
+That’s trivial.
+This is separate from but related to your idea of an anchor.
+
+An anchor only makes sense in the context of the component that owns the clip.
+
+This does not affect callouts.  Callouts are specific to the slot timeline.  The timeline component owns a bunch of sub components.  It has more control over these subcomponents than a typical component does.  It also has sounds.  These work just like sounds in any other component.  The time line component will support anchors and these anchors might look similar to the anchors for — no, they are the same!
+
+Why not say that callouts can be moved from one object to the next, just like sounds?
+Maybe we need a new optional array, `callouts`?
+Hmm.  This brings up an old limitation / question.
+Currently we don’t allow child Showable objects to be shown when their parents are not shown.
+That’s completely different from the way we handle sounds.
+In part because they have totally different implementations.
+In part because the visuals might have z-order issues and also the way the custom code works for some Showable objects, show() has to be called in a specific order.
+Is this a problem?
+
+It seems like this could be very useful even if limited to the play time of the parent / linked component.
+That could cover 99% of my needs.
+And when I really want a callout to extend past what it’s linked to, I can use a packed timeline editor, in those cases I was probably already using a packed timeline editor.
+
+## Callout Editor
+
+This is inspired by our current sound clip editor and by the [high level thoughts](#high-level-thoughts), above.
+The new sound editor might look similar to the callout editor, in a lot of ways, but they are totally seperate.
+
+`Showable` gets a new optional property, `callouts`, a list of arrows and text and other things to be timed to go with the main action.
+
+When the visual editor sees this field is present, it allows the user to manipulate a list of callouts.
+This will include all the functionality we already have for dealing with the list of subcomponents.
+You can add and delete and copy callouts.
+You can set all the properties of each callout subcomponent, just like a normal subcomponent.
+E.g. you can set the color and position and size of an arrow and even use schedules to change these properties over time.
+
+Each callout will actually point to a wrapper around a showable.
+The wrapper will be very much like the wrapper around the children of the packed timeline.
+It will change the progress over time.
+
+clones or dags?
+When I split or copy a section, do I need to create a new underlying `Showable` object?
+I'd like to share!
+So we really need a list of Showable objects available for use.
+And seperate we'd need a list of wrappers.
+
+The userEditableDescription field is a good way to reference these objects.
+It already exists in the editor.
+And we want to the wrappers to use the same name as is already visible in the Visual Editor.
+I.e. the wrapper will have a field saying what Showable object it wraps, and those names should match the names we are displaying elsewhere.
+
+It should be easy to add a new callout.
+There will be a list of things that can be added.
+Selecting one and hitting "add" will add the new component and one new wrapper pointing to that component all at once.
+
+The Packed Timeline Editor's wrapper currently hides a lot of details of the underlying component.
+In particular, the wrapper's properties are available to be edited and saved and reloaded.
+But the wrapped object's properties are not.
+These are assumed to be edited and saved elsewhere.
+That is explicitly different from the way callouts work.
+A callout will create a generic component like an arrow, and it will let the user customize that arrow in place.
+
+### Simple Example:  Arrow
+
+
+
+## New Sound Editor
+
+## Packed Timeline Editor
+
+We might want multiple packed timeline editors.
+A packed timeline editor should just be another component that we can add in the component editor.
+
+## Combined View
+
+The callout editor and the new sound editor are part of the Visual Editor proper, as opposed to the packed timeline editor which I'm picturing as a component with no special access.
+
+We can move the sound clips and the callouts to one combined timeline.
+That will replace the waveform view we currently have near the top of the top left quadrant.
+We don't really need the waveform view if we have the clips.
+The clips are actually better as they are broken up in the right places and they have a description field.
+
+The packed timeline editor is more complicated.
+There might be more than one at a time.
+It has it's own user interface (what to draw and how to react to the mouse)
+It should be displayed in the same place as the other timeline items.
+
+## First Step:  Callouts
+
+Add that and see if we like it before trying something similar with sounds.
+And the callouts will be useful with the current or new / proposed sound editor.
+
+Initially you can place the new callouts on the existing waveform diagram.
+That will eventually get replaced with individual sound clips, but until it does it is fine as is.

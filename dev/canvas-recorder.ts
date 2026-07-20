@@ -4018,12 +4018,21 @@ function applyArrowDrag(localX: number, localY: number, e: { shiftKey: boolean; 
     } else if (e.ctrlKey || e.metaKey) {
       // Radial: project mouse onto circle of original radius around fixedPt
       const r = Math.hypot(movingStart.x - fixedPt.x, movingStart.y - fixedPt.y);
-      const mdx = rawX - fixedPt.x;
-      const mdy = rawY - fixedPt.y;
-      const mdist = Math.hypot(mdx, mdy);
-      if (mdist > 1e-9) {
-        newX = fixedPt.x + (mdx / mdist) * r;
-        newY = fixedPt.y + (mdy / mdist) * r;
+      /**
+       * mouse delta x -- The horizontal distance between the mouse and the fixed point.
+       */
+      const mouseDx = rawX - fixedPt.x;
+      /**
+       * mouse delta y -- The vertical distance between the mouse and the fixed point.
+       */
+      const mouseDy = rawY - fixedPt.y;
+      /**
+       * The straight line distance between the mouse and the fixed point.
+       */
+      const mouseDistance = Math.hypot(mouseDx, mouseDy);
+      if (mouseDistance > 1e-9) {
+        newX = fixedPt.x + (mouseDx / mouseDistance) * r;
+        newY = fixedPt.y + (mouseDy / mouseDistance) * r;
       }
     }
 
