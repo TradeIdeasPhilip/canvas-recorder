@@ -1517,14 +1517,11 @@ function isMarker(e: HistoryEntry): e is MarkerHistoryEntry {
 type HistoryRecord = {
   selectableKey: string;
   entries: HistoryEntry[];
-  /** Persisted preference: load this key from JSON (or ts-defaults) on next startup. */
-  sourcePointer?: { kind: "json"; filename: string } | { kind: "ts-defaults" };
 };
 
 /** Where the current in-memory state came from. */
 type LoadSource =
-  | { kind: "ts-defaults" }           // fallback — no DB record; JSON auto-load can override
-  | { kind: "ts-defaults-explicit" }  // deliberate user choice; JSON auto-load must not override
+  | { kind: "ts-defaults" }
   | { kind: "db"; timestamp: number }
   | { kind: "json"; filename: string };
 
@@ -1619,29 +1616,14 @@ async function readAllHistory(): Promise<HistoryRecord[]> {
   });
 }
 
-async function writeHistory(
-  key: string,
-  entries: HistoryEntry[],
-  sourcePointer?: HistoryRecord["sourcePointer"],
-): Promise<void> {
+async function writeHistory(key: string, entries: HistoryEntry[]): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("history", "readwrite");
-    const record: HistoryRecord = { selectableKey: key, entries };
-    if (sourcePointer !== undefined) record.sourcePointer = sourcePointer;
-    tx.objectStore("history").put(record);
+    tx.objectStore("history").put({ selectableKey: key, entries } satisfies HistoryRecord);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-}
-
-/** Reads the record for key, sets its sourcePointer, and writes it back. */
-async function persistSourcePointer(
-  key: string,
-  pointer: HistoryRecord["sourcePointer"],
-): Promise<void> {
-  const existing = await readHistory(key);
-  await writeHistory(key, existing?.entries ?? [], pointer);
 }
 
 // MARK: Load-source helpers
@@ -1681,7 +1663,6 @@ function formatLoadSource(source: LoadSource | undefined): string {
   if (!source) return "—";
   switch (source.kind) {
     case "ts-defaults":
-    case "ts-defaults-explicit":
       return "TypeScript defaults";
     case "json":
       return source.filename;
@@ -1745,8 +1726,7 @@ function writeMarkerIfNeeded(key: string): void {
     if (last && isMarker(last) && last.kind === "ts-defaults") return;
     entries.push({ timestamp: Date.now(), kind: "ts-defaults" });
     while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-    // Selecting ts-defaults clears any persisted source pointer.
-    await writeHistory(key, entries, undefined);
+    await writeHistory(key, entries);
   })();
 }
 
@@ -1788,10 +1768,7 @@ function captureDefaults(): void {
  * hot-reloads don't wipe out in-progress edits.
  * Refreshes the schedule editor for the currently visible chapter when done.
  */
-async function initFromDB(
-  unloadBackup?: string | null,
-  tsDefaultsBackup?: string | null,
-): Promise<void> {
+async function initFromDB(unloadBackup?: string | null): Promise<void> {
   // Parse the backup map synchronously before any async work, so each per-item
   // promise can apply the backup in the same async round as the DB read.
   type BackupItem = { entry: DataHistoryEntry; selectedTimestamp?: number };
@@ -1810,16 +1787,6 @@ async function initFromDB(
         : [parsed]) {
         if (!isMarker(entry)) backupMap.set(key, { entry, selectedTimestamp });
       }
-    } catch {
-      /* malformed backup — ignore */
-    }
-  }
-
-  const tsDefaultsSet = new Set<string>();
-  if (tsDefaultsBackup) {
-    try {
-      const parsed = JSON.parse(tsDefaultsBackup) as string[];
-      for (const key of parsed) tsDefaultsSet.add(key);
     } catch {
       /* malformed backup — ignore */
     }
@@ -1851,45 +1818,6 @@ async function initFromDB(
 
         let source: LoadSource;
 
-        // If this key is linked to the JSON file, check whether there are dirty
-        // user edits from the previous session (captured in the unload backup).
-        if (record?.sourcePointer?.kind === "json") {
-          if (useBackup) {
-            // User made edits after the last JSON save — those edits are in the
-            // backup but saveScheduleState may not have completed before unload.
-            // Apply the backup and clear the source pointer so future startups
-            // use IndexedDB.
-            applyJsonEntry(sel, backup!);
-            source = { kind: "db", timestamp: backup!.timestamp };
-            const backupJson = JSON.stringify({
-              schedules: backup!.schedules,
-              scalars: backup!.scalars,
-              components: backup!.components,
-              fixedComponents: backup!.fixedComponents,
-            });
-            const lastJson =
-              last && !isMarker(last)
-                ? JSON.stringify({
-                    schedules: last.schedules,
-                    scalars: last.scalars,
-                    components: last.components,
-                    fixedComponents: last.fixedComponents,
-                  })
-                : null;
-            if (backupJson !== lastJson) {
-              entries.push(backup!);
-              while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-            }
-            await writeHistory(key, entries, undefined); // clear source pointer
-          } else {
-            // No dirty edits — let the post-init JSON fetch apply this key.
-            source = { kind: "ts-defaults" };
-          }
-          loadSources.set(key, source);
-          loadedSnapshots.set(key, currentSnapshotJson(sel));
-          return;
-        }
-
         // If the previous session deliberately selected a specific DB entry
         // (not dirty, not ts-defaults), restore exactly that entry by timestamp.
         const selectedTimestamp = backupItem?.selectedTimestamp;
@@ -1908,18 +1836,8 @@ async function initFromDB(
           // Entry not in DB (pruned?) — fall through to normal backup logic
         }
 
-        if (tsDefaultsSet.has(key) && !useBackup) {
-          // The previous session explicitly selected "TypeScript defaults" for
-          // this key; honour that choice (no data entry from backup to override).
-          source = { kind: "ts-defaults-explicit" };
-        } else if (!effective) {
-          // No DB record at all — true fallback; JSON auto-load may override.
-          source = { kind: "ts-defaults" };
-        } else if (isMarker(effective) && effective.kind === "ts-defaults") {
-          // DB has a ts-defaults marker — user deliberately chose TypeScript defaults.
-          source = { kind: "ts-defaults-explicit" };
-        } else if (isMarker(effective)) {
-          // Unknown/other marker — fall back to TypeScript defaults (JSON may override).
+        if (!effective || isMarker(effective)) {
+          // No data entry in DB — file handle loading or URL fetch will apply state.
           source = { kind: "ts-defaults" };
         } else {
           // Full data entry: apply it
@@ -1946,7 +1864,7 @@ async function initFromDB(
             if (backupJson !== lastJson) {
               entries.push(backup!);
               while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-              await writeHistory(key, entries, record?.sourcePointer);
+              await writeHistory(key, entries);
             } else if (last && !isMarker(last)) {
               // Same content as the last DB entry — use its timestamp so the
               // history dialog can find it by timestamp.
@@ -2035,8 +1953,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
   while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-  // Clear any JSON source pointer — user edits are now in IndexedDB, not the JSON file.
-  await writeHistory(key, entries, undefined);
+  await writeHistory(key, entries);
 
   // Update source tracking and snapshot
   loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
@@ -2099,7 +2016,6 @@ function saveOnUnload() {
     entry: DataHistoryEntry;
     selectedTimestamp?: number;
   }[] = [];
-  const tsDefaultsKeys: string[] = [];
 
   for (const item of chapterList) {
     const sel = item.selectable;
@@ -2131,16 +2047,8 @@ function saveOnUnload() {
       const source = _preDialogSource;
       const dirty = _wasInitiallyDirty;
 
-      if (
-        (source?.kind === "ts-defaults" || source?.kind === "ts-defaults-explicit") &&
-        !dirty
-      ) {
+      if (source?.kind === "ts-defaults" && !dirty) {
         writeMarkerIfNeeded(key);
-        tsDefaultsKeys.push(key);
-        continue;
-      }
-      if (source?.kind === "json" && !dirty) {
-        // JSON is the source of truth; re-fetched on startup. No backup needed.
         continue;
       }
       const selectedTimestamp =
@@ -2172,24 +2080,13 @@ function saveOnUnload() {
     const source = loadSources.get(key);
     const dirty = isDirty(sel);
 
-    if (
-      (source?.kind === "ts-defaults" || source?.kind === "ts-defaults-explicit") &&
-      !dirty
-    ) {
+    if (source?.kind === "ts-defaults" && !dirty) {
       // Remember that the user is on TypeScript defaults, not the last DB save.
       writeMarkerIfNeeded(key);
-      tsDefaultsKeys.push(key); // synchronous backup for Vite-reload survival
       continue;
     }
 
-    if (source?.kind === "json" && !dirty) {
-      // JSON is the source of truth and will be re-fetched on startup.
-      // No sessionStorage backup needed — a stale backup would confuse initFromDB
-      // into thinking there are dirty user edits.
-      continue;
-    }
-
-    // Dirty or loaded from DB — do the normal data save.
+    // Dirty or loaded from DB/file — do the normal data save.
     const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
     const scalars = hasScalars ? serializeScalars(sel.scalars!) : undefined;
     const components = hasChildren
@@ -2228,9 +2125,6 @@ function saveOnUnload() {
   if (backups.length > 0) {
     sessionStorage.setItem("pendingScheduleSave", JSON.stringify(backups));
   }
-  if (tsDefaultsKeys.length > 0) {
-    sessionStorage.setItem("pendingTsDefaults", JSON.stringify(tsDefaultsKeys));
-  }
 }
 window.addEventListener("beforeunload", saveOnUnload);
 document.addEventListener("visibilitychange", () => {
@@ -2258,8 +2152,6 @@ let _wasInitiallyDirty = false;
 let _dialogItems: DialogListItem[] = [];
 let _selectedDialogIndex = -1;
 let _allHistoryEntries: HistoryEntry[] = [];
-/** Source pointer read from DB when the dialog opened — preserved on delete. */
-let _dialogSourcePointer: HistoryRecord["sourcePointer"];
 /** JSON snapshot fetched when the dialog opened, keyed by selectableKey. */
 let _dialogJsonData: Record<string, JsonFileEntry> | undefined;
 
@@ -2275,9 +2167,7 @@ function _dialogSelectItem(index: number, target: Showable) {
   const item = _dialogItems[index];
   const isInitial =
     item.kind === "current-unsaved" ||
-    (item.kind === "ts-defaults" &&
-      (_preDialogSource?.kind === "ts-defaults" ||
-        _preDialogSource?.kind === "ts-defaults-explicit")) ||
+    (item.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
     (item.kind === "json-entry" && _preDialogSource?.kind === "json") ||
     (item.kind === "db-entry" && item.isInitial);
   const isDeletable = item.kind === "db-entry" && !item.isInitial;
@@ -2306,9 +2196,7 @@ function _dialogSelectItem(index: number, target: Showable) {
       ? 0
       : _dialogItems.findIndex(
           (it) =>
-            (it.kind === "ts-defaults" &&
-              (_preDialogSource?.kind === "ts-defaults" ||
-                _preDialogSource?.kind === "ts-defaults-explicit")) ||
+            (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
             (it.kind === "json-entry" && _preDialogSource?.kind === "json") ||
             (it.kind === "db-entry" && it.isInitial),
         ));
@@ -2375,10 +2263,7 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
       if (_preDialogSource?.kind === "json") label += " ← initial load";
     } else if (item.kind === "ts-defaults") {
       label = "TypeScript defaults";
-      if (
-        _preDialogSource?.kind === "ts-defaults" ||
-        _preDialogSource?.kind === "ts-defaults-explicit"
-      )
+      if (_preDialogSource?.kind === "ts-defaults")
         label += " ← initial load";
     } else {
       label = new Date(item.entry.timestamp).toLocaleString();
@@ -2419,9 +2304,7 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
         ? 0
         : _dialogItems.findIndex(
             (it) =>
-              (it.kind === "ts-defaults" &&
-                (_preDialogSource?.kind === "ts-defaults" ||
-                  _preDialogSource?.kind === "ts-defaults-explicit")) ||
+              (it.kind === "ts-defaults" && _preDialogSource?.kind === "ts-defaults") ||
               (it.kind === "json-entry" && _preDialogSource?.kind === "json") ||
               (it.kind === "db-entry" && it.isInitial),
           );
@@ -2440,7 +2323,6 @@ async function openHistoryDialog(target: Showable) {
     fetchJsonSnapshot(),
   ]);
   _allHistoryEntries = record?.entries ?? [];
-  _dialogSourcePointer = record?.sourcePointer;
   _dialogJsonData = jsonResult.ok ? jsonResult.data : undefined;
 
   _rebuildDialogList(target);
@@ -2470,23 +2352,16 @@ async function _applyDialogSelection(saveOld: boolean) {
 
   // Update source tracking
   if (item.kind === "ts-defaults") {
-    loadSources.set(key, { kind: "ts-defaults-explicit" });
+    loadSources.set(key, { kind: "ts-defaults" });
     loadedSnapshots.set(key, currentSnapshotJson(target));
-    writeMarkerIfNeeded(key); // also clears sourcePointer
+    writeMarkerIfNeeded(key);
   } else if (item.kind === "db-entry") {
     loadSources.set(key, { kind: "db", timestamp: item.entry.timestamp });
     loadedSnapshots.set(key, currentSnapshotJson(target));
-    // Explicit DB selection clears any JSON source pointer.
-    void persistSourcePointer(key, undefined);
   } else if (item.kind === "json-entry") {
     const filename = `${toShowKey}.json`;
     loadSources.set(key, { kind: "json", filename });
     loadedSnapshots.set(key, currentSnapshotJson(target));
-    void persistSourcePointer(key, { kind: "json", filename });
-  } else if (item.kind === "current-unsaved") {
-    // State is already "current"; source stays what it was but snapshot updates
-    // (no change to loadSources — the unsaved state was already dirty vs the load source)
-    // After choosing "current unsaved" as a deliberate selection, nothing changes.
   }
 
   selectedSlideChild = null;
@@ -2533,7 +2408,7 @@ historyDeleteBtn.addEventListener("click", async () => {
   const key = selectableKey(target);
   sendToRecycleBin("deleted", item.entry);
   _allHistoryEntries.splice(item.entryIndex, 1);
-  await writeHistory(key, _allHistoryEntries, _dialogSourcePointer);
+  await writeHistory(key, _allHistoryEntries);
   // Rebuild list without re-computing _wasInitiallyDirty — the current
   // component state may have been altered by previewing, so calling
   // openHistoryDialog here would incorrectly flag the session as dirty.
@@ -4167,7 +4042,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
 {
   // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
-  const tsDefaultsBackup = sessionStorage.getItem("pendingTsDefaults");
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
@@ -4178,7 +4052,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   const startupJsonFetch = fetchJsonSnapshot();
   // Restore the most recent DB entry for every chapter — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
-  void initFromDB(unloadBackup, tsDefaultsBackup).then(async () => {
+  void initFromDB(unloadBackup).then(async () => {
     // Try to auto-load from the most recently saved file handle.
     const loadedFromFile = await tryLoadFromActiveFile();
 
@@ -4499,9 +4373,7 @@ async function _commitActiveFile(
   _activeFileRecord = { filename: handle.name, handle };
   _lastKnownJsonBody = body;
 
-  // Keep sourcePointer in sync (step 6 of the plan will remove this).
   const filename = handle.name;
-  const pointer: HistoryRecord["sourcePointer"] = { kind: "json", filename };
   const seen = new Set<string>();
   for (const item of chapterList) {
     const sel = item.selectable;
@@ -4511,7 +4383,6 @@ async function _commitActiveFile(
     if (!snapshot[key]) continue;
     loadSources.set(key, { kind: "json", filename });
     loadedSnapshots.set(key, currentSnapshotJson(sel));
-    void persistSourcePointer(key, pointer);
   }
   void writeActiveFileRecord(filename, handle);
   updateJsonSaveStatus();
@@ -4636,7 +4507,7 @@ function applyJsonSnapshot(
 
     if (onlyIfNoDb) {
       const src = loadSources.get(key);
-      if (src?.kind === "db" || src?.kind === "ts-defaults-explicit") continue;
+      if (src?.kind === "db") continue;
     }
 
     applyJsonEntry(sel, entry);
