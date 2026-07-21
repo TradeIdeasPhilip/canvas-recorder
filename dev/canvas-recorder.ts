@@ -670,6 +670,19 @@ playPositionSeconds.addEventListener("input", () => {
   loadPlayPositionRange();
 });
 
+// Cmd+Z / Ctrl+Z opens the history (undo) dialog when no text field is focused.
+addEventListener("keydown", (event) => {
+  if (!(event.metaKey || event.ctrlKey) || event.key !== "z") return;
+  if (
+    event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement
+  ) return;
+  event.preventDefault();
+  if (historyDialog.open) return;
+  const target = currentSaveTarget();
+  if (target) void openHistoryDialog(target);
+});
+
 addEventListener("keypress", (event) => {
   if (!event.altKey) {
     return;
@@ -1994,8 +2007,22 @@ async function saveScheduleState(selectable: Showable, force = false) {
   if (selectable.userEditableDescription !== undefined)
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
-  while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-  await writeHistory(key, entries);
+  // Deduplicate: remove older data entries whose content matches the new one,
+  // keeping only the latest copy of each unique state.
+  const lastIdx = entries.length - 1;
+  const deduped = entries.filter(
+    (e, i) =>
+      i === lastIdx ||
+      isMarker(e) ||
+      JSON.stringify({
+        schedules: (e as DataHistoryEntry).schedules,
+        scalars: (e as DataHistoryEntry).scalars,
+        components: (e as DataHistoryEntry).components,
+        fixedComponents: (e as DataHistoryEntry).fixedComponents,
+      }) !== newJson,
+  );
+  while (deduped.length > MAX_HISTORY_ENTRIES) deduped.shift();
+  await writeHistory(key, deduped);
 
   // Update source tracking and snapshot
   loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
@@ -2369,7 +2396,15 @@ async function _loadFileEntry(fileRecord: FileRecord, target: Showable): Promise
     const fullSnapshot = JSON.parse(content) as Record<string, JsonFileEntry>;
     _dialogFileStates.set(filename, { status: "loaded", fullSnapshot });
   } catch {
-    _dialogFileStates.set(filename, { status: "error" });
+    if (_activeFileRecord?.filename !== filename) {
+      // Stale handle for a non-active file — remove it silently from the DB and list.
+      void deleteFileRecord(filename);
+      _dialogFileRecords = _dialogFileRecords.filter((r) => r.filename !== filename);
+      _dialogFileStates.delete(filename);
+    } else {
+      // Active file failed: keep the record but show it red.
+      _dialogFileStates.set(filename, { status: "error" });
+    }
   }
   if (!historyDialog.open || _historyTarget !== target) return;
   _rebuildDialogList(target, _selectedDialogIndex);
@@ -4142,6 +4177,31 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     updateJsonSaveStatus();
   });
 
+  // Sanity-check DB for timestamps in the future (clock skew, corrupted data).
+  void (async () => {
+    const now = Date.now();
+    const allFileRecords = await readAllFileRecords();
+    for (const fr of allFileRecords) {
+      if (fr.savedAt > now) {
+        console.error(
+          `[sanity] File record "${fr.filename}" has a future timestamp: ${new Date(fr.savedAt).toISOString()} (now=${new Date(now).toISOString()})`,
+        );
+      }
+    }
+    for (const item of chapterList) {
+      const key = selectableKey(item.selectable);
+      const record = await readHistory(key);
+      if (!record) continue;
+      for (const entry of record.entries) {
+        if (entry.timestamp > now) {
+          console.error(
+            `[sanity] History entry for "${key}" has a future timestamp: ${new Date(entry.timestamp).toISOString()} (now=${new Date(now).toISOString()})`,
+          );
+        }
+      }
+    }
+  })();
+
   // When first loading this page, try to restore the settings from the last session.
   // So when you configure the web page, and you hit refresh, or the page automatically
   // refreshes, you don't lose your settings.
@@ -4464,9 +4524,22 @@ async function _commitActiveFile(
   updateJsonSaveStatus();
 }
 
+/** Flush every dirty selectable to IndexedDB so the DB is consistent with memory. */
+async function _flushDirtyToDb(): Promise<void> {
+  const seen = new Set<string>();
+  for (const item of chapterList) {
+    const sel = item.selectable;
+    const key = selectableKey(sel);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (isDirty(sel)) await saveScheduleState(sel);
+  }
+}
+
 /** Save button: overwrite the active file without a dialog. */
 async function saveJsonToActiveFile(): Promise<void> {
   if (!_activeFileRecord) return;
+  await _flushDirtyToDb();
   const snapshot = buildJsonSnapshot();
   const body = JSON.stringify(snapshot, null, 2);
   try {
@@ -4484,6 +4557,7 @@ async function saveJsonToActiveFile(): Promise<void> {
  * @param setActive - true for Save As (updates active file), false for Save Copy As (does not).
  */
 async function saveJsonAs(setActive: boolean): Promise<void> {
+  await _flushDirtyToDb();
   const snapshot = buildJsonSnapshot();
   const body = JSON.stringify(snapshot, null, 2);
 
@@ -4678,14 +4752,7 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
 
 async function loadFromJsonFile(): Promise<void> {
   // Flush dirty state so the load can be undone from the history dialog.
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (isDirty(sel)) await saveScheduleState(sel);
-  }
+  await _flushDirtyToDb();
 
   // Always show a picker — start in the same directory as the active file if there is one.
   let handle: FileSystemFileHandle;
