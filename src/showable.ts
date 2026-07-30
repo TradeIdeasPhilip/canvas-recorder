@@ -79,11 +79,52 @@ export type RootComponentEditor = {
 };
 
 /**
+ * This is mostly aimed at {@link ShowableParent.scheduleHasChanged}.
+ * That needs to ripple up the tree toward the root.
+ *
+ * This is pretty much all aimed at the Visual Editor.
+ * Under normal operations the children are initialized before adding them to their parents.
+ * Under normal operations nothing changes and the Showable objects are all immutable.
+ * The visual editor can make change that ripple.
+ *
+ * This pointer could be used in other places, like the MultiTextComponent which has multiple components all working together.
+ * Currently information is only pushed down to children, never up to parents.
+ */
+export type ShowableParent = {
+  /**
+   * This is set from outside.
+   * A parent is responsible for setting this value on a child when the child is added.
+   * And the parent is responsible for restoring this value to undefined when removing the child.
+   *
+   * This contains 0 or 1 values.
+   * The assumption is that it is part of a tree structure, with exactly one parent.
+   * But it might empty because is wasn't relevant to some components.
+   * In particular, this feature is new and I don't (currently) want to break any existing code and I don't (yet) know difficult the alternative would be.
+   * Also, the top level parent might be missing.
+   * That would be the main program listening for changes.
+   * But the main program is under no obligation to be available.
+   */
+  parent?: ShowableParent;
+  /**
+   * Not all {@link Showable} objects support this method.
+   * But if an object wants to be a parent it will have to implement this method.
+   * In practice the same base class will take care of both most of the time.
+   */
+  scheduleHasChanged(): void;
+};
+
+/**
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
  * Or this might be a part of the animation that will be joined with other parts.
  */
 export type Showable = {
+  calloutInfo?: { drawIn: Showable; zOrder: number; startOffset: number };
+  /**
+   * This tags item an item to say that it can be a top level component in the Visual Editor.
+   * The string value will be the key when we save this to IndexedDB or to a JSON file.
+   */
+  topLevelKey?: string;
   /**
    * How long should this effect last, in milliseconds?
    * This should be 0 or positive.
@@ -104,8 +145,58 @@ export type Showable = {
    *   disabled item).  Give such an item a nonzero duration — or use
    *   `reserve()` on the enclosing `MakeShowableInParallel` — so the series
    *   allocates time for it.
+   *
+   * See {@link Showable.setDuration} to change this value.
    */
   readonly duration: number;
+  /**
+   * *Ask* this object to change its duration.
+   *
+   * The object is allowed to refuse.
+   * For example an object might clamp all requests into a valid range.
+   * The final value might not be the initial value or the requested value.
+   * If you need to know the {@link Showable.duration} after this call, ask for it explicitly.
+   *
+   * Not all {@link Showable} objects let you change their {@link duration}.
+   * If this is `undefined`, the object's duration cannot be set from outside.
+   * Maybe it's immutable, or maybe it's set *internally* based on other things,
+   * like a serial container whose duration is the sum of all its children's durations.
+   *
+   * If this is not undefined then the Visual Editor should have access to change this value.
+   * And the value should be serialized and saved and restored.
+   * The Visual Editor (including saving and restoring) is the only reason why a duration would change.
+   * Outside of the Visual Editor, the contents of each video are basically immutable.
+   * @param newDuration Change the duration to this value.
+   */
+  setDuration?: (newDuration: number) => void;
+  /**
+   * This is set from outside.
+   * A parent is responsible for setting this value on a child when the child is added.
+   * And the parent is responsible for restoring this value to undefined when removing the child.
+   *
+   * This contains 0 or 1 values.
+   * The assumption is that it is part of a tree structure, with exactly one parent.
+   * But it might empty because is wasn't relevant to some components.
+   * In particular, this feature is new and I don't (currently) want to break any existing code and I don't (yet) know difficult the alternative would be.
+   * Also, the top level parent might be missing.
+   * That would be the main program listening for changes.
+   * But the main program is under no obligation to be available.
+   */
+  parent?: ShowableParent;
+  /**
+   * Changes should ripple up.
+   * If a container gets notified that one of its children had a change,
+   * the container should recompute anything it needs to internally, like the start times of all children.
+   * Then the container should call its own parent's scheduleHasChanged().
+   * Even if the container doesn't care about the child changing, it should still notify the parent.
+   * Someone upstream may be looking at the entire tree, not just its direct children.
+   *
+   * It is possible that this will be `undefined`.
+   * If an object does not ever change its duration or its children's start times,
+   * **and** and that's true of its descendants, then there is no reason to define this.
+   * A lot of objects were never made to be adjusted this way.
+   */
+  scheduleHasChanged?: () => void;
   /**
    * Something user friendly.
    *
@@ -147,11 +238,37 @@ export type Showable = {
    */
   userEditableDescription?: string;
   /**
-   * Aimed at a person using our development console.
-   * That type of user can navigate a tree of Showable objects.
+   * Aimed at our development console.
+   * Some children will be available in the Visual Editor.
+   * And the Visual Editor will show the tree structure to the user.
+   *
+   * Also used by the sound system.
+   * It collects soundClips by traversing this tree.
+   *
+   * Consider
+   * ```
+   * const fixedComponents =
+   *   child.children?.flatMap(({replaceable, child}) => replaceable?[]:child);
+   * ```
+   * to replace the old Showable.fixedComponents.
+   * These are items that cannot be created or removed by the Visual Editor, but can configured by the Visual Editor.
    */
   readonly children?: readonly {
+    /**
+     * The start time in milliseconds relative to the parent.
+     * Usually, but not necessarily, between 0 and duration.
+     * See PaddingComponent for an example of times out of bounds.
+     */
     readonly start: number;
+    /**
+     * These children can be removed by the Visual Editor.
+     * Other children are managed strictly by TypeScript code.
+     * The default is false.
+     *
+     * This property replaces read access to the old Showable.components array.
+     * See {@link Showable.replaceableComponents} for full access to these items.
+     */
+    readonly replaceable?: boolean;
     readonly child: Showable;
   }[];
 
@@ -182,8 +299,10 @@ export type Showable = {
    * Each component's show() is called with the parent's ShowOptions every frame.
    * When undefined the component editor is not available for this item.
    * Set to [] to opt in with an initially empty list.
+   *
+   * @deprecated TODO delete this.
    */
-  readonly components?: Showable[];
+  readonly components?: null;
 
   /**
    * TypeScript-defined list of components whose structure cannot be changed by
@@ -192,8 +311,43 @@ export type Showable = {
    * Editor.  Each item can itself carry `components` and/or `fixedComponents`.
    *
    * `undefined` and `[]` are equivalent.
+   *
+   * @deprecated TODO delete this.
    */
-  readonly fixedComponents?: readonly Showable[];
+  readonly fixedComponents?: null;
+
+  /**
+   * An interface for adding, removing or reordering subcomponents from the Visual Editor.
+   *
+   * This property is undefined if this object does not want the Visual Editor add, remove or reorder subcomponents.
+   *
+   * get() and replace() form the core functionality.
+   * Other functions can be added as a convenience on top of those.
+   * This object will probably only be implemented in one place, so this a reasonable place to add helper methods.
+   */
+  readonly replaceableComponents?: {
+    /**
+     * Creates a new array containing all of the replaceable components.
+     * This information is also available at Showable.children, but this version works well with replace().
+     *
+     * The idea is that you might have a simple, standard, specific request, like push().
+     * But for more complicated requests you could always request and array, manipulate the array using standard tools, then load the modified array.
+     * This is as general purpose as it gets.
+     */
+    get(): Showable[];
+    /**
+     * Completely replace the current subcomponents with a new list of subcomponents.
+     * @param newItems Use these subcomponents.
+     * This might or might not overlap with the current list of subcomponents.
+     * Each of these must currently be a subcomponent of this object or must currently have no parent.
+     */
+    replace(newItems: readonly Showable[]): void;
+    /**
+     *
+     * @param newItems Add each of these as subcomponents.
+     */
+    push(...newItems: Showable[]): void;
+  };
 
   /**
    * Any time a new root component is selected, see if that component has this property set.
@@ -307,6 +461,26 @@ export type ScalarInfo = {
   | { readonly type: "rectangle"; value: ReadOnlyRect }
   | { readonly type: "point"; value: Point }
 );
+
+/**
+ * A ScalarInfo constrains to the given type or types.
+ *
+ * `T` is a string that goes in the {@link ScalarInfo.type} field.
+ * Reasonable values include `"number"` or `"string"|"color"`
+ *
+ * ```
+ * const showBeforeScalar: Scalar<"select"> = {
+ *   description:"Show Before",
+ *   type: "select",
+ *   // ...
+ * };
+ * ```
+ * This type definition is optional but improves VS Code's autocomplete and type checking.
+ */
+export type Scalar<T extends ScalarInfo["type"]> = Extract<
+  ScalarInfo,
+  { type: T }
+>;
 
 export type SerializedScalar = {
   description: string;

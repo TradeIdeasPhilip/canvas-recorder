@@ -1,4 +1,5 @@
 import {
+  assertNonNullable,
   FULL_CIRCLE,
   lerp,
   polarToRectangular,
@@ -39,6 +40,8 @@ import {
 import {
   ArrowComponent,
   buildComponents,
+  ComponentWithFixedDuration,
+  ComponentWithLiveDuration,
   MultiTextComponent,
   SlideComponent,
   TextComponent,
@@ -348,14 +351,11 @@ function addToBoth(toAdd: Showable) {
    * Examples of transforms applied to text.
    * 5 versions of "hello word" in different languages.
    */
-  const slide: Showable = {
-    description: "Slide 1",
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    components: buildComponents(slide1),
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
+  const slide = new ComponentWithLiveDuration(
+    "Slide 1",
+    DEFAULT_SLIDE_DURATION_MS,
+  );
+  slide.replaceableComponents.replace(buildComponents(slide1));
   addToBoth(slide);
 }
 
@@ -1002,15 +1002,13 @@ const PEACE_AND_LOVE: Sample = {
  * Right is the transformed shape.
  * Bottom is an equation with matrices.
  */
-class BeforeAndAfter implements Showable {
+class BeforeAndAfter extends ComponentWithLiveDuration {
   private static readonly matrixLayout = new MatrixLayout(
     makeLineFontRatio(1 / 4, 1.2),
   );
   static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
   static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
-  readonly duration = 40_000;
-  readonly components: Showable[] = [];
   readonly schedules: ScheduleInfo[] = [];
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
@@ -1026,9 +1024,10 @@ class BeforeAndAfter implements Showable {
    * The default leaves the image centered on the origin with a side length of 2.
    */
   constructor(
-    public readonly description: string,
+    description: string,
     private readonly rightMostTransform: DOMMatrixReadOnly = new DOMMatrixReadOnly(),
   ) {
+    super(description, 40_000);
     this.textForTransform.rectSchedule.set({
       x: 0.5,
       y: 0.25,
@@ -1064,7 +1063,7 @@ class BeforeAndAfter implements Showable {
     { time: 1 / 4, value: PEACE_AND_LOVE.draw },
   ];
   show(options: ShowOptions) {
-    for (const child of this.components!) child.show(options);
+    super.show(options);
     const { timeInMs, context } = options;
     const globalProgress = durationKeyframes(
       timeInMs / this.duration,
@@ -1234,15 +1233,33 @@ type SingleTransform = {
   readonly formatter: TextFormatComponent;
 };
 
-class ShowTwoTransforms {
+class ShowTwoTransforms extends ComponentWithFixedDuration {
+  /**
+   * Use this to create a top level component with appropriate formatting for this object.
+   * Insert one or more ShowTwoTransforms into the resulting object, so they can share the same formatting.
+   * They do not have to be direct descendants, just descendants.
+   *
+   * This allows us to have just one copy of the formatting information to edit and save.
+   * @returns A MultiTextComponent with instructions for formatting this object.
+   */
+  makeFormatter() {
+    const result = new MultiTextComponent();
+    result.replaceableComponents.push(
+      this.left.formatter,
+      this.right.formatter,
+      this.baseFormatter,
+    );
+    return result;
+  }
   constructor(
     readonly left: SingleTransform,
     readonly right: SingleTransform,
-    baseFormatter: TextFormatComponent,
+    readonly baseFormatter: TextFormatComponent,
     whereToDraw: "left" | "right",
     readonly matrixLayout: MatrixLayout,
-    readonly duration: number,
+    duration: number,
   ) {
+    super("ShowTwoTransforms", duration);
     this.xOffset = whereToDraw == "left" ? 0 : 8;
     this.textTop = new MultiTextComponent({
       position: { x: 4 + this.xOffset, y: 0.25 },
@@ -1250,11 +1267,6 @@ class ShowTwoTransforms {
       alignment: "center",
       additionalLineHeight: 0.3,
     });
-    this.textTop.components.push(
-      left.formatter,
-      right.formatter,
-      baseFormatter,
-    );
     const leftFormatterName = left.formatter.nameScalar.value;
     const rightFormatterName = right.formatter.nameScalar.value;
     const baseFormatterName = baseFormatter.nameScalar.value;
@@ -1266,6 +1278,7 @@ class ShowTwoTransforms {
       .addText(baseFormatterName, "x, y")
       .addText(rightFormatterName, ")")
       .addText(leftFormatterName, ")");
+      this.addFixed(this.textTop);
   }
   private readonly textTop: MultiTextComponent;
   private readonly xOffset: number;
@@ -1314,6 +1327,11 @@ class ShowTwoTransforms {
       easeAfter: ease,
     },
   ];
+  recentProgress:{
+    readonly leftProgress: number;
+    readonly rightProgress: number;
+    readonly sample: Sample;
+}|undefined;
   show(options: ShowOptions) {
     const { context, timeInMs } = options;
     const globalProgress = durationKeyframes(
@@ -1326,7 +1344,6 @@ class ShowTwoTransforms {
         : [0, globalProgress.progress];
     this.left.formatter.alphaSchedule.set(leftProgress);
     this.right.formatter.alphaSchedule.set(rightProgress);
-    this.textTop.show(options);
     const matrixLayout = this.matrixLayout;
     matrixLayout.show331(
       (8 - matrixLayout.layout331.total.width) / 2 + this.xOffset,
@@ -1355,7 +1372,8 @@ class ShowTwoTransforms {
     );
     globalProgress.value.sample.draw(options);
     context.setTransform(originalTransform);
-    return {
+    super.show(options);
+    this.recentProgress= {
       leftProgress,
       rightProgress,
       sample: globalProgress.value.sample,
@@ -1383,18 +1401,17 @@ type SwapTransformSpec = Omit<SingleTransform, "formatter"> & {
  * Each of these objects exposes its colors to the Visual Editor.
  * The rest is configured completely in this TypeScript code.
  */
-class SwapTransformOrder implements Showable {
-  readonly duration = 20_000;
-  readonly components: Showable[] = [];
+class SwapTransformOrder extends ComponentWithLiveDuration {
   readonly schedules: Showable["schedules"];
   private readonly left: ShowTwoTransforms;
   private readonly right: ShowTwoTransforms;
 
   constructor(
-    public readonly description: string,
+    description: string,
     outerSpec: SwapTransformSpec,
     innerSpec: SwapTransformSpec,
   ) {
+    super(description, 20_000);
     const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
     const outerFormat = new TextFormatComponent({
       color: outerSpec.color,
@@ -1442,6 +1459,10 @@ class SwapTransformOrder implements Showable {
       matrixLayout,
       this.duration,
     );
+    const textTop = this.left.makeFormatter();
+    textTop.addFixed(this.left);
+    textTop.addFixed(this.right);
+    this.addFixed(textTop);
     this.schedules = [
       outerFormat.colorSchedule,
       innerFormat.colorSchedule,
@@ -1450,7 +1471,7 @@ class SwapTransformOrder implements Showable {
   }
 
   show(options: ShowOptions) {
-    for (const child of this.components!) child.show(options);
+    super.show(options);
     const { context } = options;
     context.lineWidth = 0.05;
     context.strokeStyle = "rgb(0 0 0 / 0.25)";
@@ -1459,8 +1480,6 @@ class SwapTransformOrder implements Showable {
     context.moveTo(8, 0.25);
     context.lineTo(8, 8.75);
     context.stroke();
-    this.left.show(options);
-    this.right.show(options);
   }
 }
 
@@ -1535,9 +1554,7 @@ addToBoth(
 
 // MARK: TextSampleAndTwoMatrices
 
-abstract class TwoMatricesRight implements Showable {
-  readonly duration = 30_000;
-  readonly components: Showable[] = [];
+abstract class TwoMatricesRight extends ComponentWithLiveDuration {
   private readonly standardDisplay: ShowTwoTransforms;
   protected leftFormat: TextFormatComponent;
   protected rightFormat: TextFormatComponent;
@@ -1550,10 +1567,11 @@ abstract class TwoMatricesRight implements Showable {
     ] as const;
   }
   constructor(
-    public readonly description: string,
+    description: string,
     readonly leftSpec: SwapTransformSpec,
     readonly rightSpec: SwapTransformSpec,
   ) {
+    super(description, 30_000);
     const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
     this.leftFormat = new TextFormatComponent({
       color: leftSpec.color,
@@ -1587,7 +1605,7 @@ abstract class TwoMatricesRight implements Showable {
       getTransform: rightSpec.getTransform,
       formatter: this.rightFormat,
     };
-    this.standardDisplay = new ShowTwoTransforms(
+    this.standardDisplay  = new ShowTwoTransforms(
       left,
       right,
       this.baseFormat,
@@ -1595,11 +1613,13 @@ abstract class TwoMatricesRight implements Showable {
       matrixLayout,
       this.duration,
     );
+    const textTop = this.standardDisplay.makeFormatter();
+    textTop.addFixed(this.standardDisplay);
+    this.addFixed(textTop);
   }
   show(options: ShowOptions) {
-    for (const child of this.components) child.show(options);
-    const status = this.standardDisplay.show(options);
-    this.showHelper(options, status);
+    super.show(options);
+    this.showHelper(options, assertNonNullable(this.standardDisplay.recentProgress));
   }
   abstract showHelper(
     options: ShowOptions,
@@ -1675,7 +1695,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right colorful", rightSpec.transformString);
     this.textTop.addText("right", `">\n`);
     this.textTop.addText(baseFormatName, `         <use href="`);
-    this.textTop.components.push(this.cssSampleName);
+    this.textTop.replaceableComponents.push(this.cssSampleName);
 
     this.textTop.addText(baseFormatName, `" />\n`);
     this.textTop.addText("right", `      </g>\n`);
@@ -1688,7 +1708,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right", "context.")
       .addText("right colorful", rightSpec.javaScriptString);
     this.textTop.addText("right", ":\n");
-    this.textTop.components.push(this.javaScriptSampleName);
+    this.textTop.replaceableComponents.push(this.javaScriptSampleName);
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
@@ -1729,7 +1749,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       rightColorfulCodeFormat.alphaSchedule.set(alpha);
       rightCodeFormat.alphaSchedule.set(alpha);
     };
-    this.textTop.components.push(
+    this.textTop.replaceableComponents.push(
       leftColorfulCodeFormat,
       leftCodeFormat,
       rightColorfulCodeFormat,
@@ -1949,7 +1969,7 @@ ${status.sample.typescript}`);
         rightColorfulCodeFormat.alphaSchedule.set(alpha);
         rightCodeFormat.alphaSchedule.set(alpha);
       };
-      this.textTop.components.push(
+      this.textTop.replaceableComponents.push(
         leftColorfulCodeFormat,
         leftCodeFormat,
         rightColorfulCodeFormat,
@@ -1998,55 +2018,84 @@ ${status.sample.typescript}`);
   });
   console.log([...xx2, ...xx3]);
   */
-
-  const tryNewItems: Showable = {
-    description: "Try New Items",
-    duration: 20_000,
-    components: [],
-    show(options) {
-      this.components?.forEach((component) => component.show(options));
-      const { context, timeInMs, globalTime } = options;
-      const progress = timeInMs / this.duration;
-      context.lineCap = "round";
-      context.lineJoin = "round";
-      context.lineWidth = 0.05;
-      strokeColors({
-        context,
-        pathShape: star5.translate(1.5, 1.5),
-        relativeOffset: globalTime / 2500,
-      });
-      context.strokeStyle = myRainbow.myBlue;
-      context.stroke(
-        splitter.trim(0, progress * splitter.length).translate(4.5, 1.5)
-          .canvasPath,
-      );
-      context.strokeStyle = "magenta";
-      context.stroke(shapeMaker(progress).translate(7.5, 1.5).canvasPath);
-      context.strokeStyle = myRainbow.cssBlue;
-      context.stroke(crossFade(progress).translate(10.5, 1.5).canvasPath);
-      context.strokeStyle = myRainbow.orange;
-      const f = durationKeyframes(progress, fourierIndex);
-      context.stroke(
-        livePathMakers[f.value](f.progress).translate(13.5, 1.5).canvasPath,
-      );
-    },
+  const tryNewItems = new ComponentWithLiveDuration("Try New Items", 20_000);
+  const baseShow = tryNewItems.show.bind(tryNewItems);
+  tryNewItems.show = function (options: ShowOptions) {
+    baseShow(options);
+    const { context, timeInMs, globalTime } = options;
+    const progress = timeInMs / this.duration;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.lineWidth = 0.05;
+    strokeColors({
+      context,
+      pathShape: star5.translate(1.5, 1.5),
+      relativeOffset: globalTime / 2500,
+    });
+    context.strokeStyle = myRainbow.myBlue;
+    context.stroke(
+      splitter.trim(0, progress * splitter.length).translate(4.5, 1.5)
+        .canvasPath,
+    );
+    context.strokeStyle = "magenta";
+    context.stroke(shapeMaker(progress).translate(7.5, 1.5).canvasPath);
+    context.strokeStyle = myRainbow.cssBlue;
+    context.stroke(crossFade(progress).translate(10.5, 1.5).canvasPath);
+    context.strokeStyle = myRainbow.orange;
+    const f = durationKeyframes(progress, fourierIndex);
+    context.stroke(
+      livePathMakers[f.value](f.progress).translate(13.5, 1.5).canvasPath,
+    );
   };
   slideList.add(tryNewItems);
 }
 
+/**
+ * This is a link between the implementation of the slides and their placement on the timeline.
+ *
+ * I'm developing each "slide" on its own.
+ * The Visual Editor can see and change and save the details of each slide separately.
+ * The timeline slide will reference the other slides; it will ask them to display themselves.
+ * But the Visual Editor will not descend into a slide to edit or save anything.
+ * This class exports its own details to the Visual Editor while hiding the details of the referenced slide.
+ *
+ * This wrapper includes low level ways to do transitions and scheduling.
+ * The object controls a transform and a way to control the timing.
+ * Those are all component properties.
+ * And there is code elsewhere that tries to guess some sane values.
+ *
+ * I'm trying something new here.
+ * I'm not sure about the details but I like the idea of referencing something in one place and developing it somewhere else.
+ * But this shouldn't be mixed with the affine transform.
+ * Consider moving the transition, including the affine transform, elsewhere.
+ * The timeline prototype already contains a wrapper around this wrapper to handle cutting and altering the speed of a clip.
+ * This design is in flux.
+ */
 class ChildWrapper extends SlideComponent {
   timeToProgressSchedule = new NumberScheduleInfo("Time to Progress", -1);
   constructor(readonly child: Showable) {
     super({ description: child.description });
-    this.schedulesInternal.unshift(this.timeToProgressSchedule);
-  }
-  protected override additionalDrawing(options: ShowOptions): void {
-    const progress = this.timeToProgressSchedule.at(options.timeInMs);
-    if (progress >= 0 && progress <= 1) {
-      const childTime = progress * this.child.duration;
-      const childOptions: ShowOptions = { ...options, timeInMs: childTime };
-      this.child.show(childOptions);
-    }
+    const timeToProgressSchedule = this.timeToProgressSchedule;
+    this.schedulesInternal.unshift(timeToProgressSchedule);
+    const disconnectedSlide: Showable = {
+      description: "Disconnected Slide",
+      duration: child.duration,
+      show(options) {
+        const progress = timeToProgressSchedule.at(options.timeInMs);
+        if (progress >= 0 && progress <= 1) {
+          const childTime = progress * child.duration;
+          const childOptions: ShowOptions = { ...options, timeInMs: childTime };
+          child.show(childOptions);
+        }
+      },
+    };
+    // Adding this so we can show the child.
+    // In simpler cases I would just override the show method.
+    // But we are currently inheriting from SlideComponent,
+    // and expecting it to take care of the transforms.
+    // TODO seperate this into two different classes, so the reference slide is a proper child of the SlideComponent.
+    // Or it's a child of a different component, they don't have to be tied together.
+    this.addFixed(disconnectedSlide);
   }
 }
 
@@ -2568,13 +2617,16 @@ class ChildWrapper extends SlideComponent {
     { time: 127_000, value: 1.5 },
     { time: 128_000, value: 1 },
   ];
-  const parallelCombination: Showable = {
-    description: "Parallel Combination",
-    duration,
-    rootComponentEditor,
-    fixedComponents: slideChildren,
-    components: [],
-    show(options) {
+  const parallelCombination = new (class extends ComponentWithLiveDuration {
+    constructor() {
+      super("Parallel Combination", duration);
+      slideChildren.forEach((childWrapper, index) => {
+        // The slides are displayed first, under any callouts (moreToShow) and/or user prototypes (replaceable children).
+        this.addFixed(childWrapper, undefined, index - Number.MAX_SAFE_INTEGER);
+      });
+    }
+    rootComponentEditor = rootComponentEditor;
+    show(options: ShowOptions) {
       MatrixLayout.bottomRowColor = interpolateColors(
         options.timeInMs,
         bottomRowColorSchedule,
@@ -2583,39 +2635,24 @@ class ChildWrapper extends SlideComponent {
         options.timeInMs,
         bottomRowBoldnessSchedule,
       );
-      this.fixedComponents!.forEach((component) => {
-        component.show(options);
+      super.show(options);
+      // Slides ↑ first then callouts ↓ on top.
+      moreToShow.forEach((toShow) => {
+        toShow.show(options);
       });
-      moreToShow.forEach((component) => {
-        component.show(options);
-      });
-      this.components?.forEach((component) => component.show(options));
-    },
-  };
+    }
+  })();
   slideList.add(parallelCombination);
 }
 
 // MARK: Blank Sides
 
-function makeEmptySlide(description: string): Showable {
-  return {
-    description,
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    /**
-     * All of these are configurable, mostly for prototypes.
-     * This tells the Visual Editor that we can add things.
-     */
-    components: [],
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
-}
-
 // Use this to make blank slides.
 // Fill them in with the Visual Editors.
 for (let i = 11; i <= 10; i++) {
-  slideList.add(makeEmptySlide(`Slide ${i}`));
+  slideList.add(
+    new ComponentWithLiveDuration(`Slide ${i}`, DEFAULT_SLIDE_DURATION_MS),
+  );
 }
 
 // MARK: Main Timeline Prototype

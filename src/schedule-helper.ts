@@ -1,4 +1,4 @@
-import { ScalarInfo } from "./showable";
+import { Scalar } from "./showable";
 import {
   discreteKeyframes,
   durationKeyframes,
@@ -285,8 +285,14 @@ export function interpolateArrow(
   schedule: readonly Keyframe<ArrowValue>[],
 ): ArrowValue {
   return {
-    flat: interpolatePoints(timeInMs, schedule.map((kf) => ({ ...kf, value: kf.value.flat }))),
-    pointy: interpolatePoints(timeInMs, schedule.map((kf) => ({ ...kf, value: kf.value.pointy }))),
+    flat: interpolatePoints(
+      timeInMs,
+      schedule.map((kf) => ({ ...kf, value: kf.value.flat })),
+    ),
+    pointy: interpolatePoints(
+      timeInMs,
+      schedule.map((kf) => ({ ...kf, value: kf.value.pointy })),
+    ),
   };
 }
 
@@ -322,7 +328,7 @@ export class PointScheduleInfo {
   at(timeInMs: number): Point {
     return interpolatePoints(timeInMs, this.schedule);
   }
-  set(overwriteWith: Point|readonly Keyframe<Point>[]) {
+  set(overwriteWith: Point | readonly Keyframe<Point>[]) {
     this.schedule.length = 0;
     if (overwriteWith instanceof Array) {
       this.schedule.push(...overwriteWith);
@@ -351,15 +357,16 @@ export class PointScheduleInfo {
   }
 }
 
+// TODO:  Remove Scalar field helpers and StringScalarInfo.
+// It's overkill.
+// See type Scalar in showable.ts, and the examples that use it.
+
 // ── Scalar field helpers ────────────────────────────────────────────────────
 // These are like the *ScheduleInfo classes above but hold a single mutable
 // value instead of a keyframe array.  They satisfy the ScalarInfo union type.
 
 /** A string scalar field. */
-export class StringScalarInfo implements Extract<
-  ScalarInfo,
-  { type: "string" }
-> {
+export class StringScalarInfo implements Scalar<"string"> {
   readonly type = "string" as const;
   value: string;
   constructor(

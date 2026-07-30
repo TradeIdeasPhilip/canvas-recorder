@@ -78,12 +78,16 @@ export function serializeComponents(components: Showable[]): SerializedChild[] {
         : [],
     };
     if (child.scalars?.length) entry.scalars = serializeScalars(child.scalars);
-    if (child.components !== undefined)
-      entry.components = serializeComponents(child.components);
+    if (child.replaceableComponents !== undefined)
+      entry.components = serializeComponents(child.replaceableComponents.get());
     if (child.userEditableDescription !== undefined)
       entry.userEditableDescription = child.userEditableDescription;
     return [entry];
   });
+}
+
+function getFixedComponents(parent:Showable) {
+return parent.children?.flatMap(({replaceable, child}) => replaceable?[]:child) ?? [];
 }
 
 /** Serializes {@link Showable.fixedComponents} — TypeScript-defined items whose
@@ -98,10 +102,11 @@ export function serializeFixedComponents(
       entry.schedules = serializeSchedules(child.schedules);
     if (child.scalars?.length)
       entry.scalars = serializeScalars(child.scalars);
-    if (child.components !== undefined)
-      entry.components = serializeComponents(child.components);
-    if (child.fixedComponents?.length)
-      entry.fixedComponents = serializeFixedComponents(child.fixedComponents);
+    if (child.replaceableComponents !== undefined)
+      entry.components = serializeComponents(child.replaceableComponents.get());
+    const fixedComponents =getFixedComponents( child);
+    if (fixedComponents.length)
+      entry.fixedComponents = serializeFixedComponents(fixedComponents);
     return entry;
   });
 }
@@ -120,12 +125,12 @@ export function applyFixedComponents(
       applyScalarSnapshot(child.scalars, sc.scalars);
     if (child.schedules?.length && sc.schedules?.length)
       applySnapshot(child.schedules, sc.schedules);
-    if (child.components !== undefined && sc.components !== undefined) {
-      child.components.length = 0;
-      child.components.push(...buildComponents(sc.components));
+    if (child.replaceableComponents !== undefined && sc.components !== undefined) {
+      child.replaceableComponents.replace(buildComponents(sc.components));
     }
-    if (child.fixedComponents?.length && sc.fixedComponents?.length)
-      applyFixedComponents(child.fixedComponents, sc.fixedComponents);
+    const childFixedComponents = getFixedComponents(child);
+    if ( childFixedComponents.length &&  sc.fixedComponents?.length)
+      applyFixedComponents(childFixedComponents, sc.fixedComponents);
   }
 }
 
@@ -140,12 +145,13 @@ export function applyJsonEntry(
   if (selectable.schedules?.length && (entry.schedules?.length ?? 0) > 0) {
     applySnapshot(selectable.schedules, entry.schedules!);
   }
-  if (selectable.components !== undefined && entry.components !== undefined) {
-    selectable.components.length = 0;
-    selectable.components.push(...buildComponents(entry.components));
+
+  if (selectable.replaceableComponents !== undefined && entry.components !== undefined) {
+    selectable.replaceableComponents.replace(buildComponents(entry.components));
   }
-  if (selectable.fixedComponents?.length && entry.fixedComponents?.length) {
-    applyFixedComponents(selectable.fixedComponents, entry.fixedComponents);
+  const selectableFixedComponents = getFixedComponents(selectable);
+  if (selectableFixedComponents?.length && entry.fixedComponents?.length) {
+    applyFixedComponents(selectableFixedComponents, entry.fixedComponents);
   }
   selectable.userEditableDescription = entry.userEditableDescription;
 }

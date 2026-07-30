@@ -13,6 +13,7 @@ import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
 import {
   buildComponents,
+  ComponentWithLiveDuration,
   componentRegistry,
   RectangleComponent,
 } from "./slide-components";
@@ -285,10 +286,12 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // MARK: Slide 1 — shape gallery
 // ---------------------------------------------------------------------------
 {
-  const slide: Showable = {
-    description: "Slide 1: Shape Gallery",
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    components: buildComponents([
+  const slide = new ComponentWithLiveDuration(
+    "Slide 1: Shape Gallery",
+    DEFAULT_SLIDE_DURATION_MS,
+  );
+  slide.replaceableComponents.replace(
+    buildComponents([
       {
         registryKey: "Nine Shapes (Shadow Test)",
         schedules: [
@@ -305,10 +308,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
         ],
       },
     ]),
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
+  );
   slideList.add(slide);
 }
 
@@ -316,10 +316,12 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // MARK: Slide 1a — Generic Container
 // ---------------------------------------------------------------------------
 {
-  const slide: Showable = {
-    description: "Slide 1a: Generic Container",
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    components: buildComponents([
+  const slide = new ComponentWithLiveDuration(
+    "Slide 1a: Generic Container",
+    DEFAULT_SLIDE_DURATION_MS,
+  );
+  slide.replaceableComponents.replace(
+    buildComponents([
       {
         registryKey: "Nine Shapes (Shadow Test)",
         schedules: [
@@ -1012,10 +1014,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
         ],
       },
     ]),
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
+  );
   slideList.add(slide);
 }
 
@@ -1023,14 +1022,7 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // MARK: Slide 1b — Generic Container
 // ---------------------------------------------------------------------------
 {
-  const slide: Showable = {
-    description: "Slide 1b: Generic Container",
-    duration: 6_000,
-    components: [],
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
+  const slide = new ComponentWithLiveDuration("Slide 1b: Generic Container", 6_000);
   slideList.add(slide);
 }
 
@@ -1038,28 +1030,25 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // MARK: Slide 2 — growing rectangle (linear width → linear shadow)
 // ---------------------------------------------------------------------------
 {
-  const slide: Showable = {
-    description: "Slide 2: Growing Rectangle",
-    duration: DEFAULT_SLIDE_DURATION_MS,
-    components: [
-      new RectangleComponent({
-        color: [
-          { time: 0, value: myRainbow.red },
-          { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
-        ],
-        rect: [
-          { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
-          {
-            time: DEFAULT_SLIDE_DURATION_MS,
-            value: { x: 1, y: 1, width: 14, height: 2 },
-          },
-        ],
-      }),
-    ],
-    show(options) {
-      for (const child of this.components!) child.show(options);
-    },
-  };
+  const slide = new ComponentWithLiveDuration(
+    "Slide 2: Growing Rectangle",
+    DEFAULT_SLIDE_DURATION_MS,
+  );
+  slide.replaceableComponents.push(
+    new RectangleComponent({
+      color: [
+        { time: 0, value: myRainbow.red },
+        { time: DEFAULT_SLIDE_DURATION_MS, value: myRainbow.yellow },
+      ],
+      rect: [
+        { time: 0, value: { x: 1, y: 1, width: 1, height: 2 } },
+        {
+          time: DEFAULT_SLIDE_DURATION_MS,
+          value: { x: 1, y: 1, width: 14, height: 2 },
+        },
+      ],
+    }),
+  );
   slideList.add(slide);
 }
 

@@ -1687,6 +1687,10 @@ function sendToRecycleBin(...args: unknown[]): void {
   console.info("🗑️ Recycle bin:", ...args);
 }
 
+function getFixedComponents(showable: Showable): Showable[] {
+  return showable.children?.flatMap(({ replaceable, child }) => replaceable ? [] : child) ?? [];
+}
+
 /** Serializes the current in-memory state of a selectable to a JSON string. */
 function currentSnapshotJson(selectable: Showable): string {
   return JSON.stringify({
@@ -1696,12 +1700,13 @@ function currentSnapshotJson(selectable: Showable): string {
     scalars: selectable.scalars?.length
       ? serializeScalars(selectable.scalars)
       : undefined,
-    components: Array.isArray(selectable.components)
-      ? serializeComponents(selectable.components)
+    components: selectable.replaceableComponents
+      ? serializeComponents(selectable.replaceableComponents.get())
       : undefined,
-    fixedComponents: selectable.fixedComponents?.length
-      ? serializeFixedComponents(selectable.fixedComponents)
-      : undefined,
+    fixedComponents: (() => {
+      const fc = getFixedComponents(selectable);
+      return fc.length ? serializeFixedComponents(fc) : undefined;
+    })(),
     userEditableDescription: selectable.userEditableDescription,
   });
 }
@@ -1801,16 +1806,17 @@ function captureDefaults(): void {
     seen.add(key);
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
-    const hasChildren = Array.isArray(sel.components);
-    const hasFixed = !!sel.fixedComponents?.length;
+    const hasChildren = sel.replaceableComponents !== undefined;
+    const fixedComponents = getFixedComponents(sel);
+    const hasFixed = fixedComponents.length > 0;
     if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
     const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren) entry.components = serializeComponents(sel.components!);
-    if (hasFixed) entry.fixedComponents = serializeFixedComponents(sel.fixedComponents!);
+    if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
+    if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
@@ -1857,8 +1863,8 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
     if (
       !sel.schedules?.length &&
       !sel.scalars?.length &&
-      !Array.isArray(sel.components) &&
-      !sel.fixedComponents?.length
+      sel.replaceableComponents === undefined &&
+      getFixedComponents(sel).length === 0
     )
       continue;
     restores.push(
@@ -1954,8 +1960,9 @@ function selectableKey(selectable: Showable): string {
 async function saveScheduleState(selectable: Showable, force = false) {
   const hasSchedules = !!selectable.schedules?.length;
   const hasScalars = !!selectable.scalars?.length;
-  const hasChildren = Array.isArray(selectable.components);
-  const hasFixed = !!selectable.fixedComponents?.length;
+  const hasChildren = selectable.replaceableComponents !== undefined;
+  const fixedComponents = getFixedComponents(selectable);
+  const hasFixed = fixedComponents.length > 0;
   if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) return;
   const key = selectableKey(selectable);
 
@@ -1973,10 +1980,10 @@ async function saveScheduleState(selectable: Showable, force = false) {
     ? serializeScalars(selectable.scalars!)
     : undefined;
   const newComponents = hasChildren
-    ? serializeComponents(selectable.components!)
+    ? serializeComponents(selectable.replaceableComponents!.get())
     : undefined;
   const newFixed = hasFixed
-    ? serializeFixedComponents(selectable.fixedComponents!)
+    ? serializeFixedComponents(fixedComponents)
     : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
@@ -2073,7 +2080,7 @@ function markDirty(): void {
 function currentSaveTarget(): Showable | null {
   const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return null;
-  if (selectable.components !== undefined) return selectable;
+  if (selectable.replaceableComponents !== undefined) return selectable;
   return selectable.schedules?.length ? selectable : null;
 }
 
@@ -2094,8 +2101,9 @@ function saveOnUnload() {
 
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
-    const hasChildren = Array.isArray(sel.components);
-    const hasFixed = !!sel.fixedComponents?.length;
+    const hasChildren = sel.replaceableComponents !== undefined;
+    const fixedComponents = getFixedComponents(sel);
+    const hasFixed = fixedComponents.length > 0;
     if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
 
     // When the history dialog is open, `sel` may contain a transient preview
@@ -2159,10 +2167,10 @@ function saveOnUnload() {
     const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
     const scalars = hasScalars ? serializeScalars(sel.scalars!) : undefined;
     const components = hasChildren
-      ? serializeComponents(sel.components!)
+      ? serializeComponents(sel.replaceableComponents!.get())
       : undefined;
     const fixed = hasFixed
-      ? serializeFixedComponents(sel.fixedComponents!)
+      ? serializeFixedComponents(fixedComponents)
       : undefined;
     // For a clean DB selection (!dirty), remember the specific timestamp the user
     // chose so the next startup can restore that exact entry without creating a
@@ -3171,8 +3179,8 @@ function serializeComponent(child: Showable): SerializedChild {
   if (child.scalars?.length) {
     entry.scalars = serializeScalars(child.scalars);
   }
-  if (child.components !== undefined) {
-    entry.components = serializeComponents(child.components);
+  if (child.replaceableComponents !== undefined) {
+    entry.components = serializeComponents(child.replaceableComponents.get());
   }
   if (child.userEditableDescription !== undefined) {
     entry.userEditableDescription = child.userEditableDescription;
@@ -3203,7 +3211,7 @@ async function pasteInto(target: Showable, selectable: Showable) {
     alert("Nothing recognized in clipboard (unknown registryKey?).");
     return;
   }
-  target.components!.push(...built);
+  target.replaceableComponents!.push(...built);
   selectedSlideChild = built[built.length - 1];
   activeRootComponentEditor?.resetAll();
   updateComponentEditor(selectable);
@@ -3211,11 +3219,11 @@ async function pasteInto(target: Showable, selectable: Showable) {
 }
 
 function updateComponentEditor(selectable: Showable) {
-  const rootComponents = selectable.components;
-  const rootFixed = selectable.fixedComponents;
+  const rootReplaceable = selectable.replaceableComponents;
+  const hasAnyChildren = (selectable.children?.length ?? 0) > 0;
   const shouldHide =
-    rootComponents === undefined &&
-    !(rootFixed && rootFixed.length > 0) &&
+    rootReplaceable === undefined &&
+    !hasAnyChildren &&
     !activeRootComponentEditorElement;
   if (shouldHide) {
     componentsEditorFieldset.replaceChildren();
@@ -3253,9 +3261,11 @@ function updateComponentEditor(selectable: Showable) {
   }
 
   function renderComponentTree(container: Showable, depth: number) {
-    const siblings = container.components ?? [];
-    for (let idx = 0; idx < siblings.length; idx++) {
-      const child = siblings[idx];
+    const replaceables = container.replaceableComponents;
+    const replList = replaceables?.get() ?? [];
+
+    for (const { child, replaceable } of container.children ?? []) {
+      const idx = replaceable ? replList.indexOf(child) : -1;
       const row = document.createElement("div");
       row.style.cssText = `display:flex;align-items:center;gap:0.4em;padding-left:${depth * 1.2}em`;
 
@@ -3272,43 +3282,66 @@ function updateComponentEditor(selectable: Showable) {
         activeRootComponentEditor?.selectionChanged(child);
       });
 
-      function moveChild(fromIdx: number, toIdx: number) {
-        const arr = container.components!;
-        const [item] = arr.splice(fromIdx, 1);
-        arr.splice(toIdx, 0, item);
-        activeRootComponentEditor?.resetAll();
-        updateComponentEditor(selectable);
+      row.append(editBtn);
+
+      if (replaceable && replaceables) {
+        const moveChild = (fromIdx: number, toIdx: number) => {
+          const arr = replaceables.get();
+          const [item] = arr.splice(fromIdx, 1);
+          arr.splice(toIdx, 0, item);
+          replaceables.replace(arr);
+          activeRootComponentEditor?.resetAll();
+          updateComponentEditor(selectable);
+        };
+
+        const topBtn = document.createElement("button");
+        topBtn.type = "button";
+        topBtn.textContent = "⤒";
+        topBtn.title = "Move to top";
+        topBtn.disabled = idx === 0;
+        topBtn.addEventListener("click", () => moveChild(idx, 0));
+
+        const upBtn = document.createElement("button");
+        upBtn.type = "button";
+        upBtn.textContent = "↑";
+        upBtn.title = "Move up";
+        upBtn.disabled = idx === 0;
+        upBtn.addEventListener("click", () => moveChild(idx, idx - 1));
+
+        const downBtn = document.createElement("button");
+        downBtn.type = "button";
+        downBtn.textContent = "↓";
+        downBtn.title = "Move down";
+        downBtn.disabled = idx === replList.length - 1;
+        downBtn.addEventListener("click", () => moveChild(idx, idx + 1));
+
+        const bottomBtn = document.createElement("button");
+        bottomBtn.type = "button";
+        bottomBtn.textContent = "⤓";
+        bottomBtn.title = "Move to bottom";
+        bottomBtn.disabled = idx === replList.length - 1;
+        bottomBtn.addEventListener("click", () =>
+          moveChild(idx, replList.length - 1),
+        );
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.textContent = "🗑";
+        deleteBtn.addEventListener("click", () => {
+          const arr = replaceables.get();
+          const i = arr.indexOf(child);
+          if (i !== -1) arr.splice(i, 1);
+          replaceables.replace(arr);
+          if (selectedSlideChild === child) {
+            selectedSlideChild = null;
+            updateScheduleEditor(selectable);
+          }
+          activeRootComponentEditor?.resetAll();
+          updateComponentEditor(selectable);
+        });
+
+        row.append(topBtn, upBtn, downBtn, bottomBtn, deleteBtn);
       }
-
-      const topBtn = document.createElement("button");
-      topBtn.type = "button";
-      topBtn.textContent = "⤒";
-      topBtn.title = "Move to top";
-      topBtn.disabled = idx === 0;
-      topBtn.addEventListener("click", () => moveChild(idx, 0));
-
-      const upBtn = document.createElement("button");
-      upBtn.type = "button";
-      upBtn.textContent = "↑";
-      upBtn.title = "Move up";
-      upBtn.disabled = idx === 0;
-      upBtn.addEventListener("click", () => moveChild(idx, idx - 1));
-
-      const downBtn = document.createElement("button");
-      downBtn.type = "button";
-      downBtn.textContent = "↓";
-      downBtn.title = "Move down";
-      downBtn.disabled = idx === siblings.length - 1;
-      downBtn.addEventListener("click", () => moveChild(idx, idx + 1));
-
-      const bottomBtn = document.createElement("button");
-      bottomBtn.type = "button";
-      bottomBtn.textContent = "⤓";
-      bottomBtn.title = "Move to bottom";
-      bottomBtn.disabled = idx === siblings.length - 1;
-      bottomBtn.addEventListener("click", () =>
-        moveChild(idx, container.components!.length - 1),
-      );
 
       const copyBtn = document.createElement("button");
       copyBtn.type = "button";
@@ -3320,33 +3353,9 @@ function updateComponentEditor(selectable: Showable) {
           .writeText(json)
           .catch(() => alert("Could not write to clipboard."));
       });
+      row.append(copyBtn);
 
-      const deleteBtn = document.createElement("button");
-      deleteBtn.type = "button";
-      deleteBtn.textContent = "🗑";
-      deleteBtn.addEventListener("click", () => {
-        const arr = container.components!;
-        const i = arr.indexOf(child);
-        if (i !== -1) arr.splice(i, 1);
-        if (selectedSlideChild === child) {
-          selectedSlideChild = null;
-          updateScheduleEditor(selectable);
-        }
-        activeRootComponentEditor?.resetAll();
-        updateComponentEditor(selectable);
-      });
-
-      row.append(
-        editBtn,
-        topBtn,
-        upBtn,
-        downBtn,
-        bottomBtn,
-        copyBtn,
-        deleteBtn,
-      );
-
-      if (child.components !== undefined) {
+      if (child.replaceableComponents !== undefined) {
         const pasteIntoBtn = document.createElement("button");
         pasteIntoBtn.type = "button";
         pasteIntoBtn.textContent = "📋 → 🖥️";
@@ -3359,61 +3368,7 @@ function updateComponentEditor(selectable: Showable) {
 
       list.append(row);
 
-      if (
-        child.components !== undefined ||
-        (child.fixedComponents?.length ?? 0) > 0
-      ) {
-        renderComponentTree(child, depth + 1);
-      }
-    }
-
-    for (const child of container.fixedComponents ?? []) {
-      const row = document.createElement("div");
-      row.style.cssText = `display:flex;align-items:center;gap:0.4em;padding-left:${depth * 1.2}em`;
-
-      const editBtn = document.createElement("button");
-      editBtn.type = "button";
-      editBtn.textContent =
-        "✎ " + (child.userEditableDescription ?? child.description);
-      editBtn.style.cssText = "flex:1;text-align:left";
-      if (child === selectedSlideChild) editBtn.style.fontWeight = "bold";
-      editBtn.addEventListener("click", () => {
-        selectedSlideChild = child;
-        updateComponentEditor(selectable);
-        updateScheduleEditor(child);
-        activeRootComponentEditor?.selectionChanged(child);
-      });
-
-      const copyBtn = document.createElement("button");
-      copyBtn.type = "button";
-      copyBtn.textContent = "🖥️ → 📋";
-      copyBtn.title = "Copy component";
-      copyBtn.addEventListener("click", () => {
-        const json = JSON.stringify([serializeComponent(child)], null, 2);
-        navigator.clipboard
-          .writeText(json)
-          .catch(() => alert("Could not write to clipboard."));
-      });
-
-      row.append(editBtn, copyBtn);
-
-      if (child.components !== undefined) {
-        const pasteIntoBtn = document.createElement("button");
-        pasteIntoBtn.type = "button";
-        pasteIntoBtn.textContent = "📋 → 🖥️";
-        pasteIntoBtn.title = `Paste into "${child.description}"`;
-        pasteIntoBtn.addEventListener("click", () =>
-          pasteInto(child, selectable),
-        );
-        row.append(pasteIntoBtn);
-      }
-
-      list.append(row);
-
-      if (
-        child.components !== undefined ||
-        (child.fixedComponents?.length ?? 0) > 0
-      ) {
+      if ((child.children?.length ?? 0) > 0) {
         renderComponentTree(child, depth + 1);
       }
     }
@@ -3441,7 +3396,11 @@ function updateComponentEditor(selectable: Showable) {
   rootCopyBtn.textContent = "🖥️ → 📋";
   rootCopyBtn.title = "Copy all components as JSON";
   rootCopyBtn.addEventListener("click", () => {
-    const json = JSON.stringify(serializeComponents(rootComponents!), null, 2);
+    const json = JSON.stringify(
+      serializeComponents(rootReplaceable!.get()),
+      null,
+      2,
+    );
     navigator.clipboard
       .writeText(json)
       .catch(() => alert("Could not write to clipboard."));
@@ -3456,7 +3415,7 @@ function updateComponentEditor(selectable: Showable) {
   );
 
   rootRow.append(rootEditBtn);
-  if (rootComponents !== undefined) rootRow.append(rootCopyBtn, rootPasteBtn);
+  if (rootReplaceable !== undefined) rootRow.append(rootCopyBtn, rootPasteBtn);
   list.append(rootRow);
 
   renderComponentTree(selectable as Showable, 0);
@@ -3466,10 +3425,10 @@ function updateComponentEditor(selectable: Showable) {
   // addTarget: where the new component goes (null = add button disabled).
   const addTarget: Showable | null =
     selectedSlideChild === null
-      ? rootComponents !== undefined
+      ? rootReplaceable !== undefined
         ? (selectable as Showable)
         : null
-      : selectedSlideChild.components !== undefined
+      : selectedSlideChild.replaceableComponents !== undefined
         ? selectedSlideChild
         : null;
 
@@ -3502,7 +3461,7 @@ function updateComponentEditor(selectable: Showable) {
     const factory = componentRegistry.get(addSelect.value);
     if (!factory) return;
     const newChild = factory();
-    addTarget.components!.push(newChild);
+    addTarget.replaceableComponents!.push(newChild);
     selectedSlideChild = newChild;
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(selectable);
@@ -4477,15 +4436,16 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
 
     const hasSchedules = !!sel.schedules?.length;
     const hasScalars = !!sel.scalars?.length;
-    const hasChildren = Array.isArray(sel.components);
-    const hasFixed = !!sel.fixedComponents?.length;
+    const hasChildren = sel.replaceableComponents !== undefined;
+    const fixedComponents = getFixedComponents(sel);
+    const hasFixed = fixedComponents.length > 0;
     if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
 
     const entry: JsonFileEntry = {};
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren) entry.components = serializeComponents(sel.components!);
-    if (hasFixed) entry.fixedComponents = serializeFixedComponents(sel.fixedComponents!);
+    if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
+    if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     result[key] = entry;

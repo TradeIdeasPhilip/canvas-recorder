@@ -3,7 +3,7 @@
 We need a “main” timeline.
 Deleting something or resizing something automatically moves everything later in the timeline, like the main timeline in CapCut (and others).
 A.k.a. "ripple effect".
-The first item starts at 0.
+The first item starts at time = 0.
 Each item starts exactly where the previous item ends.
 The items are all Showable objects and the main timelines always displays exactly one of these items at a time.
 
@@ -94,7 +94,7 @@ I want a straw man to build on.
 
 I’m trying to answer a related big picture question.  The Visual Editor is making it easier and easier to change things that used to be fixed.  I don’t have a plan for how to implement that cleanly.  I’m brainstorming and thinking out loud.  Please help.
 
-The big question:  How do I notify listeners or changes and when and how granular?  I can imagine one big event that tells anyone who is listening that a change has been made, and a simple wrapper around that so it doesn’t fire more than once per event, or maybe not until the next animation frame callback.  We are building more and more complicated data that needs to be updated.  If I want to be able to link things in a useful way, we’ll have a tree of dependencies.
+The big question:  How do I notify listeners of changes and when and how granularly?  I can imagine one big event that tells anyone who is listening that a change has been made, and a simple wrapper around that so it doesn’t fire more than once per event, or maybe not until the next animation frame callback.  We are building more and more complicated data that needs to be updated.  If I want to be able to link things in a useful way, we’ll have a tree of dependencies.
 
 If I make the first scene one frame longer, that causes everything else in the project, almost the entire project, to rebuild itself.  And that’s not terrible, but is that the right design?  A lot of this code in is project was designed to be created just once.  A schedule is an efficient way to organize things if you only create it once.  Now I’m thinking that I have to rebuild a lot of schedules from scratch each time we make a change via the Visual Editor.
 
@@ -122,7 +122,7 @@ Are we dealing with the graph only on Visual Editor events, or every time we ren
 
 I worry a lot about things we have to do on every frame.  Mostly because it’s annoying.  There’s a lot of code that I used to do once at startup, but now I have to do it every frame because it’s possible that someone changed it in the visual editor.  The performance issues aren’t terrible, but I have to think about this problem in a lot of places.  One common approach is to cache a lot of the work and only rebuild when we have to.  That’s clever and it solves the performance issues well in practice.  But it’s more code to write and think about.
 
-I was originally worried about the performance of the screen updates.  That’s actually the easy part!  In practice most of my stuff runs in realtime, faster than the encoder can write a file.  And when frames run a little long, I seldom notice.  My simple system of just drawing a frame for the current time (assuming time is continuous) is very robust.  However, when I’m dragging a control across the screen, that’s when I’d notice a slow response.  That’s the rarer case, but we need to do the most optimization for the cases when someone is dragging the mouse.
+I was originally worried about the performance of the screen updates.  That’s actually the easy part!  In practice most of my stuff runs in realtime, faster than the encoder can write a file.  And when frames run a little long, I seldom notice.  My simple system of just drawing a frame for the current time (pretending that time is continuous) is very robust.  However, when I’m dragging a control across the screen, that’s when I’d notice a slow response.  That’s the rarer case, but we need to do the most optimization for the cases when someone is dragging the mouse.
 
 Use case:
 The user changes a value in the Visual Editor.
@@ -178,6 +178,8 @@ I suspect this will be sufficient for now.
 
 I can imagine drawing a vertical line connecting each sound clip to a slide wrapper or a transition.
 We are attaching one point in the sound clip to one point in the slide.
+(These are now diagonal lines!
+The start of the sound clip is attached to some point in a slide wrapper or transition.)
 
 ~~In some cases we might be making an attachment before or after an element is playing.
 That might make the timeline GUI a little bit tricky.
