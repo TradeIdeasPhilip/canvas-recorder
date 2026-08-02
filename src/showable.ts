@@ -281,9 +281,9 @@ export type Showable = {
 
   /**
    * Scalar (non-time-varying) fields displayed and edited in the Visual Editor,
-   * rendered above {@link schedules}.  Unlike schedules, each field holds a
-   * single mutable `value`.  Consider importing from `schedule-helper.ts` to
-   * create scalar infos.
+   * shown immediately above the {@link schedules}.
+   * Unlike schedules, each field holds a single mutable `value`.
+   * Notice the {@link Scalar}\<T> type.
    */
   readonly scalars?: readonly ScalarInfo[];
 

@@ -380,7 +380,7 @@ export class BinaryInserter<T> extends BinarySearcher<T> {
    * Search and modify this data.
    * @returns A new BinaryInserter
    */
-  static simple<T extends Key>(writableArray: T[]) {
+  static override simple<T extends Key>(writableArray: T[]) {
     return new this((x) => x, writableArray);
   }
   /**
@@ -390,7 +390,7 @@ export class BinaryInserter<T> extends BinarySearcher<T> {
    * The field must be of type number or BigInt.
    * @returns  A new `BinaryInserter` that uses the given field name to extract key values.
    */
-  static keyField<
+  static override keyField<
     T,
     FieldName extends keyof {
       [P in keyof T as T[P] extends Key ? P : never]: unknown;
@@ -453,7 +453,7 @@ export class BinaryInserter<T> extends BinarySearcher<T> {
     })();
     return this.writableArray.splice(first, deleteCount, item);
   }
-  static test() {
+  static override test() {
     const myArray = [
       { key: 1, value: "a" },
       { key: 3, value: "c" },

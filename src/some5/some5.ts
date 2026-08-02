@@ -1,5 +1,6 @@
 import {
   assertNonNullable,
+  FIGURE_SPACE,
   FULL_CIRCLE,
   lerp,
   polarToRectangular,
@@ -42,11 +43,14 @@ import {
   buildComponents,
   ComponentWithFixedDuration,
   ComponentWithLiveDuration,
+  InParallelComponent,
   MultiTextComponent,
+  PaddingComponent,
   SlideComponent,
   TextComponent,
   TextFormatComponent,
   TextSpanComponent,
+  TraditionalTextComponent,
 } from "../slide-components";
 import slide1 from "./slide1.json";
 import {
@@ -1009,7 +1013,6 @@ class BeforeAndAfter extends ComponentWithLiveDuration {
   static readonly GRID_CYAN = "rgba(0%, 80%, 80%, 50%)";
   static readonly GRID_YELLOW = "rgba(80%, 80%, 0%, 0.5)";
   static readonly GRID_GREEN = "rgba(0%, 80%, 0%, 50%)";
-  readonly schedules: ScheduleInfo[] = [];
   readonly textForTransform = new TextComponent();
   readonly originalPoint: Point;
   /**
@@ -1062,7 +1065,7 @@ class BeforeAndAfter extends ComponentWithLiveDuration {
     { time: 1 / 4, value: FOURIER_STAR.draw },
     { time: 1 / 4, value: PEACE_AND_LOVE.draw },
   ];
-  show(options: ShowOptions) {
+  override show(options: ShowOptions) {
     super.show(options);
     const { timeInMs, context } = options;
     const globalProgress = durationKeyframes(
@@ -1278,7 +1281,7 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
       .addText(baseFormatterName, "x, y")
       .addText(rightFormatterName, ")")
       .addText(leftFormatterName, ")");
-      this.addFixed(this.textTop);
+    this.addFixed({ child: this.textTop });
   }
   private readonly textTop: MultiTextComponent;
   private readonly xOffset: number;
@@ -1327,12 +1330,14 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
       easeAfter: ease,
     },
   ];
-  recentProgress:{
-    readonly leftProgress: number;
-    readonly rightProgress: number;
-    readonly sample: Sample;
-}|undefined;
-  show(options: ShowOptions) {
+  recentProgress:
+    | {
+        readonly leftProgress: number;
+        readonly rightProgress: number;
+        readonly sample: Sample;
+      }
+    | undefined;
+  override show(options: ShowOptions) {
     const { context, timeInMs } = options;
     const globalProgress = durationKeyframes(
       timeInMs / this.duration,
@@ -1373,7 +1378,7 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
     globalProgress.value.sample.draw(options);
     context.setTransform(originalTransform);
     super.show(options);
-    this.recentProgress= {
+    this.recentProgress = {
       leftProgress,
       rightProgress,
       sample: globalProgress.value.sample,
@@ -1402,7 +1407,6 @@ type SwapTransformSpec = Omit<SingleTransform, "formatter"> & {
  * The rest is configured completely in this TypeScript code.
  */
 class SwapTransformOrder extends ComponentWithLiveDuration {
-  readonly schedules: Showable["schedules"];
   private readonly left: ShowTwoTransforms;
   private readonly right: ShowTwoTransforms;
 
@@ -1460,17 +1464,17 @@ class SwapTransformOrder extends ComponentWithLiveDuration {
       this.duration,
     );
     const textTop = this.left.makeFormatter();
-    textTop.addFixed(this.left);
-    textTop.addFixed(this.right);
-    this.addFixed(textTop);
-    this.schedules = [
+    textTop.addFixed({ child: this.left });
+    textTop.addFixed({ child: this.right });
+    this.addFixed({ child: textTop });
+    this.schedules.push(
       outerFormat.colorSchedule,
       innerFormat.colorSchedule,
       baseFormat.colorSchedule,
-    ];
+    );
   }
 
-  show(options: ShowOptions) {
+  override show(options: ShowOptions) {
     super.show(options);
     const { context } = options;
     context.lineWidth = 0.05;
@@ -1559,13 +1563,6 @@ abstract class TwoMatricesRight extends ComponentWithLiveDuration {
   protected leftFormat: TextFormatComponent;
   protected rightFormat: TextFormatComponent;
   protected baseFormat: TextFormatComponent;
-  get schedules() {
-    return [
-      this.leftFormat.colorSchedule,
-      this.rightFormat.colorSchedule,
-      this.baseFormat.colorSchedule,
-    ] as const;
-  }
   constructor(
     description: string,
     readonly leftSpec: SwapTransformSpec,
@@ -1591,6 +1588,7 @@ abstract class TwoMatricesRight extends ComponentWithLiveDuration {
     [this.leftFormat, this.rightFormat, this.baseFormat].forEach(
       (formatter) => {
         formatter.colorSchedule.description = formatter.nameScalar.value;
+        this.schedules.push(formatter.colorSchedule);
       },
     );
     const left: SingleTransform = {
@@ -1605,7 +1603,7 @@ abstract class TwoMatricesRight extends ComponentWithLiveDuration {
       getTransform: rightSpec.getTransform,
       formatter: this.rightFormat,
     };
-    this.standardDisplay  = new ShowTwoTransforms(
+    this.standardDisplay = new ShowTwoTransforms(
       left,
       right,
       this.baseFormat,
@@ -1614,12 +1612,15 @@ abstract class TwoMatricesRight extends ComponentWithLiveDuration {
       this.duration,
     );
     const textTop = this.standardDisplay.makeFormatter();
-    textTop.addFixed(this.standardDisplay);
-    this.addFixed(textTop);
+    textTop.addFixed({ child: this.standardDisplay });
+    this.addFixed({ child: textTop });
   }
-  show(options: ShowOptions) {
+  override show(options: ShowOptions) {
     super.show(options);
-    this.showHelper(options, assertNonNullable(this.standardDisplay.recentProgress));
+    this.showHelper(
+      options,
+      assertNonNullable(this.standardDisplay.recentProgress),
+    );
   }
   abstract showHelper(
     options: ShowOptions,
@@ -1982,6 +1983,46 @@ ${status.sample.typescript}`);
   addToBoth(Slide13.instance);
 }
 
+// MARK: Frame Counter
+
+class FrameCounter extends TraditionalTextComponent {
+  constructor(
+    initialValues: Omit<
+      NonNullable<ConstructorParameters<typeof TraditionalTextComponent>[0]>,
+      "text"
+    > = {},
+  ) {
+    initialValues.fontFamily ??= "Source Code Pro";
+    initialValues.textAlign ??= "right";
+    super(initialValues);
+  }
+  override show(options: ShowOptions): void {
+    let text = "";
+    const timeInMs = options.timeInMs;
+    if (timeInMs < 0) {
+      text = "-";
+    } else if (timeInMs > this.duration) {
+      text = "+";
+    }
+    const minutesAndMore = Math.abs(timeInMs);
+    const secondsAndMore = minutesAndMore % 60_000;
+    const fractionalSeconds = secondsAndMore % 1_000;
+    const minutes = (minutesAndMore - secondsAndMore) / 60_000;
+    const seconds = (secondsAndMore - fractionalSeconds) / 1_000;
+    // On a healthy system I'd expect the frame to increment by one (modulo 60) on each animation frame.
+    // I wouldn't want to rely on that for a number of reasons, but it should per perfect for debugging.
+    const frame = Math.floor((fractionalSeconds * 60) / 1_000);
+    text += minutes.toLocaleString();
+    text += ":";
+    text += seconds.toString().padStart(2, "0");
+    text += " ";
+    text += frame.toString().padStart(2, FIGURE_SPACE);
+    text += "/60";
+    this.textSchedule.set(text);
+    super.show(options);
+  }
+}
+
 // MARK: Try New Items
 {
   const star5 = makePolygon(5, 1, undefined, 0).transform(
@@ -2047,6 +2088,37 @@ ${status.sample.typescript}`);
       livePathMakers[f.value](f.progress).translate(13.5, 1.5).canvasPath,
     );
   };
+  ["one", "dos", "3", "four", "5"].forEach((text, index) => {
+    const textComponent = new TextComponent({ minDuration: 3_000, text });
+    const paddingComponent = new PaddingComponent({
+      initialTime: (1 + index) * 3000,
+      description: `${text} wrapper`,
+      showAfter: "hide",
+    });
+    paddingComponent.addFixed({ child: textComponent });
+    tryNewItems.addFixed({ child: paddingComponent });
+  });
+  {
+    const frameCounter = new FrameCounter();
+    const paddingComponent = new PaddingComponent({
+      initialTime: 3000,
+      description: `frameCounter wrapper`,
+      showBefore: "live",
+      showAfter: "live",
+    });
+    paddingComponent.addFixed({ child: frameCounter });
+    tryNewItems.addFixed({ child: paddingComponent });
+  }
+  {
+    const container = new InParallelComponent("test in parallel");
+    tryNewItems.addFixed({ child: container });
+    const padding = new PaddingComponent({
+      description: "Padding Component 👍",
+      initialTime: 5_000,
+      showBefore: "hide",
+      showAfter: "freeze",
+    });
+  }
   slideList.add(tryNewItems);
 }
 
@@ -2076,7 +2148,7 @@ class ChildWrapper extends SlideComponent {
   constructor(readonly child: Showable) {
     super({ description: child.description });
     const timeToProgressSchedule = this.timeToProgressSchedule;
-    this.schedulesInternal.unshift(timeToProgressSchedule);
+    this.schedules.unshift(timeToProgressSchedule);
     const disconnectedSlide: Showable = {
       description: "Disconnected Slide",
       duration: child.duration,
@@ -2095,7 +2167,7 @@ class ChildWrapper extends SlideComponent {
     // and expecting it to take care of the transforms.
     // TODO seperate this into two different classes, so the reference slide is a proper child of the SlideComponent.
     // Or it's a child of a different component, they don't have to be tied together.
-    this.addFixed(disconnectedSlide);
+    this.addFixed({ child: disconnectedSlide });
   }
 }
 
@@ -2497,7 +2569,7 @@ class ChildWrapper extends SlideComponent {
     );
     // Transformed point in the image:
     class RightCornerArrow extends SimpleArrow {
-      show(options: ShowOptions): void {
+      override show(options: ShowOptions): void {
         this.pointyEnd.y = 3.75 + slide3.transformedPoint.y;
         super.show(options);
       }
@@ -2569,7 +2641,7 @@ class ChildWrapper extends SlideComponent {
       }),
     );
     class RightCornerArrow2 extends SimpleArrow {
-      show(options: ShowOptions): void {
+      override show(options: ShowOptions): void {
         this.pointyEnd.x = 12 + slide4.transformedPoint.x;
         super.show(options);
       }
@@ -2622,11 +2694,15 @@ class ChildWrapper extends SlideComponent {
       super("Parallel Combination", duration);
       slideChildren.forEach((childWrapper, index) => {
         // The slides are displayed first, under any callouts (moreToShow) and/or user prototypes (replaceable children).
-        this.addFixed(childWrapper, undefined, index - Number.MAX_SAFE_INTEGER);
+        this.addFixed({
+          child: childWrapper,
+          padding: undefined,
+          zOrder: index - Number.MAX_SAFE_INTEGER,
+        });
       });
     }
     rootComponentEditor = rootComponentEditor;
-    show(options: ShowOptions) {
+    override show(options: ShowOptions) {
       MatrixLayout.bottomRowColor = interpolateColors(
         options.timeInMs,
         bottomRowColorSchedule,

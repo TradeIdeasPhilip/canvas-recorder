@@ -22,6 +22,7 @@ export type SerializedFixedChild = {
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
   fixedComponents?: SerializedFixedChild[];
+  duration?: number;
 };
 
 /** File format: one entry per selectable that has editable state. No timestamps. */
@@ -32,6 +33,7 @@ export type JsonFileEntry = {
   /** Editable state of {@link Showable.fixedComponents} items, matched by description. */
   fixedComponents?: SerializedFixedChild[];
   userEditableDescription?: string;
+  duration?: number;
 };
 
 export function easeName(fn: ((t: number) => number) | undefined): string | undefined {
@@ -82,6 +84,8 @@ export function serializeComponents(components: Showable[]): SerializedChild[] {
       entry.components = serializeComponents(child.replaceableComponents.get());
     if (child.userEditableDescription !== undefined)
       entry.userEditableDescription = child.userEditableDescription;
+    if (child.setDuration !== undefined)
+      entry.duration = child.duration;
     return [entry];
   });
 }
@@ -104,9 +108,11 @@ export function serializeFixedComponents(
       entry.scalars = serializeScalars(child.scalars);
     if (child.replaceableComponents !== undefined)
       entry.components = serializeComponents(child.replaceableComponents.get());
-    const fixedComponents =getFixedComponents( child);
+    const fixedComponents = getFixedComponents(child);
     if (fixedComponents.length)
       entry.fixedComponents = serializeFixedComponents(fixedComponents);
+    if (child.setDuration !== undefined)
+      entry.duration = child.duration;
     return entry;
   });
 }
@@ -129,8 +135,9 @@ export function applyFixedComponents(
       child.replaceableComponents.replace(buildComponents(sc.components));
     }
     const childFixedComponents = getFixedComponents(child);
-    if ( childFixedComponents.length &&  sc.fixedComponents?.length)
+    if (childFixedComponents.length && sc.fixedComponents?.length)
       applyFixedComponents(childFixedComponents, sc.fixedComponents);
+    if (sc.duration !== undefined) child.setDuration?.(sc.duration);
   }
 }
 
@@ -153,5 +160,6 @@ export function applyJsonEntry(
   if (selectableFixedComponents?.length && entry.fixedComponents?.length) {
     applyFixedComponents(selectableFixedComponents, entry.fixedComponents);
   }
+  if (entry.duration !== undefined) selectable.setDuration?.(entry.duration);
   selectable.userEditableDescription = entry.userEditableDescription;
 }

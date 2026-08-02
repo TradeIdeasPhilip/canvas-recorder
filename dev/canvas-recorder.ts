@@ -27,6 +27,7 @@ import {
   SerializedScalar,
   SerializedSchedule,
   Showable,
+  ShowableParent,
   VisualEditorAPI,
 } from "../src/showable.ts";
 import {
@@ -1364,6 +1365,47 @@ let draggingArrowConstraint: "none" | "axial" | "radial" = "none";
  *  Cleared whenever {@link updateScheduleEditor} rebuilds the table. */
 const goToButtonUpdaters: Array<() => void> = [];
 
+/**
+ * Callbacks that sync duration `<input>` elements to their Showable's current
+ * duration.  Each callback skips the update if its input has focus (to avoid
+ * clobbering an in-progress drag or keystroke).
+ * Cleared and repopulated whenever {@link updateComponentEditor} rebuilds.
+ */
+const durationSyncCallbacks: Array<() => void> = [];
+
+/** The selectable whose `.parent` is currently set to {@link veRootParent}. */
+let _veRootSelectable: Showable | undefined;
+
+let _durationAudioTimer: ReturnType<typeof setTimeout> | undefined;
+
+/**
+ * Synthetic {@link ShowableParent} that acts as the root of the editable tree.
+ * When a selectable's `scheduleHasChanged()` chain reaches this object we:
+ * - refresh all visible duration inputs,
+ * - kick the auto-save / dirty-status machinery, and
+ * - debounce an audio reload.
+ */
+const veRootParent: ShowableParent = {
+  scheduleHasChanged() {
+    for (const cb of durationSyncCallbacks) cb();
+    markDirty();
+    clearTimeout(_durationAudioTimer);
+    _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+  },
+};
+
+/** Wire `selectable` as the current VE root, unparenting the previous one. */
+function setVeRoot(selectable: Showable): void {
+  if (_veRootSelectable === selectable) return;
+  if (_veRootSelectable?.parent === veRootParent) {
+    _veRootSelectable.parent = undefined;
+  }
+  _veRootSelectable = selectable;
+  if (selectable.parent === undefined) {
+    selectable.parent = veRootParent;
+  }
+}
+
 // MARK: Component Editor
 
 /** Maps dynamically-added component instances back to their registry key for serialization. */
@@ -1515,6 +1557,7 @@ type DataHistoryEntry = {
   components?: SerializedChild[];
   fixedComponents?: SerializedFixedChild[];
   userEditableDescription?: string;
+  duration?: number;
 };
 /** Marker written when the user deliberately chooses TypeScript defaults. */
 type MarkerHistoryEntry = {
@@ -1708,6 +1751,7 @@ function currentSnapshotJson(selectable: Showable): string {
       return fc.length ? serializeFixedComponents(fc) : undefined;
     })(),
     userEditableDescription: selectable.userEditableDescription,
+    duration: selectable.setDuration !== undefined ? selectable.duration : undefined,
   });
 }
 
@@ -1809,7 +1853,8 @@ function captureDefaults(): void {
     const hasChildren = sel.replaceableComponents !== undefined;
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
+    const hasDuration = sel.setDuration !== undefined;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) continue;
     const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
@@ -1817,6 +1862,7 @@ function captureDefaults(): void {
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
     if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
+    if (hasDuration) entry.duration = sel.duration;
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
@@ -1963,7 +2009,8 @@ async function saveScheduleState(selectable: Showable, force = false) {
   const hasChildren = selectable.replaceableComponents !== undefined;
   const fixedComponents = getFixedComponents(selectable);
   const hasFixed = fixedComponents.length > 0;
-  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) return;
+  const hasDuration = selectable.setDuration !== undefined;
+  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) return;
   const key = selectableKey(selectable);
 
   // Skip auto-saving when state is clean — content matches what was loaded,
@@ -1985,11 +2032,13 @@ async function saveScheduleState(selectable: Showable, force = false) {
   const newFixed = hasFixed
     ? serializeFixedComponents(fixedComponents)
     : undefined;
+  const newDuration = hasDuration ? selectable.duration : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
     scalars: newScalars,
     components: newComponents,
     fixedComponents: newFixed,
+    duration: newDuration,
   });
   // Skip saving if nothing changed since the last data entry.
   const last = entries.findLast((e) => !isMarker(e)) as
@@ -2001,6 +2050,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
       scalars: last.scalars,
       components: last.components,
       fixedComponents: last.fixedComponents,
+      duration: last.duration,
     });
     if (prevJson === newJson) return;
   }
@@ -2011,6 +2061,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
   if (newScalars !== undefined) entry.scalars = newScalars;
   if (newComponents !== undefined) entry.components = newComponents;
   if (newFixed !== undefined) entry.fixedComponents = newFixed;
+  if (newDuration !== undefined) entry.duration = newDuration;
   if (selectable.userEditableDescription !== undefined)
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
@@ -3185,6 +3236,9 @@ function serializeComponent(child: Showable): SerializedChild {
   if (child.userEditableDescription !== undefined) {
     entry.userEditableDescription = child.userEditableDescription;
   }
+  if (child.setDuration !== undefined) {
+    entry.duration = child.duration;
+  }
   return entry;
 }
 
@@ -3219,6 +3273,8 @@ async function pasteInto(target: Showable, selectable: Showable) {
 }
 
 function updateComponentEditor(selectable: Showable) {
+  setVeRoot(selectable);
+  durationSyncCallbacks.length = 0;
   const rootReplaceable = selectable.replaceableComponents;
   const hasAnyChildren = (selectable.children?.length ?? 0) > 0;
   const shouldHide =
@@ -3260,6 +3316,27 @@ function updateComponentEditor(selectable: Showable) {
     list.append(activeRootComponentEditorElement);
   }
 
+  /** Build a duration input for `child` and register a sync callback. */
+  function makeDurationInput(child: Showable): HTMLInputElement {
+    const input = document.createElement("input");
+    input.type = "number";
+    input.min = "0";
+    input.step = "1";
+    input.title = "Duration (ms)";
+    input.style.cssText = "width:5.5em";
+    input.value = String(child.duration);
+    input.addEventListener("change", () => {
+      child.setDuration!(input.valueAsNumber);
+      input.value = String(child.duration);
+    });
+    durationSyncCallbacks.push(() => {
+      if (document.activeElement !== input) {
+        input.value = String(child.duration);
+      }
+    });
+    return input;
+  }
+
   function renderComponentTree(container: Showable, depth: number) {
     const replaceables = container.replaceableComponents;
     const replList = replaceables?.get() ?? [];
@@ -3283,6 +3360,10 @@ function updateComponentEditor(selectable: Showable) {
       });
 
       row.append(editBtn);
+
+      if (child.setDuration !== undefined) {
+        row.append(makeDurationInput(child));
+      }
 
       if (replaceable && replaceables) {
         const moveChild = (fromIdx: number, toIdx: number) => {
@@ -3415,6 +3496,9 @@ function updateComponentEditor(selectable: Showable) {
   );
 
   rootRow.append(rootEditBtn);
+  if (selectable.setDuration !== undefined) {
+    rootRow.append(makeDurationInput(selectable));
+  }
   if (rootReplaceable !== undefined) rootRow.append(rootCopyBtn, rootPasteBtn);
   list.append(rootRow);
 
@@ -4439,13 +4523,15 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
     const hasChildren = sel.replaceableComponents !== undefined;
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
+    const hasDuration = sel.setDuration !== undefined;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) continue;
 
     const entry: JsonFileEntry = {};
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
     if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
     if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
+    if (hasDuration) entry.duration = sel.duration;
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     result[key] = entry;

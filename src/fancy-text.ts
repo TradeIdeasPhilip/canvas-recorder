@@ -137,7 +137,7 @@ export class MultiColorPathElement extends PathElement {
     super(commonSettings, pathShape);
   }
   animator(showOptions: ShowOptions) {}
-  show(showOptions: ShowOptions): void {
+  override show(showOptions: ShowOptions): void {
     this.animator(showOptions);
     this.applySettings(showOptions.context);
     strokeColors({

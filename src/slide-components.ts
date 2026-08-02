@@ -4,6 +4,8 @@ import {
   applyScalarSnapshot,
   applySnapshot,
   Scalar,
+  ScalarInfo,
+  ScheduleInfo,
   SerializedScalar,
   SerializedSchedule,
   Showable,
@@ -21,7 +23,6 @@ import {
   ArrowScheduleInfo,
   ArrowValue,
   ColorScheduleInfo,
-  NumberDurationScheduleInfo,
   NumberScheduleInfo,
   PointScheduleInfo,
   RectangleScheduleInfo,
@@ -31,6 +32,8 @@ import {
 } from "./schedule-helper";
 import { PathShape, Point } from "./glib/path-shape";
 import { BinaryInserter } from "./binary-search";
+
+// MARK: showError()
 
 const errorFont = makeLineFont(1);
 
@@ -58,11 +61,750 @@ export function showError(context: CanvasRenderingContext2D, text: string) {
   context.stroke(path);
 }
 
+// MARK: In Parallel
+// Strictly speaking, components do not have to be classes.
+// They only have to implement Showable.
+// However, if you plan to have children that the Visual Editor can add and remove,
+// you almost certainly want to subclass ComponentWith*Duration or InParallelComponent,
+// instead of starting from scratch.
+// Also, making this a class makes it easy for a programmer to access all of the schedules.
+// These are like properties of an html element or a Delphi control.
+// A programmer might want to read or change these at runtime.
+// The Visual Editor can dynamically inspect the list of schedules.
+// But a programmer shouldn't *have to* use the dynamic interface.
+// Instead, properties have names, object.propertyName, along with types and JSDoc comments.
+// This works whether you recently created a TraditionalTextComponent:
+//     const sample = new TraditionalTextComponent();
+//     const fontFamily = sample.fontFamilySchedule.at(0 /* timeInMs*/);
+//     const x = sample.schedules[1].at(0).x;
+// or you asked
+//     if (fromDatabase instanceof TraditionalTextComponent) { … }
+// because TraditionalTextComponent is a class.
+
+/**
+ * These will be shared in {@link InParallelComponent.children}, so this type is assignable to the standard child record type.
+ * This adds sourceIndex, which might be used internally.
+ * The default implementation ignores it, but not all subclasses treat all of their subcomponents identically.
+ */
+type ParallelChildInfo = {
+  readonly start: number;
+  readonly replaceable: boolean;
+  readonly child: Showable;
+  /**
+   * Which index of the #fixedChildren or #replaceableChildren arrays was the source of this?
+   *
+   */
+  readonly sourceIndex: number;
+};
+
+type Mutable<T> = {
+  -readonly [P in keyof T]: T[P];
+};
+
+/**
+ * This Showable is a container for other Showable objects.
+ * Multiple children can run at the same time.
+ * This is, in a sense, "the general case" as a subclass or the individual children themselves can decide to restrict certain children to only display at a subset of possible times.
+ *
+ * The container's duration is the minimum required to allow all of its children to complete.
+ * This is a reasonable default, but it can be overridden by subclasses.
+ * See {@link DurationAgnosticComponent}, {@link ComponentWithLiveDuration}, and {@link ComponentWithLiveDuration} as
+ * reasonable base classes with different ways to handle the duration.
+ * See {@link PaddingComponent} for an example a subclass implementing duration in a different way.
+ *
+ * This can take two types of children.
+ * Fixed children are added by bespoke TypeScript code at initialization time.
+ * Replaceable children can be added and removed by the Visual Editor at any time.
+ * The Visual Editor can modify details of both types of children.
+ *
+ * This is a newer version of {@link MakeShowableInSeries}.
+ * That version assumed that the contents and durations were fixed.
+ */
+export class InParallelComponent implements Showable, ShowableParent {
+  protected makeNotifyingScalar<
+    T extends "string" | "number" /*ScalarInfo["type"]*/,
+  >(type: T, description: string, value: Scalar<T>["value"]) /*: Scalar<T>*/ {
+    const scheduleHasChanged = this.scheduleHasChanged.bind(this);
+    return {
+      type,
+      description,
+      get value() {
+        return value;
+      },
+      set value(newValue) {
+        value = newValue;
+        scheduleHasChanged();
+      },
+    };
+  }
+  protected showChild(info: {
+    child: Showable;
+    replaceable: boolean;
+    index: number;
+    sourceIndex: number;
+    options: ShowOptions;
+  }) {
+    info.child.show(info.options);
+  }
+  show(options: ShowOptions): void {
+    const children = this.#fromCache().children;
+    children.forEach(({ child, replaceable, sourceIndex, start }, index) => {
+      let childOptions = options;
+      if (start != 0) {
+        const timeInMs = options.timeInMs - start;
+        childOptions = { ...options, timeInMs };
+      }
+      this.showChild({
+        child,
+        replaceable,
+        index,
+        sourceIndex,
+        options: childOptions,
+      });
+    });
+  }
+  // Interesting.  I had to add this specific way of referencing the base class's type,
+  // otherwise the documentation comments on the fields of this object do not get copied.
+  readonly replaceableComponents: NonNullable<
+    Showable["replaceableComponents"]
+  >;
+  constructor(readonly description: string) {
+    const get = (): Showable[] => [...this.#replaceableChildren];
+    const replace = (newItems: readonly Showable[]) => {
+      this.#replaceableChildren.forEach((child) => {
+        this.#unparent(child);
+      });
+      this.#replaceableChildren.length = 0;
+      newItems.forEach((child) => {
+        this.#setParent(child);
+        this.#replaceableChildren.push(child);
+      });
+    };
+    const push = (...newItems: Showable[]): void => {
+      // There are more efficient ways to do this, but this work work for now.
+      // (Lets get the interface down right before trying to optimize!)
+      const items = get();
+      items.push(...newItems);
+      replace(items);
+    };
+    this.replaceableComponents = { get, replace, push };
+  }
+  readonly #replaceableChildren = new Array<Showable>();
+  #cached:
+    | { duration: number; children: readonly ParallelChildInfo[] }
+    | undefined;
+  #fromCache() {
+    if (!this.#cached) {
+      const children = new Array<Mutable<ParallelChildInfo>>();
+      let replaceableChildrenHaveBeenInserted = false;
+      const checkReplaceableChildren = () => {
+        if (!replaceableChildrenHaveBeenInserted) {
+          this.#replaceableChildren.forEach((child, index) => {
+            children.push({
+              start: 0,
+              replaceable: true,
+              child,
+              sourceIndex: index,
+            });
+          });
+          replaceableChildrenHaveBeenInserted = true;
+        }
+      };
+      this.#fixedChildren.array.forEach(({ zOrder, child }, index) => {
+        if (zOrder >= 0) {
+          checkReplaceableChildren();
+        }
+        children.push({
+          start: 0,
+          replaceable: false,
+          child,
+          sourceIndex: index,
+        });
+      });
+      checkReplaceableChildren();
+      const duration = this.recomputeDuration(children);
+      this.#cached = { children, duration };
+    }
+    return this.#cached;
+  }
+  /**
+   * This is called while rebuilding the cache.
+   * The output of this method will be cached as the new Showable.duration for this object.
+   *
+   * The default is the max of all children.
+   * Override this method if you need a different duration.
+   *
+   * This method is called whenever the cache is filled.
+   * Any time a child's schedule changes or the list of children changes, the cache is invalidated.
+   * The cache is used by both the Visual Editor and this.show().
+   * You can override this method if you have other work that needs to be done at the same time.
+   * You can call the original version of the method if you want to use the default duration.
+   *
+   * And the `children` parameter is explicity mutable.
+   * Example: {@link PaddingComponent} changes the start time of its children here.
+   * @param children What will be available from the cache as soon as we finish rebuilding the cache.
+   * (The output of recomputeDuration will also be added to the cache, so the cache is in the process of being updated, so please don't try to read from the cache at this time.)
+   * @returns The new duration to save for anyone who requests it.
+   */
+  protected recomputeDuration(children: Mutable<ParallelChildInfo>[]) {
+    let duration = 0;
+    children.forEach(({ child }) => {
+      duration = Math.max(duration, child.duration);
+    });
+    return duration;
+  }
+  get children(): NonNullable<Showable["children"]> {
+    return this.#fromCache().children;
+  }
+  get duration(): number {
+    return this.#fromCache().duration;
+  }
+  #fixedChildren = new BinaryInserter<{
+    child: Showable;
+    zOrder: number;
+  }>((record) => record.zOrder);
+  /**
+   *
+   * @param child The child to add.
+   * @param padding If this is undefined, add the child directly without creating a wrapper.
+   * Otherwise create a PaddingComponent as a wrapper around the child, and that wrapper will be a child of this object.
+   * This parameter contains instructions for the PaddingComponent constructor.
+   * This can be `{}` to create a PaddingComponent with all of the defaults.
+   * @param zOrder Where to insert this.
+   * The replaceable components are all drawn immediately before zOrder=0.
+   * The default z order will be one more than that of the last fixed child already present,
+   * effectively pushing to the end of the list.
+   * If there are no replaceable components yet the default z order will be 0,
+   * immediately after the replaceable components.
+   * @throws A child can only have one parent at a time.
+   * It is an error to try to add a child that already has a parent.
+   */
+  addFixed({
+    child,
+    padding,
+    zOrder,
+  }: {
+    child: Showable;
+    padding?: Omit<
+      ConstructorParameters<typeof PaddingComponent>[0],
+      "registryKey"
+    >;
+    zOrder?: number;
+    start?: number;
+  }) {
+    if (zOrder === undefined) {
+      const last = this.#fixedChildren.array.at(-1);
+      if (last) {
+        zOrder = last.zOrder + 1;
+      } else {
+        zOrder = 0;
+      }
+    }
+    if (padding) {
+      const paddingComponent = new PaddingComponent(padding);
+      paddingComponent.addFixed({ child });
+      child = paddingComponent;
+    }
+    this.#setParent(child);
+    this.#fixedChildren.push({ child, zOrder });
+    this.scheduleHasChanged();
+  }
+  #setParent(child: Showable) {
+    if (child.parent) {
+      throw new Error("Child already has a parent.");
+    }
+    child.parent = this;
+  }
+  #unparent(child: Showable) {
+    if (child.parent != this) {
+      console.error({
+        actualParent: child.parent,
+        expectedParent: this,
+        child,
+      });
+      throw new Error("wtf");
+    }
+    child.parent = undefined;
+  }
+  scheduleHasChanged() {
+    this.#cached = undefined;
+    this.parent?.scheduleHasChanged();
+  }
+  parent?: ShowableParent | undefined;
+  /**
+   * Scalar (non-time-varying) fields displayed and edited in the Visual Editor,
+   * shown immediately above the {@link schedules}.
+   * Unlike schedules, each field holds a single mutable `value`.
+   * Notice the {@link Scalar}\<T> type.
+   *
+   * The intent is for subclasses to append to this list in their constructors.
+   * This class is intended to be the base class for a lot of things, so this is a good place the create this array.
+   *
+   * This is publicly modifiable because that makes the code simpler in some places.
+   * This is JavaScript and sometimes I just modify an object instead of creating a new class.
+   *
+   * The base {@link Showable.scalars} defines this as an optional ReadonlyArray.
+   * That works fine for consumers and for simple objects.
+   * But creating a mutable array makes class hierarchies simpler.
+   */
+  readonly scalars: ScalarInfo[] = [];
+  /**
+   * These will be displayed in the Visual Editor.
+   * Note most "properties" can change over time so I call them "schedules".
+   * Consider importing from schedule-helper.ts to create the schedules.
+   *
+   * The intent is for subclasses to append to this list in their constructors.
+   * This class is intended to be the base class for a lot of things, so this is a good place the create this array.
+   *
+   * This is publicly modifiable because that makes the code simpler in some places.
+   * This is JavaScript and sometimes I just modify an object instead of creating a new class.
+   *
+   * The base {@link Showable.schedules} defines this as an optional ReadonlyArray.
+   * That works fine for consumers and for simple objects.
+   * But creating a mutable array makes class hierarchies simpler.
+   */
+  readonly schedules: ScheduleInfo[] = [];
+}
+
+// MARK: Duration Agnostic
+
+/**
+ * I like this as a base class for a lot of generic containers.
+ * Like MultiTextComponent where you can already add subcomponents and it is naive to duration.
+ * The basic text components have a duration of 0, requesting nothing, but running as long as they are scheduled to run.
+ * Like the items added by the Visual Editor.
+ * Any component can be a parent because that's useful for prototyping.
+ * If a custom component is duration agnostic, use this as the base.
+ *
+ * That said, most of the time we will need to set the duration of a text or rectangle or arrow component.
+ * And we might as well take care of that here, in a base class aimed at duration-agnostic components like these.
+ * The minDuration property is a nice generic way to allow children to request time or to let the Visual Editor change this.
+ * I can see minDuration as something that the Visual Editor eventually looks for and automatically adds a marker on the timeline so the user can drag it.
+ * Consider adding {@link Padding} as a parent because it will allow the Visual Editor to change the start time using the timeline.
+ */
+export class DurationAgnosticComponent extends InParallelComponent {
+  readonly minDurationScalar: Scalar<"number">;
+  protected override recomputeDuration(children: Mutable<ParallelChildInfo>[]) {
+    return Math.max(
+      super.recomputeDuration(children),
+      this.minDurationScalar.value,
+    );
+  }
+  constructor(description: string) {
+    super(description);
+    this.minDurationScalar = this.makeNotifyingScalar(
+      "number",
+      "Min Duration",
+      0,
+    );
+    this.scalars.push(this.minDurationScalar);
+  }
+}
+
+// MARK: Live Duration
+
+/**
+ * This is a convenient base class for any component that wants to have children.
+ * It takes care of the interfaces and implementation of having children.
+ *
+ * The duration is an input.
+ * The constructor takes an initial value and it can be changed with setDuration();
+ * See {@link ComponentWithFixedDuration} if you want the duration to be immutable.
+ *
+ * TODO the following paragraph is out of date:
+ * A subclass override show() and call super.show() whenever it is time to display the children.
+ * Or override showChild() to make changes to the way we display specific children or to mix other operation in between showing various children.
+ */
+export class ComponentWithLiveDuration extends InParallelComponent {
+  #requestedDuration: number;
+  setDuration(newDuration: number) {
+    // It is explicitly assumed that a component can clamp this value into range.
+    newDuration = Math.max(0, newDuration);
+    if (newDuration != this.#requestedDuration) {
+      this.#requestedDuration = newDuration;
+      this.scheduleHasChanged();
+    }
+  }
+  protected override recomputeDuration(children: readonly ParallelChildInfo[]) {
+    return this.#requestedDuration;
+  }
+  constructor(description: string, duration: number) {
+    super(description);
+    this.#requestedDuration = duration;
+  }
+}
+
+// MARK: Fixed Duration
+
+/**
+ * This is a convenient base class for any component that wants to have children.
+ * It takes care of the interfaces and implementation of having children.
+ *
+ * The duration is immutable.
+ * The constructor takes an initial value and it can never change;
+ * See {@link ComponentWithLiveDuration} or {@link DurationAgnosticComponent} if you want to change the duration in the Visual Editor.
+ *
+ * TODO the following paragraph is confusing *and* out of date.
+ * A subclass override show() and call super.show() whenever it is time to display the children.
+ * Or override showChild() to make changes to the way we display specific children or to mix other operation in between showing various children.
+ */
+export class ComponentWithFixedDuration extends InParallelComponent {
+  readonly #requestedDuration: number;
+  protected override recomputeDuration(children: readonly ParallelChildInfo[]) {
+    return this.#requestedDuration;
+  }
+  constructor(description: string, duration: number) {
+    super(description);
+    this.#requestedDuration = duration;
+  }
+}
+
+// MARK: Padding
+
+/**
+ * What to do before a {@link Showable} is supposed to start or after it is supposed to end.
+ * * "hide" = Don't show at all.
+ * * "freeze" = Call show() with `timeInMs` set to 0 before or to `duration` after the item should be running.
+ *   In some contexts this is called "hold".
+ * * "live" = Call show() the values that might be less than 0 or greater than duration.
+ *
+ * This is aimed at specific containers, like {@link PaddingComponent}.
+ * The general assumption is that `Showable` containers are only called with timeInMs between 0 and duration.
+ */
+export type AtEnd = "hide" | "freeze" | "live";
+
+/**
+ * A PaddingComponent does two major things:
+ * * It requests extra time before and after its primary component is scheduled.
+ * * It decides what to show before and after the primary component is scheduled.
+ *
+ * The primary component is the subcomponent with the lowest z order.
+ * I.e. the first subcomponent.
+ * I chose that because it was simple.
+ * If necessary we can add an option to select a specific subcomponent to be the primary component regardless of the z order.
+ *
+ * Other subcomponents are "callouts".
+ * The requested duration of a callout is ignored.
+ * All callouts start at the same time as the primary component.
+ * So it the primary component gets rescheduled, all of its children move with it.
+ *
+ * The PaddingComponent's parent might call show() at times before 0 or after the duration of the primary component and the callout.
+ * The PaddingComponent can be configured to handle these cases in different ways, for the primary component.
+ * However, the PaddingComponent will pass all show() requests on to the callouts without modifications.
+ * It is up to the individual subcomponents to deal with out of bounds timeInMs values.
+ *
+ * Most components, like rectangles and arrows, will show themselves any time they are called regardless of timeInMs.
+ * There are two easy ways to modify this.
+ * * You can alter the item to be off screen or transparent at certain times.
+ *   Schedules work just fine with times that are out of bounds.
+ * * You can wrap the subcomponent in its own PaddingComponent.
+ *   That can easily hide or hold the component outside of its normally scheduled time.
+ *   And you can use the initialTime property to change the start time relative to the primary component.
+ *   `initialTime` can be positive or negative.
+ *
+ * PaddingComponent is often used with {@link InParallelComponent}.
+ * The latter is responsible for an entire scene.
+ * The former makes each element of the scene appear and disappear at the right time.
+ */
+export class PaddingComponent extends InParallelComponent {
+  readonly registryKey: string = "Padding";
+  protected override recomputeDuration(
+    children: Mutable<ParallelChildInfo>[],
+  ): number {
+    const start = this.initialTimeScalar.value;
+    children.forEach((childInfo) => {
+      childInfo.start = start;
+    });
+    const primaryChild = children.at(0)?.child;
+    const primaryChildDuration = primaryChild ? primaryChild.duration : 0;
+    return (
+      this.initialTimeScalar.value +
+      primaryChildDuration +
+      this.extraTimeScalar.value
+    );
+  }
+  constructor(initialValues: {
+    initialTime?: number;
+    extraTime?: number;
+    showBefore?: AtEnd;
+    showAfter?: AtEnd;
+    description?: string;
+    registryKey?: string;
+  }) {
+    // TODO
+    // * ✅ Set the duration based on the start, end and first child.
+    // * ✅ Send the refresh signal any time someone changes the start or end time.
+    //   - ✅ initialTimeScalar and extraTimeScalar need callbacks to for an update.!!‼️
+    // * ✅ Change all the start times of all of the children based on the initial delay.
+    // * Superclass needs to respect start, if only to change timeInMs
+    //   - Dammit.  Check all instances of "override show"
+    //   - some5.ts is not a problem as show() always calls super.show()
+    //   - Override showChild()
+    //   - MultiTextComponent is complicated.
+    //   - SlideComponent needs to do something interesting.
+
+    super(initialValues.description ?? "Padding");
+    this.scalars.push(
+      this.initialTimeScalar,
+      this.extraTimeScalar,
+      this.showBeforeScalar,
+      this.showAfterScalar,
+    );
+    if (initialValues.initialTime !== undefined) {
+      this.initialTimeScalar.value = initialValues.initialTime;
+    }
+    if (initialValues.extraTime !== undefined) {
+      this.extraTimeScalar.value = initialValues.extraTime;
+    }
+    if (initialValues.showBefore !== undefined) {
+      this.showBeforeScalar.value = initialValues.showBefore;
+    }
+    if (initialValues.showAfter !== undefined) {
+      this.showAfterScalar.value = initialValues.showAfter;
+    }
+    if (initialValues.registryKey !== undefined) {
+      // If you are subclassing PaddingComponent
+      // or you are adding fixed subcomponents to an object,
+      // then you need to create a new registry key.
+      // Otherwise, keep the default.
+      // TODO Does it ever make sense for someone to change the registry key to undefined?
+      this.registryKey = initialValues.registryKey;
+    }
+  }
+  readonly initialTimeScalar: Scalar<"number"> = this.makeNotifyingScalar(
+    "number",
+    "Initial Time",
+    0,
+  );
+  readonly extraTimeScalar: Scalar<"number"> = this.makeNotifyingScalar(
+    "number",
+    "Extra Time",
+    0,
+  );
+  /**
+   * See {@link AtEnd} for the meanings of these choices.
+   */
+  readonly showBeforeScalar: Scalar<"select"> = {
+    description: "Show Before",
+    type: "select",
+    choices: ["hide", "freeze", "live"],
+    value: "hide",
+  };
+  /**
+   * See {@link AtEnd} for the meanings of these choices.
+   */
+  readonly showAfterScalar: Scalar<"select"> = {
+    description: "Show After",
+    type: "select",
+    choices: ["hide", "freeze", "live"],
+    value: "freeze",
+  };
+  protected override showChild(info: {
+    child: Showable;
+    replaceable: boolean;
+    index: number;
+    sourceIndex: number;
+    options: ShowOptions;
+  }) {
+    const primary = info.index == 0;
+    let timeInMs = info.options.timeInMs ;
+    if (timeInMs < 0) {
+      const before = primary ? this.showBeforeScalar.value : "live";
+      switch (before) {
+        case "hide": {
+          return;
+        }
+        case "freeze": {
+          timeInMs = 0;
+        }
+        // case "live": leave it alone.  Let the child deal with the out of bounds time.
+      }
+    } else if (timeInMs > info.child.duration) {
+      const after = primary ? this.showAfterScalar.value : "live";
+      switch (after) {
+        case "hide": {
+          return;
+        }
+        case "freeze": {
+          timeInMs = info.child.duration;
+        }
+        // case "live": leave it alone.  Let the child deal with the out of bounds time.
+      }
+    }
+    info.child.show({ ...info.options, timeInMs });
+  }
+}
+
+// MARK: SlideComponent
+
+/**
+ * Mathematical Bold Script capital letters A–J, used as placeholders in
+ * {@link SlideComponent} transform templates.  String values only — ASCII
+ * export name to avoid Rollup's non-Latin-1 truncation bug.
+ */
+export const TRANSFORM_PLACEHOLDERS = [
+  "𝓐",
+  "𝓑",
+  "𝓒",
+  "𝓓",
+  "𝓔",
+  "𝓕",
+  "𝓖",
+  "𝓗",
+  "𝓘",
+  "𝓙",
+] as const;
+
+/**
+ * A slide is a generic container, like `<g>` or `<div>`.
+ *
+ * The transform is specified as a CSS transform string template.
+ * Write placeholders like 𝓐 𝓑 𝓒 … in the template; each maps to an
+ * animatable numeric schedule of the same name.  Example:
+ *   "scale(𝓐) translate(𝓑px, 𝓒px)"
+ *
+ * Up to 10 placeholders (𝓐–𝓙) are available.  Unused schedules default
+ * to 1 and can be ignored.
+ *
+ * Exported so dev/canvas-recorder.ts can use instanceof for the custom panel.
+ */
+export class SlideComponent extends DurationAgnosticComponent {
+  readonly registryKey = "Slide";
+  readonly transformTemplate = new StringScalarInfo(
+    "Transform Template",
+    "scale(1)",
+  );
+
+  readonly placeA = new NumberScheduleInfo("𝓐", 1);
+  readonly placeB = new NumberScheduleInfo("𝓑", 1);
+  readonly placeC = new NumberScheduleInfo("𝓒", 1);
+  readonly placeD = new NumberScheduleInfo("𝓓", 1);
+  readonly placeE = new NumberScheduleInfo("𝓔", 1);
+  readonly placeF = new NumberScheduleInfo("𝓕", 1);
+  readonly placeG = new NumberScheduleInfo("𝓖", 1);
+  readonly placeH = new NumberScheduleInfo("𝓗", 1);
+  readonly placeI = new NumberScheduleInfo("𝓘", 1);
+  readonly placeJ = new NumberScheduleInfo("𝓙", 1);
+
+  // TODO It would not be a bad idea to add registryKey as an optional input to the constructor.
+  // As done and documented elsewhere, that goes with the fixed components idea.
+  // The typescript code might want to add a few fixed components rather than creating a whole new class.
+  // We got the fixed components for free when we inherited from InParallelComponent
+  // And if someone uses that feature, then they should at a minimum disable registryKey.
+  // Right?  Maybe there's a better way to exclude this from the serialization process.
+  // Maybe overkill.  We have an example but it's never been used.
+
+  constructor(
+    initialValues: {
+      description?: string;
+      transformTemplate?: string;
+      placeA?: number | readonly Keyframe<number>[];
+      placeB?: number | readonly Keyframe<number>[];
+      placeC?: number | readonly Keyframe<number>[];
+      placeD?: number | readonly Keyframe<number>[];
+      placeE?: number | readonly Keyframe<number>[];
+      placeF?: number | readonly Keyframe<number>[];
+      placeG?: number | readonly Keyframe<number>[];
+      placeH?: number | readonly Keyframe<number>[];
+      placeI?: number | readonly Keyframe<number>[];
+      placeJ?: number | readonly Keyframe<number>[];
+    } = {},
+  ) {
+    super(initialValues.description ?? "Slide");
+    this.scalars.push(this.transformTemplate);
+    if (initialValues.transformTemplate !== undefined)
+      this.transformTemplate.value = initialValues.transformTemplate;
+    this.schedules.push(
+      this.placeA,
+      this.placeB,
+      this.placeC,
+      this.placeD,
+      this.placeE,
+      this.placeF,
+      this.placeG,
+      this.placeH,
+      this.placeI,
+      this.placeJ,
+    );
+    if (initialValues.placeA !== undefined)
+      this.placeA.set(initialValues.placeA);
+    if (initialValues.placeB !== undefined)
+      this.placeB.set(initialValues.placeB);
+    if (initialValues.placeC !== undefined)
+      this.placeC.set(initialValues.placeC);
+    if (initialValues.placeD !== undefined)
+      this.placeD.set(initialValues.placeD);
+    if (initialValues.placeE !== undefined)
+      this.placeE.set(initialValues.placeE);
+    if (initialValues.placeF !== undefined)
+      this.placeF.set(initialValues.placeF);
+    if (initialValues.placeG !== undefined)
+      this.placeG.set(initialValues.placeG);
+    if (initialValues.placeH !== undefined)
+      this.placeH.set(initialValues.placeH);
+    if (initialValues.placeI !== undefined)
+      this.placeI.set(initialValues.placeI);
+    if (initialValues.placeJ !== undefined)
+      this.placeJ.set(initialValues.placeJ);
+  }
+
+  transformStringAt(timeInMs: number): string {
+    const values = [
+      this.placeA.at(timeInMs),
+      this.placeB.at(timeInMs),
+      this.placeC.at(timeInMs),
+      this.placeD.at(timeInMs),
+      this.placeE.at(timeInMs),
+      this.placeF.at(timeInMs),
+      this.placeG.at(timeInMs),
+      this.placeH.at(timeInMs),
+      this.placeI.at(timeInMs),
+      this.placeJ.at(timeInMs),
+    ];
+    let result = this.transformTemplate.value;
+    TRANSFORM_PLACEHOLDERS.forEach((ph, i) => {
+      result = result.replaceAll(ph, String(values[i]));
+    });
+    return result;
+  }
+  override show(options: ShowOptions): void {
+    const { context, timeInMs } = options;
+    const transformString = this.transformStringAt(timeInMs);
+    const originalTransform = context.getTransform();
+    let transformMatrix: undefined | DOMMatrixReadOnly;
+    try {
+      transformMatrix = new DOMMatrixReadOnly(transformString);
+    } catch {
+      showError(context, "Invalid Transform:\n" + transformString);
+      return;
+    }
+    applyTransform(context, transformMatrix);
+    super.show(options);
+    context.setTransform(originalTransform);
+  }
+  protected override showChild(info: {
+    child: Showable;
+    replaceable: boolean;
+    index: number;
+    sourceIndex: number;
+    start: number;
+    options: ShowOptions;
+  }): void {
+    info.options.registerTransform?.(
+      info.child,
+      info.options.context.getTransform(),
+    );
+    super.showChild(info);
+  }
+}
+
+// MARK: Traditional Text
+
 /**
  * Traditional text component.
  *
  * Uses the canvas's strokeText() and fillText().
- * Does **not** use the custom strokable fonts, like {@link createTextComponent}().
+ * Does **not** use the custom strokable fonts, like {@link TextComponent}.
  * Uses CSS fonts, including downloaded or built in fonts.
  *
  * TODO: https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts offers ways to ensure that the font has loaded.
@@ -85,7 +827,7 @@ export function showError(context: CanvasRenderingContext2D, text: string) {
  * Exported so that dev/canvas-recorder.ts can do instanceof checks to build
  * the component-specific Font Info panel.
  */
-export class TraditionalTextComponent implements Showable {
+export class TraditionalTextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Traditional Text";
   /**
    * What to display.
@@ -201,26 +943,10 @@ export class TraditionalTextComponent implements Showable {
     "alphabetic",
     ["top", "hanging", "middle", "alphabetic", "ideographic", "bottom"],
   );
-  /**
-   * Notice that this is a tuple, not just an array.
-   */
-  readonly schedules = [
-    this.textSchedule,
-    this.positionSchedule,
-    this.fillColorSchedule,
-    this.outlineColorSchedule,
-    this.outlineWidthSchedule,
-    this.fontSizeSchedule,
-    this.fontStyleSchedule,
-    this.fontWeightSchedule,
-    this.fontFamilySchedule,
-    this.textAlignSchedule,
-    this.textBaselineSchedule,
-  ] as const;
-  readonly description = "Traditional Text";
-  readonly duration = 0;
   constructor(
     initialValues: {
+      description?: string;
+      minDuration?: number;
       text?: string | readonly Keyframe<string>[];
       position?: Point;
       fillColor?: string | readonly Keyframe<string>[];
@@ -240,6 +966,23 @@ export class TraditionalTextComponent implements Showable {
       >[0];
     } = {},
   ) {
+    super(initialValues.description ?? "Traditional Text");
+    if (initialValues.minDuration !== undefined) {
+      this.minDurationScalar.value = initialValues.minDuration;
+    }
+    this.schedules.push(
+      this.textSchedule,
+      this.positionSchedule,
+      this.fillColorSchedule,
+      this.outlineColorSchedule,
+      this.outlineWidthSchedule,
+      this.fontSizeSchedule,
+      this.fontStyleSchedule,
+      this.fontWeightSchedule,
+      this.fontFamilySchedule,
+      this.textAlignSchedule,
+      this.textBaselineSchedule,
+    );
     if (initialValues.text !== undefined)
       this.textSchedule.set(initialValues.text);
     if (initialValues.position !== undefined)
@@ -263,7 +1006,9 @@ export class TraditionalTextComponent implements Showable {
     if (initialValues.textBaseline !== undefined)
       this.textBaselineSchedule.set(initialValues.textBaseline);
   }
-  show({ context, timeInMs }: ShowOptions) {
+  override show(options: ShowOptions) {
+    super.show(options);
+    const { context, timeInMs } = options;
     const text = this.textSchedule.at(timeInMs);
     const position = this.positionSchedule.at(timeInMs);
     const fillColor = this.fillColorSchedule.at(timeInMs);
@@ -295,590 +1040,7 @@ export class TraditionalTextComponent implements Showable {
   }
 }
 
-// Strictly speaking, components do not have to be classes.
-// They only have to implement Showable.
-// However, if you plan to have children that the Visual Editor can add and remove,
-// you almost certainly want to subclass ComponentWith*Duration or InParallelComponent,
-// instead of starting from scratch.
-// Also, making this a class makes it easy for a programmer to access all of the schedules.
-// These are like properties of an html element or a Delphi control.
-// A programmer might want to read or change these at runtime.
-// The Visual Editor can dynamically inspect the list of schedules.
-// But a programmer shouldn't *have to* use the dynamic interface.
-// Instead, properties have names, object.propertyName, along with types and JSDoc comments.
-// This works whether you recently created a TraditionalTextComponent:
-//     const sample = new TraditionalTextComponent();
-//     const fontFamily = sample.fontFamilySchedule.at(0 /* timeInMs*/);
-//     const x = sample.schedules[1].at(0).x;
-// or you asked
-//     if (fromDatabase instanceof TraditionalTextComponent) { … }
-// because TraditionalTextComponent is a class.
-
-/**
- * What to do before a {@link Showable} is supposed to start or after it is supposed to end.
- * * "hide" = Don't show at all.
- * * "freeze" = Call show() with `timeInMs` set to 0 before or to `duration` after the item should be running.
- * * "live" = Call show() the values that might be less than 0 or greater than duration.
- *
- * This is aimed at specific containers, like {@link InParallelComponent}.
- * The general assumption is that `Showable` containers are only called with timeInMs between 0 and duration.
- */
-export type AtEnd = "hide" | "freeze" | "live";
-
-/**
- * These will be shared in {@link InParallelComponent.children}, so this type is assignable to the standard child record type.
- * This adds sourceIndex, which might be used internally.
- * The default implementation ignores it, but not all subclasses treat all of their subcomponents identically.
- */
-type ParallelChildInfo = {
-  readonly start: 0;
-  readonly replaceable: boolean;
-  readonly child: Showable;
-  /**
-   * Which index of the #fixedChildren or #replaceableChildren arrays was the source of this?
-   *
-   */
-  readonly sourceIndex: number;
-};
-
-// TODO add minimum duration as a scalar.
-/**
- * This Showable is a container for other Showable objects.
- * Multiple children can run at the same time.
- * The container's duration is the minimum required to allow all of its children to complete.
- *
- * This can take two types of children.
- * Fixed children are added by bespoke TypeScript code, and presumably never changed.
- * Replaceable children are controlled by the Visual Editor.
- *
- * This is a newer version of {@link MakeShowableInSeries}.
- * That version assumed that the contents and durations were fixed.
- */
-export class InParallelComponent implements Showable, ShowableParent {
-  protected showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    options: ShowOptions;
-  }) {
-    info.child.show(info.options);
-  }
-  show(options: ShowOptions): void {
-    const children = this.#fromCache().children;
-    children.forEach(({ child, replaceable, sourceIndex }, index) => {
-      this.showChild({ child, replaceable, index, sourceIndex, options });
-    });
-  }
-  // Interesting.  I had to add this specific way of referencing the base class's type,
-  // otherwise the documentation comments on the fields of this object do not get copied.
-  readonly replaceableComponents: NonNullable<
-    Showable["replaceableComponents"]
-  >;
-  constructor(readonly description: string) {
-    const get = (): Showable[] => [...this.#replaceableChildren];
-    const replace = (newItems: readonly Showable[]) => {
-      this.#replaceableChildren.forEach((child) => {
-        this.#unparent(child);
-      });
-      this.#replaceableChildren.length = 0;
-      newItems.forEach((child) => {
-        this.#setParent(child);
-        this.#replaceableChildren.push(child);
-      });
-    };
-    const push = (...newItems: Showable[]): void => {
-      // There are more efficient ways to do this, but this work work for now.
-      // (Lets get the interface down right before trying to optimize!)
-      const items = get();
-      items.push(...newItems);
-      replace(items);
-    };
-    this.replaceableComponents = { get, replace, push };
-  }
-  readonly #replaceableChildren = new Array<Showable>();
-  #cached:
-    | { duration: number; children: readonly ParallelChildInfo[] }
-    | undefined;
-  #fromCache() {
-    if (!this.#cached) {
-      const children = new Array<ParallelChildInfo>();
-      let replaceableChildrenHaveBeenInserted = false;
-      const checkReplaceableChildren = () => {
-        if (!replaceableChildrenHaveBeenInserted) {
-          this.#replaceableChildren.forEach((child, index) => {
-            children.push({
-              start: 0,
-              replaceable: true,
-              child,
-              sourceIndex: index,
-            });
-          });
-          replaceableChildrenHaveBeenInserted = true;
-        }
-      };
-      this.#fixedChildren.array.forEach(({ zOrder, child }, index) => {
-        if (zOrder >= 0) {
-          checkReplaceableChildren();
-        }
-        children.push({
-          start: 0,
-          replaceable: false,
-          child,
-          sourceIndex: index,
-        });
-      });
-      checkReplaceableChildren();
-      const duration = this.recomputeDuration(children);
-      this.#cached = { children, duration };
-    }
-    return this.#cached;
-  }
-  /**
-   * This is called while rebuilding the cache.
-   * The output of this method will be cached as the new Showable.duration for this object.
-   *
-   * The default is the max of all children.
-   * Override this method if you need a different duration.
-   *
-   * This method is called whenever the cache is filled.
-   * Any time a child's schedule changes or the list of children changes, the cache is invalidated.
-   * The cache is used by both the Visual Editor and this.show().
-   * You can override this method if you have other work that needs to be done at the same time.
-   * You can call the original version of the method if you want to use the default duration.
-   * @param children What will be available from the cache as soon as we finish rebuilding the cache.
-   * (The output of recomputeDuration will also be added to the cache, so the cache is in the process of being updated, so please don't try to read from the cache at this time.)
-   * @returns The new duration to save for anyone who requests it.
-   */
-  protected recomputeDuration(children: readonly ParallelChildInfo[]) {
-    let duration = 0;
-    children.forEach(({ child }) => {
-      duration = Math.max(duration, child.duration);
-    });
-    return duration;
-  }
-  get children(): NonNullable<Showable["children"]> {
-    return this.#fromCache().children;
-  }
-  get duration(): number {
-    return this.#fromCache().duration;
-  }
-  #fixedChildren = new BinaryInserter<{
-    child: Showable;
-    zOrder: number;
-  }>((record) => record.zOrder);
-  /**
-   *
-   * @param child The child to add.
-   * @param padding If this is undefined, add the child directly without creating a wrapper.
-   * Otherwise create a PaddingComponent as a wrapper around the child, and that wrapper will be a child of this object.
-   * This parameter contains instructions for the PaddingComponent constructor.
-   * This can be `{}` to create a PaddingComponent with all of the defaults.
-   * @param zOrder Where to insert this.
-   * The replaceable components are all drawn immediately before zOrder=0.
-   * The default z order will be one more than that of the last fixed child already present,
-   * effectively pushing to the end of the list.
-   * If there are no replaceable components yet the default z order will be 0,
-   * immediately after the replaceable components.
-   * @throws A child can only have one parent at a time.
-   * It is an error to try to add a child that already has a parent.
-   */
-  addFixed(
-    child: Showable,
-    padding?: Omit<
-      ConstructorParameters<typeof PaddingComponent>[0],
-      "registryKey"
-    >,
-    zOrder?: number,
-  ) {
-    if (zOrder === undefined) {
-      const last = this.#fixedChildren.array.at(-1);
-      if (last) {
-        zOrder = last.zOrder + 1;
-      } else {
-        zOrder = 0;
-      }
-    }
-    if (padding) {
-      const paddingComponent = new PaddingComponent(padding);
-      paddingComponent.addFixed(child);
-      child = paddingComponent;
-    }
-    this.#setParent(child);
-    this.#fixedChildren.push({ child, zOrder });
-    this.scheduleHasChanged();
-  }
-  #setParent(child: Showable) {
-    if (child.parent) {
-      throw new Error("Child already has a parent.");
-    }
-    child.parent = this;
-  }
-  #unparent(child: Showable) {
-    if (child.parent != this) {
-      console.error({
-        actualParent: child.parent,
-        expectedParent: this,
-        child,
-      });
-      throw new Error("wtf");
-    }
-    child.parent = undefined;
-  }
-  scheduleHasChanged() {
-    this.#cached = undefined;
-    this.parent?.scheduleHasChanged();
-  }
-  parent?: ShowableParent | undefined;
-}
-
-/**
- * A PaddingComponent does two major things:
- * * It requests extra time before and after its primary component is scheduled.
- * * It decides what to show before and after the primary component is scheduled.
- *
- * The primary component is the subcomponent with the lowest z order.
- * I.e. the first subcomponent.
- * I chose that because it was simple.
- * If necessary we can add an option to select a specific subcomponent to be the primary component regardless of the z order.
- *
- * Other subcomponents are "callouts".
- * The requested duration of a callout is ignored.
- * All callouts start at the same time as the primary component.
- * So it the primary component gets rescheduled, all of its children move with it.
- *
- * The PaddingComponent's parent might call show() at times before 0 or after the duration of the primary component and the callout.
- * The PaddingComponent can be configured to handle these cases in different ways, for the primary component.
- * However, the PaddingComponent will pass all show() requests on to the callouts without modifications.
- * It is up to the individual subcomponents to deal with out of bounds timeInMs values.
- *
- * Most components, like rectangles and arrows, will show themselves any time they are called regardless of timeInMs.
- * There are two easy ways to modify this.
- * * You can alter the item to be off screen or transparent at certain times.
- *   Schedules work just fine with times that are out of bounds.
- * * You can wrap the subcomponent in its own PaddingComponent.
- *   That can easily hide or hold the component outside of its normally scheduled time.
- *   And you can use the initialTime property to change the start time relative to the primary component.
- *   `initialTime` can be positive or negative.
- *
- * PaddingComponent is often used with {@link InParallelComponent}.
- * The latter is responsible for an entire scene.
- * The former makes each element of the scene appear and disappear at the right time.
- */
-export class PaddingComponent extends InParallelComponent {
-  readonly registryKey: string = "Padding";
-  constructor(initialValues: {
-    initialTime?: number;
-    extraTime?: number;
-    showBefore?: AtEnd;
-    showAfter?: AtEnd;
-    description?: string;
-    registryKey?: string;
-  }) {
-    super(initialValues.description ?? "Padding");
-    if (initialValues.initialTime !== undefined) {
-      this.initialTimeScalar.value = initialValues.initialTime;
-    }
-    if (initialValues.extraTime !== undefined) {
-      this.extraTimeScalar.value = initialValues.extraTime;
-    }
-    if (initialValues.showBefore !== undefined) {
-      this.showBeforeScalar.value = initialValues.showBefore;
-    }
-    if (initialValues.showAfter !== undefined) {
-      this.showAfterScalar.value = initialValues.showAfter;
-    }
-    if (initialValues.registryKey !== undefined) {
-      // If you are subclassing PaddingComponent
-      // or you are adding fixed subcomponents to an object,
-      // then you need to create a new registry key.
-      // Otherwise, keep the default.
-      // TODO Does it ever make sense for someone to change the registry key to undefined?
-      this.registryKey = initialValues.registryKey;
-    }
-  }
-  readonly initialTimeScalar: Scalar<"number"> = {
-    description: "Initial Time",
-    type: "number",
-    value: 0,
-  };
-  readonly extraTimeScalar: Scalar<"number"> = {
-    description: "Extra Time",
-    type: "number",
-    value: 0,
-  };
-  /**
-   * See {@link AtEnd} for the meanings of these choices.
-   */
-  readonly showBeforeScalar: Scalar<"select"> = {
-    description: "Show Before",
-    type: "select",
-    choices: ["hide", "freeze", "live"],
-    value: "hide",
-  };
-  /**
-   * See {@link AtEnd} for the meanings of these choices.
-   */
-  readonly showAfterScalar: Scalar<"select"> = {
-    description: "Show After",
-    type: "select",
-    choices: ["hide", "freeze", "live"],
-    value: "freeze",
-  };
-  scalars = [
-    this.initialTimeScalar,
-    this.extraTimeScalar,
-    this.showBeforeScalar,
-    this.showAfterScalar,
-  ] as const;
-  protected override showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    options: ShowOptions;
-  }) {
-    const primary = info.index == 0;
-    const initialTime = this.initialTimeScalar.value;
-    let timeInMs = info.options.timeInMs - initialTime;
-    if (timeInMs < 0) {
-      const before = primary ? this.showBeforeScalar.value : "live";
-      switch (before) {
-        case "hide": {
-          return;
-        }
-        case "freeze": {
-          timeInMs = 0;
-        }
-        // case "live": leave it alone.  Let the child deal with the out of bounds time.
-      }
-    } else if (timeInMs > info.child.duration) {
-      const after = primary ? this.showAfterScalar.value : "live";
-      switch (after) {
-        case "hide": {
-          return;
-        }
-        case "freeze": {
-          timeInMs = info.child.duration;
-        }
-        // case "live": leave it alone.  Let the child deal with the out of bounds time.
-      }
-    }
-    info.child.show({ ...info.options, timeInMs });
-  }
-}
-
-/**
- * This is a convenient base class for any component that wants to have children.
- * It takes care of the interfaces and implementation of having children.
- *
- * The duration is an input.
- * The constructor takes an initial value and it can be changed with setDuration();
- * See {@link ComponentWithFixedDuration} if you want the duration to be immutable.
- *
- * A subclass override show() and call super.show() whenever it is time to display the children.
- * Or override showChild() to make changes to the way we display specific children or to mix other operation in between showing various children.
- */
-export class ComponentWithLiveDuration extends InParallelComponent {
-  #requestedDuration: number;
-  setDuration(newDuration: number) {
-    // It is explicitly assumed that a component can clamp this value into range.
-    newDuration = Math.max(0, newDuration);
-    if (newDuration != this.#requestedDuration) {
-      this.#requestedDuration = newDuration;
-      this.scheduleHasChanged();
-    }
-  }
-  protected recomputeDuration(children: readonly ParallelChildInfo[]) {
-    return this.#requestedDuration;
-  }
-  constructor(description: string, duration: number) {
-    super(description);
-    this.#requestedDuration = duration;
-  }
-}
-
-/**
- * This is a convenient base class for any component that wants to have children.
- * It takes care of the interfaces and implementation of having children.
- *
- * The duration is immutable.
- * The constructor takes an initial value and it can never change;
- * See {@link ComponentWithLiveDuration} if you want to change the duration in the Visual Editor.
- *
- * A subclass override show() and call super.show() whenever it is time to display the children.
- * Or override showChild() to make changes to the way we display specific children or to mix other operation in between showing various children.
- */
-export class ComponentWithFixedDuration extends InParallelComponent {
- readonly #requestedDuration: number;
-  protected recomputeDuration(children: readonly ParallelChildInfo[]) {
-    return this.#requestedDuration;
-  }
-  constructor(description: string, duration: number) {
-    super(description);
-    this.#requestedDuration = duration;
-  }
-}
-
-/**
- * Mathematical Bold Script capital letters A–J, used as placeholders in
- * {@link SlideComponent} transform templates.  String values only — ASCII
- * export name to avoid Rollup's non-Latin-1 truncation bug.
- */
-export const TRANSFORM_PLACEHOLDERS = [
-  "𝓐",
-  "𝓑",
-  "𝓒",
-  "𝓓",
-  "𝓔",
-  "𝓕",
-  "𝓖",
-  "𝓗",
-  "𝓘",
-  "𝓙",
-] as const;
-
-/**
- * A slide is a generic container, like `<g>` or `<div>`.
- *
- * The transform is specified as a CSS transform string template.
- * Write placeholders like 𝓐 𝓑 𝓒 … in the template; each maps to an
- * animatable numeric schedule of the same name.  Example:
- *   "scale(𝓐) translate(𝓑px, 𝓒px)"
- *
- * Up to 10 placeholders (𝓐–𝓙) are available.  Unused schedules default
- * to 1 and can be ignored.
- *
- * Exported so dev/canvas-recorder.ts can use instanceof for the custom panel.
- */
-export class SlideComponent extends InParallelComponent {
-  readonly registryKey = "Slide";
-  readonly transformTemplate = new StringScalarInfo(
-    "Transform Template",
-    "scale(1)",
-  );
-  readonly scalars = [this.transformTemplate] as const;
-
-  readonly placeA = new NumberScheduleInfo("𝓐", 1);
-  readonly placeB = new NumberScheduleInfo("𝓑", 1);
-  readonly placeC = new NumberScheduleInfo("𝓒", 1);
-  readonly placeD = new NumberScheduleInfo("𝓓", 1);
-  readonly placeE = new NumberScheduleInfo("𝓔", 1);
-  readonly placeF = new NumberScheduleInfo("𝓕", 1);
-  readonly placeG = new NumberScheduleInfo("𝓖", 1);
-  readonly placeH = new NumberScheduleInfo("𝓗", 1);
-  readonly placeI = new NumberScheduleInfo("𝓘", 1);
-  readonly placeJ = new NumberScheduleInfo("𝓙", 1);
-
-  /**
-   * This is a mutable version of Show.schedules.
-   * Changes here are automatically reflected in this.schedules.
-   */
-  protected schedulesInternal = [
-    this.placeA,
-    this.placeB,
-    this.placeC,
-    this.placeD,
-    this.placeE,
-    this.placeF,
-    this.placeG,
-    this.placeH,
-    this.placeI,
-    this.placeJ,
-  ];
-
-  readonly schedules: Showable["schedules"] = this.schedulesInternal;
-
-  // TODO It would not be a bad idea to add registryKey as an optional input to the constructor.
-  // As done and documented elsewhere, that goes with the fixed components idea.
-  // The typescript code might want to add a few fixed components rather than creating a whole new class.
-  // We got the fixed components for free when we inherited from InParallelComponent
-  // And if someone uses that feature, then they should at a minimum disable registryKey.
-  // Right?  Maybe there's a better way to exclude this from the serialization process.
-  // Maybe overkill.  We have an example but it's never been used.
-
-  constructor(
-    initialValues: {
-      description?: string;
-      transformTemplate?: string;
-      placeA?: number | readonly Keyframe<number>[];
-      placeB?: number | readonly Keyframe<number>[];
-      placeC?: number | readonly Keyframe<number>[];
-      placeD?: number | readonly Keyframe<number>[];
-      placeE?: number | readonly Keyframe<number>[];
-      placeF?: number | readonly Keyframe<number>[];
-      placeG?: number | readonly Keyframe<number>[];
-      placeH?: number | readonly Keyframe<number>[];
-      placeI?: number | readonly Keyframe<number>[];
-      placeJ?: number | readonly Keyframe<number>[];
-    } = {},
-  ) {
-    super(initialValues.description ?? "Slide");
-    if (initialValues.transformTemplate !== undefined)
-      this.transformTemplate.value = initialValues.transformTemplate;
-    if (initialValues.placeA !== undefined)
-      this.placeA.set(initialValues.placeA);
-    if (initialValues.placeB !== undefined)
-      this.placeB.set(initialValues.placeB);
-    if (initialValues.placeC !== undefined)
-      this.placeC.set(initialValues.placeC);
-    if (initialValues.placeD !== undefined)
-      this.placeD.set(initialValues.placeD);
-    if (initialValues.placeE !== undefined)
-      this.placeE.set(initialValues.placeE);
-    if (initialValues.placeF !== undefined)
-      this.placeF.set(initialValues.placeF);
-    if (initialValues.placeG !== undefined)
-      this.placeG.set(initialValues.placeG);
-    if (initialValues.placeH !== undefined)
-      this.placeH.set(initialValues.placeH);
-    if (initialValues.placeI !== undefined)
-      this.placeI.set(initialValues.placeI);
-    if (initialValues.placeJ !== undefined)
-      this.placeJ.set(initialValues.placeJ);
-  }
-
-  transformStringAt(timeInMs: number): string {
-    const values = [
-      this.placeA.at(timeInMs),
-      this.placeB.at(timeInMs),
-      this.placeC.at(timeInMs),
-      this.placeD.at(timeInMs),
-      this.placeE.at(timeInMs),
-      this.placeF.at(timeInMs),
-      this.placeG.at(timeInMs),
-      this.placeH.at(timeInMs),
-      this.placeI.at(timeInMs),
-      this.placeJ.at(timeInMs),
-    ];
-    let result = this.transformTemplate.value;
-    TRANSFORM_PLACEHOLDERS.forEach((ph, i) => {
-      result = result.replaceAll(ph, String(values[i]));
-    });
-    return result;
-  }
-  // TODO do we really need show() and showChild()?
-  // The base show was so simple, it was easier just to copy and modify it.
-  override show(options: ShowOptions): void {
-    const { context, timeInMs } = options;
-    const transformString = this.transformStringAt(timeInMs);
-    const originalTransform = context.getTransform();
-    let transformMatrix: undefined | DOMMatrixReadOnly;
-    try {
-      transformMatrix = new DOMMatrixReadOnly(transformString);
-    } catch {
-      showError(context, "Invalid Transform:\n" + transformString);
-      return;
-    }
-    applyTransform(context, transformMatrix);
-    const currentTransform = context.getTransform();
-    this.children.forEach(({ child }) => {
-      options.registerTransform?.(child, currentTransform);
-      child.show(options);
-    });
-    context.setTransform(originalTransform);
-  }
-}
+// MARK: Multi Text
 
 /**
  * This is needed as a default in some places but should never actually be used.
@@ -934,7 +1096,7 @@ function setTextFormatList(
  * Currently that doesn't do much.
  * But the plan is for descendants to have access to this component's formatters.
  */
-export class MultiTextComponent extends InParallelComponent {
+export class MultiTextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Multi Text";
   /**
    * Create, initialize, and add a TextSpanComponent to this MultiTextComponent.
@@ -1004,13 +1166,6 @@ export class MultiTextComponent extends InParallelComponent {
     "Additional Line Height",
     0,
   );
-  readonly schedules = [
-    this.positionSchedule,
-    this.alignmentSchedule,
-    this.textBaselineSchedule,
-    this.widthSchedule,
-    this.additionalLineHeightSchedule,
-  ] as const;
   constructor(
     initialValues: {
       position?: Point | readonly Keyframe<Point>[];
@@ -1023,6 +1178,13 @@ export class MultiTextComponent extends InParallelComponent {
     } = {},
   ) {
     super("Multi Text");
+    this.schedules.push(
+      this.positionSchedule,
+      this.alignmentSchedule,
+      this.textBaselineSchedule,
+      this.widthSchedule,
+      this.additionalLineHeightSchedule,
+    );
     if (initialValues.position !== undefined)
       this.positionSchedule.set(initialValues.position);
     if (initialValues.alignment !== undefined)
@@ -1034,7 +1196,26 @@ export class MultiTextComponent extends InParallelComponent {
     if (initialValues.additionalLineHeight !== undefined)
       this.additionalLineHeightSchedule.set(initialValues.additionalLineHeight);
   }
-  show(options: ShowOptions): void {
+  protected override showChild(info: {
+    child: Showable;
+    replaceable: boolean;
+    index: number;
+    sourceIndex: number;
+    start: number;
+    options: ShowOptions;
+  }): void {
+    if (info.child instanceof TextSpanComponent) {
+      // TODO we should display the result of each TextSpanComponent in this call.
+      // That way we can completely control the zOrder.
+      // For now the text is all displayed at the highest zOrder.
+    } else if (info.child instanceof TextFormatComponent) {
+      // Nothing to do.
+      // This is not a visible component.
+    } else {
+      super.showChild(info);
+    }
+  }
+  override show(options: ShowOptions): void {
     const { context, timeInMs } = options;
     const sources = new Array<TextSpanComponent>();
     const newFormatters = new Array<TextFormatComponent>();
@@ -1106,6 +1287,8 @@ export class MultiTextComponent extends InParallelComponent {
   }
 }
 
+// MARK: Text Span
+
 export class TextSpanComponent implements Showable {
   readonly registryKey = "Text Span";
   public contentSchedule = new StringScheduleInfo("Content", "");
@@ -1138,6 +1321,8 @@ export class TextSpanComponent implements Showable {
     return { content, style };
   }
 }
+
+// MARK: Text Format
 
 type CachedFont = {
   readonly font: Font;
@@ -1231,10 +1416,67 @@ export class TextFormatComponent implements Showable {
   }
 }
 
-export class TextComponent implements Showable {
+/**
+ * Resolves when every family in `familyNames` is confirmed available — either
+ * as a loaded web font in `document.fonts` or as a local system font from
+ * `queryLocalFonts()`.
+ *
+ * Rejects with a user-readable message listing any missing families.
+ *
+ * Intended for the recording pipeline: await this before encoding a frame so
+ * that text is never rendered with a silent fallback font.
+ *
+ * In a Node.js / CLI context (where `document` is absent) the promise
+ * resolves immediately without checking anything.
+ *
+ * If `queryLocalFonts()` is unavailable or the user denies permission, the
+ * check falls back to web fonts only — local fonts are simply not verified.
+ */
+export async function fontsAreAvailable(
+  familyNames: readonly string[],
+): Promise<void> {
+  if (typeof document === "undefined") return;
+
+  await document.fonts.ready;
+
+  const known = new Set<string>();
+  for (const face of document.fonts) {
+    known.add(
+      face.family
+        .replace(/^["']|["']$/g, "")
+        .trim()
+        .toLowerCase(),
+    );
+  }
+
+  if ("queryLocalFonts" in globalThis) {
+    try {
+      const local = await (
+        globalThis as unknown as {
+          queryLocalFonts: () => Promise<Array<{ family: string }>>;
+        }
+      ).queryLocalFonts();
+      for (const f of local) known.add(f.family.trim().toLowerCase());
+    } catch {
+      // Permission denied or API unavailable — proceed with web fonts only.
+    }
+  }
+
+  const missing = familyNames.filter(
+    (name) => !known.has(name.trim().toLowerCase()),
+  );
+  if (missing.length > 0) {
+    const list = missing.map((n) => `"${n}"`).join(", ");
+    throw new Error(
+      `Font${missing.length === 1 ? "" : "s"} not found: ${list}`,
+    );
+  }
+}
+
+// MARK: Simple Text
+
+export class TextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Text";
-  readonly description = "Text";
-  readonly duration = 0;
   readonly colorSchedule = new ColorScheduleInfo("Color", "#888");
   readonly rectSchedule = new RectangleScheduleInfo("Rect", {
     x: 2,
@@ -1252,17 +1494,9 @@ export class TextComponent implements Showable {
     "right",
     "justify",
   ]);
-  readonly schedules = [
-    this.colorSchedule,
-    this.rectSchedule,
-    this.textSchedule,
-    this.sizeSchedule,
-    this.boldnessSchedule,
-    this.obliquenessSchedule,
-    this.alignmentSchedule,
-  ] as const;
   constructor(
     initialValues: {
+      minDuration?: number;
       color?: string | readonly Keyframe<string>[];
       rect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
       text?: string | readonly Keyframe<string>[];
@@ -1279,6 +1513,19 @@ export class TextComponent implements Showable {
       >[0];
     } = {},
   ) {
+    super("Text");
+    if (initialValues.minDuration !== undefined) {
+      this.minDurationScalar.value = initialValues.minDuration;
+    }
+    this.schedules.push(
+      this.colorSchedule,
+      this.rectSchedule,
+      this.textSchedule,
+      this.sizeSchedule,
+      this.boldnessSchedule,
+      this.obliquenessSchedule,
+      this.alignmentSchedule,
+    );
     if (initialValues.color !== undefined) {
       this.colorSchedule.set(initialValues.color);
     }
@@ -1311,7 +1558,9 @@ export class TextComponent implements Showable {
         readonly alignment: TextComponent["alignmentSchedule"]["choices"][0];
         readonly path: Path2D;
       };
-  show({ context, timeInMs }: ShowOptions) {
+  override show(options: ShowOptions) {
+    super.show(options);
+    const { context, timeInMs } = options;
     const color = this.colorSchedule.at(timeInMs);
     const rect = this.rectSchedule.at(timeInMs);
     const text = this.textSchedule.at(timeInMs);
@@ -1361,6 +1610,8 @@ export class TextComponent implements Showable {
   }
 }
 
+// MARK: Rectangle
+
 /**
  * Standard registry component: a filled rectangle with an editable color and
  * position/size schedule.
@@ -1395,6 +1646,8 @@ export class RectangleComponent implements Showable {
     context.fillRect(rect.x, rect.y, rect.width, rect.height);
   }
 }
+
+// MARK: Arrow
 
 /**
  * Standard registry component: a directed arrow with a rectangular shaft and
@@ -1497,6 +1750,8 @@ export class ArrowComponent implements Showable {
   }
 }
 
+// MARK: Image
+
 /**
  * Standard registry component: draws a single image loaded from a URL.
  *
@@ -1569,6 +1824,8 @@ export class SingleImageComponent implements Showable {
     );
   }
 }
+
+// MARK: Function Graph
 
 export class FunctionGraphComponent implements Showable {
   /**
@@ -1709,6 +1966,8 @@ export class FunctionGraphComponent implements Showable {
   }
 }
 
+// MARK: Registry
+
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
   ["Slide", (): Showable => new SlideComponent()],
@@ -1723,12 +1982,15 @@ export const componentRegistry = new Map<string, () => Showable>([
   ["Text Format", () => new TextFormatComponent()],
 ]);
 
+// MARK: Serialize
+
 export type SerializedChild = {
   registryKey: string;
   schedules: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
   userEditableDescription?: string;
+  duration?: number;
 };
 
 /**
@@ -1749,69 +2011,11 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     if (child.scalars?.length && sc.scalars?.length) {
       applyScalarSnapshot(child.scalars, sc.scalars);
     }
-    // TODO setDuration
-    // TO fixedComponents
+    if (sc.duration !== undefined) child.setDuration?.(sc.duration);
     if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
     if (child.replaceableComponents !== undefined && sc.components?.length) {
       child.replaceableComponents.push(...buildComponents(sc.components));
     }
     return [child];
   });
-}
-
-/**
- * Resolves when every family in `familyNames` is confirmed available — either
- * as a loaded web font in `document.fonts` or as a local system font from
- * `queryLocalFonts()`.
- *
- * Rejects with a user-readable message listing any missing families.
- *
- * Intended for the recording pipeline: await this before encoding a frame so
- * that text is never rendered with a silent fallback font.
- *
- * In a Node.js / CLI context (where `document` is absent) the promise
- * resolves immediately without checking anything.
- *
- * If `queryLocalFonts()` is unavailable or the user denies permission, the
- * check falls back to web fonts only — local fonts are simply not verified.
- */
-export async function fontsAreAvailable(
-  familyNames: readonly string[],
-): Promise<void> {
-  if (typeof document === "undefined") return;
-
-  await document.fonts.ready;
-
-  const known = new Set<string>();
-  for (const face of document.fonts) {
-    known.add(
-      face.family
-        .replace(/^["']|["']$/g, "")
-        .trim()
-        .toLowerCase(),
-    );
-  }
-
-  if ("queryLocalFonts" in globalThis) {
-    try {
-      const local = await (
-        globalThis as unknown as {
-          queryLocalFonts: () => Promise<Array<{ family: string }>>;
-        }
-      ).queryLocalFonts();
-      for (const f of local) known.add(f.family.trim().toLowerCase());
-    } catch {
-      // Permission denied or API unavailable — proceed with web fonts only.
-    }
-  }
-
-  const missing = familyNames.filter(
-    (name) => !known.has(name.trim().toLowerCase()),
-  );
-  if (missing.length > 0) {
-    const list = missing.map((n) => `"${n}"`).join(", ");
-    throw new Error(
-      `Font${missing.length === 1 ? "" : "s"} not found: ${list}`,
-    );
-  }
 }
