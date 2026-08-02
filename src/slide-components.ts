@@ -179,6 +179,7 @@ export class InParallelComponent implements Showable, ShowableParent {
         this.#setParent(child);
         this.#replaceableChildren.push(child);
       });
+      this.scheduleHasChanged();
     };
     const push = (...newItems: Showable[]): void => {
       // There are more efficient ways to do this, but this work work for now.
