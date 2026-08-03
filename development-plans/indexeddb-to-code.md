@@ -2,6 +2,11 @@
 
 Some projects will be mostly bound by their json files.  TypeScript code provides defaults to get The Designer started.  And that’s good.  But other times it would be nice if the tools would help me push the changes back into the TypeScript code so I only have one copy.  Some projects are mostly about code.
 
+The basic idea to save to the typescript defaults to a JSON file.
+We already have read and save the typescript defaults.
+And we already know how to serialize those settings to JSON.
+It's just a matter of setting up the GUI to do this automatically and constantly.
+
 When this feature is enabled, the code should save the typescript defaults on every restart.
 Add a 5 second delay for debouncing.
 If you want this feature you have to initiate it and say where you want your file saved.
@@ -9,7 +14,7 @@ But once you do that, the setting is sticky.
 Until the user disables the request, we store the file handle to indexedDB, then we use that file handle to write the result.
 
 Visible status:  “Off”, “Pending”, “Saved”, “Error”.  That’s next to the button that enables or disables this feature.
-<label><input id=“...” type=“checkbox”>Save defaults:  <span id=“…”></span></label>
+`<label><input id=“...” type=“checkbox”>Save defaults:  <span id=“…”></span></label>`
 The status of this checkbox is *only* stored in IndexedDB.
 We have to use that to save the file handle.
 We save most of our GUI settings in sessionStorage, but there is no reason to duplicate this one.
@@ -52,3 +57,7 @@ And see some5/slid1.json.
 In this case I moved to json for a single section into its own file and imported it.
 (Not the same as the save as JSON, but just *copying* one section.)
 The idea is the same as for shadow-test but slightly different.
+
+Ideally the JSON would be replaced by TypeScript code.
+But that comes after this project.
+For now we are just cataloging the changes, with the intent of converting them back to TypeScript.

@@ -1723,6 +1723,120 @@ async function writeHistory(key: string, entries: HistoryEntry[]): Promise<void>
   });
 }
 
+// MARK: Defaults auto-save
+
+/** Special key in the "files" IDB store for the auto-save-defaults file handle. */
+const DEFAULTS_AUTO_SAVE_KEY = "__defaults-auto-save__";
+
+async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const req = tx.objectStore("files").get(DEFAULTS_AUTO_SAVE_KEY);
+    req.onsuccess = () => resolve((req.result as FileRecord | undefined)?.handle ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writeDefaultsAutoSaveHandle(handle: FileSystemFileHandle): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put({
+      filename: DEFAULTS_AUTO_SAVE_KEY,
+      handle,
+      savedAt: Date.now(),
+      isActive: false,
+    } satisfies FileRecord);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+const defaultsAutoSaveCheckbox = getById("defaultsAutoSaveCheckbox", HTMLInputElement);
+const defaultsAutoSaveStatusEl = getById("defaultsAutoSaveStatus", HTMLSpanElement);
+
+/** Current file handle for the defaults auto-save file, or null if the feature is off. */
+let _defaultsAutoSaveHandle: FileSystemFileHandle | null = null;
+let _defaultsAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
+
+type DefaultsAutoSaveStatus = "Off" | "Pending" | "Saved" | "Error";
+
+function _setDefaultsAutoSaveStatus(status: DefaultsAutoSaveStatus): void {
+  defaultsAutoSaveStatusEl.textContent = status;
+  defaultsAutoSaveStatusEl.style.color =
+    status === "Error" ? "red"
+    : status === "Pending" ? "orange"
+    : status === "Saved" ? "green"
+    : "gray";
+}
+
+/** Build a `Record<key, JsonFileEntry>` from {@link tsDefaults} — the code-defined starting point. */
+function buildDefaultsSnapshot(): Record<string, JsonFileEntry> {
+  const result: Record<string, JsonFileEntry> = {};
+  for (const [key, entry] of tsDefaults) {
+    const jsonEntry: JsonFileEntry = {};
+    if (entry.schedules.length) jsonEntry.schedules = entry.schedules;
+    if (entry.scalars?.length) jsonEntry.scalars = entry.scalars;
+    if (entry.components !== undefined) jsonEntry.components = entry.components;
+    if (entry.fixedComponents?.length) jsonEntry.fixedComponents = entry.fixedComponents;
+    if (entry.duration !== undefined) jsonEntry.duration = entry.duration;
+    if (entry.userEditableDescription !== undefined)
+      jsonEntry.userEditableDescription = entry.userEditableDescription;
+    result[key] = jsonEntry;
+  }
+  return result;
+}
+
+async function _doDefaultsAutoSave(): Promise<void> {
+  if (!_defaultsAutoSaveHandle) return;
+  try {
+    const body = JSON.stringify(buildDefaultsSnapshot(), null, 2);
+    const writable = await _defaultsAutoSaveHandle.createWritable();
+    await writable.write(body);
+    await writable.close();
+    _setDefaultsAutoSaveStatus("Saved");
+  } catch (e) {
+    console.error("Defaults auto-save failed:", e);
+    _setDefaultsAutoSaveStatus("Error");
+  }
+}
+
+function scheduleDefaultsAutoSave(): void {
+  clearTimeout(_defaultsAutoSaveTimer);
+  _setDefaultsAutoSaveStatus("Pending");
+  _defaultsAutoSaveTimer = setTimeout(() => void _doDefaultsAutoSave(), 5_000);
+}
+
+defaultsAutoSaveCheckbox.addEventListener("change", () => {
+  if (!defaultsAutoSaveCheckbox.checked) {
+    _defaultsAutoSaveHandle = null;
+    clearTimeout(_defaultsAutoSaveTimer);
+    void deleteFileRecord(DEFAULTS_AUTO_SAVE_KEY);
+    _setDefaultsAutoSaveStatus("Off");
+  } else {
+    void (async () => {
+      let handle: FileSystemFileHandle;
+      try {
+        handle = await window.showSaveFilePicker({
+          id: "defaults-auto-save",
+          suggestedName: `${toShowKey || "defaults"}-ts-defaults.json`,
+          types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+        });
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") {
+          defaultsAutoSaveCheckbox.checked = false;
+          return;
+        }
+        throw e;
+      }
+      _defaultsAutoSaveHandle = handle;
+      await writeDefaultsAutoSaveHandle(handle);
+      scheduleDefaultsAutoSave();
+    })();
+  }
+});
+
 // MARK: Load-source helpers
 
 /** Logs abandoned or deleted items; replace console.info with persistent storage if needed. */
@@ -4218,6 +4332,18 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
       }
     }
     updateJsonSaveStatus();
+  });
+
+  // Initialize defaults auto-save: read the stored handle, enable the checkbox.
+  void readDefaultsAutoSaveHandle().then((handle) => {
+    defaultsAutoSaveCheckbox.disabled = false;
+    if (handle) {
+      _defaultsAutoSaveHandle = handle;
+      defaultsAutoSaveCheckbox.checked = true;
+      scheduleDefaultsAutoSave();
+    } else {
+      _setDefaultsAutoSaveStatus("Off");
+    }
   });
 
   // Sanity-check DB for timestamps in the future (clock skew, corrupted data).
