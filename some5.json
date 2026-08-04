@@ -1711,7 +1711,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": 0.44952146292839956
+                        "value": 1
                       }
                     ]
                   }
@@ -4019,7 +4019,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": 0
+                        "value": 1
                       }
                     ]
                   }
@@ -4081,7 +4081,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": 0.9626370202320038
+                        "value": 1
                       }
                     ]
                   }
@@ -5645,7 +5645,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": 0.95048443395121
+                        "value": 1
                       }
                     ]
                   }
@@ -6039,134 +6039,7 @@
       },
       {
         "description": "Try New Items",
-        "components": [
-          {
-            "registryKey": "Traditional Text",
-            "schedules": [
-              {
-                "description": "Text",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Type Here"
-                  }
-                ]
-              },
-              {
-                "description": "Position",
-                "type": "point",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": {
-                      "x": 2,
-                      "y": 1
-                    }
-                  }
-                ]
-              },
-              {
-                "description": "Fill Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "rgb(128, 0, 255)"
-                  }
-                ]
-              },
-              {
-                "description": "Outline Color",
-                "type": "color",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "rgb(255, 128, 0)"
-                  }
-                ]
-              },
-              {
-                "description": "Outline Width",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0
-                  }
-                ]
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 0.5
-                  }
-                ]
-              },
-              {
-                "description": "Font Style",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "normal"
-                  }
-                ]
-              },
-              {
-                "description": "Font Weight",
-                "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 400
-                  }
-                ]
-              },
-              {
-                "description": "Font Family",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Life Savers"
-                  }
-                ]
-              },
-              {
-                "description": "Align",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "center"
-                  }
-                ]
-              },
-              {
-                "description": "Baseline",
-                "type": "select",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "alphabetic"
-                  }
-                ]
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Min Duration",
-                "type": "number",
-                "value": 0
-              }
-            ],
-            "components": []
-          }
-        ],
+        "components": [],
         "fixedComponents": [
           {
             "description": "one wrapper",
@@ -6754,7 +6627,7 @@
               {
                 "description": "Initial Time",
                 "type": "number",
-                "value": 0
+                "value": 3000
               },
               {
                 "description": "Extra Time",
@@ -6775,18 +6648,8 @@
             "components": [],
             "fixedComponents": [
               {
-                "description": "Traditional Text",
+                "description": "Frame Counter",
                 "schedules": [
-                  {
-                    "description": "Text",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "+0:16 59/60"
-                      }
-                    ]
-                  },
                   {
                     "description": "Position",
                     "type": "point",
@@ -6895,7 +6758,7 @@
                   {
                     "description": "Min Duration",
                     "type": "number",
-                    "value": 5000
+                    "value": 0
                   }
                 ],
                 "components": []
@@ -10733,7 +10596,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": 0.44952146292839956
+                "value": 1
               }
             ]
           }
@@ -11556,134 +11419,7 @@
     ]
   },
   "some5|Try New Items": {
-    "components": [
-      {
-        "registryKey": "Traditional Text",
-        "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Type Here"
-              }
-            ]
-          },
-          {
-            "description": "Position",
-            "type": "point",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": {
-                  "x": 2,
-                  "y": 1
-                }
-              }
-            ]
-          },
-          {
-            "description": "Fill Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(128, 0, 255)"
-              }
-            ]
-          },
-          {
-            "description": "Outline Color",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(255, 128, 0)"
-              }
-            ]
-          },
-          {
-            "description": "Outline Width",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0
-              }
-            ]
-          },
-          {
-            "description": "Font Size",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 0.5
-              }
-            ]
-          },
-          {
-            "description": "Font Style",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "normal"
-              }
-            ]
-          },
-          {
-            "description": "Font Weight",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 400
-              }
-            ]
-          },
-          {
-            "description": "Font Family",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Life Savers"
-              }
-            ]
-          },
-          {
-            "description": "Align",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "center"
-              }
-            ]
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "alphabetic"
-              }
-            ]
-          }
-        ],
-        "scalars": [
-          {
-            "description": "Min Duration",
-            "type": "number",
-            "value": 0
-          }
-        ],
-        "components": []
-      }
-    ],
+    "components": [],
     "fixedComponents": [
       {
         "description": "one wrapper",
@@ -12271,7 +12007,7 @@
           {
             "description": "Initial Time",
             "type": "number",
-            "value": 0
+            "value": 3000
           },
           {
             "description": "Extra Time",
@@ -12292,18 +12028,8 @@
         "components": [],
         "fixedComponents": [
           {
-            "description": "Traditional Text",
+            "description": "Frame Counter",
             "schedules": [
-              {
-                "description": "Text",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "+0:16 59/60"
-                  }
-                ]
-              },
               {
                 "description": "Position",
                 "type": "point",
@@ -12412,7 +12138,7 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 5000
+                "value": 0
               }
             ],
             "components": []
@@ -13093,7 +12819,7 @@
       {
         "description": "Initial Time",
         "type": "number",
-        "value": 0
+        "value": 3000
       },
       {
         "description": "Extra Time",
@@ -13114,18 +12840,8 @@
     "components": [],
     "fixedComponents": [
       {
-        "description": "Traditional Text",
+        "description": "Frame Counter",
         "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "+0:16 59/60"
-              }
-            ]
-          },
           {
             "description": "Position",
             "type": "point",
@@ -13234,7 +12950,7 @@
           {
             "description": "Min Duration",
             "type": "number",
-            "value": 5000
+            "value": 0
           }
         ],
         "components": []

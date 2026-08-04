@@ -64,6 +64,7 @@ import { strokeColors } from "../stroke-colors";
 import { PathShapeSplitter } from "../glib/path-shape-splitter";
 import { matchShapes } from "../morph-animation";
 import { createPathShapeCrossFade } from "../cross-fade";
+import { removeIf } from "../utility";
 
 const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
   { time: 0.15, value: 0, easeAfter: ease },
@@ -1985,6 +1986,14 @@ ${status.sample.typescript}`);
 
 // MARK: Frame Counter
 
+/**
+ * This component displays text like "0:00  0/60" to tell you the current timeInMs of this component.
+ * That's minutes, seconds and (ideal) frames.
+ * Values less than 0 are preceded by a negative sign.
+ * Values greater than the component's duration are preceded by a plus sign.
+ *
+ * This component is aimed at development and debugging.
+ */
 class FrameCounter extends TraditionalTextComponent {
   constructor(
     initialValues: Omit<
@@ -1992,9 +2001,16 @@ class FrameCounter extends TraditionalTextComponent {
       "text"
     > = {},
   ) {
+    initialValues.description ??= "Frame Counter";
+    // A fixed width font so things don't jump around on the screen.
     initialValues.fontFamily ??= "Source Code Pro";
+    // These are numbers and I don't know the largest number so I can't reserve space for it.
+    // Right justify everything, like we normally do with numbers.
     initialValues.textAlign ??= "right";
     super(initialValues);
+    // This component directly modifies this schedule.
+    // It is not an input for the user and it should not be serialized.
+    removeIf(this.schedules, (schedule) => schedule == this.textSchedule);
   }
   override show(options: ShowOptions): void {
     let text = "";
@@ -2025,6 +2041,7 @@ class FrameCounter extends TraditionalTextComponent {
 
 // MARK: Try New Items
 {
+  // Miscellaneous tests
   const star5 = makePolygon(5, 1, undefined, 0).transform(
     new DOMMatrix().rotateSelf(-90),
   );
@@ -2099,7 +2116,11 @@ class FrameCounter extends TraditionalTextComponent {
     tryNewItems.addFixed({ child: paddingComponent });
   });
   {
-    const frameCounter = new FrameCounter();
+    const frameCounter = new FrameCounter({
+      fillColor: "rgb(32, 64, 255)",
+      position: { x: 14.65403422982885, y: 8.094284841075796 },
+      fontSize: 1.5,
+    });
     const paddingComponent = new PaddingComponent({
       initialTime: 3000,
       description: `frameCounter wrapper`,
@@ -2697,7 +2718,7 @@ class ChildWrapper extends SlideComponent {
         this.addFixed({
           child: childWrapper,
           padding: undefined,
-          zOrder: index - Number.MAX_SAFE_INTEGER,
+          zIndex: index - Number.MAX_SAFE_INTEGER,
         });
       });
     }

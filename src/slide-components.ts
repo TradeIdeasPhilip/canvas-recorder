@@ -211,8 +211,8 @@ export class InParallelComponent implements Showable, ShowableParent {
           replaceableChildrenHaveBeenInserted = true;
         }
       };
-      this.#fixedChildren.array.forEach(({ zOrder, child }, index) => {
-        if (zOrder >= 0) {
+      this.#fixedChildren.array.forEach(({ zIndex, child }, index) => {
+        if (zIndex >= 0) {
           checkReplaceableChildren();
         }
         children.push({
@@ -262,8 +262,8 @@ export class InParallelComponent implements Showable, ShowableParent {
   }
   #fixedChildren = new BinaryInserter<{
     child: Showable;
-    zOrder: number;
-  }>((record) => record.zOrder);
+    zIndex: number;
+  }>((record) => record.zIndex);
   /**
    *
    * @param child The child to add.
@@ -271,8 +271,8 @@ export class InParallelComponent implements Showable, ShowableParent {
    * Otherwise create a PaddingComponent as a wrapper around the child, and that wrapper will be a child of this object.
    * This parameter contains instructions for the PaddingComponent constructor.
    * This can be `{}` to create a PaddingComponent with all of the defaults.
-   * @param zOrder Where to insert this.
-   * The replaceable components are all drawn immediately before zOrder=0.
+   * @param zIndex Where to insert this.
+   * The replaceable components are all drawn immediately before zIndex=0.
    * The default z order will be one more than that of the last fixed child already present,
    * effectively pushing to the end of the list.
    * If there are no replaceable components yet the default z order will be 0,
@@ -283,22 +283,22 @@ export class InParallelComponent implements Showable, ShowableParent {
   addFixed({
     child,
     padding,
-    zOrder,
+    zIndex,
   }: {
     child: Showable;
     padding?: Omit<
       ConstructorParameters<typeof PaddingComponent>[0],
       "registryKey"
     >;
-    zOrder?: number;
+    zIndex?: number;
     start?: number;
   }) {
-    if (zOrder === undefined) {
+    if (zIndex === undefined) {
       const last = this.#fixedChildren.array.at(-1);
       if (last) {
-        zOrder = last.zOrder + 1;
+        zIndex = last.zIndex + 1;
       } else {
-        zOrder = 0;
+        zIndex = 0;
       }
     }
     if (padding) {
@@ -307,7 +307,7 @@ export class InParallelComponent implements Showable, ShowableParent {
       child = paddingComponent;
     }
     this.#setParent(child);
-    this.#fixedChildren.push({ child, zOrder });
+    this.#fixedChildren.push({ child, zIndex });
     this.scheduleHasChanged();
   }
   #setParent(child: Showable) {
@@ -374,7 +374,7 @@ export class InParallelComponent implements Showable, ShowableParent {
  * Like MultiTextComponent where you can already add subcomponents and it is naive to duration.
  * The basic text components have a duration of 0, requesting nothing, but running as long as they are scheduled to run.
  * Like the items added by the Visual Editor.
- * Any component can be a parent because that's useful for prototyping.
+ * *Any component* can be a parent because that's useful for prototyping.
  * If a custom component is duration agnostic, use this as the base.
  *
  * That said, most of the time we will need to set the duration of a text or rectangle or arrow component.
@@ -412,8 +412,7 @@ export class DurationAgnosticComponent extends InParallelComponent {
  * The constructor takes an initial value and it can be changed with setDuration();
  * See {@link ComponentWithFixedDuration} if you want the duration to be immutable.
  *
- * TODO the following paragraph is out of date:
- * A subclass override show() and call super.show() whenever it is time to display the children.
+ * A subclass can override show() and call super.show() whenever it is time to display the children.
  * Or override showChild() to make changes to the way we display specific children or to mix other operation in between showing various children.
  */
 export class ComponentWithLiveDuration extends InParallelComponent {
@@ -608,7 +607,7 @@ export class PaddingComponent extends InParallelComponent {
     options: ShowOptions;
   }) {
     const primary = info.index == 0;
-    let timeInMs = info.options.timeInMs ;
+    let timeInMs = info.options.timeInMs;
     if (timeInMs < 0) {
       const before = primary ? this.showBeforeScalar.value : "live";
       switch (before) {
@@ -1207,8 +1206,8 @@ export class MultiTextComponent extends DurationAgnosticComponent {
   }): void {
     if (info.child instanceof TextSpanComponent) {
       // TODO we should display the result of each TextSpanComponent in this call.
-      // That way we can completely control the zOrder.
-      // For now the text is all displayed at the highest zOrder.
+      // That way we can completely control the zIndex.
+      // For now the text is all displayed at the highest zIndex.
     } else if (info.child instanceof TextFormatComponent) {
       // Nothing to do.
       // This is not a visible component.

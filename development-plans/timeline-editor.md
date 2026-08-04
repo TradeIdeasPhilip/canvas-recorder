@@ -24,8 +24,8 @@ What if I want a video to change size or shape while it's playing?
 This is easy this canvas-recorder project, but it would be almost impossible to keep the pixel perfect quality in CapCut.
 
 In the best cases I want to go back and forth.
-I want to change details of the individual scenes and I want to change the overall script and I want to go back and forth.
-Common case:  I start with the voiceover and when I add graphics I don't like the timing.
+I want to change details of the individual scenes and I want to change the overall script and I want to go back and forth between those.
+Common case: I start with the voiceover and when I add graphics I don't like the timing.
 Or vice versa.
 Neither completely depends on the other.
 I go back and forth tweaking things until everything is perfect or I get frustrated and give up.
@@ -51,7 +51,7 @@ We [currently](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/cf52fa
 The prototype are in [some5.ts](../src/some5/some5.ts).
 If this works out well, I'll make the timeline feature available to the entire program.
 
-I'm doing some *real* work there on a *real* video that I want to produce.
+I'm doing some _real_ work there on a _real_ video that I want to produce.
 The script so far looks pretty good, but I have more to add.
 I might want to add some small tweaks to the existing part, but while we're working on these prototypes I want everything preserved exactly as is.
 
@@ -90,7 +90,7 @@ My biggest complaint is that the code is complicated and I want to break it into
 This lets me split a scene into multiple pieces.
 Then I can configure each piece separately.
 E.g. I can adjust the speed of a scene in the middle.
-We already have *schedules* that can do a lot of what I needed, but splitting up the scenes made it easier to add all the tools that I want.
+We already have _schedules_ that can do a lot of what I needed, but splitting up the scenes made it easier to add all the tools that I want.
 
 This prototype includes sound clips.
 The sound clips can be linked to the video clips.
@@ -118,17 +118,16 @@ We need a way to make some of these visible on the timeline.
 The Visual Editor will also contain \<input> fields to do the same thing.
 This will be simpler than the "Main Timeline"
 
-
 ### Sound
 
-* really don't need any special options
-   * all sounds are editable
-   * if `Showable.soundClips` is an array then the user can add, delete move ,etc
-* This new editable view of sounds will replace the current waveform display.
+- really don't need any special options
+  - all sounds are editable
+  - if `Showable.soundClips` is an array then the user can add, delete move ,etc
+- This new editable view of sounds will replace the current waveform display.
 
 rehoming!!!
 
 ### Callouts
 
-* These can be simpler than the "Main Timeline" example.
-* Som
+- These can be simpler than the "Main Timeline" example.
+- Som

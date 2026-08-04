@@ -119,7 +119,7 @@ export type ShowableParent = {
  * Or this might be a part of the animation that will be joined with other parts.
  */
 export type Showable = {
-  calloutInfo?: { drawIn: Showable; zOrder: number; startOffset: number };
+  calloutInfo?: { drawIn: Showable; zIndex: number; startOffset: number };
   /**
    * This tags item an item to say that it can be a top level component in the Visual Editor.
    * The string value will be the key when we save this to IndexedDB or to a JSON file.

@@ -6648,18 +6648,8 @@
             "components": [],
             "fixedComponents": [
               {
-                "description": "Traditional Text",
+                "description": "Frame Counter",
                 "schedules": [
-                  {
-                    "description": "Text",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "Type Here"
-                      }
-                    ]
-                  },
                   {
                     "description": "Position",
                     "type": "point",
@@ -6667,8 +6657,8 @@
                       {
                         "time": 0,
                         "value": {
-                          "x": 2,
-                          "y": 1
+                          "x": 14.65403422982885,
+                          "y": 8.094284841075796
                         }
                       }
                     ]
@@ -6679,7 +6669,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "rgb(128, 0, 255)"
+                        "value": "rgb(32, 64, 255)"
                       }
                     ]
                   },
@@ -6709,7 +6699,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": 0.5
+                        "value": 1.5
                       }
                     ]
                   },
@@ -12038,18 +12028,8 @@
         "components": [],
         "fixedComponents": [
           {
-            "description": "Traditional Text",
+            "description": "Frame Counter",
             "schedules": [
-              {
-                "description": "Text",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "Type Here"
-                  }
-                ]
-              },
               {
                 "description": "Position",
                 "type": "point",
@@ -12057,8 +12037,8 @@
                   {
                     "time": 0,
                     "value": {
-                      "x": 2,
-                      "y": 1
+                      "x": 14.65403422982885,
+                      "y": 8.094284841075796
                     }
                   }
                 ]
@@ -12069,7 +12049,7 @@
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": "rgb(128, 0, 255)"
+                    "value": "rgb(32, 64, 255)"
                   }
                 ]
               },
@@ -12099,7 +12079,7 @@
                 "keyframes": [
                   {
                     "time": 0,
-                    "value": 0.5
+                    "value": 1.5
                   }
                 ]
               },
@@ -12860,18 +12840,8 @@
     "components": [],
     "fixedComponents": [
       {
-        "description": "Traditional Text",
+        "description": "Frame Counter",
         "schedules": [
-          {
-            "description": "Text",
-            "type": "string",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "Type Here"
-              }
-            ]
-          },
           {
             "description": "Position",
             "type": "point",
@@ -12879,8 +12849,8 @@
               {
                 "time": 0,
                 "value": {
-                  "x": 2,
-                  "y": 1
+                  "x": 14.65403422982885,
+                  "y": 8.094284841075796
                 }
               }
             ]
@@ -12891,7 +12861,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "rgb(128, 0, 255)"
+                "value": "rgb(32, 64, 255)"
               }
             ]
           },
@@ -12921,7 +12891,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": 0.5
+                "value": 1.5
               }
             ]
           },

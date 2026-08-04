@@ -1,6 +1,29 @@
 import { sum, zip } from "phil-lib/misc";
 import { Showable } from "./showable";
 
+/**
+ * Modify an array by removing the designated items.
+ *
+ * This is similar to Array.filter() but
+ * * The predicate is inverted and
+ * * This function modifies the array in place instead of creating a new one.
+ *
+ * This walks through the array backwards.
+ * That means that the `index` parameter to the predicate will always match the indices from before anything was deleted.
+ * @param array To modify
+ * @param shouldRemove This should return true to remove and item or false to keep it.
+ */
+export function removeIf<T>(
+  array: Array<T>,
+  shouldRemove: (value: T, index: number) => boolean,
+) {
+  for (let index = array.length - 1; index >= 0; index--) {
+    if (shouldRemove(array[index], index)) {
+      array.splice(index, 1);
+    }
+  }
+}
+
 // TODO copy this to phil-lib/client-misc.ts
 // Right under download() which only works on strings.
 // Or maybe join them.  The last argument could have type string|Blob.
