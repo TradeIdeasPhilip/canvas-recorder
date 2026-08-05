@@ -27,11 +27,15 @@
           <span
             id="jsonSaveStatus"
             style="font-size: 0.85em; font-style: italic; color: gray"
-          >never saved</span>
+            >never saved</span
+          >
           <button type="button" id="saveJsonBtn" disabled>💾 Save</button>
           <button type="button" id="saveAsJsonBtn">💾 Save As</button>
           <button type="button" id="saveCopyAsJsonBtn">📋 Save Copy As</button>
-          <label><input type="checkbox" id="defaultsAutoSaveCheckbox" disabled> Save defaults: <span id="defaultsAutoSaveStatus">…</span></label>
+          <label style="white-space: nowrap"
+            ><input type="checkbox" id="defaultsAutoSaveCheckbox" disabled />
+            Save defaults: <span id="defaultsAutoSaveStatus">…</span></label
+          >
           <label hidden
             ><input
               type="radio"
@@ -249,7 +253,10 @@
             </button>
           </span>
         </div>
-        <canvas id="waveformCanvas" title="Click or shift drag to seek · Drag to pan · Scroll to zoom"></canvas>
+        <canvas
+          id="waveformCanvas"
+          title="Click or shift drag to seek · Drag to pan · Scroll to zoom"
+        ></canvas>
         <fieldset id="componentsEditor" hidden>
           <!-- dynamically populated by canvas-recorder.ts -->
         </fieldset>

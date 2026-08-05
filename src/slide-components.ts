@@ -1054,6 +1054,14 @@ function getFormat(
 ): TextFormatComponent | undefined {
   return available.findLast((component) => component.nameScalar.value == name);
 }
+/**
+ *
+ * @param options The incoming options, which might include formatters from MultiTextComponent ancestors.
+ * @param current New formatters
+ * @returns A list of formatters.
+ * Any and all formatters read of `options` will come first,
+ * followed by the formatters associated with the `current` MultiTextComponent.
+ */
 function extractTextFormatList(
   options: ShowOptions & {
     [TEXT_FORMAT_LIST]?: readonly TextFormatComponent[];
@@ -1066,6 +1074,18 @@ function extractTextFormatList(
     return current;
   }
 }
+/**
+ *
+ * @param options These are the incoming options.
+ * Start from a copy of these.
+ * @param textFormatList Add these into the options,
+ * replacing any previous TEXT_FORMAT_LIST.
+ * Presumably you created this list from a call to {@link extractTextFormatList}().
+ * So one immutable array will be replacing another.
+ * But the contents of the array will only grow, with new formatters being added to the end.
+ * @returns A new ShowableOptions to share with children.
+ * This will contain the next list of formatters.
+ */
 function setTextFormatList(
   options: ShowOptions,
   textFormatList: readonly TextFormatComponent[],
@@ -1077,7 +1097,7 @@ function setTextFormatList(
  *
  * This contains a sequence of TextSpanComponent objects with the text to display.
  * And a sequence of TextFormatComponent objects with formatting instructions.
- * Each TextSpanComponent object points to a TextFormatComponent object using an index number.
+ * Each TextSpanComponent object points to a TextFormatComponent object by name.
  * Presumably a lot of formatting will be reused, like "normal" and bold.
  *
  * This is a prototype.
@@ -1085,7 +1105,7 @@ function setTextFormatList(
  * But the GUI needs some cleanup.
  * If nothing else it needs instructions.
  * Ideally it would be impossible to add a TextSpanComponent or a TextFormatComponent to anything but one of these components.
- * And these components should only be able to have two types of children:  TextSpanComponent or TextFormatComponent.
+ * And these components should have two *preferred* types of children:  TextSpanComponent or TextFormatComponent.
  *
  * Currently we print a warning on the screen for any errors.
  *
@@ -1093,11 +1113,13 @@ function setTextFormatList(
  * TextSpanComponent and TextFormatComponent have special meanings.
  * Any other children are drawn like normal.
  * These children are drawn before the TextSpanComponents are drawn.
- * Currently that doesn't do much.
- * But the plan is for descendants to have access to this component's formatters.
+ * One reason is that descendants get full access to this component's formatters.
+ * So a top level Multi Text can create formatters shared by other Multi Text Components.
+ * This includes Multi Text Components that are wrapped in other components.
  */
 export class MultiTextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Multi Text";
+  readonly #temporaryText = new Array<TextSpanComponent>();
   /**
    * Create, initialize, and add a TextSpanComponent to this MultiTextComponent.
    * @param style The name of the style to apply to this text.
@@ -1108,7 +1130,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     const span = new TextSpanComponent();
     span.styleSchedule.set(style);
     span.contentSchedule.set(content);
-    this.replaceableComponents.push(span);
+    this.#temporaryText.push(span);
     return this;
   }
   static #splitter = /^⸨([^⸨⸩]*)⸩([^⸨⸩]*)(.*)$/s;
@@ -1131,15 +1153,10 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     return this;
   }
   /**
-   * Remove all TextSpanComponent children.
-   * Leave the TextFormatComponent children in place.
-   * Only affects replaceable children (for simplicity).
+   * Remove all TextSpanComponent objects created by addText() or addText1().
    */
   clearText() {
-    const toKeep = this.replaceableComponents
-      .get()
-      .filter((component) => !(component instanceof TextSpanComponent));
-    this.replaceableComponents.replace(toKeep);
+    this.#temporaryText.length = 0;
     return this;
   }
   readonly positionSchedule = new PointScheduleInfo("Position", {
@@ -1168,6 +1185,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
   );
   constructor(
     initialValues: {
+      description?: string;
       position?: Point | readonly Keyframe<Point>[];
       alignment?: Parameters<MultiTextComponent["alignmentSchedule"]["set"]>[0];
       textBaseline?: Parameters<
@@ -1177,7 +1195,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       additionalLineHeight?: number | readonly Keyframe<number>[];
     } = {},
   ) {
-    super("Multi Text");
+    super(initialValues.description ?? "Multi Text");
     this.schedules.push(
       this.positionSchedule,
       this.alignmentSchedule,
@@ -1204,6 +1222,8 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     start: number;
     options: ShowOptions;
   }): void {
+    // We are not currently using this method.
+    console.warn("yes!");
     if (info.child instanceof TextSpanComponent) {
       // TODO we should display the result of each TextSpanComponent in this call.
       // That way we can completely control the zIndex.
@@ -1239,6 +1259,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       string,
       ReturnType<TextFormatComponent["freeze"]> | undefined
     >();
+    sources.push(...this.#temporaryText);
     sources.forEach((source) => {
       const { content, style } = source.get(timeInMs);
       const initializedFormatter = initializedFormatters.getOrInsertComputed(
@@ -1340,19 +1361,12 @@ export class TextFormatComponent implements Showable {
   readonly boldnessSchedule = new NumberScheduleInfo("Boldness", 1);
   readonly obliquenessSchedule = new NumberScheduleInfo("Obliqueness", 0);
   readonly alphaSchedule = new NumberScheduleInfo("Alpha", 1);
-  get schedules() {
-    return [
-      this.colorSchedule,
-      this.sizeSchedule,
-      this.boldnessSchedule,
-      this.obliquenessSchedule,
-      this.alphaSchedule,
-    ] as const;
-  }
-  readonly description = "Text Format";
+  readonly schedules = new Array<ScheduleInfo>();
+  readonly description: string;
   readonly duration = 0;
   constructor(
     initialValues: {
+      description?: string;
       name?: string;
       color?: string | readonly Keyframe<string>[] | ColorScheduleInfo;
       size?: number | readonly Keyframe<number>[];
@@ -1361,6 +1375,7 @@ export class TextFormatComponent implements Showable {
       alpha?: number | readonly Keyframe<number>[];
     } = {},
   ) {
+    this.description = initialValues.description ?? "Text Format";
     if (initialValues.name !== undefined)
       this.nameScalar.value = initialValues.name;
     this.colorSchedule = new ColorScheduleInfo(
@@ -1375,6 +1390,13 @@ export class TextFormatComponent implements Showable {
       this.obliquenessSchedule.set(initialValues.obliqueness);
     if (initialValues.alpha !== undefined)
       this.alphaSchedule.set(initialValues.alpha);
+    this.schedules.push(
+      this.colorSchedule,
+      this.sizeSchedule,
+      this.boldnessSchedule,
+      this.obliquenessSchedule,
+      this.alphaSchedule,
+    );
   }
   show(options: ShowOptions): void {
     // TODO Can we update the Visual Editor's GUI to prevent this from happening in the first place?

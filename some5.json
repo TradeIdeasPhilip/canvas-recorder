@@ -1501,38 +1501,6 @@
       },
       {
         "description": "Slide 7",
-        "schedules": [
-          {
-            "description": "outer",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(0, 128, 255)"
-              }
-            ]
-          },
-          {
-            "description": "inner",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(255, 0, 0)"
-              }
-            ]
-          },
-          {
-            "description": "base",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          }
-        ],
         "components": [],
         "fixedComponents": [
           {
@@ -1599,9 +1567,10 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Outer Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -1609,7 +1578,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(0, 128, 255)"
                       }
                     ]
                   },
@@ -1640,16 +1609,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -1663,7 +1622,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Inner Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -1671,7 +1630,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 0, 0)"
                       }
                     ]
                   },
@@ -1702,16 +1661,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -1725,7 +1674,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Base Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -1733,7 +1682,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -1766,16 +1715,6 @@
                         "value": 0
                       }
                     ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
-                      }
-                    ]
                   }
                 ],
                 "scalars": [
@@ -1785,9 +1724,7 @@
                     "value": "base"
                   }
                 ]
-              }
-            ],
-            "fixedComponents": [
+              },
               {
                 "description": "ShowTwoTransforms",
                 "components": [],
@@ -1802,7 +1739,7 @@
                           {
                             "time": 0,
                             "value": {
-                              "x": 12,
+                              "x": 4,
                               "y": 0.25
                             }
                           }
@@ -1856,183 +1793,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateX(1px)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideRightOneUnit("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "double("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               },
@@ -2104,183 +1865,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateX(1px)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideRightOneUnit("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "double("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               }
@@ -2291,38 +1876,6 @@
       },
       {
         "description": "Slide 8",
-        "schedules": [
-          {
-            "description": "outer",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(255, 0, 255)"
-              }
-            ]
-          },
-          {
-            "description": "inner",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(32, 64, 255)"
-              }
-            ]
-          },
-          {
-            "description": "base",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          }
-        ],
         "components": [],
         "fixedComponents": [
           {
@@ -2389,9 +1942,10 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Outer Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -2399,7 +1953,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 0, 255)"
                       }
                     ]
                   },
@@ -2430,16 +1984,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -2453,7 +1997,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Inner Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -2461,7 +2005,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(32, 64, 255)"
                       }
                     ]
                   },
@@ -2492,16 +2036,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -2515,7 +2049,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Base Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -2523,7 +2057,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -2556,16 +2090,6 @@
                         "value": 0
                       }
                     ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
-                      }
-                    ]
                   }
                 ],
                 "scalars": [
@@ -2573,256 +2097,6 @@
                     "description": "Name",
                     "type": "string",
                     "value": "base"
-                  }
-                ]
-              }
-            ],
-            "fixedComponents": [
-              {
-                "description": "ShowTwoTransforms",
-                "components": [],
-                "fixedComponents": [
-                  {
-                    "description": "Multi Text",
-                    "schedules": [
-                      {
-                        "description": "Position",
-                        "type": "point",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": {
-                              "x": 12,
-                              "y": 0.25
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Alignment",
-                        "type": "select",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": "center"
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Baseline",
-                        "type": "select",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": "top"
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Width",
-                        "type": "number",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": 8
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Additional Line Height",
-                        "type": "number",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": 0.3
-                          }
-                        ]
-                      }
-                    ],
-                    "scalars": [
-                      {
-                        "description": "Min Duration",
-                        "type": "number",
-                        "value": 0
-                      }
-                    ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2, 1)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate(45deg)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "twiceAsWide("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
                   }
                 ]
               },
@@ -2894,183 +2168,79 @@
                         "value": 0
                       }
                     ],
-                    "components": [
+                    "components": []
+                  }
+                ]
+              },
+              {
+                "description": "ShowTwoTransforms",
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Multi Text",
+                    "schedules": [
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Position",
+                        "type": "point",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2, 1)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": {
+                              "x": 12,
+                              "y": 0.25
+                            }
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Alignment",
+                        "type": "select",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate(45deg)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
+                            "time": 0,
+                            "value": "center"
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Baseline",
+                        "type": "select",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "twiceAsWide("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": "top"
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Width",
+                        "type": "number",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
+                            "time": 0,
+                            "value": 8
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Additional Line Height",
+                        "type": "number",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": 0.3
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ],
+                    "components": []
                   }
                 ]
               }
@@ -3081,38 +2251,6 @@
       },
       {
         "description": "Slide 9",
-        "schedules": [
-          {
-            "description": "outer",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(128, 0, 255)"
-              }
-            ]
-          },
-          {
-            "description": "inner",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "rgb(255, 128, 0)"
-              }
-            ]
-          },
-          {
-            "description": "base",
-            "type": "color",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": "black"
-              }
-            ]
-          }
-        ],
         "components": [],
         "fixedComponents": [
           {
@@ -3179,9 +2317,10 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Outer Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -3189,7 +2328,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(128, 0, 255)"
                       }
                     ]
                   },
@@ -3220,16 +2359,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -3243,7 +2372,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Inner Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -3251,7 +2380,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 128, 0)"
                       }
                     ]
                   },
@@ -3282,16 +2411,6 @@
                       {
                         "time": 0,
                         "value": 0
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
                       }
                     ]
                   }
@@ -3305,7 +2424,7 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Base Format",
                 "schedules": [
                   {
                     "description": "Color",
@@ -3313,7 +2432,7 @@
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -3346,16 +2465,6 @@
                         "value": 0
                       }
                     ]
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": 1
-                      }
-                    ]
                   }
                 ],
                 "scalars": [
@@ -3363,256 +2472,6 @@
                     "description": "Name",
                     "type": "string",
                     "value": "base"
-                  }
-                ]
-              }
-            ],
-            "fixedComponents": [
-              {
-                "description": "ShowTwoTransforms",
-                "components": [],
-                "fixedComponents": [
-                  {
-                    "description": "Multi Text",
-                    "schedules": [
-                      {
-                        "description": "Position",
-                        "type": "point",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": {
-                              "x": 12,
-                              "y": 0.25
-                            }
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Alignment",
-                        "type": "select",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": "center"
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Baseline",
-                        "type": "select",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": "top"
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Width",
-                        "type": "number",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": 8
-                          }
-                        ]
-                      },
-                      {
-                        "description": "Additional Line Height",
-                        "type": "number",
-                        "keyframes": [
-                          {
-                            "time": 0,
-                            "value": 0.3
-                          }
-                        ]
-                      }
-                    ],
-                    "scalars": [
-                      {
-                        "description": "Min Duration",
-                        "type": "number",
-                        "value": 0
-                      }
-                    ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateY(2px)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "skewX(30deg)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideDownTwoUnits("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "leanLeft("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
                   }
                 ]
               },
@@ -3684,183 +2543,79 @@
                         "value": 0
                       }
                     ],
-                    "components": [
+                    "components": []
+                  }
+                ]
+              },
+              {
+                "description": "ShowTwoTransforms",
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Multi Text",
+                    "schedules": [
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Position",
+                        "type": "point",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateY(2px)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": {
+                              "x": 12,
+                              "y": 0.25
+                            }
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Alignment",
+                        "type": "select",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "skewX(30deg)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
+                            "time": 0,
+                            "value": "center"
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Baseline",
+                        "type": "select",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideDownTwoUnits("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": "top"
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Width",
+                        "type": "number",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "leanLeft("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
+                            "time": 0,
+                            "value": 8
                           }
                         ]
                       },
                       {
-                        "registryKey": "Text Span",
-                        "schedules": [
+                        "description": "Additional Line Height",
+                        "type": "number",
+                        "keyframes": [
                           {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "outer"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "inner"
-                              }
-                            ]
+                            "time": 0,
+                            "value": 0.3
                           }
                         ]
                       }
-                    ]
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ],
+                    "components": []
                   }
                 ]
               }
@@ -3969,17 +2724,18 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "left",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(0, 128, 255)"
                       }
                     ]
                   },
@@ -4028,20 +2784,20 @@
                   {
                     "description": "Name",
                     "type": "string",
-                    "value": "left"
+                    "value": "base"
                   }
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "right",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 0, 0)"
                       }
                     ]
                   },
@@ -4095,15 +2851,15 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "base",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -4155,9 +2911,7 @@
                     "value": "base"
                   }
                 ]
-              }
-            ],
-            "fixedComponents": [
+              },
               {
                 "description": "ShowTwoTransforms",
                 "components": [],
@@ -4226,183 +2980,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateX(1px)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "double("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideRightOneUnit("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               }
@@ -4511,17 +3089,18 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "left",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 0, 255)"
                       }
                     ]
                   },
@@ -4570,20 +3149,20 @@
                   {
                     "description": "Name",
                     "type": "string",
-                    "value": "left"
+                    "value": "base"
                   }
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "right",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(32, 64, 255)"
                       }
                     ]
                   },
@@ -4637,15 +3216,15 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "base",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -4697,9 +3276,7 @@
                     "value": "base"
                   }
                 ]
-              }
-            ],
-            "fixedComponents": [
+              },
               {
                 "description": "ShowTwoTransforms",
                 "components": [],
@@ -4768,183 +3345,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate(45deg)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "scale(2, 1)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "rotate("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "twiceAsWide("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               }
@@ -5053,17 +3454,18 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "left",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(128, 0, 255)"
                       }
                     ]
                   },
@@ -5112,20 +3514,20 @@
                   {
                     "description": "Name",
                     "type": "string",
-                    "value": "left"
+                    "value": "base"
                   }
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "right",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 128, 0)"
                       }
                     ]
                   },
@@ -5179,15 +3581,15 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "base",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -5239,9 +3641,7 @@
                     "value": "base"
                   }
                 ]
-              }
-            ],
-            "fixedComponents": [
+              },
               {
                 "description": "ShowTwoTransforms",
                 "components": [],
@@ -5310,183 +3710,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translate(-6px)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translate(3px)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideWayLeft("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideALittleRight("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               }
@@ -5595,17 +3819,18 @@
                 "value": 0
               }
             ],
-            "components": [
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "left",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(128, 0, 255)"
                       }
                     ]
                   },
@@ -5654,20 +3879,20 @@
                   {
                     "description": "Name",
                     "type": "string",
-                    "value": "left"
+                    "value": "base"
                   }
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "right",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "rgb(255, 128, 0)"
                       }
                     ]
                   },
@@ -5721,15 +3946,15 @@
                 ]
               },
               {
-                "registryKey": "Text Format",
+                "description": "Text Format",
                 "schedules": [
                   {
-                    "description": "Color",
+                    "description": "base",
                     "type": "color",
                     "keyframes": [
                       {
                         "time": 0,
-                        "value": "#666"
+                        "value": "black"
                       }
                     ]
                   },
@@ -5781,9 +4006,7 @@
                     "value": "base"
                   }
                 ]
-              }
-            ],
-            "fixedComponents": [
+              },
               {
                 "description": "ShowTwoTransforms",
                 "components": [],
@@ -5852,183 +4075,7 @@
                         "value": 0
                       }
                     ],
-                    "components": [
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "skewX(30deg)   "
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "translateY(2px)\n"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "leanLeft("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "slideDownTwoUnits("
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "x, y"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "base"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "right"
-                              }
-                            ]
-                          }
-                        ]
-                      },
-                      {
-                        "registryKey": "Text Span",
-                        "schedules": [
-                          {
-                            "description": "Content",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": ")"
-                              }
-                            ]
-                          },
-                          {
-                            "description": "Style",
-                            "type": "string",
-                            "keyframes": [
-                              {
-                                "time": 0,
-                                "value": "left"
-                              }
-                            ]
-                          }
-                        ]
-                      }
-                    ]
+                    "components": []
                   }
                 ]
               }
@@ -10484,9 +8531,10 @@
         "value": 0
       }
     ],
-    "components": [
+    "components": [],
+    "fixedComponents": [
       {
-        "registryKey": "Text Format",
+        "description": "Outer Format",
         "schedules": [
           {
             "description": "Color",
@@ -10494,7 +8542,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "#666"
+                "value": "rgb(0, 128, 255)"
               }
             ]
           },
@@ -10525,16 +8573,6 @@
               {
                 "time": 0,
                 "value": 0
-              }
-            ]
-          },
-          {
-            "description": "Alpha",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
               }
             ]
           }
@@ -10548,7 +8586,7 @@
         ]
       },
       {
-        "registryKey": "Text Format",
+        "description": "Inner Format",
         "schedules": [
           {
             "description": "Color",
@@ -10556,7 +8594,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "#666"
+                "value": "rgb(255, 0, 0)"
               }
             ]
           },
@@ -10587,16 +8625,6 @@
               {
                 "time": 0,
                 "value": 0
-              }
-            ]
-          },
-          {
-            "description": "Alpha",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
               }
             ]
           }
@@ -10610,7 +8638,7 @@
         ]
       },
       {
-        "registryKey": "Text Format",
+        "description": "Base Format",
         "schedules": [
           {
             "description": "Color",
@@ -10618,7 +8646,7 @@
             "keyframes": [
               {
                 "time": 0,
-                "value": "#666"
+                "value": "black"
               }
             ]
           },
@@ -10651,16 +8679,6 @@
                 "value": 0
               }
             ]
-          },
-          {
-            "description": "Alpha",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1
-              }
-            ]
           }
         ],
         "scalars": [
@@ -10670,9 +8688,7 @@
             "value": "base"
           }
         ]
-      }
-    ],
-    "fixedComponents": [
+      },
       {
         "description": "ShowTwoTransforms",
         "components": [],
@@ -10687,7 +8703,7 @@
                   {
                     "time": 0,
                     "value": {
-                      "x": 12,
+                      "x": 4,
                       "y": 0.25
                     }
                   }
@@ -10741,183 +8757,7 @@
                 "value": 0
               }
             ],
-            "components": [
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "translateX(1px)   "
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "scale(2)\n"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "slideRightOneUnit("
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "double("
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "x, y"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "base"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": ")"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": ")"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+            "components": []
           }
         ]
       },
@@ -10989,183 +8829,7 @@
                 "value": 0
               }
             ],
-            "components": [
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "translateX(1px)   "
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "scale(2)\n"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "slideRightOneUnit("
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "double("
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "x, y"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "base"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": ")"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "outer"
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "registryKey": "Text Span",
-                "schedules": [
-                  {
-                    "description": "Content",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": ")"
-                      }
-                    ]
-                  },
-                  {
-                    "description": "Style",
-                    "type": "string",
-                    "keyframes": [
-                      {
-                        "time": 0,
-                        "value": "inner"
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
+            "components": []
           }
         ]
       }
@@ -11184,7 +8848,7 @@
               {
                 "time": 0,
                 "value": {
-                  "x": 12,
+                  "x": 4,
                   "y": 0.25
                 }
               }
@@ -11238,183 +8902,7 @@
             "value": 0
           }
         ],
-        "components": [
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "translateX(1px)   "
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "inner"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "scale(2)\n"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "outer"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "slideRightOneUnit("
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "inner"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "double("
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "outer"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "x, y"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "base"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": ")"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "outer"
-                  }
-                ]
-              }
-            ]
-          },
-          {
-            "registryKey": "Text Span",
-            "schedules": [
-              {
-                "description": "Content",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": ")"
-                  }
-                ]
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": "inner"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "components": []
       }
     ]
   },

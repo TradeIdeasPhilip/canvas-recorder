@@ -33,7 +33,6 @@ import {
   MakeShowableInSeries,
   progressAxisLabel,
   RootComponentEditor,
-  ScheduleInfo,
   Showable,
   ShowOptions,
   VisualEditorAPI,
@@ -1248,11 +1247,9 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
    */
   makeFormatter() {
     const result = new MultiTextComponent();
-    result.replaceableComponents.push(
-      this.left.formatter,
-      this.right.formatter,
-      this.baseFormatter,
-    );
+    result.addFixed({ child: this.left.formatter });
+    result.addFixed({ child: this.right.formatter });
+    result.addFixed({ child: this.baseFormatter });
     return result;
   }
   constructor(
@@ -1296,7 +1293,7 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
       easeAfter: ease,
     },
     {
-      time: 1 / 7,
+      time: 1 / 7, // TODO Why isn't this 1/8?
       value: { activeMatrix: "left", sample: WINK },
       easeAfter: ease,
     },
@@ -1419,22 +1416,22 @@ class SwapTransformOrder extends ComponentWithLiveDuration {
     super(description, 20_000);
     const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
     const outerFormat = new TextFormatComponent({
+      description: "Outer Format",
       color: outerSpec.color,
       name: "outer",
       size: 1 / 3,
     });
     const innerFormat = new TextFormatComponent({
+      description: "Inner Format",
       color: innerSpec.color,
       name: "inner",
       size: 1 / 3,
     });
     const baseFormat = new TextFormatComponent({
+      description: "Base Format",
       color: "black",
       name: "base",
       size: 1 / 3,
-    });
-    [outerFormat, innerFormat, baseFormat].forEach((formatter) => {
-      formatter.colorSchedule.description = formatter.nameScalar.value;
     });
     const outer: SingleTransform = {
       transformString: outerSpec.transformString,
@@ -1448,6 +1445,14 @@ class SwapTransformOrder extends ComponentWithLiveDuration {
       getTransform: innerSpec.getTransform,
       formatter: innerFormat,
     };
+    [baseFormat, outer.formatter, inner.formatter].forEach(
+      (textFormatComponent) => {
+        removeIf(
+          textFormatComponent.schedules,
+          (scheduleInfo) => scheduleInfo == textFormatComponent.alphaSchedule,
+        );
+      },
+    );
     this.left = new ShowTwoTransforms(
       outer,
       inner,
@@ -1468,11 +1473,6 @@ class SwapTransformOrder extends ComponentWithLiveDuration {
     textTop.addFixed({ child: this.left });
     textTop.addFixed({ child: this.right });
     this.addFixed({ child: textTop });
-    this.schedules.push(
-      outerFormat.colorSchedule,
-      innerFormat.colorSchedule,
-      baseFormat.colorSchedule,
-    );
   }
 
   override show(options: ShowOptions) {

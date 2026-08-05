@@ -109,6 +109,19 @@ The top left is blank, the top right shows this text.
 It looks like I have two objects representing that text, but they are both identical.
 These two issues might be related.
 
+**Update 8/4/2026**:
+I fixed some major issues with slide 7, 8 and 9.
+There were two underlying issues.
+
+- In some cases my descriptions were not unique for fixed children, and the results were not being deserialized correctly.
+- I was manipulating some of the text-related components that were _replaceable_ children.
+  The serializer recreated them and I never updated my code to point to the new replacement components and I never modified the new replacement components.
+
+I think similar problems remain in the code.
+Notice the diff window: some5.json ↔ some5-ts-defaults.json.
+There are still unexplained discrepancies.
+I haven't looked _closely_ but I bet it's more of the same bug.
+
 ### Removing Schedules
 
 `class FrameCounter` needs to be fixed.
@@ -119,3 +132,47 @@ TODO This class's Text property should be removed from the array of `schedules`,
 Leave the property that points directly to the schedule, so I can continue to change it programmatically.
 
 **Update** FrameCounter has been fixed, but I think the problem exists in other places, too.
+
+## TODO: Simple schedules
+
+Here is an example of a typical schedule in our saved json file:
+
+```json
+              {
+                "description": "Alignment",
+                "type": "select",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": "center"
+                  }
+                ]
+              },
+```
+
+Notice that there is only one keyframe and the time is set to 0.
+Any property that could (reasonably) be a schedule is a schedule.
+But in practice most properties only have a single value.
+The convention is to set the time to 0 for that value.
+And there is a lot of code, including constructors and set() methods, that lets you list just a single value and it will automatically expand into an array with a single keyframe and time set to 0.
+
+That's not just to save bytes or keystrokes.
+The shorter version is easier to read!
+Now that I'm looking at the JSON files more, it would be nice if these were easier to read.
+Let's use the same trick in the serialization as I already do in constructors.
+
+Any time we serialize a schedule we should check if it has exactly one keyframe and if the time is 0.
+If not, we continue to serialize it the current way.
+But if this is the simple and common case, like the example above, serialize it like this, instead:
+
+```json
+              {
+                "description": "Alignment",
+                "type": "select",
+                "value": "center"
+              },
+```
+
+Of course the deserializer will have to change to match.
+That should be easy.
+`if (!(object.keyframes instanceof Array))` then look at object.value and turn that back into a schedule.

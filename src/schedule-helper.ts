@@ -367,12 +367,19 @@ export class PointScheduleInfo {
 
 /** A string scalar field. */
 export class StringScalarInfo implements Scalar<"string"> {
+  #value: string;
+  get value() {
+    return this.#value;
+  }
+  set value(newValue) {
+    // For debugging.  I needed a breakpoint.
+    this.#value = newValue;
+  }
   readonly type = "string" as const;
-  value: string;
   constructor(
     readonly description: string,
     initialValue: string,
   ) {
-    this.value = initialValue;
+    this.#value = initialValue;
   }
 }
