@@ -489,10 +489,17 @@ export type SerializedScalar = {
 };
 
 export type SerializedKf = { time: number; value: unknown; easeAfter?: string };
+/**
+ * Serialized form of a schedule.
+ * Short form: a single keyframe at time=0 with no easing is written as `{ description, type, value }`.
+ * Long form: all other cases use `{ description, type, keyframes: [...] }`.
+ * Both forms are accepted by {@link applySnapshot}.
+ */
 export type SerializedSchedule = {
   description: string;
   type: string;
-  keyframes: SerializedKf[];
+  keyframes?: SerializedKf[];
+  value?: unknown;
 };
 
 function easeFromName(
@@ -540,7 +547,11 @@ export function applySnapshot(
     }
     const liveArr = live.schedule as unknown[];
     liveArr.length = 0;
-    for (const skf of serialized.keyframes) {
+    const keyframes: SerializedKf[] =
+      serialized.keyframes instanceof Array
+        ? serialized.keyframes
+        : [{ time: 0, value: serialized.value }];
+    for (const skf of keyframes) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const kf: any = { time: skf.time, value: skf.value };
       const fn = easeFromName(skf.easeAfter);

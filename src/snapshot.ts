@@ -47,16 +47,22 @@ export function easeName(fn: ((t: number) => number) | undefined): string | unde
 export function serializeSchedules(
   schedules: readonly ScheduleInfo[],
 ): SerializedSchedule[] {
-  return schedules.map((info) => ({
-    description: info.description,
-    type: info.type,
-    keyframes: info.schedule.map((kf) => {
-      const entry: SerializedKf = { time: kf.time, value: kf.value };
-      const name = easeName(kf.easeAfter);
-      if (name) entry.easeAfter = name;
-      return entry;
-    }),
-  }));
+  return schedules.map((info) => {
+    const kfs = info.schedule;
+    if (kfs.length === 1 && kfs[0].time === 0 && !kfs[0].easeAfter) {
+      return { description: info.description, type: info.type, value: kfs[0].value };
+    }
+    return {
+      description: info.description,
+      type: info.type,
+      keyframes: kfs.map((kf) => {
+        const entry: SerializedKf = { time: kf.time, value: kf.value };
+        const name = easeName(kf.easeAfter);
+        if (name) entry.easeAfter = name;
+        return entry;
+      }),
+    };
+  });
 }
 
 export function serializeScalars(
