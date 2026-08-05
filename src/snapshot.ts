@@ -78,7 +78,12 @@ export function serializeScalars(
 export function serializeComponents(components: Showable[]): SerializedChild[] {
   return components.flatMap((child) => {
     const rk = child.registryKey;
-    if (!rk) return [];
+    if (!rk) {
+      console.warn(
+        `serializeComponents: replaceable child "${child.description}" has no registryKey — it will be lost on save/restore.`,
+      );
+      return [];
+    }
     const entry: SerializedChild = {
       registryKey: rk,
       schedules: child.schedules?.length
@@ -106,6 +111,15 @@ return parent.children?.flatMap(({replaceable, child}) => replaceable?[]:child) 
 export function serializeFixedComponents(
   fixedComponents: readonly Showable[],
 ): SerializedFixedChild[] {
+  const seen = new Set<string>();
+  for (const child of fixedComponents) {
+    if (seen.has(child.description)) {
+      console.warn(
+        `serializeFixedComponents: duplicate fixed-child description "${child.description}" — only the first will be restored on load.`,
+      );
+    }
+    seen.add(child.description);
+  }
   return fixedComponents.map((child) => {
     const entry: SerializedFixedChild = { description: child.description };
     if (child.schedules?.length)
