@@ -36,7 +36,9 @@ export type JsonFileEntry = {
   duration?: number;
 };
 
-export function easeName(fn: ((t: number) => number) | undefined): string | undefined {
+export function easeName(
+  fn: ((t: number) => number) | undefined,
+): string | undefined {
   if (!fn) return undefined;
   if (fn === ease) return "ease";
   if (fn === easeIn) return "easeIn";
@@ -50,7 +52,11 @@ export function serializeSchedules(
   return schedules.map((info) => {
     const kfs = info.schedule;
     if (kfs.length === 1 && kfs[0].time === 0 && !kfs[0].easeAfter) {
-      return { description: info.description, type: info.type, value: kfs[0].value };
+      return {
+        description: info.description,
+        type: info.type,
+        value: kfs[0].value,
+      };
     }
     return {
       description: info.description,
@@ -95,14 +101,49 @@ export function serializeComponents(components: Showable[]): SerializedChild[] {
       entry.components = serializeComponents(child.replaceableComponents.get());
     if (child.userEditableDescription !== undefined)
       entry.userEditableDescription = child.userEditableDescription;
-    if (child.setDuration !== undefined)
-      entry.duration = child.duration;
+    if (child.setDuration !== undefined) entry.duration = child.duration;
     return [entry];
   });
 }
 
-function getFixedComponents(parent:Showable) {
-return parent.children?.flatMap(({replaceable, child}) => replaceable?[]:child) ?? [];
+function getFixedComponents(parent: Showable) {
+  return (
+    parent.children?.flatMap(({ replaceable, child }) =>
+      replaceable ? [] : child,
+    ) ?? []
+  );
+}
+
+/**
+ * Describe an object's parents in a way suitable for a debug message.
+ * @param showable Describe the parents of this object.
+ * @returns A string with a list of descriptions and class names.
+ */
+function describeAncestors(showable: Showable) {
+  const pieces = new Array<string>();
+  for (
+    let parent = showable.parent;
+    parent !== undefined;
+    parent = parent.parent
+  ) {
+    let itemDescription = "";
+    if ("description" in parent) {
+      if (typeof parent.description == "string") {
+        itemDescription = parent.description;
+      }
+    }
+    if ("constructor" in parent) {
+      if (itemDescription != "") {
+        itemDescription += " ";
+      }
+      itemDescription += `[${parent.constructor.name}]`;
+    }
+    if (itemDescription == "") {
+      itemDescription = "⁇";
+    }
+    pieces.unshift(itemDescription);
+  }
+  return pieces.join(" ≫ ");
 }
 
 /** Serializes {@link Showable.fixedComponents} — TypeScript-defined items whose
@@ -116,6 +157,7 @@ export function serializeFixedComponents(
     if (seen.has(child.description)) {
       console.warn(
         `serializeFixedComponents: duplicate fixed-child description "${child.description}" — only the first will be restored on load.`,
+        describeAncestors(child),
       );
     }
     seen.add(child.description);
@@ -124,15 +166,13 @@ export function serializeFixedComponents(
     const entry: SerializedFixedChild = { description: child.description };
     if (child.schedules?.length)
       entry.schedules = serializeSchedules(child.schedules);
-    if (child.scalars?.length)
-      entry.scalars = serializeScalars(child.scalars);
+    if (child.scalars?.length) entry.scalars = serializeScalars(child.scalars);
     if (child.replaceableComponents !== undefined)
       entry.components = serializeComponents(child.replaceableComponents.get());
     const fixedComponents = getFixedComponents(child);
     if (fixedComponents.length)
       entry.fixedComponents = serializeFixedComponents(fixedComponents);
-    if (child.setDuration !== undefined)
-      entry.duration = child.duration;
+    if (child.setDuration !== undefined) entry.duration = child.duration;
     return entry;
   });
 }
@@ -151,7 +191,10 @@ export function applyFixedComponents(
       applyScalarSnapshot(child.scalars, sc.scalars);
     if (child.schedules?.length && sc.schedules?.length)
       applySnapshot(child.schedules, sc.schedules);
-    if (child.replaceableComponents !== undefined && sc.components !== undefined) {
+    if (
+      child.replaceableComponents !== undefined &&
+      sc.components !== undefined
+    ) {
       child.replaceableComponents.replace(buildComponents(sc.components));
     }
     const childFixedComponents = getFixedComponents(child);
@@ -173,7 +216,10 @@ export function applyJsonEntry(
     applySnapshot(selectable.schedules, entry.schedules!);
   }
 
-  if (selectable.replaceableComponents !== undefined && entry.components !== undefined) {
+  if (
+    selectable.replaceableComponents !== undefined &&
+    entry.components !== undefined
+  ) {
     selectable.replaceableComponents.replace(buildComponents(entry.components));
   }
   const selectableFixedComponents = getFixedComponents(selectable);

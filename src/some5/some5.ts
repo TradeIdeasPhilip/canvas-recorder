@@ -1260,7 +1260,7 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
     readonly matrixLayout: MatrixLayout,
     duration: number,
   ) {
-    super("ShowTwoTransforms", duration);
+    super("ShowTwoTransforms " + whereToDraw, duration);
     this.xOffset = whereToDraw == "left" ? 0 : 8;
     this.textTop = new MultiTextComponent({
       position: { x: 4 + this.xOffset, y: 0.25 },
@@ -2024,9 +2024,7 @@ class FrameCounter extends TraditionalTextComponent {
     // Right justify everything, like we normally do with numbers.
     initialValues.textAlign ??= "right";
     super(initialValues);
-    // This component directly modifies this schedule.
-    // It is not an input for the user and it should not be serialized.
-    removeIf(this.schedules, (schedule) => schedule == this.textSchedule);
+    this.hideSchedule(this.textSchedule);
   }
   override show(options: ShowOptions): void {
     let text = "";

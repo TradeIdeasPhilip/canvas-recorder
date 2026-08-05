@@ -32,6 +32,7 @@ import {
 } from "./schedule-helper";
 import { PathShape, Point } from "./glib/path-shape";
 import { BinaryInserter } from "./binary-search";
+import { removeIf } from "./utility";
 
 // MARK: showError()
 
@@ -363,8 +364,19 @@ export class InParallelComponent implements Showable, ShowableParent {
    * The base {@link Showable.schedules} defines this as an optional ReadonlyArray.
    * That works fine for consumers and for simple objects.
    * But creating a mutable array makes class hierarchies simpler.
+   *
+   * Also, if the code directly calls set() on any schedules, we should hide those schedules from the Visual Editor.
+   * Otherwise we give the user a false sense that he can modify something, and we get random changes each time we save.
+   * This decision will depend on the individual object, not the class.
    */
   readonly schedules: ScheduleInfo[] = [];
+  /**
+   * Remove a schedule from the Visual Editor's editable list.
+   * This is typically done when other code modifies the schedule.
+   */
+  hideSchedule(schedule: ScheduleInfo): void {
+    removeIf(this.schedules, (contender) => contender === schedule);
+  }
 }
 
 // MARK: Duration Agnostic
