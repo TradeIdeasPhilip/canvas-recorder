@@ -1621,18 +1621,21 @@ function openScheduleDB(): Promise<IDBDatabase> {
 
 type FileRecord = {
   filename: string;
-  /** null for the sentinel entry written by "Load Defaults" (filename === ""). */
+  /** null for the sentinel entry written by "Load Defaults". */
   handle: FileSystemFileHandle | null;
   savedAt: number;
   isActive: boolean;
+  /** Scopes this record to a specific video tab (toShowKey). Added for per-video isolation. */
+  videoKey?: string;
 };
 
-async function readActiveFileRecord(): Promise<FileRecord | undefined> {
+async function readActiveFileRecord(videoKey: string): Promise<FileRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").getAll();
-    req.onsuccess = () => resolve((req.result as FileRecord[]).find((r) => r.isActive));
+    req.onsuccess = () =>
+      resolve((req.result as FileRecord[]).find((r) => r.videoKey === videoKey && r.isActive));
     req.onerror = () => reject(req.error);
   });
 }
@@ -1640,6 +1643,7 @@ async function readActiveFileRecord(): Promise<FileRecord | undefined> {
 async function writeActiveFileRecord(
   filename: string,
   handle: FileSystemFileHandle,
+  videoKey: string,
 ): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
@@ -1647,42 +1651,52 @@ async function writeActiveFileRecord(
     const store = tx.objectStore("files");
     const getAllReq = store.getAll();
     getAllReq.onsuccess = () => {
-      // Clear isActive on any other record before setting the new one.
+      // Clear isActive only on records belonging to the same video.
       for (const r of getAllReq.result as FileRecord[]) {
-        if (r.filename !== filename && r.isActive) store.put({ ...r, isActive: false });
+        if (r.videoKey === videoKey && r.filename !== filename && r.isActive)
+          store.put({ ...r, isActive: false });
       }
-      store.put({ filename, handle, savedAt: Date.now(), isActive: true });
+      store.put({ filename, handle, savedAt: Date.now(), isActive: true, videoKey });
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-/** Write a sentinel "no active file" record so startup skips file-handle loading. */
-async function writeNoFileRecord(): Promise<void> {
+/** Write a per-video sentinel "no active file" record so startup skips file-handle loading. */
+async function writeNoFileRecord(videoKey: string): Promise<void> {
   const db = await openScheduleDB();
+  const sentinelFilename = `__no-file__|${videoKey}`;
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readwrite");
     const store = tx.objectStore("files");
     const getAllReq = store.getAll();
     getAllReq.onsuccess = () => {
+      // Clear isActive only on records belonging to the same video.
       for (const r of getAllReq.result as FileRecord[]) {
-        if (r.isActive) store.put({ ...r, isActive: false });
+        if (r.videoKey === videoKey && r.isActive) store.put({ ...r, isActive: false });
       }
-      store.put({ filename: "", handle: null, savedAt: Date.now(), isActive: true } satisfies FileRecord);
+      store.put({
+        filename: sentinelFilename,
+        handle: null,
+        savedAt: Date.now(),
+        isActive: true,
+        videoKey,
+      } satisfies FileRecord);
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-/** Read all records from the `files` table (active and inactive). */
-async function readAllFileRecords(): Promise<FileRecord[]> {
+/** Read all records from the `files` table scoped to the given video. */
+async function readAllFileRecords(videoKey: string): Promise<FileRecord[]> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").getAll();
-    req.onsuccess = () => resolve(req.result as FileRecord[]);
+    req.onsuccess = () =>
+      resolve((req.result as FileRecord[]).filter((r) => r.videoKey === videoKey));
     req.onerror = () => reject(req.error);
   });
 }
@@ -1730,8 +1744,8 @@ async function writeHistory(key: string, entries: HistoryEntry[]): Promise<void>
 
 // MARK: Defaults auto-save
 
-/** Special key in the "files" IDB store for the auto-save-defaults file handle. */
-const DEFAULTS_AUTO_SAVE_KEY = "__defaults-auto-save__";
+/** Per-video key in the "files" IDB store for the auto-save-defaults file handle. */
+const DEFAULTS_AUTO_SAVE_KEY = `__defaults-auto-save__|${toShowKey}`;
 
 async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null> {
   const db = await openScheduleDB();
@@ -2460,7 +2474,7 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   const key = selectableKey(target);
 
   // Sentinel's savedAt determines where "TypeScript defaults" appears in the list.
-  const sentinel = _dialogFileRecords.find((r) => r.filename === "");
+  const sentinel = _dialogFileRecords.find((r) => r.handle === null);
   const tsDefaultsTimestamp = sentinel?.savedAt ?? -Infinity;
 
   type Stamped = { timestamp: number; item: DialogListItem };
@@ -2468,7 +2482,7 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
 
   // File entries (real files, not the null sentinel).
   for (const fr of _dialogFileRecords) {
-    if (fr.filename === "") continue;
+    if (fr.handle === null) continue;
     const state = _dialogFileStates.get(fr.filename);
     const jsonEntry =
       state?.status === "loaded" ? state.fullSnapshot[key] : undefined;
@@ -2603,7 +2617,7 @@ async function openHistoryDialog(target: Showable) {
   // Read DB history and file records simultaneously (both are fast local reads).
   const [record, fileRecords] = await Promise.all([
     readHistory(key),
-    readAllFileRecords(),
+    readAllFileRecords(toShowKey),
   ]);
   _allHistoryEntries = record?.entries ?? [];
   _dialogFileRecords = fileRecords;
@@ -4354,7 +4368,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Sanity-check DB for timestamps in the future (clock skew, corrupted data).
   void (async () => {
     const now = Date.now();
-    const allFileRecords = await readAllFileRecords();
+    const allFileRecords = await readAllFileRecords(toShowKey);
     for (const fr of allFileRecords) {
       if (fr.savedAt > now) {
         console.error(
@@ -4697,7 +4711,7 @@ async function _commitActiveFile(
     loadSources.set(key, { kind: "json", filename });
     loadedSnapshots.set(key, currentSnapshotJson(sel));
   }
-  void writeActiveFileRecord(filename, handle);
+  void writeActiveFileRecord(filename, handle, toShowKey);
   updateJsonSaveStatus();
 }
 
@@ -4900,7 +4914,7 @@ function applyJsonSnapshotFromFile(
  * @returns true if the file was successfully read and applied.
  */
 async function tryLoadFromActiveFile(): Promise<boolean> {
-  const fileRecord = await readActiveFileRecord();
+  const fileRecord = await readActiveFileRecord(toShowKey);
   // A null handle (filename === "") is the sentinel written by "Load Defaults".
   if (!fileRecord || !fileRecord.handle) return false;
 
@@ -4978,7 +4992,7 @@ async function loadFromJsonFile(): Promise<void> {
   }
   _activeFileRecord = { filename, handle };
   _lastKnownJsonBody = fileContent;
-  void writeActiveFileRecord(filename, handle);
+  void writeActiveFileRecord(filename, handle, toShowKey);
   updateJsonSaveStatus();
 }
 
@@ -5010,7 +5024,7 @@ async function loadDefaultsAction(): Promise<void> {
   }
   // Await so the sentinel is written before any possible page reload.
   // saveOnUnload also writes noActiveFile to sessionStorage as a faster backstop.
-  await writeNoFileRecord();
+  await writeNoFileRecord(toShowKey);
 }
 
 getById("loadDefaultsBtn", HTMLButtonElement).addEventListener(
