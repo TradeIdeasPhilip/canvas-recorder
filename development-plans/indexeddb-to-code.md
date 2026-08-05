@@ -135,6 +135,8 @@ Leave the property that points directly to the schedule, so I can continue to ch
 
 ## TODO: Simple schedules
 
+**Status**: Implemented in [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/11bba5dfb0ed56e738407c5bebf1c5e0473e285d).
+
 Here is an example of a typical schedule in our saved json file:
 
 ```json

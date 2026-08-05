@@ -1061,6 +1061,9 @@ function dump(
   limit = Infinity,
   descriptionPrefix = "",
   parent?: ShowableTree,
+  /** When collapsing a chain of single-interesting-child nodes, this holds the
+   *  outermost (root) node so the chapter always selects the top of the chain. */
+  selectableRoot?: Showable,
 ) {
   /**
    * Remove any children with a duration of 0.
@@ -1076,6 +1079,7 @@ function dump(
     interestingChildren[0].child.duration == current.duration
   ) {
     // Merge this node with its only interesting child to flatten the tree.
+    // Keep selectableRoot pointing to the outermost node of the chain.
     dump(
       interestingChildren[0].child,
       prefix,
@@ -1083,6 +1087,7 @@ function dump(
       limit,
       descriptionPrefix + current.description + " ⏵ ",
       parent,
+      selectableRoot ?? current,
     );
   } else {
     // Add this node to the tree then process its children recursively.
@@ -1096,7 +1101,7 @@ function dump(
       children: [],
       absolutePosition: chapterList.length,
       siblingPosition: parent ? parent.children.length : NaN,
-      selectable: current,
+      selectable: selectableRoot ?? current,
     };
     if (parent) {
       parent.children.push(info);

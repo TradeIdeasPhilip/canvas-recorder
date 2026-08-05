@@ -1270,6 +1270,12 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
     });
     const leftFormatterName = left.formatter.nameScalar.value;
     const rightFormatterName = right.formatter.nameScalar.value;
+    [left.formatter, right.formatter].forEach((textFormatComponent) => {
+      removeIf(
+        textFormatComponent.schedules,
+        (scheduleInfo) => scheduleInfo == textFormatComponent.alphaSchedule,
+      );
+    });
     const baseFormatterName = baseFormatter.nameScalar.value;
     this.textTop
       .addText(leftFormatterName, `${left.transformString}   `)
@@ -1293,7 +1299,7 @@ class ShowTwoTransforms extends ComponentWithFixedDuration {
       easeAfter: ease,
     },
     {
-      time: 1 / 7, // TODO Why isn't this 1/8?
+      time: 1 / 8,
       value: { activeMatrix: "left", sample: WINK },
       easeAfter: ease,
     },
@@ -1572,16 +1578,19 @@ abstract class TwoMatricesRight extends ComponentWithLiveDuration {
     super(description, 30_000);
     const matrixLayout = new MatrixLayout(makeLineFontRatio(0.183, 1.2));
     this.leftFormat = new TextFormatComponent({
+      description: "Left Format",
       color: leftSpec.color,
       name: "left",
       size: 1 / 3,
     });
     this.rightFormat = new TextFormatComponent({
+      description: "Right Format",
       color: rightSpec.color,
       name: "right",
       size: 1 / 3,
     });
     this.baseFormat = new TextFormatComponent({
+      description: "Base Format",
       color: "black",
       name: "base",
       size: 1 / 3,
@@ -1714,30 +1723,35 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
+      description: "Left Colorful Format",
       color: this.leftFormat.colorSchedule,
       name: "left colorful",
       size,
       boldness,
     });
     const rightColorfulCodeFormat = new TextFormatComponent({
+      description: "Right Colorful Format",
       color: this.rightFormat.colorSchedule,
       name: "right colorful",
       size,
       boldness,
     });
     const leftCodeFormat = new TextFormatComponent({
+      description: "Left Format",
       color: this.baseFormat.colorSchedule,
       name: "left",
       size,
       boldness,
     });
     const rightCodeFormat = new TextFormatComponent({
+      description: "Right Format",
       color: this.baseFormat.colorSchedule,
       name: "right",
       size,
       boldness,
     });
     const baseCodeFormat = new TextFormatComponent({
+      description: "Base Format",
       color: this.baseFormat.colorSchedule,
       name: "",
       size,
@@ -1751,13 +1765,15 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       rightColorfulCodeFormat.alphaSchedule.set(alpha);
       rightCodeFormat.alphaSchedule.set(alpha);
     };
-    this.textTop.replaceableComponents.push(
+    [
       leftColorfulCodeFormat,
       leftCodeFormat,
       rightColorfulCodeFormat,
       rightCodeFormat,
       baseCodeFormat,
-    );
+    ].forEach((textFormatComponent) => {
+      this.textTop.addFixed({ child: textFormatComponent });
+    });
   }
   showHelper(
     options: ShowOptions,
