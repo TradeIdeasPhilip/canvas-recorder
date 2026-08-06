@@ -9,6 +9,7 @@ It's just a matter of setting up the GUI to do this automatically and constantly
 
 When this feature is enabled, the code should save the typescript defaults on every restart.
 Add a 5 second delay for debouncing.
+(Clarification:  The debounce only applies to startup.  When the user hits the checkbox to enable autosaves, the first save should be run without delay.)
 If you want this feature you have to initiate it and say where you want your file saved.
 But once you do that, the setting is sticky.
 Until the user disables the request, we store the file handle to indexedDB, then we use that file handle to write the result.

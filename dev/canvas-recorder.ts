@@ -1821,10 +1821,14 @@ async function _doDefaultsAutoSave(): Promise<void> {
   }
 }
 
-function scheduleDefaultsAutoSave(): void {
+function scheduleDefaultsAutoSave(immediate = false): void {
   clearTimeout(_defaultsAutoSaveTimer);
   _setDefaultsAutoSaveStatus("Pending");
-  _defaultsAutoSaveTimer = setTimeout(() => void _doDefaultsAutoSave(), 5_000);
+  if (immediate) {
+    void _doDefaultsAutoSave();
+  } else {
+    _defaultsAutoSaveTimer = setTimeout(() => void _doDefaultsAutoSave(), 5_000);
+  }
 }
 
 defaultsAutoSaveCheckbox.addEventListener("change", () => {
@@ -1851,7 +1855,7 @@ defaultsAutoSaveCheckbox.addEventListener("change", () => {
       }
       _defaultsAutoSaveHandle = handle;
       await writeDefaultsAutoSaveHandle(handle);
-      scheduleDefaultsAutoSave();
+      scheduleDefaultsAutoSave(true);
     })();
   }
 });

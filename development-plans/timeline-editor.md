@@ -111,9 +111,9 @@ Split up the work that we are doing in the "Main Timeline".
 Sounds are already relative to a `Showable` objects.
 The start time is the number of milliseconds after the Showable object starts.
 That's often good enough.
-The Visual Editor should be able to edit these the same way the "Main Timeline" prototype does that now, but without an additional linking.
+The Visual Editor should be able to edit these the same way the "Main Timeline" prototype does that now, but without any additional linking.
 
-We already have `Showable.components` and `Showable.fixedComponents`.
+We already have ~~`Showable.components`~~ `Showable.children` and `Showable.fixedComponents`.
 We need a way to make some of these visible on the timeline.
 The Visual Editor will also contain \<input> fields to do the same thing.
 This will be simpler than the "Main Timeline"
@@ -130,4 +130,229 @@ rehoming!!!
 ### Callouts
 
 - These can be simpler than the "Main Timeline" example.
-- Som
+- Just use a PaddingComponent.
+- It was made (in part) for this purpose.
+
+If the user wants to attach an arrow to another Showable object,
+Start by asking if that object is already in a PaddingComponent.
+If not, create one.
+Mostly this is all the user's responsibility.
+But this only makes sense in the context of an "in parallel" component, and common usage for that component is for all the children to be wrapped in a PaddingComponent, used to schedule it.
+(Some components, like the title of the slide, might appear the entire time and not need "padding", but at the same time it wouldn't make sense to attach an arrow to a component that plays the entire time.)
+
+The important thing is that anchoring comes for free.
+When you change the start time of the "primary" component by modifying the initial padding, that will automatically drag the "callout" children, too.
+Everything is anchored to its parent!
+
+## Notes from Another Editor
+
+**Status**:
+These notes were in a different document.
+They may be a little out of date.
+And there's some overlap with other sections, but also so new stuff.
+
+Timeline proposal:
+Draw this on top of the same timeline that shows other things.
+Let's focus on the space where we are currently drawing the waveform for the selected chapter.
+
+Leave the timeline prototypes in place.
+I will want to reference the work I did there while creating stuff with the new tools.
+I'm not expecting any problems; we purposely implemented a lot in some5.ts instead of the shared code to keep it out of the way.
+
+Issue, what if we want to drag past end of the timeline, making the timeline bigger? Nasty. Let’s avoid it for now, don’t allow dragging past the end. If it we come back to it, do it cautiously. I’ve seen this done wrong too many times.
+
+Every component with a setDuration or a minDuration scalar property appears on the timeline. There will be some sort of marker at the end of the item and the user can drag that marker to change the duration. The visual editor will clamp the values to be reasonable, y is fixed, x is clamped between 0 and what it thinks is a reasonable upper bound (I’m being purposely vague, it’s just a constant or the result of calling a function.). At the same time the component may do its own clamping (or other changes) so the Visual Editor needs to read back `duration` and redraw the rectangle representing the item based on its reported duration, which might not match the position of the marker. When the user releases the mouse or hits escape, if this is a `duration` component, the marker will snap back to the reported duration. If this is a minDuration component, the marker might never actually match the duration.
+
+PaddingComponent will be treated like a “wrapper” in the previous prototypes. When the visual editor sees a PaddingComponent with at least one child, it adds the child to the timeline. (The child might be on the timeline for multiple reasons. The rectangle on the timeline should be shared, never more than one per Component.) Draw a marker similar to the duration/minDuration marker, but on the front of the item. Dragging that will change the start time property of the padding component. We are not expecting any negotiations, like we have with duration, just set the value as assume the change took hold. Initially just clamp the values to match the size of the timeline. We’ll probably get smarter eventually, so make “clampTo” a function that will be easy to replace. Note that negative values of the start time are explicitly allowed.
+
+Eventually things like extending and splitting can be added to the timeline. Certain classes would export the appropriate methods and the timeline would add the corresponding markers. But let’s start here.
+
+Rehoming?
+
+## Serious Plan
+
+After a lot of work on the pieces (new classes in slide-components.ts and the Visual Editor now supports setDuration) and some productive prototypes, I think we're ready to do some work on the final product.
+
+Major Pieces:
+
+- Display relevant children on the timeline.
+  - Rules described above include anything with a setDuration or minDuration scalar property
+  - And anything wrapped in a PaddingComponent
+  - More to be added, but that's all for today.
+  - Draggable markers on the children.
+  - _Automatically_ use different rows to display items without overlapping.
+- Sounds
+  - all sound clips are editable.
+  - if `Showable.soundClips` is an array then the user can add, delete move ,etc
+  - This new editable view of sounds will replace the current waveform display.
+  - Rehoming -- When _moving_ sounds from one owner to another there should be an option to keep the current global position.
+  - The "Main Timeline" prototype does a good job with sounds.
+
+Don't worry about splitting clips, stretching clips, or anchoring to a specific part of a clip.
+We will return to that at some time in the future.
+
+### Detailed Plan
+
+#### Part 1: Timeline Display (replaces waveform canvas)
+
+**What we're replacing.**
+The `#waveformCanvas` element goes away. In its place we render a new timeline canvas
+(call it `#timelineCanvas`) that sits in the same spot at the top of the Visual Editor panel.
+
+**Which children appear as blocks.**
+We look at `selectable.children` for the currently selected chapter.
+A child gets a block on the timeline when any of the following is true:
+
+| Condition | Block extent | Draggable edges |
+|-----------|-------------|-----------------|
+| `child.setDuration !== undefined` | `[child.start, child.start + child.duration]` | Right only — calls `child.setDuration(newMs)` |
+| child has a `minDuration` scalar | same | Right only — sets `scalar.value`; the block may extend *past* the marker if actual duration > minDuration |
+| `child instanceof PaddingComponent` with ≥1 sub-child | `[padding.initialTimeScalar.value, padding.initialTimeScalar.value + primaryChild.duration]` | Left — sets `padding.initialTimeScalar.value`; right — if primary child has `setDuration`, calls it; otherwise fixed |
+
+**Shared-block rule.**
+A PaddingComponent's primary child might *also* qualify via `setDuration`.
+In that case draw exactly **one** block with both a left marker and a right marker — never two overlapping blocks for the same underlying component.
+
+**Row layout.**
+Greedy assignment: iterate children left-to-right by start time and place each block in the first row where it does not overlap an already-placed block.
+Sound clips (see Part 2) always go in a dedicated bottom row, separate from component blocks.
+The canvas height grows automatically to accommodate however many rows are needed.
+
+**Dragging behavior — right markers (`setDuration` / `minDuration`).**
+On every `mousemove` event: call `setDuration` (or set the scalar) with the x-position mapped to milliseconds.
+On `mouseup`: read back `child.duration` and snap the marker to the actual value — the component may clamp internally.
+The `minDuration` marker stays at `scalar.value`; draw the block at the actual duration so the user can see the gap.
+
+**Dragging behavior — left markers (PaddingComponent).**
+On every `mousemove` event: set `padding.initialTimeScalar.value` directly.
+Clamp to `[0, selectable.duration]` for now (make the clamp a small replaceable helper so we can loosen it later — note that negative values are explicitly legal and will be supported in a future iteration).
+No read-back / negotiation needed; just set and assume it took hold.
+
+**Interaction with the component list.**
+Clicking a block selects that child in the component editor (sets `selectedSlideChild`, calls `updateScheduleEditor`) — the same as clicking its row in the component tree.
+The selected block is visually highlighted.
+
+**Time cursor.**
+A thin vertical line tracks `currentTimeInMs` during playback.
+Clicking anywhere on the canvas seeks to that time (same behavior as the waveform canvas today).
+Zoom and pan controls are modelled after the existing waveform display.
+
+---
+
+#### Part 2: Sound Clip Editor
+
+**Making `soundClips` mutable.**
+Currently `Showable.soundClips` is `readonly`.
+We need mutations to trigger audio rebuilds and JSON serialization.
+Plan: change the field to a plain mutable array and mark changes with `markDirty()` after every mutation.
+`markDirty()` already causes the sound player to rebuild — it handles rapid concurrent calls gracefully.
+No new notification infrastructure is required.
+
+**GUI section in the Visual Editor.**
+When `selectable.soundClips !== undefined`, show a new "Sound Clips" section below the component tree.
+Each clip gets a row of inputs:
+
+- notes (text, maps to `clip.notes`)
+- source URL (text, maps to `clip.source`)
+- Start in scene (number, ms, maps to `clip.startMsIntoScene`)
+- Start in clip (number, ms, maps to `clip.startMsIntoClip`)
+- Length (number, ms, maps to `clip.lengthMs`)
+
+Buttons: **Add** (appends a blank clip), **Delete** per clip, **↑** / **↓** per clip.
+All changes call `markDirty()`.
+
+**Clips on the timeline.**
+Each sound clip gets a block in the dedicated sound row:
+x-start = `clip.startMsIntoScene`, width = `clip.lengthMs ?? 0`.
+The block body is draggable horizontally — dragging changes `clip.startMsIntoScene` and calls `markDirty()`.
+The right edge is draggable — changes `clip.lengthMs` and calls `markDirty()`.
+The label is `clip.notes ?? clip.source`.
+
+**Serialization.**
+Add `soundClips?: SoundClip[]` to `JsonFileEntry`.
+Serialize and deserialize alongside scalars and schedules in the existing JSON save/load code.
+
+**Rehoming.**
+A "Move to…" button on each clip opens a dropdown of all chapters in the chapter list.
+On confirm, compute `newStartMsIntoScene = clip.startMsIntoScene + sourceChapterGlobalStart - targetChapterGlobalStart` so the clip plays at the same wall-clock time.
+Remove the clip from the source chapter's `soundClips` array and push it to the target's.
+Call `markDirty()` on both.
+
+---
+
+#### Out of scope (for now)
+
+- Splitting a scene at the current time
+- Stretching / speed-changing a clip
+- Anchoring a sound clip to a specific progress point within a component
+- Auto-scrolling while dragging past the canvas edge
+- Linking sounds to each other
+
+---
+
+### Test Checklist
+
+**Timeline display — blocks**
+
+1. Open a chapter whose `children` include an item with `setDuration`.
+   Verify a block appears at the correct x-position and width.
+2. Drag the right marker of a `setDuration` block leftward and rightward.
+   Verify the duration input in the component list stays in sync during the drag.
+   Release; verify the marker snaps to `child.duration` (in case the component clamped the value).
+3. Open a chapter with a child that has a `minDuration` scalar.
+   Verify the drag marker sits at `minDuration` but the block extends to `child.duration` when they differ.
+4. Open a chapter with `PaddingComponent`-wrapped children.
+   Verify each one shows a block positioned at `initialTimeScalar` with a left drag handle.
+5. Drag the left marker of a PaddingComponent block.
+   Verify `initialTimeScalar` updates and the block moves accordingly.
+6. Open a chapter where a PaddingComponent's primary child also has `setDuration`.
+   Verify exactly **one** block appears, with both a left and a right drag handle.
+7. Arrange several children whose time ranges overlap.
+   Verify the auto-row layout places them on separate rows without visual overlap.
+8. Click a block on the timeline.
+   Verify the component editor highlights the corresponding child and the schedule editor shows that child's schedules.
+9. Verify the time cursor moves during playback.
+10. Click the timeline background (not a block) at a given time position.
+    Verify playback seeks to that position.
+
+**Sound clip editor — list GUI**
+
+11. Open a chapter with `soundClips` defined.
+    Verify the Sound Clips section appears with the correct number of rows and pre-filled field values.
+12. Edit `startMsIntoScene` in the text input.
+    Verify the audio output updates (sound player rebuilds within a few seconds of the change).
+13. Click **Add**.
+    Verify a new blank clip row appears at the end of the list.
+14. Click **Delete** on a clip.
+    Verify the row disappears and audio updates.
+15. Click **↑** on a clip that is not the first.
+    Verify it swaps with the clip above it.
+
+**Sound clip editor — timeline blocks**
+
+16. Verify each `soundClip` appears as a block in the dedicated sound row of the timeline, at the correct x-position and width.
+17. Drag a sound clip block horizontally.
+    Verify `startMsIntoScene` updates live and the `startMsIntoScene` input field stays in sync.
+18. Drag the right edge of a sound clip block.
+    Verify `lengthMs` updates and the block widens/narrows.
+
+**Serialization**
+
+19. Make edits to both component durations and sound clips.
+    Save to JSON. Reload the page and load that JSON file.
+    Verify all edits are restored exactly.
+20. Verify that a chapter with no `soundClips` property shows no Sound Clips section.
+
+**Rehoming**
+
+21. With two chapters open, use "Move to…" on a sound clip in chapter A, choosing chapter B.
+    Verify the clip disappears from chapter A's list and appears in chapter B's list.
+    Verify `clip.startMsIntoScene` in chapter B is adjusted so the clip plays at the same global time.
+    Verify audio in chapter A no longer includes the clip, and audio in chapter B now does.
+
+**Edge cases**
+
+22. Chapter with no children meeting any display criteria: timeline shows only the time cursor, no blocks, no rows.
+23. PaddingComponent with `initialTimeScalar = 0` and `primaryChild.duration = 0`: a zero-width block appears at x = 0 (degenerate but should not crash).
+24. Drag a left (PaddingComponent) marker past the right edge of the timeline.
+    Verify it clamps at `selectable.duration` and does not crash.
