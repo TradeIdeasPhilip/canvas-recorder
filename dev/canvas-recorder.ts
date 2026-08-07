@@ -53,7 +53,9 @@ import { AudioBuilder } from "./audio-builder.ts";
 import {
   buildComponents,
   componentRegistry,
+  DurationAgnosticComponent,
   fontsAreAvailable,
+  PaddingComponent,
   SerializedChild,
   SlideComponent,
   TraditionalTextComponent,
@@ -73,7 +75,7 @@ import {
   openFontPickerDialog,
 } from "./font-widgets.ts";
 import { buildSlideComponentPanel } from "./slide-panel.ts";
-import { WaveformDisplay } from "./waveform-display.ts";
+import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 
 // Expose for manual testing from the browser devtools console.
@@ -137,8 +139,8 @@ const toShow = await resolveToShow();
 const canvas = getById("main", HTMLCanvasElement);
 const context = assertNonNullable(canvas.getContext("2d"));
 
-const waveformDisplay = new WaveformDisplay(
-  getById("waveformCanvas", HTMLCanvasElement),
+const timelineDisplay = new TimelineDisplay(
+  getById("timelineCanvas", HTMLCanvasElement),
 );
 
 /**
@@ -302,7 +304,7 @@ viewport.addEventListener(
  * input (pointermove, etc.).
  */
 function showFrame(timeInMs: number, live: boolean) {
-  waveformDisplay.setPlayMs(timeInMs);
+  timelineDisplay.setPlayMs(timeInMs - sectionStartTime);
   for (const update of goToButtonUpdaters) update();
   context.reset();
   context.setTransform(mainTransform());
@@ -597,7 +599,6 @@ async function initAudio(): Promise<void> {
   }
   audioBuilder = newBuilder;
   audioReady = true;
-  waveformDisplay.setAudioBuffer(newBuilder.getAudioBuffer());
   console.log(`Audio ready in ${(time2 - time1).toFixed(0)} ms.`);
 }
 
@@ -1396,6 +1397,11 @@ const veRootParent: ShowableParent = {
     markDirty();
     clearTimeout(_durationAudioTimer);
     _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+    // Redraw the timeline so block positions/sizes update during drags.
+    if (_veRootSelectable) {
+      timelineDisplay.setChapterDuration(_veRootSelectable.duration);
+      timelineDisplay.setBlocks(_buildTimelineBlocks(_veRootSelectable));
+    }
   },
 };
 
@@ -1454,7 +1460,6 @@ function updateFromSelect() {
     // Floor first so that subtracting 0.1 lands on a clean 0.1 ms boundary.
     sectionEndTime = Math.floor(sectionEndTime * 10) / 10 - 0.1;
   }
-  waveformDisplay.setChapter(sectionStartTime, sectionEndTime);
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
   // playPositionRange automatically clamps to [min, max].  Make the number match.
@@ -1472,15 +1477,94 @@ function updateFromSelect() {
   selectedSlideChild = null;
   updateComponentEditor(info.selectable);
   updateScheduleEditor(info.selectable);
+  _updateTimeline(info.selectable);
 }
 select.addEventListener("input", updateFromSelect);
 updateFromSelect();
 
-waveformDisplay.onSeek = (ms) => {
+timelineDisplay.onSeek = (localMs) => {
   stopAudio();
-  loadPlayPositionSeconds(ms);
+  loadPlayPositionSeconds(localMs + sectionStartTime);
   loadPlayPositionRange();
 };
+
+timelineDisplay.onBlockClick = (id) => {
+  // Find the Showable that was clicked and select it in the component editor.
+  const selectable = chapterList[select.selectedIndex]?.selectable;
+  if (!selectable) return;
+  for (const { child } of selectable.children ?? []) {
+    if (child === id) {
+      selectedSlideChild = child;
+      updateComponentEditor(selectable);
+      updateScheduleEditor(child);
+      timelineDisplay.setSelectedId(child);
+      return;
+    }
+  }
+};
+
+// MARK: Timeline blocks
+
+/** Build timeline blocks for the children of `selectable`. */
+function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
+  const blocks: TimelineBlock[] = [];
+  const seen = new Set<object>();
+
+  for (const { child, start: parentStart } of selectable.children ?? []) {
+    // Capture label before instanceof narrowing removes userEditableDescription from the type.
+    const label = child.userEditableDescription ?? child.description;
+
+    if (child instanceof PaddingComponent) {
+      const primaryChild = child.children?.[0]?.child;
+      if (!primaryChild || seen.has(primaryChild)) continue;
+      seen.add(primaryChild);
+      seen.add(child);
+      blocks.push({
+        id: child,
+        label,
+        startMs: () => parentStart + child.initialTimeScalar.value,
+        durationMs: () => primaryChild.duration,
+        onDragLeft: (newStartMs) => {
+          child.initialTimeScalar.value = Math.max(0, newStartMs - parentStart);
+        },
+      });
+    } else if (child instanceof DurationAgnosticComponent) {
+      if (seen.has(child)) continue;
+      seen.add(child);
+      blocks.push({
+        id: child,
+        label,
+        startMs: () => parentStart,
+        durationMs: () => child.duration,
+        handleEndMs: () => parentStart + child.minDurationScalar.value,
+        onDragRight: (newEndMs) => {
+          child.minDurationScalar.value = Math.max(0, newEndMs - parentStart);
+        },
+        onCommitRight: () => parentStart + child.minDurationScalar.value,
+      });
+    } else if (child.setDuration !== undefined) {
+      if (seen.has(child)) continue;
+      seen.add(child);
+      blocks.push({
+        id: child,
+        label,
+        startMs: () => parentStart,
+        durationMs: () => child.duration,
+        onDragRight: (newEndMs) => {
+          child.setDuration!(Math.max(0, newEndMs - parentStart));
+        },
+        onCommitRight: () => parentStart + child.duration,
+      });
+    }
+  }
+  return blocks;
+}
+
+function _updateTimeline(selectable: Showable): void {
+  timelineDisplay.setChapterDuration(selectable.duration);
+  timelineDisplay.setBlocks(_buildTimelineBlocks(selectable));
+  timelineDisplay.setSelectedId(selectedSlideChild ?? undefined);
+}
 querySelectorAll("table button", HTMLButtonElement).forEach((button) => {
   button.addEventListener("click", () => {
     const info = buttonDestination.get(button)!;
@@ -3494,6 +3578,7 @@ function updateComponentEditor(selectable: Showable) {
         updateComponentEditor(selectable);
         updateScheduleEditor(child);
         activeRootComponentEditor?.selectionChanged(child);
+        timelineDisplay.setSelectedId(child);
       });
 
       row.append(editBtn);
