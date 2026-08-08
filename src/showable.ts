@@ -113,6 +113,14 @@ export type ShowableParent = {
   scheduleHasChanged(): void;
 };
 
+export type SoundClip = {
+  source: string;
+  startMsIntoScene: number;
+  startMsIntoClip?: number;
+  lengthMs?: number;
+  notes?: string;
+};
+
 /**
  * This represents an animation.
  * This might be the entire animation we intend to display or record.
@@ -272,12 +280,7 @@ export type Showable = {
     readonly child: Showable;
   }[];
 
-  readonly soundClips?: readonly {
-    readonly source: string;
-    readonly startMsIntoScene: number;
-    readonly startMsIntoClip?: number;
-    readonly lengthMs?: number;
-  }[];
+  soundClips?: SoundClip[];
 
   /**
    * Scalar (non-time-varying) fields displayed and edited in the Visual Editor,

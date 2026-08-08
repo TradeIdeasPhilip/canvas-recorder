@@ -27,10 +27,14 @@ export type TimelineBlock = {
   readonly handleEndMs?: () => number;
   /** Called on every mousemove during a left-edge drag.  Arg: chapter-local ms. */
   readonly onDragLeft?: (newStartMs: number) => void;
+  /** Called on every mousemove when dragging the block body.  Arg: new chapter-local ms for left edge. */
+  readonly onDragBody?: (newStartMs: number) => void;
   /** Called on every mousemove during a right-edge drag.  Arg: chapter-local ms of new right edge. */
   readonly onDragRight?: (newEndMs: number) => void;
   /** Called on mouseup after a right drag.  Returns actual right-edge ms so the handle can snap. */
   readonly onCommitRight?: () => number;
+  /** Fill color for the block.  Defaults to #4a8fdb (blue). */
+  readonly color?: string;
 };
 
 // ── layout constants (all CSS px) ─────────────────────────────────────────────
@@ -175,7 +179,7 @@ export class TimelineDisplay {
       const selected = b.id === this._selectedId;
 
       // Block body
-      ctx.fillStyle = selected ? "#1a5aab" : "#4a8fdb";
+      ctx.fillStyle = selected ? "#1a5aab" : (b.color ?? "#4a8fdb");
       const corner = Math.min(4 * dpr, bw / 2, bh / 2);
       ctx.beginPath();
       ctx.roundRect(x0, y0, bw, bh, corner);
@@ -220,9 +224,10 @@ export class TimelineDisplay {
 
     type DragState =
       | { kind: "idle" }
-      | { kind: "potential"; x0: number; y0: number }
+      | { kind: "potential"; x0: number; y0: number; msAtDown: number; bodyBlock?: { block: TimelineBlock; startMsAtDown: number } }
       | { kind: "pan"; x0: number; viewStart0: number; viewEnd0: number }
       | { kind: "drag-left"; block: TimelineBlock }
+      | { kind: "drag-body"; block: TimelineBlock; startMsAtDown: number; msAtDown: number }
       | { kind: "drag-right"; block: TimelineBlock }
       | { kind: "seek" };
 
@@ -279,7 +284,12 @@ export class TimelineDisplay {
         drag = { kind: "drag-right", block: hit.block };
         return;
       }
-      drag = { kind: "potential", x0: e.clientX, y0: e.clientY };
+      const msAtDown = toLocalMs(e);
+      const bodyBlock =
+        hit?.zone === "body" && hit.block.onDragBody
+          ? { block: hit.block, startMsAtDown: hit.block.startMs() }
+          : undefined;
+      drag = { kind: "potential", x0: e.clientX, y0: e.clientY, msAtDown, bodyBlock };
     });
 
     canvas.addEventListener("pointermove", (e) => {
@@ -289,7 +299,8 @@ export class TimelineDisplay {
         const isResizeZone =
           (hit?.zone === "left" && !!hit.block.onDragLeft) ||
           (hit?.zone === "right" && !!(hit.block.onDragRight || hit.block.onCommitRight));
-        canvas.style.cursor = isResizeZone ? "ew-resize" : "crosshair";
+        const isBodyDraggable = hit?.zone === "body" && !!hit.block.onDragBody;
+        canvas.style.cursor = isResizeZone ? "ew-resize" : isBodyDraggable ? "grab" : "crosshair";
         return;
       }
 
@@ -301,13 +312,23 @@ export class TimelineDisplay {
           drag.block.onDragLeft!(toLocalMs(e));
           this._draw();
           break;
+        case "drag-body": {
+          const delta = toLocalMs(e) - drag.msAtDown;
+          drag.block.onDragBody!(drag.startMsAtDown + delta);
+          this._draw();
+          break;
+        }
         case "drag-right":
           drag.block.onDragRight?.(toLocalMs(e));
           this._draw();
           break;
         case "potential":
           if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 4) {
-            drag = { kind: "pan", x0: drag.x0, viewStart0: this._viewStartMs, viewEnd0: this._viewEndMs };
+            if (drag.bodyBlock) {
+              drag = { kind: "drag-body", block: drag.bodyBlock.block, startMsAtDown: drag.bodyBlock.startMsAtDown, msAtDown: drag.msAtDown };
+            } else {
+              drag = { kind: "pan", x0: drag.x0, viewStart0: this._viewStartMs, viewEnd0: this._viewEndMs };
+            }
           }
           break;
         case "pan": {
@@ -330,7 +351,7 @@ export class TimelineDisplay {
       const saved = drag;
       drag = { kind: "idle" };
 
-      if (saved.kind === "drag-left" || saved.kind === "drag-right") {
+      if (saved.kind === "drag-left" || saved.kind === "drag-right" || saved.kind === "drag-body") {
         if (saved.kind === "drag-right") saved.block.onCommitRight?.();
         this._draw();
         return;

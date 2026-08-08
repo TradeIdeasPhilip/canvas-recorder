@@ -818,6 +818,7 @@
       }
     ]
   },
+  "showcase|curve": {},
   "showcase|Flowers with N Petals": {
     "fixedComponents": [
       {
@@ -919,6 +920,7 @@
       }
     ]
   },
+  "showcase|Morphing Text": {},
   "showcase|Dots, Dashes, and the PathSplitter": {
     "fixedComponents": [
       {

@@ -8,6 +8,7 @@ import {
   SerializedScalar,
   SerializedSchedule,
   Showable,
+  SoundClip,
 } from "./showable";
 import { buildComponents, SerializedChild } from "./slide-components";
 
@@ -34,6 +35,7 @@ export type JsonFileEntry = {
   fixedComponents?: SerializedFixedChild[];
   userEditableDescription?: string;
   duration?: number;
+  soundClips?: SoundClip[];
 };
 
 export function easeName(
@@ -228,4 +230,8 @@ export function applyJsonEntry(
   }
   if (entry.duration !== undefined) selectable.setDuration?.(entry.duration);
   selectable.userEditableDescription = entry.userEditableDescription;
+  if (entry.soundClips !== undefined && selectable.soundClips !== undefined) {
+    selectable.soundClips.length = 0;
+    selectable.soundClips.push(...entry.soundClips.map((c) => ({ ...c })));
+  }
 }

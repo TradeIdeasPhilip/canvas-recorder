@@ -28,6 +28,7 @@ import {
   SerializedSchedule,
   Showable,
   ShowableParent,
+  SoundClip,
   VisualEditorAPI,
 } from "../src/showable.ts";
 import {
@@ -1378,6 +1379,7 @@ const goToButtonUpdaters: Array<() => void> = [];
  * Cleared and repopulated whenever {@link updateComponentEditor} rebuilds.
  */
 const durationSyncCallbacks: Array<() => void> = [];
+const soundClipSyncCallbacks: Array<() => void> = [];
 
 /** The selectable whose `.parent` is currently set to {@link veRootParent}. */
 let _veRootSelectable: Showable | undefined;
@@ -1506,6 +1508,13 @@ timelineDisplay.onBlockClick = (id) => {
 // MARK: Timeline blocks
 
 /** Build timeline blocks for the children of `selectable`. */
+function _onClipValueChanged(): void {
+  markDirty();
+  clearTimeout(_durationAudioTimer);
+  _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+  for (const cb of soundClipSyncCallbacks) cb();
+}
+
 function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
   const blocks: TimelineBlock[] = [];
   const seen = new Set<object>();
@@ -1557,6 +1566,27 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
       });
     }
   }
+
+  // Sound clips — one block per clip, in a dedicated color
+  for (const clip of selectable.soundClips ?? []) {
+    blocks.push({
+      id: clip,
+      label: clip.notes || clip.source || "—",
+      color: "#3aab3a",
+      startMs: () => clip.startMsIntoScene,
+      durationMs: () => clip.lengthMs ?? 0,
+      onDragBody: (newStartMs) => {
+        clip.startMsIntoScene = Math.max(0, newStartMs);
+        _onClipValueChanged();
+      },
+      onDragRight: (newEndMs) => {
+        clip.lengthMs = Math.max(0, newEndMs - clip.startMsIntoScene);
+        _onClipValueChanged();
+      },
+      onCommitRight: () => clip.startMsIntoScene + (clip.lengthMs ?? 0),
+    });
+  }
+
   return blocks;
 }
 
@@ -1647,6 +1677,7 @@ type DataHistoryEntry = {
   fixedComponents?: SerializedFixedChild[];
   userEditableDescription?: string;
   duration?: number;
+  soundClips?: SoundClip[];
 };
 /** Marker written when the user deliberately chooses TypeScript defaults. */
 type MarkerHistoryEntry = {
@@ -1973,6 +2004,7 @@ function currentSnapshotJson(selectable: Showable): string {
     })(),
     userEditableDescription: selectable.userEditableDescription,
     duration: selectable.setDuration !== undefined ? selectable.duration : undefined,
+    soundClips: selectable.soundClips,
   });
 }
 
@@ -2075,7 +2107,8 @@ function captureDefaults(): void {
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
     const hasDuration = sel.setDuration !== undefined;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) continue;
+    const hasSoundClips = sel.soundClips !== undefined;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) continue;
     const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
@@ -2084,6 +2117,7 @@ function captureDefaults(): void {
     if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
     if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (hasDuration) entry.duration = sel.duration;
+    if (hasSoundClips) entry.soundClips = sel.soundClips!.map((c) => ({ ...c }));
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
@@ -2131,7 +2165,8 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
       !sel.schedules?.length &&
       !sel.scalars?.length &&
       sel.replaceableComponents === undefined &&
-      getFixedComponents(sel).length === 0
+      getFixedComponents(sel).length === 0 &&
+      sel.soundClips === undefined
     )
       continue;
     restores.push(
@@ -2231,7 +2266,8 @@ async function saveScheduleState(selectable: Showable, force = false) {
   const fixedComponents = getFixedComponents(selectable);
   const hasFixed = fixedComponents.length > 0;
   const hasDuration = selectable.setDuration !== undefined;
-  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) return;
+  const hasSoundClips = selectable.soundClips !== undefined;
+  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) return;
   const key = selectableKey(selectable);
 
   // Skip auto-saving when state is clean — content matches what was loaded,
@@ -2254,12 +2290,14 @@ async function saveScheduleState(selectable: Showable, force = false) {
     ? serializeFixedComponents(fixedComponents)
     : undefined;
   const newDuration = hasDuration ? selectable.duration : undefined;
+  const newSoundClips = hasSoundClips ? selectable.soundClips : undefined;
   const newJson = JSON.stringify({
     schedules: newSchedules,
     scalars: newScalars,
     components: newComponents,
     fixedComponents: newFixed,
     duration: newDuration,
+    soundClips: newSoundClips,
   });
   // Skip saving if nothing changed since the last data entry.
   const last = entries.findLast((e) => !isMarker(e)) as
@@ -2272,6 +2310,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
       components: last.components,
       fixedComponents: last.fixedComponents,
       duration: last.duration,
+      soundClips: last.soundClips,
     });
     if (prevJson === newJson) return;
   }
@@ -2283,6 +2322,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
   if (newComponents !== undefined) entry.components = newComponents;
   if (newFixed !== undefined) entry.fixedComponents = newFixed;
   if (newDuration !== undefined) entry.duration = newDuration;
+  if (newSoundClips !== undefined) entry.soundClips = newSoundClips.map((c) => ({ ...c }));
   if (selectable.userEditableDescription !== undefined)
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
@@ -2298,6 +2338,7 @@ async function saveScheduleState(selectable: Showable, force = false) {
         scalars: (e as DataHistoryEntry).scalars,
         components: (e as DataHistoryEntry).components,
         fixedComponents: (e as DataHistoryEntry).fixedComponents,
+        soundClips: (e as DataHistoryEntry).soundClips,
       }) !== newJson,
   );
   while (deduped.length > MAX_HISTORY_ENTRIES) deduped.shift();
@@ -2376,7 +2417,8 @@ function saveOnUnload() {
     const hasChildren = sel.replaceableComponents !== undefined;
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed) continue;
+    const hasSoundClips = sel.soundClips !== undefined;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasSoundClips) continue;
 
     // When the history dialog is open, `sel` may contain a transient preview
     // state from `_dialogSelectItem`.  Use the pre-dialog snapshot instead so
@@ -2392,6 +2434,7 @@ function saveOnUnload() {
         components?: SerializedChild[];
         fixedComponents?: SerializedFixedChild[];
         userEditableDescription?: string;
+        soundClips?: SoundClip[];
       };
       const source = _preDialogSource;
       const dirty = _wasInitiallyDirty;
@@ -2416,6 +2459,9 @@ function saveOnUnload() {
           }),
           ...(preSnap.userEditableDescription !== undefined && {
             userEditableDescription: preSnap.userEditableDescription,
+          }),
+          ...(preSnap.soundClips !== undefined && {
+            soundClips: preSnap.soundClips,
           }),
         },
         ...(selectedTimestamp !== undefined && { selectedTimestamp }),
@@ -2459,6 +2505,9 @@ function saveOnUnload() {
         ...(fixed !== undefined && { fixedComponents: fixed }),
         ...(sel.userEditableDescription !== undefined && {
           userEditableDescription: sel.userEditableDescription,
+        }),
+        ...(hasSoundClips && {
+          soundClips: sel.soundClips!.map((c) => ({ ...c })),
         }),
       },
       ...(selectedTimestamp !== undefined && { selectedTimestamp }),
@@ -3496,6 +3545,7 @@ async function pasteInto(target: Showable, selectable: Showable) {
 function updateComponentEditor(selectable: Showable) {
   setVeRoot(selectable);
   durationSyncCallbacks.length = 0;
+  soundClipSyncCallbacks.length = 0;
   const rootReplaceable = selectable.replaceableComponents;
   const hasAnyChildren = (selectable.children?.length ?? 0) > 0;
   const shouldHide =
@@ -3725,6 +3775,7 @@ function updateComponentEditor(selectable: Showable) {
   list.append(rootRow);
 
   renderComponentTree(selectable as Showable, 0);
+  _buildSoundClipEditor(selectable as Showable, list);
   componentsEditorFieldset.append(list);
 
   // Toolbar: add select + add button.
@@ -3779,6 +3830,157 @@ function updateComponentEditor(selectable: Showable) {
   // Restore scroll now that both list and toolbar are in the DOM, so
   // list.clientHeight reflects its final height and browser clamping is correct.
   list.scrollTop = wasAtBottom ? list.scrollHeight : savedScrollTop;
+}
+
+/**
+ * Appends a Sound Clips editor section to `list` when `selectable.soundClips` is defined.
+ * Registers per-field sync callbacks into {@link soundClipSyncCallbacks}.
+ */
+function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
+  const clips = selectable.soundClips;
+  if (clips === undefined) return;
+
+  function afterStructureChange(): void {
+    markDirty();
+    clearTimeout(_durationAudioTimer);
+    _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+    updateComponentEditor(selectable);
+    _updateTimeline(selectable);
+  }
+
+  const section = document.createElement("div");
+  section.style.cssText = "border-top:2px solid #888;padding-top:0.4em;margin-top:0.3em";
+
+  const header = document.createElement("div");
+  header.style.cssText = "display:flex;align-items:center;gap:0.4em;margin-bottom:0.3em";
+  const title = document.createElement("b");
+  title.textContent = `Sound Clips (${clips.length})`;
+  const addBtn = document.createElement("button");
+  addBtn.type = "button";
+  addBtn.textContent = "+ Add";
+  addBtn.style.marginLeft = "auto";
+  addBtn.addEventListener("click", () => {
+    clips.push({ source: "", startMsIntoScene: 0 });
+    afterStructureChange();
+  });
+  header.append(title, addBtn);
+  section.append(header);
+
+  for (let i = 0; i < clips.length; i++) {
+    const clip = clips[i]!;
+    const card = document.createElement("div");
+    card.style.cssText =
+      "background:#f0f8f0;border:1px solid #aaccaa;border-radius:3px;padding:0.2em 0.3em;margin-bottom:0.25em";
+
+    // Row 1: notes + reorder + delete
+    const row1 = document.createElement("div");
+    row1.style.cssText = "display:flex;gap:0.25em;align-items:center";
+
+    const notesInput = document.createElement("input");
+    notesInput.type = "text";
+    notesInput.placeholder = "Notes";
+    notesInput.style.cssText = "flex:1;min-width:0";
+    notesInput.value = clip.notes ?? "";
+    notesInput.addEventListener("input", () => {
+      clip.notes = notesInput.value || undefined;
+      _onClipValueChanged();
+    });
+
+    const upBtn = document.createElement("button");
+    upBtn.type = "button";
+    upBtn.textContent = "↑";
+    upBtn.title = "Move up";
+    upBtn.disabled = i === 0;
+    upBtn.addEventListener("click", () => {
+      [clips[i - 1], clips[i]] = [clips[i]!, clips[i - 1]!];
+      afterStructureChange();
+    });
+
+    const downBtn = document.createElement("button");
+    downBtn.type = "button";
+    downBtn.textContent = "↓";
+    downBtn.title = "Move down";
+    downBtn.disabled = i === clips.length - 1;
+    downBtn.addEventListener("click", () => {
+      [clips[i + 1], clips[i]] = [clips[i]!, clips[i + 1]!];
+      afterStructureChange();
+    });
+
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.textContent = "✕";
+    delBtn.title = "Delete clip";
+    delBtn.addEventListener("click", () => {
+      clips.splice(i, 1);
+      afterStructureChange();
+    });
+
+    row1.append(notesInput, upBtn, downBtn, delBtn);
+
+    // Row 2: source URL
+    const row2 = document.createElement("div");
+    row2.style.cssText = "display:flex;gap:0.25em;align-items:center;margin-top:0.2em";
+    const srcLabel = document.createElement("span");
+    srcLabel.textContent = "src:";
+    srcLabel.style.cssText = "flex-shrink:0;font-size:0.85em;color:#555";
+    const sourceInput = document.createElement("input");
+    sourceInput.type = "text";
+    sourceInput.placeholder = "URL / path";
+    sourceInput.style.cssText = "flex:1;min-width:0;font-size:0.85em";
+    sourceInput.value = clip.source;
+    sourceInput.addEventListener("input", () => {
+      clip.source = sourceInput.value;
+      _onClipValueChanged();
+    });
+    row2.append(srcLabel, sourceInput);
+
+    // Row 3: numeric time fields
+    const row3 = document.createElement("div");
+    row3.style.cssText =
+      "display:flex;gap:0.4em;align-items:center;margin-top:0.2em;flex-wrap:wrap;font-size:0.85em";
+
+    function makeTimeInput(
+      labelText: string,
+      getValue: () => number | undefined,
+      setValue: (v: number | undefined) => void,
+    ): HTMLElement {
+      const lbl = document.createElement("label");
+      lbl.style.cssText = "display:flex;align-items:center;gap:0.2em;white-space:nowrap";
+      lbl.textContent = labelText;
+      const inp = document.createElement("input");
+      inp.type = "number";
+      inp.min = "0";
+      inp.step = "1";
+      inp.style.cssText = "width:5em";
+      const v = getValue();
+      inp.value = v !== undefined ? String(v) : "";
+      inp.placeholder = "ms";
+      inp.addEventListener("change", () => {
+        const parsed = inp.valueAsNumber;
+        setValue(isNaN(parsed) ? undefined : Math.max(0, parsed));
+        _onClipValueChanged();
+      });
+      soundClipSyncCallbacks.push(() => {
+        if (document.activeElement !== inp) {
+          const cur = getValue();
+          inp.value = cur !== undefined ? String(cur) : "";
+        }
+      });
+      lbl.append(inp);
+      return lbl;
+    }
+
+    row3.append(
+      makeTimeInput("scene:", () => clip.startMsIntoScene, (v) => { clip.startMsIntoScene = v ?? 0; }),
+      makeTimeInput("clip-in:", () => clip.startMsIntoClip, (v) => { clip.startMsIntoClip = v; }),
+      makeTimeInput("length:", () => clip.lengthMs, (v) => { clip.lengthMs = v; }),
+    );
+
+    card.append(row1, row2, row3);
+    section.append(card);
+  }
+
+  list.append(section);
 }
 
 /** Builds the "Name" fieldset for {@link Showable.userEditableDescription}. */
@@ -4758,7 +4960,8 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
     const hasDuration = sel.setDuration !== undefined;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration) continue;
+    const hasSoundClips = sel.soundClips !== undefined;
+    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) continue;
 
     const entry: JsonFileEntry = {};
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
@@ -4768,6 +4971,7 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
     if (hasDuration) entry.duration = sel.duration;
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
+    if (hasSoundClips) entry.soundClips = sel.soundClips;
     result[key] = entry;
   }
   return result;
