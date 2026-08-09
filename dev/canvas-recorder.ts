@@ -1519,53 +1519,65 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
   const blocks: TimelineBlock[] = [];
   const seen = new Set<object>();
 
-  for (const { child, start: parentStart } of selectable.children ?? []) {
-    // Capture label before instanceof narrowing removes userEditableDescription from the type.
-    const label = child.userEditableDescription ?? child.description;
+  function addChildrenBlocks(
+    children: NonNullable<Showable["children"]>,
+    offset: number,
+  ): void {
+    for (const { child, start: childStart } of children) {
+      const absoluteStart = offset + childStart;
+      // Capture label before instanceof narrowing removes userEditableDescription from the type.
+      const label = child.userEditableDescription ?? child.description;
 
-    if (child instanceof PaddingComponent) {
-      const primaryChild = child.children?.[0]?.child;
-      if (!primaryChild || seen.has(primaryChild)) continue;
-      seen.add(primaryChild);
-      seen.add(child);
-      blocks.push({
-        id: child,
-        label,
-        startMs: () => parentStart + child.initialTimeScalar.value,
-        durationMs: () => primaryChild.duration,
-        onDragLeft: (newStartMs) => {
-          child.initialTimeScalar.value = Math.max(0, newStartMs - parentStart);
-        },
-      });
-    } else if (child instanceof DurationAgnosticComponent) {
-      if (seen.has(child)) continue;
-      seen.add(child);
-      blocks.push({
-        id: child,
-        label,
-        startMs: () => parentStart,
-        durationMs: () => child.duration,
-        handleEndMs: () => parentStart + child.minDurationScalar.value,
-        onDragRight: (newEndMs) => {
-          child.minDurationScalar.value = Math.max(0, newEndMs - parentStart);
-        },
-        onCommitRight: () => parentStart + child.minDurationScalar.value,
-      });
-    } else if (child.setDuration !== undefined) {
-      if (seen.has(child)) continue;
-      seen.add(child);
-      blocks.push({
-        id: child,
-        label,
-        startMs: () => parentStart,
-        durationMs: () => child.duration,
-        onDragRight: (newEndMs) => {
-          child.setDuration!(Math.max(0, newEndMs - parentStart));
-        },
-        onCommitRight: () => parentStart + child.duration,
-      });
+      if (child instanceof PaddingComponent) {
+        const primaryChild = child.children?.[0]?.child;
+        if (!primaryChild || seen.has(primaryChild)) continue;
+        seen.add(primaryChild);
+        seen.add(child);
+        blocks.push({
+          id: child,
+          label,
+          startMs: () => absoluteStart + child.initialTimeScalar.value,
+          durationMs: () => primaryChild.duration,
+          onDragLeft: (newStartMs) => {
+            child.initialTimeScalar.value = Math.max(0, newStartMs - absoluteStart);
+          },
+        });
+      } else if (child instanceof DurationAgnosticComponent) {
+        if (seen.has(child)) continue;
+        seen.add(child);
+        blocks.push({
+          id: child,
+          label,
+          startMs: () => absoluteStart,
+          durationMs: () => child.duration,
+          handleEndMs: () => absoluteStart + child.minDurationScalar.value,
+          onDragRight: (newEndMs) => {
+            child.minDurationScalar.value = Math.max(0, newEndMs - absoluteStart);
+          },
+          onCommitRight: () => absoluteStart + child.minDurationScalar.value,
+        });
+      } else if (child.setDuration !== undefined) {
+        if (seen.has(child)) continue;
+        seen.add(child);
+        blocks.push({
+          id: child,
+          label,
+          startMs: () => absoluteStart,
+          durationMs: () => child.duration,
+          onDragRight: (newEndMs) => {
+            child.setDuration!(Math.max(0, newEndMs - absoluteStart));
+          },
+          onCommitRight: () => absoluteStart + child.duration,
+        });
+      } else if (child.children?.length) {
+        // Structural container with no settable duration (e.g. InSeriesComponent).
+        // Show its children on the timeline with their start times accumulated.
+        addChildrenBlocks(child.children, absoluteStart);
+      }
     }
   }
+
+  addChildrenBlocks(selectable.children ?? [], 0);
 
   // Sound clips — one block per clip, in a dedicated color
   for (const clip of selectable.soundClips ?? []) {

@@ -102,6 +102,14 @@ type Mutable<T> = {
   -readonly [P in keyof T]: T[P];
 };
 
+type ShowChildInfo = {
+  child: Showable;
+  replaceable: boolean;
+  index: number;
+  sourceIndex: number;
+  options: ShowOptions;
+};
+
 /**
  * This Showable is a container for other Showable objects.
  * Multiple children can run at the same time.
@@ -138,13 +146,7 @@ export class InParallelComponent implements Showable, ShowableParent {
       },
     };
   }
-  protected showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    options: ShowOptions;
-  }) {
+  protected showChild(info: ShowChildInfo) {
     info.child.show(info.options);
   }
   show(options: ShowOptions): void {
@@ -611,13 +613,7 @@ export class PaddingComponent extends InParallelComponent {
     choices: ["hide", "freeze", "live"],
     value: "freeze",
   };
-  protected override showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    options: ShowOptions;
-  }) {
+  protected override showChild(info: ShowChildInfo) {
     const primary = info.index == 0;
     let timeInMs = info.options.timeInMs;
     if (timeInMs < 0) {
@@ -644,6 +640,101 @@ export class PaddingComponent extends InParallelComponent {
       }
     }
     info.child.show({ ...info.options, timeInMs });
+  }
+}
+
+// If I ever want to allow the user to intermix replaceable and fixed
+// components, I should start testing here!  The feature would be useful and easy to
+// test in this class.
+// Currently all replaceable components are at zIndex:0.
+// The fixed components will be arranged according to their zIndex.
+// And the replaceable components can be arranged by user with the Visual Editor.
+// But they will all be grouped together, never interleaved with the fixed components.
+// This seems like a very useful feature in most places.
+// At a bare minimum it would be nice to ask to go before or after all of the fixed controls.
+// In this class it would be nice to have full control over interleaving.
+// I'm not 100% sure how important this is for other classes, but a good part of the
+// replaceable components in general is for quick prototyping.
+// I.e. lots of random cases, hard to predict in advance, it would be nice to have
+// the tool already ready then next time I need it so I don't have to stop what I'm doing
+// then.
+/**
+ * Each of the children is displayed one after the next.
+ * The total duration of this item is the sum of all of its children's durations.
+ *
+ * This is the modern replacement for {@link MakeShowableInSeries}.
+ *
+ * This adds the ability to adjust durations at run time.
+ * I.e. {@link ShowableParent.scheduleHasChanged}()
+ * Even if you don't need that directly, if any on your children need need that ability, then use this class.
+ * Most new code supports that by default.
+ */
+export class InSeriesComponent extends InParallelComponent {
+  readonly registryKey = "In Series";
+  constructor(description = "In Series") {
+    super(description);
+  }
+  /**
+   * Display the children one after another, sorted by zIndex.
+   * The first one starts at time=0.
+   * The others each start immediately after the previous one ends.
+   * The total duration for this component is the sum of the durations of each of its children.
+   */
+  protected override recomputeDuration(
+    children: Mutable<ParallelChildInfo>[],
+  ): number {
+    let start = 0;
+    children.forEach((childInfo) => {
+      childInfo.start = start;
+      start += childInfo.child.duration;
+    });
+    return start;
+  }
+  protected override showChild(info: ShowChildInfo): void {
+    /**
+     * I haven't decided on a policy for this yet.
+     * So let's keep the rules inside this opaque function.
+     * @returns `true` if we should always show this child,
+     * `false` if we should only show this child during its allotted time.
+     */
+    function allowExtendedTimes() {
+      // The padding component is specifically designed to handle times before 0 and after duration.
+      // It will blank and/or hold its primary child, so that is only shown at times between 0 and duration.
+      // And the other children are expecting extending times, so callouts do not have to be limited to their immediate parent's allotted time.
+      // So the result is clearly true for any child of type PaddingComponent.
+      // Maybe it should be true in other cases, too, but I can't picture those cases.
+      // Default to false because it's safer; most Showable objects do not expect to be called at extended times.
+      return info.child instanceof PaddingComponent;
+    }
+    /**
+     * Time is allocated exactly the same way as in {@link MakeShowableInSeries}:
+     * * Most children are drawn at time >= 0 and < duration.
+     * * However, the last child may also be called at duration.
+     *
+     * The children don't have to worry about the details.
+     * Exactly one of them will be called at the instant one ends and the next starts.
+     * That includes at the last child's duration.
+     *
+     * You cannot assume that a Showable's last frame will be displayed.
+     * But you shouldn't assume that any specific time will be displayed.
+     * Sometimes, however it has to be displayed.
+     * In particular we often hold the last frame.
+     * So we can't use the simpler rule that we only call show()
+     * at times >= 0 and < duration.
+     * @returns `true` if we are displaying the last child, `false` for the others.
+     */
+    const isLastChild = () => {
+      return info.index == this.children.length - 1;
+    };
+    const timeInMs = info.options.timeInMs;
+    const duration = info.child.duration;
+    if (
+      allowExtendedTimes() ||
+      (timeInMs >= 0 &&
+        (timeInMs < duration || (timeInMs == duration && !isLastChild())))
+    ) {
+      super.showChild(info);
+    }
   }
 }
 
@@ -794,14 +885,7 @@ export class SlideComponent extends DurationAgnosticComponent {
     super.show(options);
     context.setTransform(originalTransform);
   }
-  protected override showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    start: number;
-    options: ShowOptions;
-  }): void {
+  protected override showChild(info: ShowChildInfo): void {
     info.options.registerTransform?.(
       info.child,
       info.options.context.getTransform(),
@@ -1226,14 +1310,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     if (initialValues.additionalLineHeight !== undefined)
       this.additionalLineHeightSchedule.set(initialValues.additionalLineHeight);
   }
-  protected override showChild(info: {
-    child: Showable;
-    replaceable: boolean;
-    index: number;
-    sourceIndex: number;
-    start: number;
-    options: ShowOptions;
-  }): void {
+  protected override showChild(info: ShowChildInfo): void {
     // We are not currently using this method.
     console.warn("yes!");
     if (info.child instanceof TextSpanComponent) {
@@ -2004,6 +2081,7 @@ export class FunctionGraphComponent implements Showable {
 
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
+  ["In Series", (): Showable => new InSeriesComponent()],
   ["Slide", (): Showable => new SlideComponent()],
   ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
