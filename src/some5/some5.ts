@@ -295,6 +295,88 @@ function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
   context.restore();
 }
 
+// MARK: Cross Fade
+
+/**
+ * Blends two {@link Showable} objects in premultiplied-alpha space.
+ *
+ * At progress 0 → `first` is drawn normally.
+ * At progress 1 → `second` is drawn normally.
+ * In between:
+ *   αout = (1−t)·αA + t·αB
+ *   Cout = ((1−t)·CA·αA + t·CB·αB) / αout
+ *
+ * This guarantees identical pixels produce no visible change, and two
+ * fully-opaque inputs produce a fully-opaque result with no bleed-through.
+ *
+ * GPU path — no pixel read-back.  Uses `destination-in` + `lighter`:
+ * 1. `first` is rendered directly onto the destination.
+ * 2. `second` is rendered onto one temporary canvas.
+ * 3. `destination-in` fill at alpha (1−t) scales first's premultiplied
+ *    contribution from 1 down to (1−t).  Source color doesn't matter here —
+ *    only source alpha is used by destination-in.
+ * 4. `lighter` + `globalAlpha=t` adds second's premultiplied contribution.
+ *
+ * `firstOptions.context` and `secondOptions.context` must be the same canvas
+ * context (the destination).  The destination transform is copied to the
+ * temporary canvas so `second` draws in the same logical coordinate space.
+ *
+ * @param progress Clamped to [0, 1].
+ */
+function crossFade(
+  progress: number,
+  first: Showable,
+  second: Showable,
+  firstOptions: ShowOptions,
+  secondOptions: ShowOptions,
+): void {
+  progress = Math.max(0, Math.min(1, progress));
+  const context = firstOptions.context;
+
+  if (progress === 0) {
+    first.show(firstOptions);
+    return;
+  }
+  if (progress === 1) {
+    second.show(secondOptions);
+    return;
+  }
+
+  const { canvas } = context;
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // Render second into a temporary canvas matching the destination's pixel
+  // resolution and current logical-coordinate transform.
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = w;
+  tempCanvas.height = h;
+  const tempCtx = tempCanvas.getContext("2d")!;
+  tempCtx.setTransform(context.getTransform());
+  second.show({ ...secondOptions, context: tempCtx });
+
+  // Render first directly onto the destination.
+  first.show(firstOptions);
+
+  const t = progress;
+  context.save();
+  context.setTransform(1, 0, 0, 1, 0, 0);
+
+  // Scale down first's premultiplied contribution from 1 to (1−t).
+  context.globalCompositeOperation = "destination-in";
+  context.fillStyle = `rgba(0,0,0,${1 - t})`;
+  context.fillRect(0, 0, w, h);
+
+  // Add second's premultiplied contribution at weight t.
+  context.globalCompositeOperation = "lighter";
+  context.globalAlpha = t;
+  context.drawImage(tempCanvas, 0, 0);
+
+  context.restore();
+}
+
+class CrossFadeTransition extends ComponentWithLiveDuration {}
+
 /**
  * Show all of these to the top level GUI.
  */

@@ -126,7 +126,7 @@ type ShowChildInfo = {
  * Replaceable children can be added and removed by the Visual Editor at any time.
  * The Visual Editor can modify details of both types of children.
  *
- * This is a newer version of {@link MakeShowableInSeries}.
+ * This is a newer version of {@link MakeShowableInParallel}.
  * That version assumed that the contents and durations were fixed.
  */
 export class InParallelComponent implements Showable, ShowableParent {
@@ -643,6 +643,8 @@ export class PaddingComponent extends InParallelComponent {
   }
 }
 
+// MARK: In Series
+
 // If I ever want to allow the user to intermix replaceable and fixed
 // components, I should start testing here!  The feature would be useful and easy to
 // test in this class.
@@ -670,6 +672,7 @@ export class PaddingComponent extends InParallelComponent {
  * Most new code supports that by default.
  */
 export class InSeriesComponent extends InParallelComponent {
+  static readonly TRANSITION = Symbol("Transition");
   readonly registryKey = "In Series";
   constructor(description = "In Series") {
     super(description);
@@ -733,8 +736,100 @@ export class InSeriesComponent extends InParallelComponent {
       (timeInMs >= 0 &&
         (timeInMs < duration || (timeInMs == duration && !isLastChild())))
     ) {
-      super.showChild(info);
+      if (InSeriesComponent.TRANSITION in info.child) {
+        const children = this.children;
+        const { child, index, options } = info;
+        let before: Showable | undefined;
+        if (index > 0) {
+          before = children[index - 1].child;
+          if (InSeriesComponent.TRANSITION in before) {
+            // Avoid an infinite recursion.
+            // Assume this is a temporary issue as the user is rearranging things, and don't crash.
+            before = undefined;
+          }
+        }
+        let after = children.at(index + 1)?.child;
+        if (after && InSeriesComponent.TRANSITION in after) {
+          // Avoid an infinite recursion.
+          after = undefined;
+        }
+        (child as Transition)[InSeriesComponent.TRANSITION](
+          options,
+          before,
+          after,
+        );
+      } else {
+        super.showChild(info);
+      }
     }
+  }
+}
+
+/**
+ * This is a special type of component made to be a child of an {@link InSeriesComponent}.
+ */
+export type Transition = {
+  /**
+   * If this method exists on a child, an {@link InSeriesComponent} parent will call this instead of show().
+   * @param options Standard ShowOptions
+   * @param before This is the Showable immediately before the transition.
+   * This will be undefined if the Transition is the first child.
+   * This will be undefined if the Transition is preceded immediately by a another Transition.
+   * Typically undefined will be treated like a showable that does nothing.
+   * @param after This is the Showable immediately after the transition.
+   * This will be undefined if the Transition is the last child.
+   * This will be undefined if the Transition is followed immediately by a another Transition.
+   * Typically undefined will be treated like a showable that does nothing.
+   */
+  [InSeriesComponent.TRANSITION](
+    options: ShowOptions,
+    before: Showable | undefined,
+    after: Showable | undefined,
+  ): void;
+};
+
+// MARK: Slide Left
+
+/**
+ * A {@link Transition}.
+ * The previous Showable slides left off the screen.
+ * At the same time the next Showable slides left onto the screen.
+ */
+export class SlideLeftTransition
+  extends ComponentWithLiveDuration
+  implements Transition
+{
+  constructor(options: { description?: string; duration?: number } = {}) {
+    super(options.description ?? "Slide Left", options.duration ?? 1000);
+  }
+  readonly registryKey = "Slide Left Transition";
+  override show(options: ShowOptions): void {
+    showError(
+      options.context,
+      "A SlideLeft's parent must be an InSeriesComponent.",
+    );
+  }
+  [InSeriesComponent.TRANSITION](
+    options: ShowOptions,
+    before: Showable | undefined,
+    after: Showable,
+  ): void {
+    const progress = options.timeInMs / this.duration;
+    const context = options.context;
+    context.save();
+    // Set up the outgoing Showable:
+    context.translate(progress * -16, 0);
+    if (before) {
+      const atEnd: ShowOptions = { ...options, timeInMs: before.duration };
+      before.show(atEnd);
+    }
+    // Set up the incoming Showable:
+    context.translate(16, 0);
+    if (after) {
+      const atBeginning: ShowOptions = { ...options, timeInMs: 0 };
+      after.show(atBeginning);
+    }
+    context.restore();
   }
 }
 
@@ -2224,6 +2319,7 @@ export class HalftoneShadowComponent extends InParallelComponent {
 /** Registry of component factories available in the "Add" dropdown. */
 export const componentRegistry = new Map<string, () => Showable>([
   ["In Series", (): Showable => new InSeriesComponent()],
+  ["Slide Left Transition", () => new SlideLeftTransition()],
   ["Slide", (): Showable => new SlideComponent()],
   ["Text", () => new TextComponent()],
   ["Traditional Text", () => new TraditionalTextComponent()],
