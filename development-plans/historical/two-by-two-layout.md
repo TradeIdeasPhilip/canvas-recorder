@@ -1,5 +1,7 @@
 # Two by Two Layout
 
+**Status**: Implemented and working well!
+
 The Visual Editor has become very powerful.
 But there are too many things on the screen and things get lost.
 If I have to scroll down to find an editor, then I can't see my preview, and I don't get any benefit from the preview updating instantly.

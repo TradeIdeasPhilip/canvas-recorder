@@ -7,7 +7,7 @@ import {
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { myRainbow } from "./glib/my-rainbow";
-import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
+import { MakeShowableInSeries, Showable } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
@@ -15,6 +15,7 @@ import {
   buildComponents,
   ComponentWithLiveDuration,
   componentRegistry,
+  HalftoneShadowComponent,
   RectangleComponent,
 } from "./slide-components";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
@@ -22,8 +23,6 @@ import { ParagraphLayout } from "./glib/paragraph-layout";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
-
-type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 
 /**
  * Reads the alpha channel of `fromImage` at halftone resolution and returns
@@ -36,152 +35,6 @@ type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
  * @param period Grid cell size in 16×9 units.  Matches the sierpiński
  *   halftone background so the dot density looks consistent.
  */
-// At 100% opacity the dot radius reaches this fraction of the half-cell width.
-// 0.9 keeps dots non-overlapping with a small gap between neighbors.
-// Tweak this constant to taste.
-const MAX_RADIUS_FACTOR = 0.9;
-
-// TODO Turn makeShadowDemo() into a class like a standard component.
-// - Call the class HalftoneShadowComponent
-// - Directly extend InParallelComponent (the simplest option)
-// Include support for parents and children.
-// - options.base becomes optional.  If it exists, add it as a fixed component.
-// - In show()
-//   - where we were calling options.base.show() into the temporary canvas,
-//   - instead call super.show() and point that into the temporary canvas.
-// Add optional options.description
-// - This is common for most new development
-// - If you supply options.base, the default is still the same.
-// - Otherwise the default is "Halftone Shadow"
-// Turn dotColor, background, dx, dy and period into schedule properties
-// - Just like every other component does it.
-// - Include `dotColorSchedule`, `dxSchedule`, and similar properties,
-// - *and* add them to the schedules array.
-// - And the constructor will keep the current `options` from makeShadowDemo() but the types will change to allow for schedules.
-// Change `background` into `backgroundColor`.
-// backgroundColor cannot be undefined any more, so make the default "transparent".
-// Move this class into slide-components.ts
-// - Add it to the component registry with key "Halftone Shadow"
-// - Update any code that was using makeShadowDemo()
-// The current code should continue to work the same.
-// - We're making it more configurable from code and from the Visual Editor
-// - but the defaults don't change.
-
-/**
- * Wraps a {@link Showable} with a halftone drop-shadow effect.
- *
- * On each frame:
- *  1. `smallRender()` — renders `base` onto a tiny canvas (one pixel per halftone
- *     circle) to sample alpha cheaply, with no downscaling artifacts.
- *  2. `drawCircles()` — reads the alpha channel and fills a dot Path2D on the
- *     main canvas, offset by (dx, dy), to produce the shadow.
- *  3. `fullSizedRender()` — renders `base` a second time directly onto the main
- *     canvas at full quality.
- *
- * @param options.base         The content to shadow.
- * @param options.dotColor     Color of the halftone dots.  Default `"#ccc"`.
- * @param options.background   Optional background fill drawn before the shadow.
- * @param options.dx           Shadow x offset in 16×9 units.  Default `0.2`.
- * @param options.dy           Shadow y offset in 16×9 units.  Default `0.2`.
- * @param options.period       Halftone grid cell size in 16×9 units.  Default `0.25`.
- */
-export function makeShadowDemo(options: {
-  readonly base: Showable;
-  readonly dotColor?: CanvasFillStyle;
-  readonly background?: CanvasFillStyle;
-  readonly dx?: number;
-  readonly dy?: number;
-  readonly period?: number;
-}): Showable {
-  const {
-    base,
-    dotColor = "#ccc",
-    background,
-    dx = 0.2,
-    dy = 0.2,
-    period = 0.25,
-  } = options;
-
-  const cols = Math.ceil(16 / period);
-  const rows = Math.ceil(9 / period);
-
-  // Small canvas — one pixel per halftone circle, rendered directly at the
-  // target resolution so no downsampling step is needed.
-  const smallCanvas = document.createElement("canvas");
-  smallCanvas.width = cols;
-  smallCanvas.height = rows;
-  const smallCtx = smallCanvas.getContext("2d", { willReadFrequently: true })!;
-  // Apply the standard 16×9 root transform once — it never changes.
-  smallCtx.scale(cols / 16, rows / 9);
-
-  /** Renders `base` onto the small canvas for alpha sampling. */
-  function smallRender(showOptions: ShowOptions): void {
-    smallCtx.save();
-    smallCtx.resetTransform();
-    smallCtx.clearRect(0, 0, cols, rows);
-    smallCtx.restore();
-    base.show({ ...showOptions, context: smallCtx });
-  }
-
-  /** Builds and fills the halftone dot Path2D from the small canvas alpha channel. */
-  function drawCircles(context: CanvasRenderingContext2D): void {
-    const { data } = smallCtx.getImageData(0, 0, cols, rows);
-    const path = new Path2D();
-    for (let iy = 0; iy < rows; iy++) {
-      for (let ix = 0; ix < cols; ix++) {
-        const alpha = data[(iy * cols + ix) * 4 + 3] / 255;
-        if (alpha > 0) {
-          const x = (ix + 0.5) * period;
-          const y = (iy + 0.5) * period;
-          // Area ∝ alpha  →  radius ∝ sqrt(alpha).
-          const radius = Math.sqrt(alpha) * (period / 2) * MAX_RADIUS_FACTOR;
-          path.moveTo(x + radius, y);
-          path.arc(x, y, radius, 0, Math.PI * 2);
-        }
-      }
-    }
-    context.fill(path);
-  }
-
-  /** Renders `base` at full quality directly onto the main context. */
-  function fullSizedRender(showOptions: ShowOptions): void {
-    base.show(showOptions);
-  }
-
-  const result: Showable = {
-    description: `${base.description} » shadow`,
-    duration: base.duration,
-    children: [{ start: 0, child: base }],
-    show(showOptions: ShowOptions) {
-      const { context } = showOptions;
-
-      if (showOptions.quality === "Low Power") {
-        if (background !== undefined) {
-          context.fillStyle = background;
-          context.fillRect(0, 0, 16, 9);
-        }
-        base.show(showOptions);
-        return;
-      }
-
-      smallRender(showOptions);
-
-      if (background !== undefined) {
-        context.fillStyle = background;
-        context.fillRect(0, 0, 16, 9);
-      }
-
-      context.save();
-      context.translate(dx, dy);
-      context.fillStyle = dotColor;
-      drawCircles(context);
-      context.restore();
-
-      fullSizedRender(showOptions);
-    },
-  };
-  return result;
-}
 
 // ---------------------------------------------------------------------------
 // Slide 1 — shape gallery
@@ -290,17 +143,6 @@ componentRegistry.set("Nine Shapes (Shadow Test)", () =>
   createNineShapesComponent(),
 );
 
-// ---------------------------------------------------------------------------
-// Shadow configuration — copy and customize when using makeShadowDemo
-// in your own project.
-// ---------------------------------------------------------------------------
-
-const SHADOW_OPTIONS: Omit<Parameters<typeof makeShadowDemo>[0], "base"> = {
-  background: "white",
-  dotColor: "#ccc",
-  dx: 0.2,
-  dy: 0.2,
-};
 
 // ---------------------------------------------------------------------------
 // MARK: Slide list
@@ -1386,7 +1228,10 @@ const slideList = new MakeShowableInSeries("Shadow Test");
   slideList.add(slide);
 }
 
-export const shadowTest = makeShadowDemo({
+export const shadowTest = new HalftoneShadowComponent({
   base: slideList.build(),
-  ...SHADOW_OPTIONS,
+  backgroundColor: "white",
+  dotColor: "#ccc",
+  dx: 0.2,
+  dy: 0.2,
 });

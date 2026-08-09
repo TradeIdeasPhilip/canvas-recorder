@@ -28,7 +28,8 @@ import {
   NumberDurationScheduleInfo,
   NumberScheduleInfo,
 } from "../schedule-helper";
-import { DEFAULT_SLIDE_DURATION_MS, makeShadowDemo } from "../shadow-test";
+import { DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
+import { HalftoneShadowComponent } from "../slide-components";
 import {
   MakeShowableInSeries,
   progressAxisLabel,
@@ -4220,9 +4221,9 @@ class MainTimeline {
 
 slideList.add(new MainTimeline(forTimeline, mainTimelineSoundClips));
 
-export const some5 = makeShadowDemo({
+export const some5 = new HalftoneShadowComponent({
   base: slideList.build(),
-  background: "white",
+  backgroundColor: "white",
   dotColor: "#ddd",
   dx: 0.2,
   dy: 0.2,

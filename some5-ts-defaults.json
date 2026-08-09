@@ -1,5 +1,33 @@
 {
   "some5|SoME5 » shadow": {
+    "schedules": [
+      {
+        "description": "Dot Color",
+        "type": "color",
+        "value": "#ddd"
+      },
+      {
+        "description": "Background Color",
+        "type": "color",
+        "value": "white"
+      },
+      {
+        "description": "Dx",
+        "type": "number",
+        "value": 0.2
+      },
+      {
+        "description": "Dy",
+        "type": "number",
+        "value": 0.2
+      },
+      {
+        "description": "Period",
+        "type": "number",
+        "value": 0.25
+      }
+    ],
+    "components": [],
     "fixedComponents": [
       {
         "description": "SoME5",

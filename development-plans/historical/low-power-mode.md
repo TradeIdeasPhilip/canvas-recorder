@@ -6,6 +6,11 @@ We should have a way to disable that for development.
 
 **Status**: Complete
 
+Ultimately we fixed the one slow piece of code that caused us to need this.
+So this code is currently disabled.
+It could be added back with a small code change.
+But not from the GUI.
+
 ## Power vs Speed
 
 The issue is seldom the frame rate.

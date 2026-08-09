@@ -1,6 +1,14 @@
 # Font Inspector
 
-## Current status
+## Current Status
+
+I think this is complete.
+See the "Font Inspector" slide in http://localhost:5173/canvas-recorder.html?toShow=shadow-test
+It was useful to finish the problem at hand.
+
+## Incoming Status
+
+What it was like when I originally wrote this spec:
 
 I have no real tools for editing fonts.
 I've created a few test rigs aimed at very specific problems.
