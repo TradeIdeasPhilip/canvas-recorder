@@ -41,6 +41,32 @@ type CanvasFillStyle = string | CanvasGradient | CanvasPattern;
 // Tweak this constant to taste.
 const MAX_RADIUS_FACTOR = 0.9;
 
+// TODO Turn makeShadowDemo() into a class like a standard component.
+// - Call the class HalftoneShadowComponent
+// - Directly extend InParallelComponent (the simplest option)
+// Include support for parents and children.
+// - options.base becomes optional.  If it exists, add it as a fixed component.
+// - In show()
+//   - where we were calling options.base.show() into the temporary canvas,
+//   - instead call super.show() and point that into the temporary canvas.
+// Add optional options.description
+// - This is common for most new development
+// - If you supply options.base, the default is still the same.
+// - Otherwise the default is "Halftone Shadow"
+// Turn dotColor, background, dx, dy and period into schedule properties
+// - Just like every other component does it.
+// - Include `dotColorSchedule`, `dxSchedule`, and similar properties,
+// - *and* add them to the schedules array.
+// - And the constructor will keep the current `options` from makeShadowDemo() but the types will change to allow for schedules.
+// Change `background` into `backgroundColor`.
+// backgroundColor cannot be undefined any more, so make the default "transparent".
+// Move this class into slide-components.ts
+// - Add it to the component registry with key "Halftone Shadow"
+// - Update any code that was using makeShadowDemo()
+// The current code should continue to work the same.
+// - We're making it more configurable from code and from the Visual Editor
+// - but the defaults don't change.
+
 /**
  * Wraps a {@link Showable} with a halftone drop-shadow effect.
  *
