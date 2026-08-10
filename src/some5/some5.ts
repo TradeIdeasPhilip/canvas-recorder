@@ -1,6 +1,5 @@
 import {
   assertNonNullable,
-  FIGURE_SPACE,
   FULL_CIRCLE,
   lerp,
   polarToRectangular,
@@ -29,7 +28,7 @@ import {
   NumberScheduleInfo,
 } from "../schedule-helper";
 import { DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
-import { HalftoneShadowComponent } from "../slide-components";
+import { FrameCounter, HalftoneShadowComponent } from "../slide-components";
 import {
   MakeShowableInSeries,
   progressAxisLabel,
@@ -294,88 +293,6 @@ function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
   context.stroke();
   context.restore();
 }
-
-// MARK: Cross Fade
-
-/**
- * Blends two {@link Showable} objects in premultiplied-alpha space.
- *
- * At progress 0 → `first` is drawn normally.
- * At progress 1 → `second` is drawn normally.
- * In between:
- *   αout = (1−t)·αA + t·αB
- *   Cout = ((1−t)·CA·αA + t·CB·αB) / αout
- *
- * This guarantees identical pixels produce no visible change, and two
- * fully-opaque inputs produce a fully-opaque result with no bleed-through.
- *
- * GPU path — no pixel read-back.  Uses `destination-in` + `lighter`:
- * 1. `first` is rendered directly onto the destination.
- * 2. `second` is rendered onto one temporary canvas.
- * 3. `destination-in` fill at alpha (1−t) scales first's premultiplied
- *    contribution from 1 down to (1−t).  Source color doesn't matter here —
- *    only source alpha is used by destination-in.
- * 4. `lighter` + `globalAlpha=t` adds second's premultiplied contribution.
- *
- * `firstOptions.context` and `secondOptions.context` must be the same canvas
- * context (the destination).  The destination transform is copied to the
- * temporary canvas so `second` draws in the same logical coordinate space.
- *
- * @param progress Clamped to [0, 1].
- */
-function crossFade(
-  progress: number,
-  first: Showable,
-  second: Showable,
-  firstOptions: ShowOptions,
-  secondOptions: ShowOptions,
-): void {
-  progress = Math.max(0, Math.min(1, progress));
-  const context = firstOptions.context;
-
-  if (progress === 0) {
-    first.show(firstOptions);
-    return;
-  }
-  if (progress === 1) {
-    second.show(secondOptions);
-    return;
-  }
-
-  const { canvas } = context;
-  const w = canvas.width;
-  const h = canvas.height;
-
-  // Render second into a temporary canvas matching the destination's pixel
-  // resolution and current logical-coordinate transform.
-  const tempCanvas = document.createElement("canvas");
-  tempCanvas.width = w;
-  tempCanvas.height = h;
-  const tempCtx = tempCanvas.getContext("2d")!;
-  tempCtx.setTransform(context.getTransform());
-  second.show({ ...secondOptions, context: tempCtx });
-
-  // Render first directly onto the destination.
-  first.show(firstOptions);
-
-  const t = progress;
-  context.save();
-  context.setTransform(1, 0, 0, 1, 0, 0);
-
-  // Scale down first's premultiplied contribution from 1 to (1−t).
-  context.globalCompositeOperation = "destination-in";
-  context.fillStyle = `rgba(0,0,0,${1 - t})`;
-  context.fillRect(0, 0, w, h);
-
-  // Add second's premultiplied contribution at weight t.
-  context.globalCompositeOperation = "lighter";
-  context.globalAlpha = t;
-  context.drawImage(tempCanvas, 0, 0);
-
-  context.restore();
-}
-
-class CrossFadeTransition extends ComponentWithLiveDuration {}
 
 /**
  * Show all of these to the top level GUI.
@@ -2081,59 +1998,6 @@ ${status.sample.typescript}`);
     static readonly instance = new this();
   }
   addToBoth(Slide13.instance);
-}
-
-// MARK: Frame Counter
-
-/**
- * This component displays text like "0:00  0/60" to tell you the current timeInMs of this component.
- * That's minutes, seconds and (ideal) frames.
- * Values less than 0 are preceded by a negative sign.
- * Values greater than the component's duration are preceded by a plus sign.
- *
- * This component is aimed at development and debugging.
- */
-class FrameCounter extends TraditionalTextComponent {
-  constructor(
-    initialValues: Omit<
-      NonNullable<ConstructorParameters<typeof TraditionalTextComponent>[0]>,
-      "text"
-    > = {},
-  ) {
-    initialValues.description ??= "Frame Counter";
-    // A fixed width font so things don't jump around on the screen.
-    initialValues.fontFamily ??= "Source Code Pro";
-    // These are numbers and I don't know the largest number so I can't reserve space for it.
-    // Right justify everything, like we normally do with numbers.
-    initialValues.textAlign ??= "right";
-    super(initialValues);
-    this.hideSchedule(this.textSchedule);
-  }
-  override show(options: ShowOptions): void {
-    let text = "";
-    const timeInMs = options.timeInMs;
-    if (timeInMs < 0) {
-      text = "-";
-    } else if (timeInMs > this.duration) {
-      text = "+";
-    }
-    const minutesAndMore = Math.abs(timeInMs);
-    const secondsAndMore = minutesAndMore % 60_000;
-    const fractionalSeconds = secondsAndMore % 1_000;
-    const minutes = (minutesAndMore - secondsAndMore) / 60_000;
-    const seconds = (secondsAndMore - fractionalSeconds) / 1_000;
-    // On a healthy system I'd expect the frame to increment by one (modulo 60) on each animation frame.
-    // I wouldn't want to rely on that for a number of reasons, but it should per perfect for debugging.
-    const frame = Math.floor((fractionalSeconds * 60) / 1_000);
-    text += minutes.toLocaleString();
-    text += ":";
-    text += seconds.toString().padStart(2, "0");
-    text += " ";
-    text += frame.toString().padStart(2, FIGURE_SPACE);
-    text += "/60";
-    this.textSchedule.set(text);
-    super.show(options);
-  }
 }
 
 // MARK: Try New Items

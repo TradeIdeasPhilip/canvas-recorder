@@ -1533,14 +1533,30 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
         if (!primaryChild || seen.has(primaryChild)) continue;
         seen.add(primaryChild);
         seen.add(child);
+        const primaryLabel = primaryChild.userEditableDescription ?? primaryChild.description;
+        const blockLabel = primaryLabel || label;
+        const paddedStart = () => absoluteStart + child.initialTimeScalar.value;
+        const durationAgnosticChild =
+          primaryChild instanceof DurationAgnosticComponent ? primaryChild : undefined;
         blocks.push({
           id: child,
-          label,
-          startMs: () => absoluteStart + child.initialTimeScalar.value,
+          label: blockLabel,
+          startMs: paddedStart,
           durationMs: () => primaryChild.duration,
           onDragLeft: (newStartMs) => {
             child.initialTimeScalar.value = Math.max(0, newStartMs - absoluteStart);
           },
+          handleEndMs: durationAgnosticChild
+            ? () => paddedStart() + durationAgnosticChild.minDurationScalar.value
+            : undefined,
+          onDragRight: durationAgnosticChild
+            ? (newEndMs) => {
+                durationAgnosticChild.minDurationScalar.value = Math.max(0, newEndMs - paddedStart());
+              }
+            : undefined,
+          onCommitRight: durationAgnosticChild
+            ? () => paddedStart() + durationAgnosticChild.minDurationScalar.value
+            : undefined,
         });
       } else if (child instanceof DurationAgnosticComponent) {
         if (seen.has(child)) continue;
