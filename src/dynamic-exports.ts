@@ -89,6 +89,15 @@ showableOptions.add([
     },
   ],
   [
+    "some5-reference",
+    {
+      async create() {
+        return (await import("./some5/some5-reference.ts")).some5;
+      },
+      description: "A copy of some5.ts before I started making big changes.",
+    },
+  ],
+  [
     "shadow-test",
     {
       async create() {
