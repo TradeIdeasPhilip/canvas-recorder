@@ -185,11 +185,14 @@ export class TimelineDisplay {
       ctx.roundRect(x0, y0, bw, bh, corner);
       ctx.fill();
 
-      // Separate handle line for minDuration blocks
+      // Separate handle line for minDuration blocks — only when minDuration < actual duration
       if (b.handleEndMs) {
-        const hx = msToX(b.handleEndMs());
-        ctx.fillStyle = "#e07020";
-        ctx.fillRect(hx - dpr, y0, 2 * dpr, bh);
+        const handleMs = b.handleEndMs();
+        if (handleMs !== startMs + durMs) {
+          const hx = msToX(handleMs);
+          ctx.fillStyle = "#e07020";
+          ctx.fillRect(hx - dpr, y0, 2 * dpr, bh);
+        }
       }
 
       // Label, clipped to visible portion of the block
