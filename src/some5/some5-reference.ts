@@ -359,7 +359,7 @@ function addToBoth(toAdd: Showable) {
     "Slide 1",
     DEFAULT_SLIDE_DURATION_MS,
   );
-  slide.replaceableComponents.replace(buildComponents(slide1));
+  slide.replaceableComponents!.replace(buildComponents(slide1));
   addToBoth(slide);
 }
 
@@ -1706,7 +1706,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right colorful", rightSpec.transformString);
     this.textTop.addText("right", `">\n`);
     this.textTop.addText(baseFormatName, `         <use href="`);
-    this.textTop.replaceableComponents.push(this.cssSampleName);
+    this.textTop.addFixed({child: this.cssSampleName});
 
     this.textTop.addText(baseFormatName, `" />\n`);
     this.textTop.addText("right", `      </g>\n`);
@@ -1719,7 +1719,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right", "context.")
       .addText("right colorful", rightSpec.javaScriptString);
     this.textTop.addText("right", ":\n");
-    this.textTop.replaceableComponents.push(this.javaScriptSampleName);
+    this.textTop.addFixed({child:this.javaScriptSampleName});
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
@@ -1987,13 +1987,15 @@ ${status.sample.typescript}`);
         rightColorfulCodeFormat.alphaSchedule.set(alpha);
         rightCodeFormat.alphaSchedule.set(alpha);
       };
-      this.textTop.replaceableComponents.push(
+      [
         leftColorfulCodeFormat,
         leftCodeFormat,
         rightColorfulCodeFormat,
         rightCodeFormat,
         baseCodeFormat,
-      );
+      ].forEach((child) => {
+        this.textTop.addFixed({ child, zIndex: -1 });
+      });
     }
     static readonly instance = new this();
   }

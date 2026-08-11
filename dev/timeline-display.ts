@@ -243,7 +243,8 @@ export class TimelineDisplay {
 
     const clampMs = (ms: number) => Math.max(0, Math.min(this._durationMs, ms));
 
-    const hitTest = (e: PointerEvent): { block: TimelineBlock; zone: "left" | "right" | "body" } | undefined => {
+    type HitInput = { clientX: number; clientY: number; shiftKey?: boolean; altKey?: boolean };
+    const hitTest = (e: HitInput): { block: TimelineBlock; zone: "left" | "right" | "body" } | undefined => {
       const rect = canvas.getBoundingClientRect();
       const cx = e.clientX - rect.left;
       const cy = e.clientY - rect.top;
@@ -262,23 +263,65 @@ export class TimelineDisplay {
         const endMs = startMs + b.durationMs();
         const markerMs = b.handleEndMs?.() ?? endMs;
 
-        if (b.onDragLeft && Math.abs(ms - startMs) <= handleMs) return { block: b, zone: "left" };
-        if ((b.onDragRight || b.onCommitRight) && Math.abs(ms - markerMs) <= handleMs) return { block: b, zone: "right" };
-        if (ms >= startMs && ms <= endMs) return { block: b, zone: "body" };
+        const inLeftZone = !!b.onDragLeft && Math.abs(ms - startMs) <= handleMs;
+        const inRightZone = !!(b.onDragRight || b.onCommitRight) && Math.abs(ms - markerMs) <= handleMs;
+        const inBody = ms >= startMs && ms <= endMs;
+        if (!inLeftZone && !inRightZone && !inBody) continue;
+
+        // Modifier overrides — resolve ambiguity on small/zero-duration blocks:
+        // Shift → force right-edge (change duration / minDuration)
+        if (e.shiftKey && (b.onDragRight || b.onCommitRight)) return { block: b, zone: "right" };
+        // Ctrl → force body (select without dragging)
+        if (e.altKey) return { block: b, zone: "body" };
+
+        if (inLeftZone) return { block: b, zone: "left" };
+        if (inRightZone) return { block: b, zone: "right" };
+        return { block: b, zone: "body" };
       }
       return undefined;
     };
+
+    let lastClientX = 0;
+    let lastClientY = 0;
+
+    const updateHoverCursor = (e: HitInput) => {
+      const hit = hitTest(e);
+      const isDurationZone = hit?.zone === "right" && !!(hit.block.onDragRight || hit.block.onCommitRight);
+      const isStartTimeZone = hit?.zone === "left" && !!hit.block.onDragLeft;
+      const isBodyDraggable = hit?.zone === "body" && !!hit.block.onDragBody;
+      const isCtrlSelect = !!e.altKey && !!hit;
+      canvas.style.cursor = isDurationZone ? "ew-resize"
+        : isStartTimeZone ? "grab"
+        : isCtrlSelect ? "pointer"
+        : isBodyDraggable ? "grab"
+        : "crosshair";
+    };
+
+    const onKey = (e: KeyboardEvent) => {
+      if (drag.kind === "idle" || drag.kind === "potential") {
+        updateHoverCursor({ clientX: lastClientX, clientY: lastClientY, shiftKey: e.shiftKey, altKey: e.altKey });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("keyup", onKey);
 
     canvas.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
       canvas.setPointerCapture(e.pointerId);
 
-      if (e.shiftKey) {
+      const hit = hitTest(e);
+
+      // Shift with no right-drag target → seek
+      if (e.shiftKey && hit?.zone !== "right") {
         this.onSeek?.(clampMs(toLocalMs(e)));
         drag = { kind: "seek" };
         return;
       }
-      const hit = hitTest(e);
+      // Ctrl on any block → potential so the mouseup triggers selection, not a drag
+      if (e.altKey && hit) {
+        drag = { kind: "potential", x0: e.clientX, y0: e.clientY, msAtDown: toLocalMs(e) };
+        return;
+      }
       if (hit?.zone === "left" && hit.block.onDragLeft) {
         drag = { kind: "drag-left", block: hit.block };
         return;
@@ -298,12 +341,9 @@ export class TimelineDisplay {
     canvas.addEventListener("pointermove", (e) => {
       // Hover cursor (no button pressed)
       if (!(e.buttons & 1)) {
-        const hit = hitTest(e);
-        const isResizeZone =
-          (hit?.zone === "left" && !!hit.block.onDragLeft) ||
-          (hit?.zone === "right" && !!(hit.block.onDragRight || hit.block.onCommitRight));
-        const isBodyDraggable = hit?.zone === "body" && !!hit.block.onDragBody;
-        canvas.style.cursor = isResizeZone ? "ew-resize" : isBodyDraggable ? "grab" : "crosshair";
+        lastClientX = e.clientX;
+        lastClientY = e.clientY;
+        updateHoverCursor(e);
         return;
       }
 

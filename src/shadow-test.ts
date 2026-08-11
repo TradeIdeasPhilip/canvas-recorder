@@ -158,7 +158,13 @@ const slideList = new MakeShowableInSeries("Shadow Test");
     "Slide 1: Shape Gallery",
     DEFAULT_SLIDE_DURATION_MS,
   );
-  slide.replaceableComponents.replace(
+  // TODO The preferred answer is to use slide.addFixed() rather than use
+  // slide.replaceableComponents!.replace() in most cases.
+  // addFixed() always exists where replaceableComponents might not.
+  // And did we really want to give the user the ability to remove this item?!
+  // Note:  In this case you could replace buildComponents with a call to the constructor.
+  // I think this code is old and I've improved the constructors a lot so they are easier to use.
+  slide.replaceableComponents!.replace(
     buildComponents([
       {
         registryKey: "Nine Shapes (Shadow Test)",
@@ -188,7 +194,8 @@ const slideList = new MakeShowableInSeries("Shadow Test");
     "Slide 1a: Generic Container",
     DEFAULT_SLIDE_DURATION_MS,
   );
-  slide.replaceableComponents.replace(
+  // See TODO at previous call to "slide.replaceableComponents!.replace".
+  slide.replaceableComponents!.replace(
     buildComponents([
       {
         registryKey: "Nine Shapes (Shadow Test)",
@@ -902,7 +909,8 @@ const slideList = new MakeShowableInSeries("Shadow Test");
     "Slide 2: Growing Rectangle",
     DEFAULT_SLIDE_DURATION_MS,
   );
-  slide.replaceableComponents.push(
+  // See TODO at previous call to "slide.replaceableComponents!.replace".
+  slide.replaceableComponents!.push(
     new RectangleComponent({
       color: [
         { time: 0, value: myRainbow.red },

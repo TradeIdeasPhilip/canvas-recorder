@@ -49,7 +49,6 @@ import {
   TextComponent,
   TextFormatComponent,
   TextSpanComponent,
-  TraditionalTextComponent,
 } from "../slide-components";
 import slide1 from "./slide1.json";
 import {
@@ -359,7 +358,21 @@ function addToBoth(toAdd: Showable) {
     "Slide 1",
     DEFAULT_SLIDE_DURATION_MS,
   );
-  slide.replaceableComponents.replace(buildComponents(slide1));
+  slide.replaceableComponents!.replace(buildComponents(slide1));
+  // TODO
+  // Ideally the status should look more like
+  // buildComponents(slide1).forEach((child) => {
+  //   slide.addFixed({ child });
+  // });
+  // But I ran into a problem.
+  // These were saved as replaceable items and when we stream them back in we have
+  // no control over the description.
+  // The descriptions of the slides are all "slide".
+  // That was not a problem with replaceable components.
+  // But it breaks things when you add multiple fixed components with identical descriptions.
+  // It was generating a lot of warnings on the console.
+  //
+  // I don't know the best way to deal with this so I'm leaving it a TODO.
   addToBoth(slide);
 }
 
@@ -1706,7 +1719,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right colorful", rightSpec.transformString);
     this.textTop.addText("right", `">\n`);
     this.textTop.addText(baseFormatName, `         <use href="`);
-    this.textTop.replaceableComponents.push(this.cssSampleName);
+    this.textTop.addFixed({ child: this.cssSampleName });
 
     this.textTop.addText(baseFormatName, `" />\n`);
     this.textTop.addText("right", `      </g>\n`);
@@ -1719,7 +1732,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right", "context.")
       .addText("right colorful", rightSpec.javaScriptString);
     this.textTop.addText("right", ":\n");
-    this.textTop.replaceableComponents.push(this.javaScriptSampleName);
+    this.textTop.addFixed({ child: this.javaScriptSampleName });
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
@@ -1987,13 +2000,15 @@ ${status.sample.typescript}`);
         rightColorfulCodeFormat.alphaSchedule.set(alpha);
         rightCodeFormat.alphaSchedule.set(alpha);
       };
-      this.textTop.replaceableComponents.push(
+      [
         leftColorfulCodeFormat,
         leftCodeFormat,
         rightColorfulCodeFormat,
         rightCodeFormat,
         baseCodeFormat,
-      );
+      ].forEach((child) => {
+        this.textTop.addFixed({ child, zIndex: -1 });
+      });
     }
     static readonly instance = new this();
   }

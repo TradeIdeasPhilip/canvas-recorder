@@ -130,9 +130,11 @@ type ShowChildInfo = {
  * That version assumed that the contents and durations were fixed.
  */
 export class InParallelComponent implements Showable, ShowableParent {
-  protected makeNotifyingScalar<
-    T extends "string" | "number" /*ScalarInfo["type"]*/,
-  >(type: T, description: string, value: Scalar<T>["value"]) /*: Scalar<T>*/ {
+  protected makeNotifyingScalar<T extends "string" | "number">(
+    type: T,
+    description: string,
+    value: Scalar<T>["value"],
+  ) {
     const scheduleHasChanged = this.scheduleHasChanged.bind(this);
     return {
       type,
@@ -168,9 +170,9 @@ export class InParallelComponent implements Showable, ShowableParent {
   }
   // Interesting.  I had to add this specific way of referencing the base class's type,
   // otherwise the documentation comments on the fields of this object do not get copied.
-  readonly replaceableComponents: NonNullable<
-    Showable["replaceableComponents"]
-  >;
+  readonly replaceableComponents: // NonNullable<
+  Showable["replaceableComponents"];
+  //>;
   constructor(readonly description: string) {
     const get = (): Showable[] => [...this.#replaceableChildren];
     const replace = (newItems: readonly Showable[]) => {
@@ -294,7 +296,6 @@ export class InParallelComponent implements Showable, ShowableParent {
       "registryKey"
     >;
     zIndex?: number;
-    start?: number;
   }) {
     if (zIndex === undefined) {
       const last = this.#fixedChildren.array.at(-1);
@@ -987,6 +988,8 @@ export class SlideComponent extends DurationAgnosticComponent {
     "scale(1)",
   );
 
+  readonly alphaSchedule = new NumberScheduleInfo("Alpha", 1);
+
   readonly placeA = new NumberScheduleInfo("𝓐", 1);
   readonly placeB = new NumberScheduleInfo("𝓑", 1);
   readonly placeC = new NumberScheduleInfo("𝓒", 1);
@@ -1010,6 +1013,7 @@ export class SlideComponent extends DurationAgnosticComponent {
     initialValues: {
       description?: string;
       transformTemplate?: string;
+      alpha?: number | readonly Keyframe<number>[];
       placeA?: number | readonly Keyframe<number>[];
       placeB?: number | readonly Keyframe<number>[];
       placeC?: number | readonly Keyframe<number>[];
@@ -1027,6 +1031,7 @@ export class SlideComponent extends DurationAgnosticComponent {
     if (initialValues.transformTemplate !== undefined)
       this.transformTemplate.value = initialValues.transformTemplate;
     this.schedules.push(
+      this.alphaSchedule,
       this.placeA,
       this.placeB,
       this.placeC,
@@ -1038,6 +1043,8 @@ export class SlideComponent extends DurationAgnosticComponent {
       this.placeI,
       this.placeJ,
     );
+    if (initialValues.alpha !== undefined)
+      this.alphaSchedule.set(initialValues.alpha);
     if (initialValues.placeA !== undefined)
       this.placeA.set(initialValues.placeA);
     if (initialValues.placeB !== undefined)
@@ -1081,8 +1088,12 @@ export class SlideComponent extends DurationAgnosticComponent {
   }
   override show(options: ShowOptions): void {
     const { context, timeInMs } = options;
+    const alpha = this.alphaSchedule.at(timeInMs);
+
+    // alpha <= 0 or NaN: skip entirely
+    if (!(alpha > 0)) return;
+
     const transformString = this.transformStringAt(timeInMs);
-    const originalTransform = context.getTransform();
     let transformMatrix: undefined | DOMMatrixReadOnly;
     try {
       transformMatrix = new DOMMatrixReadOnly(transformString);
@@ -1090,9 +1101,35 @@ export class SlideComponent extends DurationAgnosticComponent {
       showError(context, "Invalid Transform:\n" + transformString);
       return;
     }
-    applyTransform(context, transformMatrix);
-    super.show(options);
-    context.setTransform(originalTransform);
+
+    if (alpha >= 1 || typeof document === "undefined") {
+      // Fully opaque (or CLI fallback): existing path, no temp canvas.
+      const originalTransform = context.getTransform();
+      applyTransform(context, transformMatrix);
+      super.show(options);
+      context.setTransform(originalTransform);
+    } else {
+      // Semi-transparent: render children into a temp canvas, then composite.
+      const { canvas } = context;
+      const w = canvas.width;
+      const h = canvas.height;
+      const tempCanvas = document.createElement("canvas");
+      tempCanvas.width = w;
+      tempCanvas.height = h;
+      const tempCtx = tempCanvas.getContext("2d")!;
+      tempCtx.setTransform(context.getTransform());
+      applyTransform(tempCtx, transformMatrix);
+      super.show({
+        ...options,
+        context: tempCtx,
+        registerTransform: undefined,
+      });
+      context.save();
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = alpha;
+      context.drawImage(tempCanvas, 0, 0);
+      context.restore();
+    }
   }
   protected override showChild(info: ShowChildInfo): void {
     info.options.registerTransform?.(
@@ -1133,7 +1170,7 @@ export class SlideComponent extends DurationAgnosticComponent {
  * the component-specific Font Info panel.
  */
 export class TraditionalTextComponent extends DurationAgnosticComponent {
-  readonly registryKey :string;
+  readonly registryKey: string;
   /**
    * What to display.
    */
@@ -1250,7 +1287,7 @@ export class TraditionalTextComponent extends DurationAgnosticComponent {
   );
   constructor(
     initialValues: {
-      registryKey?:string;
+      registryKey?: string;
       description?: string;
       minDuration?: number;
       text?: string | readonly Keyframe<string>[];
@@ -1273,7 +1310,7 @@ export class TraditionalTextComponent extends DurationAgnosticComponent {
     } = {},
   ) {
     super(initialValues.description ?? "Traditional Text");
-    this.registryKey =initialValues.registryKey?? "Traditional Text";
+    this.registryKey = initialValues.registryKey ?? "Traditional Text";
     if (initialValues.minDuration !== undefined) {
       this.minDurationScalar.value = initialValues.minDuration;
     }
@@ -2033,10 +2070,8 @@ export class RectangleComponent implements Showable {
  * Both endpoints are {@link PointScheduleInfo} schedules, so the Visual Editor
  * renders them as draggable circles directly on the canvas.
  */
-export class ArrowComponent implements Showable {
-  readonly registryKey = "Arrow";
-  readonly description = "Arrow";
-  readonly duration = 0;
+export class ArrowComponent extends DurationAgnosticComponent {
+  readonly registryKey: string;
 
   readonly arrowSchedule = new ArrowScheduleInfo("Location", {
     flat: { x: 2, y: 4.5 },
@@ -2044,20 +2079,23 @@ export class ArrowComponent implements Showable {
   });
   readonly widthSchedule = new NumberScheduleInfo("Width", 0.5);
   readonly colorSchedule = new ColorScheduleInfo("Color", "#555");
-
-  readonly schedules = [
-    this.arrowSchedule,
-    this.widthSchedule,
-    this.colorSchedule,
-  ] as const;
-
+  override readonly replaceableComponents = undefined;
   constructor(
     initialValues: {
+      registryKey?: string;
+      description?: string;
       arrow?: ArrowValue | readonly Keyframe<ArrowValue>[];
       width?: number | readonly Keyframe<number>[];
       color?: string | readonly Keyframe<string>[];
     } = {},
   ) {
+    super(initialValues.description ?? "Arrow");
+    this.schedules.push(
+      this.arrowSchedule,
+      this.widthSchedule,
+      this.colorSchedule,
+    );
+    this.registryKey = initialValues.registryKey ?? "Arrow";
     if (initialValues.arrow !== undefined)
       this.arrowSchedule.set(initialValues.arrow);
     if (initialValues.width !== undefined)
@@ -2118,11 +2156,14 @@ export class ArrowComponent implements Showable {
     context.fill(path);
   }
 
-  show({ context, timeInMs }: ShowOptions) {
+  override show(options: ShowOptions) {
+    const { context, timeInMs } = options;
     const { flat, pointy } = this.arrowSchedule.at(timeInMs);
     const width = this.widthSchedule.at(timeInMs);
     const color = this.colorSchedule.at(timeInMs);
     ArrowComponent.show({ context, flat, tip: pointy, width, color });
+    // No children are expected, but children are possible, mostly for debugging.
+    super.show(options);
   }
 }
 

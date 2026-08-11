@@ -39,6 +39,11 @@
                 "registryKey": "Slide",
                 "schedules": [
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -260,6 +265,11 @@
                 "registryKey": "Slide",
                 "schedules": [
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -419,6 +429,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -594,6 +609,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -776,6 +796,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -3178,6 +3203,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -3296,6 +3326,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -3418,6 +3453,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -3536,6 +3576,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -3658,6 +3703,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -3776,6 +3826,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -3898,6 +3953,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4016,6 +4076,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4138,6 +4203,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4256,6 +4326,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4378,6 +4453,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4496,6 +4576,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4618,6 +4703,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4719,6 +4809,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -4941,6 +5036,11 @@
         "registryKey": "Slide",
         "schedules": [
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -5100,6 +5200,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5275,6 +5380,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5457,6 +5567,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -8482,6 +8597,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -8600,6 +8720,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -8722,6 +8847,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -8840,6 +8970,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -8962,6 +9097,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9080,6 +9220,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9202,6 +9347,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9320,6 +9470,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9442,6 +9597,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9560,6 +9720,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9682,6 +9847,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9802,6 +9972,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9920,6 +10095,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
