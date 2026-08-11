@@ -1491,18 +1491,23 @@ timelineDisplay.onSeek = (localMs) => {
 };
 
 timelineDisplay.onBlockClick = (id) => {
-  // Find the Showable that was clicked and select it in the component editor.
+  // Find the Showable that was clicked (may be nested) and select it.
   const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return;
-  for (const { child } of selectable.children ?? []) {
-    if (child === id) {
-      selectedSlideChild = child;
-      updateComponentEditor(selectable);
-      updateScheduleEditor(child);
-      timelineDisplay.setSelectedId(child);
-      return;
+  function findIn(children: NonNullable<Showable["children"]>, container: Showable): boolean {
+    for (const { child } of children) {
+      if (child === id) {
+        selectedSlideChild = child;
+        updateComponentEditor(container);
+        updateScheduleEditor(child);
+        timelineDisplay.setSelectedId(child);
+        return true;
+      }
+      if (child.children?.length && findIn(child.children, child)) return true;
     }
+    return false;
   }
+  findIn(selectable.children ?? [], selectable);
 };
 
 // MARK: Timeline blocks
