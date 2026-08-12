@@ -1706,7 +1706,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right colorful", rightSpec.transformString);
     this.textTop.addText("right", `">\n`);
     this.textTop.addText(baseFormatName, `         <use href="`);
-    this.textTop.addFixed({child: this.cssSampleName});
+    this.textTop.addFixed({ child: this.cssSampleName });
 
     this.textTop.addText(baseFormatName, `" />\n`);
     this.textTop.addText("right", `      </g>\n`);
@@ -1719,7 +1719,7 @@ class CodeSampleAndTwoMatrices extends TwoMatricesRight {
       .addText("right", "context.")
       .addText("right colorful", rightSpec.javaScriptString);
     this.textTop.addText("right", ":\n");
-    this.textTop.addFixed({child:this.javaScriptSampleName});
+    this.textTop.addFixed({ child: this.javaScriptSampleName });
     const size = 0.3;
     const boldness = 1.3;
     const leftColorfulCodeFormat = new TextFormatComponent({
@@ -3553,6 +3553,10 @@ class MainTimeline {
         endProgress: 1,
       });
     }
+
+    // Dump this list so we can use it as a script with the new InSeriesComponent.
+    // Notice the new HoldPreviousTransition and HoldNextTransition components.
+    //this.items.map()
   }
 
   get duration(): number {

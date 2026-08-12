@@ -2663,6 +2663,82 @@
                 "schedules": [],
                 "components": [
                   {
+                    "registryKey": "Hold Next",
+                    "schedules": [],
+                    "duration": 2356.663047903379
+                  },
+                  {
+                    "registryKey": "Frame Counter",
+                    "schedules": [
+                      {
+                        "description": "Position",
+                        "type": "point",
+                        "value": {
+                          "x": 10.106525157232705,
+                          "y": 6.05503144654088
+                        }
+                      },
+                      {
+                        "description": "Fill Color",
+                        "type": "color",
+                        "value": "rgb(0, 128, 255)"
+                      },
+                      {
+                        "description": "Outline Color",
+                        "type": "color",
+                        "value": "rgb(255, 128, 0)"
+                      },
+                      {
+                        "description": "Outline Width",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Font Style",
+                        "type": "select",
+                        "value": "normal"
+                      },
+                      {
+                        "description": "Font Weight",
+                        "type": "number",
+                        "value": 400
+                      },
+                      {
+                        "description": "Font Family",
+                        "type": "string",
+                        "value": "Source Code Pro"
+                      },
+                      {
+                        "description": "Align",
+                        "type": "select",
+                        "value": "right"
+                      },
+                      {
+                        "description": "Baseline",
+                        "type": "select",
+                        "value": "alphabetic"
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 3000
+                      }
+                    ],
+                    "components": []
+                  },
+                  {
+                    "registryKey": "Hold Previous",
+                    "schedules": [],
+                    "duration": 1842.244537929162
+                  },
+                  {
                     "registryKey": "Text",
                     "schedules": [
                       {
@@ -8114,6 +8190,82 @@
         "registryKey": "In Series",
         "schedules": [],
         "components": [
+          {
+            "registryKey": "Hold Next",
+            "schedules": [],
+            "duration": 2356.663047903379
+          },
+          {
+            "registryKey": "Frame Counter",
+            "schedules": [
+              {
+                "description": "Position",
+                "type": "point",
+                "value": {
+                  "x": 10.106525157232705,
+                  "y": 6.05503144654088
+                }
+              },
+              {
+                "description": "Fill Color",
+                "type": "color",
+                "value": "rgb(0, 128, 255)"
+              },
+              {
+                "description": "Outline Color",
+                "type": "color",
+                "value": "rgb(255, 128, 0)"
+              },
+              {
+                "description": "Outline Width",
+                "type": "number",
+                "value": 0
+              },
+              {
+                "description": "Font Size",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "Font Style",
+                "type": "select",
+                "value": "normal"
+              },
+              {
+                "description": "Font Weight",
+                "type": "number",
+                "value": 400
+              },
+              {
+                "description": "Font Family",
+                "type": "string",
+                "value": "Source Code Pro"
+              },
+              {
+                "description": "Align",
+                "type": "select",
+                "value": "right"
+              },
+              {
+                "description": "Baseline",
+                "type": "select",
+                "value": "alphabetic"
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Min Duration",
+                "type": "number",
+                "value": 3000
+              }
+            ],
+            "components": []
+          },
+          {
+            "registryKey": "Hold Previous",
+            "schedules": [],
+            "duration": 1842.244537929162
+          },
           {
             "registryKey": "Text",
             "schedules": [
