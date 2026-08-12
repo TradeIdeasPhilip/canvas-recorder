@@ -149,7 +149,7 @@
                       {
                         "description": "Text",
                         "type": "string",
-                        "value": "Philip says “Hi!”"
+                        "value": "Hello World!"
                       },
                       {
                         "description": "Position",
@@ -4915,7 +4915,7 @@
               {
                 "description": "Text",
                 "type": "string",
-                "value": "Philip says “Hi!”"
+                "value": "Hello World!"
               },
               {
                 "description": "Position",

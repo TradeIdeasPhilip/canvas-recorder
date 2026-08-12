@@ -314,3 +314,5 @@ The code generator should create an example of each component, and compare each 
 If they are the same, skip that property.
 If the value does *not* match the default then include the property in the call to the constructor.
 If we are not sure (maybe a new property type was added after this code was written) be safe and include property in the constructor.
+
+This applies to schedules, scalars, userEditableDescription, and duration.

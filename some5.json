@@ -39,6 +39,11 @@
                 "registryKey": "Slide",
                 "schedules": [
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -144,7 +149,7 @@
                       {
                         "description": "Text",
                         "type": "string",
-                        "value": "Philip says “Hi!”"
+                        "value": "Hello World!"
                       },
                       {
                         "description": "Position",
@@ -259,6 +264,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -419,6 +429,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -594,6 +609,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -776,6 +796,11 @@
               {
                 "registryKey": "Slide",
                 "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
                   {
                     "description": "𝓐",
                     "type": "number",
@@ -2685,10 +2710,9 @@
                       {
                         "description": "Min Duration",
                         "type": "number",
-                        "value": 2961.8065318081594
+                        "value": 3141.4690290950543
                       }
                     ],
-                    "components": [],
                     "userEditableDescription": "First"
                   },
                   {
@@ -2748,14 +2772,13 @@
                         "value": 1000
                       }
                     ],
-                    "components": [],
                     "userEditableDescription": "Second"
                   },
                   {
                     "registryKey": "Cross Fade Transition",
                     "schedules": [],
                     "components": [],
-                    "duration": 2335.880727686493
+                    "duration": 3024.6211077875732
                   },
                   {
                     "registryKey": "Text",
@@ -2805,10 +2828,9 @@
                       {
                         "description": "Min Duration",
                         "type": "number",
-                        "value": 4479.57742334177
+                        "value": 6054.417152937982
                       }
                     ],
-                    "components": [],
                     "userEditableDescription": "Third"
                   },
                   {
@@ -2898,7 +2920,7 @@
                           {
                             "description": "Min Duration",
                             "type": "number",
-                            "value": 3651.4919663351193
+                            "value": 4387.807029447686
                           }
                         ],
                         "components": []
@@ -2941,7 +2963,7 @@
                   {
                     "description": "Initial Time",
                     "type": "number",
-                    "value": 4747.420020639835
+                    "value": 6172.8185642556655
                   },
                   {
                     "description": "Extra Time",
@@ -3008,10 +3030,9 @@
                       {
                         "description": "Min Duration",
                         "type": "number",
-                        "value": 6622.033023735812
+                        "value": 2.2051838784100255
                       }
                     ],
-                    "components": [],
                     "userEditableDescription": "Movable Start Time"
                   }
                 ],
@@ -3082,6 +3103,166 @@
                   }
                 ],
                 "components": []
+              },
+              {
+                "registryKey": "Padding",
+                "schedules": [],
+                "scalars": [
+                  {
+                    "description": "Initial Time",
+                    "type": "number",
+                    "value": 1713.4983786894497
+                  },
+                  {
+                    "description": "Extra Time",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Show Before",
+                    "type": "select",
+                    "value": "hide"
+                  },
+                  {
+                    "description": "Show After",
+                    "type": "select",
+                    "value": "hide"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Slide",
+                    "schedules": [
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "keyframes": [
+                          {
+                            "time": 0,
+                            "value": 1
+                          },
+                          {
+                            "time": 500,
+                            "value": 1
+                          },
+                          {
+                            "time": 1000,
+                            "value": 0
+                          },
+                          {
+                            "time": 1500,
+                            "value": 0
+                          },
+                          {
+                            "time": 2000,
+                            "value": 1
+                          }
+                        ]
+                      },
+                      {
+                        "description": "𝓐",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓑",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓒",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓓",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓔",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓕",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓖",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓗",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓘",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓙",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 2500
+                      },
+                      {
+                        "description": "Transform Template",
+                        "type": "string",
+                        "value": "scale(1)"
+                      }
+                    ],
+                    "components": [
+                      {
+                        "registryKey": "Arrow",
+                        "schedules": [
+                          {
+                            "description": "Location",
+                            "type": "arrow",
+                            "value": {
+                              "flat": {
+                                "x": 2,
+                                "y": 4.5
+                              },
+                              "pointy": {
+                                "x": 12,
+                                "y": 4.5
+                              }
+                            }
+                          },
+                          {
+                            "description": "Width",
+                            "type": "number",
+                            "value": 0.5
+                          },
+                          {
+                            "description": "Color",
+                            "type": "color",
+                            "value": "rgb(0% 0% 0%)"
+                          }
+                        ],
+                        "scalars": [
+                          {
+                            "description": "Min Duration",
+                            "type": "number",
+                            "value": 0
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ],
+                "userEditableDescription": "for arrow"
               }
             ],
             "fixedComponents": [
@@ -3161,8 +3342,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3172,7 +3352,7 @@
                   {
                     "description": "Initial Time",
                     "type": "number",
-                    "value": 6377.792893066206
+                    "value": 6756.344144388655
                   },
                   {
                     "description": "Extra Time",
@@ -3240,10 +3420,9 @@
                       {
                         "description": "Min Duration",
                         "type": "number",
-                        "value": 3000
+                        "value": 3028.3959831727498
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3323,8 +3502,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3404,8 +3582,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3485,8 +3662,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3496,7 +3672,7 @@
                   {
                     "description": "Initial Time",
                     "type": "number",
-                    "value": 5311.145510835913
+                    "value": 5261.014398123043
                   },
                   {
                     "description": "Extra Time",
@@ -3577,7 +3753,7 @@
                       {
                         "description": "Min Duration",
                         "type": "number",
-                        "value": 0
+                        "value": 1271.7580269007058
                       }
                     ],
                     "components": []
@@ -3627,6 +3803,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -3749,6 +3930,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -3867,6 +4053,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -3989,6 +4180,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4107,6 +4303,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4229,6 +4430,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4347,6 +4553,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4469,6 +4680,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4587,6 +4803,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4709,6 +4930,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -4827,6 +5053,11 @@
                         "value": 2
                       }
                     ]
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
                   },
                   {
                     "description": "𝓐",
@@ -4949,6 +5180,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -5069,6 +5305,11 @@
                     ]
                   },
                   {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
                     "description": "𝓐",
                     "type": "number",
                     "keyframes": [
@@ -5170,6 +5411,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5276,7 +5522,7 @@
               {
                 "description": "Text",
                 "type": "string",
-                "value": "Philip says “Hi!”"
+                "value": "Hello World!"
               },
               {
                 "description": "Position",
@@ -5391,6 +5637,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5551,6 +5802,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5726,6 +5982,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -5908,6 +6169,11 @@
       {
         "registryKey": "Slide",
         "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
           {
             "description": "𝓐",
             "type": "number",
@@ -7896,10 +8162,9 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 2961.8065318081594
+                "value": 3141.4690290950543
               }
             ],
-            "components": [],
             "userEditableDescription": "First"
           },
           {
@@ -7959,14 +8224,13 @@
                 "value": 1000
               }
             ],
-            "components": [],
             "userEditableDescription": "Second"
           },
           {
             "registryKey": "Cross Fade Transition",
             "schedules": [],
             "components": [],
-            "duration": 2335.880727686493
+            "duration": 3024.6211077875732
           },
           {
             "registryKey": "Text",
@@ -8016,10 +8280,9 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 4479.57742334177
+                "value": 6054.417152937982
               }
             ],
-            "components": [],
             "userEditableDescription": "Third"
           },
           {
@@ -8109,7 +8372,7 @@
                   {
                     "description": "Min Duration",
                     "type": "number",
-                    "value": 3651.4919663351193
+                    "value": 4387.807029447686
                   }
                 ],
                 "components": []
@@ -8152,7 +8415,7 @@
           {
             "description": "Initial Time",
             "type": "number",
-            "value": 4747.420020639835
+            "value": 6172.8185642556655
           },
           {
             "description": "Extra Time",
@@ -8219,10 +8482,9 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 6622.033023735812
+                "value": 2.2051838784100255
               }
             ],
-            "components": [],
             "userEditableDescription": "Movable Start Time"
           }
         ],
@@ -8293,6 +8555,166 @@
           }
         ],
         "components": []
+      },
+      {
+        "registryKey": "Padding",
+        "schedules": [],
+        "scalars": [
+          {
+            "description": "Initial Time",
+            "type": "number",
+            "value": 1713.4983786894497
+          },
+          {
+            "description": "Extra Time",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "description": "Show Before",
+            "type": "select",
+            "value": "hide"
+          },
+          {
+            "description": "Show After",
+            "type": "select",
+            "value": "hide"
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Slide",
+            "schedules": [
+              {
+                "description": "Alpha",
+                "type": "number",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 1
+                  },
+                  {
+                    "time": 500,
+                    "value": 1
+                  },
+                  {
+                    "time": 1000,
+                    "value": 0
+                  },
+                  {
+                    "time": 1500,
+                    "value": 0
+                  },
+                  {
+                    "time": 2000,
+                    "value": 1
+                  }
+                ]
+              },
+              {
+                "description": "𝓐",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓑",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓒",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓓",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓔",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓕",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓖",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓗",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓘",
+                "type": "number",
+                "value": 1
+              },
+              {
+                "description": "𝓙",
+                "type": "number",
+                "value": 1
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Min Duration",
+                "type": "number",
+                "value": 2500
+              },
+              {
+                "description": "Transform Template",
+                "type": "string",
+                "value": "scale(1)"
+              }
+            ],
+            "components": [
+              {
+                "registryKey": "Arrow",
+                "schedules": [
+                  {
+                    "description": "Location",
+                    "type": "arrow",
+                    "value": {
+                      "flat": {
+                        "x": 2,
+                        "y": 4.5
+                      },
+                      "pointy": {
+                        "x": 12,
+                        "y": 4.5
+                      }
+                    }
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 0.5
+                  },
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "rgb(0% 0% 0%)"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "userEditableDescription": "for arrow"
       }
     ],
     "fixedComponents": [
@@ -8372,8 +8794,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8383,7 +8804,7 @@
           {
             "description": "Initial Time",
             "type": "number",
-            "value": 6377.792893066206
+            "value": 6756.344144388655
           },
           {
             "description": "Extra Time",
@@ -8451,10 +8872,9 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 3000
+                "value": 3028.3959831727498
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8534,8 +8954,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8615,8 +9034,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8696,8 +9114,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8707,7 +9124,7 @@
           {
             "description": "Initial Time",
             "type": "number",
-            "value": 5311.145510835913
+            "value": 5261.014398123043
           },
           {
             "description": "Extra Time",
@@ -8788,7 +9205,7 @@
               {
                 "description": "Min Duration",
                 "type": "number",
-                "value": 0
+                "value": 1271.7580269007058
               }
             ],
             "components": []
@@ -8877,8 +9294,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -8931,15 +9347,14 @@
         "type": "number",
         "value": 3000
       }
-    ],
-    "components": []
+    ]
   },
   "some5|dos wrapper": {
     "scalars": [
       {
         "description": "Initial Time",
         "type": "number",
-        "value": 6377.792893066206
+        "value": 6756.344144388655
       },
       {
         "description": "Extra Time",
@@ -9007,10 +9422,9 @@
           {
             "description": "Min Duration",
             "type": "number",
-            "value": 3000
+            "value": 3028.3959831727498
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -9089,8 +9503,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -9169,8 +9582,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -9249,8 +9661,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -9259,7 +9670,7 @@
       {
         "description": "Initial Time",
         "type": "number",
-        "value": 5311.145510835913
+        "value": 5261.014398123043
       },
       {
         "description": "Extra Time",
@@ -9340,7 +9751,7 @@
           {
             "description": "Min Duration",
             "type": "number",
-            "value": 0
+            "value": 1271.7580269007058
           }
         ],
         "components": []
@@ -9382,6 +9793,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9504,6 +9920,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9622,6 +10043,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9744,6 +10170,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -9862,6 +10293,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -9984,6 +10420,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -10102,6 +10543,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -10224,6 +10670,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -10342,6 +10793,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -10464,6 +10920,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -10582,6 +11043,11 @@
                 "value": 2
               }
             ]
+          },
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
           },
           {
             "description": "𝓐",
@@ -10704,6 +11170,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -10824,6 +11295,11 @@
             ]
           },
           {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
             "description": "𝓐",
             "type": "number",
             "keyframes": [
@@ -10921,7 +11397,7 @@
         "startMsIntoScene": 1000,
         "startMsIntoClip": 2152.48,
         "lengthMs": 3332.88,
-        "id": "6dd3a13c-0825-4c12-9127-d62341881228"
+        "id": "b039625a-b4e0-491c-a3c4-910395fdedb0"
       },
       {
         "notes": "These examples ... matrix multiplication.",
@@ -10929,7 +11405,7 @@
         "startMsIntoScene": 5332.88,
         "startMsIntoClip": 6100.35,
         "lengthMs": 9497.02,
-        "id": "40b49dfb-0c22-4f13-9f39-ae00faa3f2ed"
+        "id": "03770ff4-7b16-4c5a-8450-c1825ed26c0e"
       },
       {
         "notes": "This is an explainer... an easy one.",
@@ -10937,7 +11413,7 @@
         "startMsIntoScene": 15829.900000000001,
         "startMsIntoClip": 18100.33,
         "lengthMs": 3146.46,
-        "id": "67a1764a-14cd-4870-bec7-1df4e4d2ee9b"
+        "id": "1c8036a2-c085-420c-927d-9a2de0ba99e1"
       },
       {
         "notes": "The good news: the computer will help you create the matrices.\n",
@@ -10945,7 +11421,7 @@
         "startMsIntoScene": 19976.36,
         "startMsIntoClip": 21659.03,
         "lengthMs": 3964.26,
-        "id": "6b4b2cbd-0bd2-44ec-9a93-dd571ec0ad14"
+        "id": "f769bcd3-3da7-40c0-a67c-0676cf5b91a3"
       },
       {
         "notes": "And the computer will multiply the matrices for you.",
@@ -10953,7 +11429,7 @@
         "startMsIntoScene": 24940.620000000003,
         "startMsIntoClip": 26308.06,
         "lengthMs": 2798.21,
-        "id": "dfb49d93-c16c-4c30-b458-241f70afff70"
+        "id": "6cd8c654-9427-49a9-9c3d-0a0867d5b69b"
       },
       {
         "notes": "All you have to do is put them in the right order.",
@@ -10961,7 +11437,7 @@
         "startMsIntoScene": 28738.83,
         "startMsIntoClip": 29656.19,
         "lengthMs": 2488.9,
-        "id": "acd29758-193c-40ff-b866-92b46a4fed63"
+        "id": "741cb393-5024-438f-a675-6caf7df6cbdd"
       },
       {
         "notes": "Am I the only one who gets these things backwards",
@@ -10969,7 +11445,7 @@
         "startMsIntoScene": 32227.730000000003,
         "startMsIntoClip": 33409.17,
         "lengthMs": 2792.56,
-        "id": "4301bf1d-c806-43a8-a83b-9b66a593e4b8"
+        "id": "659590d0-c6cc-40a9-a6ef-01e57b3ebeae"
       },
       {
         "notes": "There are only two possibilities. ... wrong every time?",
@@ -10977,7 +11453,7 @@
         "startMsIntoScene": 36020.29,
         "startMsIntoClip": 37355.25,
         "lengthMs": 4913.68,
-        "id": "2209e6fa-9dcb-42b2-91c8-37814f9665e7"
+        "id": "607809ed-07ee-4e16-85d4-311daabad1c9"
       },
       {
         "notes": "How I stopped guessing ... what's really going on.",
@@ -10985,7 +11461,7 @@
         "startMsIntoScene": 41933.97,
         "startMsIntoClip": 43156.5,
         "lengthMs": 3852.06,
-        "id": "d8fa851b-fb97-488a-b7d1-f019d4bdbe31"
+        "id": "5b95db57-57ef-42d8-a09b-7a8bc2e7f363"
       },
       {
         "notes": "Affine transform overview",
@@ -10993,7 +11469,7 @@
         "startMsIntoScene": 46786.03,
         "startMsIntoClip": 52174.38,
         "lengthMs": 19280.38,
-        "id": "7b6a4c53-0091-4001-9bdd-f5740ab668cd"
+        "id": "8b71f485-27ae-4d91-8a44-660ce522b09a"
       },
       {
         "notes": "Point = column vector = matrix.",
@@ -11001,7 +11477,7 @@
         "startMsIntoScene": 67066.41,
         "startMsIntoClip": 72176.1,
         "lengthMs": 6636.04,
-        "id": "62efebaa-6183-4204-aea3-0fc2d59e1d12"
+        "id": "b1111cc6-dae3-47cd-bcee-564a01855286"
       },
       {
         "notes": "Shapes are just a collection of points.",
@@ -11009,7 +11485,7 @@
         "startMsIntoScene": 74702.45,
         "startMsIntoClip": 79339.19,
         "lengthMs": 3877.48,
-        "id": "1476b1fb-0ece-4273-b82e-c50a81658af0"
+        "id": "2e2075d6-a6e6-449c-9a2d-8291a8e4d587"
       },
       {
         "notes": "Top left corner of square",
@@ -11017,7 +11493,7 @@
         "startMsIntoScene": 79579.93,
         "startMsIntoClip": 83676.98,
         "lengthMs": 5009.33,
-        "id": "d30bb323-3e0a-4495-aec8-7de6f3279e3b"
+        "id": "b201cf2c-7688-4fd6-a3e8-e615b0e9945b"
       },
       {
         "notes": "Each operation is a square matrix ... computer creates it for you.",
@@ -11025,7 +11501,7 @@
         "startMsIntoScene": 85589.26,
         "startMsIntoClip": 89969.63,
         "lengthMs": 12498.48,
-        "id": "62f8fe2e-a0ad-4c62-bb69-3c372a15fafb"
+        "id": "0b6bc22c-2889-4fb3-8760-f759f8f58ce6"
       },
       {
         "notes": "Apply transform to point ... each point in image.",
@@ -11033,7 +11509,7 @@
         "startMsIntoScene": 99087.73999999999,
         "startMsIntoClip": 106089.79,
         "lengthMs": 11654.98,
-        "id": "241fdfc6-c11b-4b31-8a51-515cf18084af"
+        "id": "8f19ddf2-7064-4319-831d-50b20574733f"
       },
       {
         "notes": "More details... affine matrices are bigger.\n",
@@ -11041,7 +11517,7 @@
         "startMsIntoScene": 111742.71999999999,
         "startMsIntoClip": 119657.4,
         "lengthMs": 10484.96,
-        "id": "ad4cf05e-4017-4984-a6fd-edf400f0ffa7"
+        "id": "4e290544-dca8-49e9-84bc-021863453fbb"
       },
       {
         "notes": "And sometimes people don't bother to list out all the terms.",
@@ -11049,7 +11525,7 @@
         "startMsIntoScene": 123227.68,
         "startMsIntoClip": 130630.46,
         "lengthMs": 3829.13,
-        "id": "12c32c92-bbf9-493b-bfb1-e640bac62129"
+        "id": "d995d309-1110-467d-862f-43cced222b0a"
       },
       {
         "notes": "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.",
@@ -11057,7 +11533,7 @@
         "startMsIntoScene": 128056.81,
         "startMsIntoClip": 135655.83,
         "lengthMs": 17360.6,
-        "id": "28f426c5-cb42-4f5c-954e-cf09e00c029a"
+        "id": "c142e5f7-af40-42d3-80bd-894122f677db"
       }
     ]
   }

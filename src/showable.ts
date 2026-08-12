@@ -298,28 +298,6 @@ export type Showable = {
   readonly schedules?: readonly ScheduleInfo[];
 
   /**
-   * Runtime-mutable list of components managed by the component editor.
-   * Each component's show() is called with the parent's ShowOptions every frame.
-   * When undefined the component editor is not available for this item.
-   * Set to [] to opt in with an initially empty list.
-   *
-   * @deprecated TODO delete this.
-   */
-  readonly components?: null;
-
-  /**
-   * TypeScript-defined list of components whose structure cannot be changed by
-   * the user — they cannot be added, removed, or reordered.  Their properties
-   * (schedules, scalars, sub-components) remain fully editable in the Visual
-   * Editor.  Each item can itself carry `components` and/or `fixedComponents`.
-   *
-   * `undefined` and `[]` are equivalent.
-   *
-   * @deprecated TODO delete this.
-   */
-  readonly fixedComponents?: null;
-
-  /**
    * An interface for adding, removing or reordering subcomponents from the Visual Editor.
    *
    * This property is undefined if this object does not want the Visual Editor to add, remove or reorder subcomponents.
