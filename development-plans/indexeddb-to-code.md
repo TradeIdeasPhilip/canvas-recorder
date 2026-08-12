@@ -9,7 +9,7 @@ It's just a matter of setting up the GUI to do this automatically and constantly
 
 When this feature is enabled, the code should save the typescript defaults on every restart.
 Add a 5 second delay for debouncing.
-(Clarification:  The debounce only applies to startup.  When the user hits the checkbox to enable autosaves, the first save should be run without delay.)
+(Clarification: The debounce only applies to startup. When the user hits the checkbox to enable autosaves, the first save should be run without delay.)
 If you want this feature you have to initiate it and say where you want your file saved.
 But once you do that, the setting is sticky.
 Until the user disables the request, we store the file handle to indexedDB, then we use that file handle to write the result.
@@ -65,7 +65,7 @@ For now we are just cataloging the changes, with the intent of converting them b
 
 ## Status as of 8/3/2026
 
-Implemented as described in [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/b036d46a2f765cc79876a3473d1deddf05ceefd0).
+Everything up to [Actually Creating Code](#actually-creating-code) was completed in [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/b036d46a2f765cc79876a3473d1deddf05ceefd0).
 
 There are a few issues that need to be addressed.
 I don't want to do any serious code or research on these at this time.
@@ -179,3 +179,138 @@ But if this is the simple and common case, like the example above, serialize it 
 Of course the deserializer will have to change to match.
 That should be easy.
 `if (!(object.keyframes instanceof Array))` then look at object.value and turn that back into a schedule.
+
+# Actually Creating Code
+
+The first part of this proposal saves additional data and discusses possible uses, including a code generator.
+We are now saving more and better data, but we have not yet generated any code.
+
+The next step is a simple code generator.
+Convert the instructions from JSON to TypeScript.
+Don't worry about merging anything, just create new code.
+
+## Simple Case
+
+I created the bulk of [some5.ts](../src/some5/some5.ts)'s slide 1 completely in the Visual Editor.
+I wanted that to be preserved in git, so I created [slide1.json](../src/some5/slide1.json) and the code for slide1 imports and deserializes that file.
+
+Here are the relevant parts of the code:
+
+```typescript
+import slide1 from "./slide1.json";
+...
+slide.replaceableComponents!.replace(buildComponents(slide1));
+```
+
+Instead of those two lines and a seperate json file, I'd like to just call the constructors directly.
+
+Assume that normal TypeScript code will be **the** product going forward.
+There will be no intention of keeping or maintaining the json file long term.
+The code can morph in any number of ways.
+E.g. the programmer might save one or more of these objects to access later in show().
+
+## Plan
+
+This is short and specific.
+
+### Component Registry
+
+We need to make changes to the component registry.
+Instead of a key pointing to a function, it will point to an object.
+One property will be the existing function for creating a new component.
+A new optional property will tell this code generator how to create a new instance.
+
+If the code generator needs this and it's not available or it's of a type that the code generator doesn't understand, add throw new Error("I don't know how to create a “**Insert registryKey here**”") to the generated code and move on to the next component.
+
+I was already planning to add other properties to the component registry.
+Things like "this item would make a good wrapper around another object", to be used by the GUI.
+
+First attempt at the new registry:
+
+```ts
+type RegistryEntry = {
+  create() => Showable,
+  isAVaidWrapper?: boolean,
+  howToGenerate?: {
+    type:"class",
+    class: new (...args: any[]) => Showable
+  }
+}
+export const componentRegistry = new Map<string, RegistryEntry>(...)
+```
+
+### Conversion Function
+
+Create a function to read in a json file or read it from the clipboard, process it, and output some code.
+Put that function in window.philDebug.
+It's only aimed at a programmer.
+The default mechanisms will take care of selecting and initializing the right video, which may affect the registry.
+(As opposed to creating a seperate tool.)
+
+Start with the basic structure and let's see what doesn't work!!
+
+Add minimal formatting and simple whitespace.
+It will all be reformatted by prettier in VS Code, so don't spend too much time on formatting.
+
+## `addFixed()` and `description`
+
+I tried to do so simpler cleanup to the code for slide 1:
+
+```ts
+// TODO
+// Ideally the status should look more like
+buildComponents(slide1).forEach((child) => {
+  slide.addFixed({ child });
+});
+// But I ran into a problem.
+// These were saved as replaceable items and when we stream them back in we have
+// no control over the description.
+// The descriptions of the slides are all "slide".
+// That was not a problem with replaceable components.
+// But it breaks things when you add multiple fixed components with identical descriptions.
+// It was generating a lot of warnings on the console.
+//
+// I don't know the best way to deal with this so I'm leaving it a TODO.
+```
+
+There was no good way to make the "quick" fix to move from replaceable children to fixed children.
+That's when I decided to go all the way and generate TypeScript code.
+
+The problem of the description remains.
+That's a non issue in the Visual Editor but we need unique names here.
+
+Some components accept a description in their constructor as one of the optional arguments.
+That should become standard practice.
+I've been adding it as I need it, but it's time to do that everywhere.
+
+As we read the JSON file, each time we have a list of removable children we check to see if two or more items in that list have the same registryKey.
+Assume the default descriptions are identical if and only if the registry keys are identical.
+Only provide a description if there is a conflict.
+Use simple descriptions like \`\${registryKey} \${count++}\`.
+The programmer can improve the descriptions in place, after this code is done.
+
+We will need to deal with fixed children.
+I don't think that exists in the slide1.json, but it will come up eventually.
+
+If a component in the JSON file contains fixed children, we need to start by creating the component.
+Then looking up each of the fixed children in the component's children property.
+Use an exclamation point to assert that the property exists.
+(Or assertNonNullable() if we are not immediately using the value.)
+Fill in any schedule properties with `set()`.
+Scalars just use simple assignment on the value field.
+Then look at the removable children of this fixed child and recursively rebuild them the same way we've been doing it.
+All removable children in the JSON file will get converted to fixed children.
+
+Add each top level component using `this.addFixed(...)`.
+That's the common case and as always it would be easy to manually edit the result for individual special cases.
+
+## Remove Unnecessary Properties
+
+The JSON file always contains all properties.
+If you leave one out, the constructor will use a reasonable default.
+Most properties stay at their default values.
+
+The code generator should create an example of each component, and compare each property of the json file to the same property of the new example object.
+If they are the same, skip that property.
+If the value does *not* match the default then include the property in the call to the constructor.
+If we are not sure (maybe a new property type was added after this code was written) be safe and include property in the constructor.

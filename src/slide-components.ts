@@ -168,11 +168,18 @@ export class InParallelComponent implements Showable, ShowableParent {
       });
     });
   }
-  // Interesting.  I had to add this specific way of referencing the base class's type,
-  // otherwise the documentation comments on the fields of this object do not get copied.
-  readonly replaceableComponents: // NonNullable<
-  Showable["replaceableComponents"];
-  //>;
+  /**
+   * An interface for adding, removing or reordering subcomponents from the Visual Editor.
+   *
+   * get() and replace() form the core functionality.
+   *
+   * This property is undefined if this object does not want the Visual Editor to add, remove or reorder subcomponents.
+   *
+   * {@link InParallelComponent} provides a reasonable implementation of this object.
+   * Subclasses can replace this with a different object or `undefined`, but only in the constructor.
+   * TextComponent and ArrowComponent both set this to `undefined` to make show() simpler.
+   */
+  readonly replaceableComponents: Showable["replaceableComponents"];
   constructor(readonly description: string) {
     const get = (): Showable[] => [...this.#replaceableChildren];
     const replace = (newItems: readonly Showable[]) => {
@@ -1907,6 +1914,7 @@ export class TextComponent extends DurationAgnosticComponent {
     "right",
     "justify",
   ]);
+  override readonly replaceableComponents = undefined;
   constructor(
     initialValues: {
       minDuration?: number;
@@ -1972,7 +1980,6 @@ export class TextComponent extends DurationAgnosticComponent {
         readonly path: Path2D;
       };
   override show(options: ShowOptions) {
-    super.show(options);
     const { context, timeInMs } = options;
     const color = this.colorSchedule.at(timeInMs);
     const rect = this.rectSchedule.at(timeInMs);

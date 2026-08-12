@@ -2735,8 +2735,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -2816,8 +2815,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -2897,8 +2895,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -2978,8 +2975,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -3059,8 +3055,7 @@
                         "type": "number",
                         "value": 3000
                       }
-                    ],
-                    "components": []
+                    ]
                   }
                 ]
               },
@@ -7585,8 +7580,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -7666,8 +7660,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -7747,8 +7740,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -7828,8 +7820,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -7909,8 +7900,7 @@
                 "type": "number",
                 "value": 3000
               }
-            ],
-            "components": []
+            ]
           }
         ]
       },
@@ -8090,8 +8080,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -8144,8 +8133,7 @@
         "type": "number",
         "value": 3000
       }
-    ],
-    "components": []
+    ]
   },
   "some5|dos wrapper": {
     "scalars": [
@@ -8222,8 +8210,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -8302,8 +8289,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -8382,8 +8368,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },
@@ -8462,8 +8447,7 @@
             "type": "number",
             "value": 3000
           }
-        ],
-        "components": []
+        ]
       }
     ]
   },

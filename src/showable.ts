@@ -322,7 +322,7 @@ export type Showable = {
   /**
    * An interface for adding, removing or reordering subcomponents from the Visual Editor.
    *
-   * This property is undefined if this object does not want the Visual Editor add, remove or reorder subcomponents.
+   * This property is undefined if this object does not want the Visual Editor to add, remove or reorder subcomponents.
    *
    * get() and replace() form the core functionality.
    * Other functions can be added as a convenience on top of those.
