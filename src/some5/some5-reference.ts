@@ -3554,9 +3554,57 @@ class MainTimeline {
       });
     }
 
-    // Dump this list so we can use it as a script with the new InSeriesComponent.
-    // Notice the new HoldPreviousTransition and HoldNextTransition components.
-    //this.items.map()
+    const asIs = this.items.map((item): { which: string; duration: number } => {
+      const duration = item.duration;
+      if (item.type == "slide") {
+        if (item.endProgress == 0) {
+          return { which: "Hold Next", duration };
+        } else if (item.startProgress == 1) {
+          return { which: "Hold Previous", duration };
+        } else {
+          return { which: item.slideDescription, duration };
+        }
+      } else {
+        return { which: "Slide Left", duration };
+      }
+    });
+    console.log(asIs);
+    const brokenUp: { which: string; duration: number }[] = [];
+    this.items.forEach((item): void => {
+      const duration = item.duration;
+      if (item.type == "slide") {
+        if (item.endProgress == 0) {
+          brokenUp.push({ which: "Hold Next", duration });
+        } else if (item.startProgress == 1) {
+          brokenUp.push({ which: "Hold Previous", duration });
+        } else {
+          const breakItUp = item.slideDescription != "Slide 1";
+          if (!breakItUp) {
+            brokenUp.push({ which: item.slideDescription, duration });
+          } else {
+            const pieces = ["a", "b", "c", "d"];
+            const transitionTime = 250;
+            const newDuration =
+              (duration - transitionTime * (pieces.length - 1)) / pieces.length;
+            pieces.forEach((suffix, index) => {
+              if (index > 0) {
+                brokenUp.push({
+                  which: "Cross Fade",
+                  duration: transitionTime,
+                });
+              }
+              brokenUp.push({
+                which: item.slideDescription + suffix,
+                duration: newDuration,
+              });
+            });
+          }
+        }
+      } else {
+        brokenUp.push({ which: "Slide Left", duration });
+      }
+    });
+    console.log(brokenUp);
   }
 
   get duration(): number {

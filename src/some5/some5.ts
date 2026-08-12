@@ -28,7 +28,7 @@ import {
   NumberScheduleInfo,
 } from "../schedule-helper";
 import { DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
-import { FrameCounter, HalftoneShadowComponent } from "../slide-components";
+import { FrameCounter, HalftoneShadowComponent, InSeriesComponent } from "../slide-components";
 import {
   MakeShowableInSeries,
   progressAxisLabel,
@@ -296,7 +296,7 @@ function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
 /**
  * Show all of these to the top level GUI.
  */
-const slideList = new MakeShowableInSeries("SoME5");
+const slideList = new InSeriesComponent("SoME5");
 
 /**
  * Add these to my prototype of a timeline editor.
@@ -344,7 +344,7 @@ let mainTimelineSoundClips: SoundClip[] = [];
  * @param toAdd The new slide.
  */
 function addToBoth(toAdd: Showable) {
-  slideList.add(toAdd);
+  slideList.addFixed({child:toAdd});
   forTimeline.push(toAdd);
 }
 
@@ -2116,7 +2116,7 @@ ${status.sample.typescript}`);
       showAfter: "freeze",
     });
   }
-  slideList.add(tryNewItems);
+  slideList.addFixed({child:tryNewItems});
 }
 
 /**
@@ -2715,7 +2715,7 @@ class ChildWrapper extends SlideComponent {
       });
     }
   })();
-  slideList.add(parallelCombination);
+  slideList.addFixed({child:parallelCombination});
 }
 
 // MARK: Blank Sides
@@ -2723,8 +2723,8 @@ class ChildWrapper extends SlideComponent {
 // Use this to make blank slides.
 // Fill them in with the Visual Editors.
 for (let i = 11; i <= 10; i++) {
-  slideList.add(
-    new ComponentWithLiveDuration(`Slide ${i}`, DEFAULT_SLIDE_DURATION_MS),
+  slideList.addFixed(
+  {child:  new ComponentWithLiveDuration(`Slide ${i}`, DEFAULT_SLIDE_DURATION_MS)},
   );
 }
 
@@ -4180,10 +4180,10 @@ class MainTimeline {
   }
 }
 
-slideList.add(new MainTimeline(forTimeline, mainTimelineSoundClips));
+slideList.addFixed({child:new MainTimeline(forTimeline, mainTimelineSoundClips)});
 
 export const some5 = new HalftoneShadowComponent({
-  base: slideList.build(),
+  base: slideList,
   backgroundColor: "white",
   dotColor: "#ddd",
   dx: 0.2,

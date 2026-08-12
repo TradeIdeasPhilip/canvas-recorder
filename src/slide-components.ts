@@ -732,7 +732,7 @@ export class InSeriesComponent extends InParallelComponent {
     if (
       allowExtendedTimes() ||
       (timeInMs >= 0 &&
-        (timeInMs < duration || (timeInMs == duration && !isLastChild())))
+        (timeInMs < duration || (timeInMs == duration && isLastChild())))
     ) {
       if (InSeriesComponent.TRANSITION in info.child) {
         const children = this.children;

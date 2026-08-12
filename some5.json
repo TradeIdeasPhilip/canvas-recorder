@@ -31,6 +31,7 @@
     "fixedComponents": [
       {
         "description": "SoME5",
+        "components": [],
         "fixedComponents": [
           {
             "description": "Slide 1",
@@ -2665,7 +2666,7 @@
                   {
                     "registryKey": "Hold Next",
                     "schedules": [],
-                    "duration": 2356.663047903379
+                    "duration": 2000
                   },
                   {
                     "registryKey": "Frame Counter",
@@ -8193,7 +8194,7 @@
           {
             "registryKey": "Hold Next",
             "schedules": [],
-            "duration": 2356.663047903379
+            "duration": 2000
           },
           {
             "registryKey": "Frame Counter",
