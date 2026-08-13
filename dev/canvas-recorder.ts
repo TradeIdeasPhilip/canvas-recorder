@@ -1407,6 +1407,30 @@ const veRootParent: ShowableParent = {
   },
 };
 
+/**
+ * ShowableParent for the top-level `toShow` object.
+ *
+ * With {@link InSeriesComponent}, every slide has `.parent` set to `toShow`
+ * (the slideList), so the `scheduleHasChanged()` chain now terminates here
+ * instead of at `veRootParent`.  This object mirrors `veRootParent`'s
+ * effects — timeline rebuild, dirty mark, audio reload — but is a *separate*
+ * instance so `setVeRoot`'s cleanup (`parent === veRootParent`) never
+ * accidentally clears this link.
+ */
+const toShowParent: ShowableParent = {
+  scheduleHasChanged() {
+    for (const cb of durationSyncCallbacks) cb();
+    markDirty();
+    clearTimeout(_durationAudioTimer);
+    _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+    if (_veRootSelectable) {
+      timelineDisplay.setChapterDuration(_veRootSelectable.duration);
+      timelineDisplay.setBlocks(_buildTimelineBlocks(_veRootSelectable));
+    }
+  },
+};
+toShow.parent = toShowParent;
+
 /** Wire `selectable` as the current VE root, unparenting the previous one. */
 function setVeRoot(selectable: Showable): void {
   if (_veRootSelectable === selectable) return;
