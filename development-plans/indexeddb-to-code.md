@@ -316,3 +316,65 @@ If the value does *not* match the default then include the property in the call 
 If we are not sure (maybe a new property type was added after this code was written) be safe and include property in the constructor.
 
 This applies to schedules, scalars, userEditableDescription, and duration.
+
+# Better Diffs!
+
+The idea of manually diffing the saved file and the defaults file isn't working out as well as I'd hoped.
+It's a nice start, and this option is not going to be removed.
+But it's kinda a pain to set up the diff, nothing huge, but a slight annoyance.
+The bigger issue is that it's often hard to see where you are in the file.
+
+I'm rethinking a previous idea.
+We should have a diff button.
+It will diff the current state to the typescript defaults.
+That's what we really want, so there's no need to ask.
+
+The most important part is the context.
+The diff routine will be recursive.
+And it will be smart about "breadcrumbs".
+It will only show what is needed.
+
+The JSON file already shows the values correctly.
+(Because of a recent change) it stores the values in exactly the same format that we need for a constructor or a set() method.
+
+Rough sample:
+```
+Generated:  Fri Aug 14 2026 21:45:51 GMT-0700 (Pacific Daylight Time)
+Main
+→ Slide1
+→ → Title
+→ → → Color
+TypeScript: "red"
+Current: [{timestamp:0, value:"blue"},{timestamp:30000, value:"green"}]
+→ → → Size
+TypeScript: 2
+Current: 2.5
+→ Slide2
+→ → Duration
+TypeScript: 30000
+Current: 27123
+```
+
+Use a normal save as dialog box to save this.
+Default file name is the project name, the same thing we use for in IndexedDB keys and the default name when saving json files.
+Use the .txt file extension.
+Remember the location of the last use of this dialog box; we are already remembering each existing dialog box separately.
+
+I considered displaying the output in the console or copying it to the clipboard or displaying it on the page.
+Those all make some sense.
+But this will make it easy to save the current state to git.
+If I'm making a lot of changes and making lots of commits, I don't want to reconcile these every time I commit.
+This is the quick and easy way to make sure everything gets into git.
+
+In other places I did not want to include the time stamp in the file.
+It means that even if nothing else changes the file will still be changed in git.
+But I think this timestamp is honest.
+Ideally I'd do the diff before each commit.
+But if I forget or I really think it's not important, we're still recording the facts.
+I know if I've saved the current version or not.
+
+## Purpose
+
+To copy changes back into the code, as described above.
+Some changes might be reverted instead.
+And some might be temporarily ignored but it's good to keep track.

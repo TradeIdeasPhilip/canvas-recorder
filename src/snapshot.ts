@@ -24,6 +24,8 @@ export type SerializedFixedChild = {
   components?: SerializedChild[];
   fixedComponents?: SerializedFixedChild[];
   duration?: number;
+  soundClips?: SoundClip[];
+  userEditableDescription?: string;
 };
 
 /** File format: one entry per selectable that has editable state. No timestamps. */
@@ -175,6 +177,9 @@ export function serializeFixedComponents(
     if (fixedComponents.length)
       entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (child.setDuration !== undefined) entry.duration = child.duration;
+    if (child.soundClips !== undefined) entry.soundClips = child.soundClips.map((c) => ({ ...c }));
+    if (child.userEditableDescription !== undefined)
+      entry.userEditableDescription = child.userEditableDescription;
     return entry;
   });
 }
@@ -203,6 +208,9 @@ export function applyFixedComponents(
     if (childFixedComponents.length && sc.fixedComponents?.length)
       applyFixedComponents(childFixedComponents, sc.fixedComponents);
     if (sc.duration !== undefined) child.setDuration?.(sc.duration);
+    if (sc.soundClips !== undefined) child.soundClips = sc.soundClips.map((c) => ({ ...c }));
+    if (sc.userEditableDescription !== undefined)
+      child.userEditableDescription = sc.userEditableDescription;
   }
 }
 

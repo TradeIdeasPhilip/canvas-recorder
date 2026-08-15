@@ -60,9 +60,10 @@ import {
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { blackBackground, distribute } from "./utility";
+import { ArrayMap, blackBackground, distribute, philDebug } from "./utility";
 import { zipper } from "./zipper";
 import {
+  ComponentWithLiveDuration,
   FunctionGraphComponent,
   SingleImageComponent,
 } from "./slide-components";
@@ -72,7 +73,11 @@ FunctionGraphComponent.functions.set("cos", Math.cos);
 FunctionGraphComponent.functions.set("tan", Math.tan);
 FunctionGraphComponent.functions.set("x²", (x) => x * x);
 FunctionGraphComponent.functions.set("x³", (x) => x * x * x);
-import { NumberScheduleInfo, RectangleScheduleInfo } from "./schedule-helper";
+import {
+  ColorScheduleInfo,
+  NumberScheduleInfo,
+  RectangleScheduleInfo,
+} from "./schedule-helper";
 import { makeCornerRounder } from "./corner-rounder";
 import { compare, convertCSS } from "colorizr";
 // Example of Vite's static asset handling.
@@ -4405,6 +4410,182 @@ What the hand, dare sieze the fire?`);
     },
   };
   sceneList.add(colorPairReadability);
+}
+
+// MARK: Rule 30
+
+{
+  class Rule30 {
+    private constructor() {
+      throw new Error("wtf");
+    }
+    static readonly #cached = new ArrayMap<
+      { row: number; column: number },
+      boolean
+    >((a, b) => a.column == b.column && a.row == b.row);
+    /**
+     *
+     * @param row 0 for the top row, which is one cell wide.
+     * 1 for the second row, which is 3 cells wide.
+     * @param column 0 for the center.
+     * Negative for left and positive for right.
+     * @returns `true` for the foreground color and `false` for the background.
+     * Everything on the far left or right and everything above row 0 is the background color.
+     */
+    static valueAt(row: number, column: number): boolean {
+      // Start with a lot of background and one foreground cell at (0, 0).
+      if (row < 0) {
+        // Above the top
+        return false;
+      }
+      if (column > row) {
+        // To the right of the action.
+        return false;
+      }
+      if (column == row) {
+        // The right side.
+        // All we really needed was the top point, but we might as well do this.
+        return true;
+      }
+      if (-column > row) {
+        // To the left of the action
+        return false;
+      }
+      // Check the cache
+      const key = { row, column };
+      const cachedResult = this.#cached.get(key);
+      if (cachedResult !== undefined) {
+        return cachedResult;
+      }
+      // Compute the value based on the previous row.
+      const previousRow = row - 1;
+      const left = this.valueAt(previousRow, column - 1);
+      const center = this.valueAt(previousRow, column);
+      const right = this.valueAt(previousRow, column + 1);
+      const result = left != (center || right);
+      this.#cached.set(key, result);
+      return result;
+    }
+    /**
+     * Display the first n rows of the result to the console.
+     * @param rows How many rows to dump.
+     */
+    static dump(rows: number) {
+      let output = "";
+      for (let row = 0; row < rows; row++) {
+        if (row) {
+          output += "\n";
+        }
+        for (let column = -rows; column <= rows; column++) {
+          output += this.valueAt(row, column) ? "X" : " ";
+        }
+      }
+      console.log(output);
+    }
+  }
+  philDebug.Rule30 = Rule30;
+  class Rule30Slide extends ComponentWithLiveDuration {
+    /**
+     * How to scale the cells.
+     * This is how many we expect to see across the entire width of the screen.
+     *
+     * Cells are squares.
+     * This affects the height and the width of the square.
+     *
+     * This can be a fraction so you can smoothly animate a change.
+     */
+    columnCountSchedule = new NumberScheduleInfo("Column Count", 73);
+    /**
+     * Which index to display at the top of the visual.
+     * 0 means the top of the triangle is at the top of the visible area.
+     * 2 means the top two rows are scrolled out of the visible area and the third row is the highest visible row.
+     * -2 means to draw 2 blank rows above the top of the triangle.
+     *
+     * Fractions are acceptable and expected.
+     * This can scroll smoothly.
+     */
+    topRowSchedule = new NumberScheduleInfo("Top Row", 0);
+    /**
+     * Use this color for the cells that are `true`.
+     */
+    initialColorIndexSchedule = new NumberScheduleInfo(
+      "Initial Color Index",
+      6,
+    );
+    constructor() {
+      super("Rule30", 30_000);
+      this.schedules.push(
+        this.columnCountSchedule,
+        this.topRowSchedule,
+        this.initialColorIndexSchedule,
+      );
+    }
+    showMainContent(options: ShowOptions): void {
+      const { context, timeInMs } = options;
+      // The visible area is the entire slide except for some room at the top reserved for the title.
+      const top = 0;
+      const bottom = 9;
+      const width = 16;
+      const columnCount = this.columnCountSchedule.at(timeInMs);
+      if (columnCount < 1) {
+        // Negative numbers make no sense.
+        // 0 might cause an infinite loop!
+        // Something tiny might cause a loop to run for a very long time.
+        // 1 will fill the entire screen with a single cell.
+        return;
+      }
+      const initialColorIndex = positiveModulo(
+        Math.round(this.initialColorIndexSchedule.at(timeInMs)),
+        myRainbow.length,
+      );
+      const topRow = this.topRowSchedule.at(timeInMs);
+      /**
+       * The width and height of each cell is `size` userspace units.
+       */
+      const size = width / columnCount;
+      /**
+       * Just touching the edges of the cell.
+       * So adjacent circles touch but do not overlap.
+       */
+      const radius = size / 2;
+      /**
+       * Draw this many columns on the left, then the center column, then this many columns on the right.
+       * This value might not be an integer.
+       */
+      const columnsOnEachSide = (columnCount - 1) / 2;
+      /*
+       * The highest column number that we want to display.
+       */
+      const rightColumn = Math.ceil(columnsOnEachSide);
+      /*
+       * The lowest column number that we want to display.
+       */
+      const leftColumn = -rightColumn;
+      for (
+        let row = 0, y = top + size / 2;
+        y - radius < bottom;
+        y += size, row++
+      ) {
+        let colorIndex = initialColorIndex;
+        for (let column = leftColumn; column <= rightColumn; column++) {
+          if (Rule30.valueAt(row, column)) {
+            // I tried making one big path but that caused all sorts of problems.
+            context.fillStyle = myRainbow[colorIndex % myRainbow.length];
+            colorIndex++;
+            const x = column * size + width / 2;
+            context.fillRect(x - radius, y - radius, size, size);
+          } else {
+            colorIndex = initialColorIndex;
+          }
+        }
+      }
+    }
+    override show(options: ShowOptions): void {
+      this.showMainContent(options);
+      super.show(options);
+    }
+  }
+  sceneList.add(new Rule30Slide());
 }
 
 const mainBuilder = new MakeShowableInParallel("Showcase");

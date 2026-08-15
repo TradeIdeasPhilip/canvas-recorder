@@ -2145,6 +2145,25 @@ function writeMarkerIfNeeded(key: string): void {
 }
 
 /**
+ * Returns every {@link Showable} that is a transitive `fixedComponents`
+ * descendant of any chapter-list selectable.  These objects are already
+ * serialized recursively inside their ancestor's entry, so they must NOT
+ * also be written as independent top-level JSON keys.
+ */
+function buildFixedDescendantSet(): Set<Showable> {
+  const result = new Set<Showable>();
+  function collect(s: Showable) {
+    for (const child of getFixedComponents(s)) {
+      result.add(child);
+      collect(child);
+    }
+  }
+  const chapterSelectables = new Set(chapterList.map((item) => item.selectable));
+  for (const sel of chapterSelectables) collect(sel);
+  return result;
+}
+
+/**
  * Snapshots the current (TypeScript-defined) schedule state for every
  * selectable in the chapter list into {@link tsDefaults}.
  * Must be called once at page load, before any DB restoration, so the
@@ -2153,8 +2172,10 @@ function writeMarkerIfNeeded(key: string): void {
 function captureDefaults(): void {
   tsDefaults.clear();
   const seen = new Set<string>();
+  const capturedByParent = buildFixedDescendantSet();
   for (const item of chapterList) {
     const sel = item.selectable;
+    if (capturedByParent.has(sel)) continue;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -5004,9 +5025,11 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
 function buildJsonSnapshot(): Record<string, JsonFileEntry> {
   const result: Record<string, JsonFileEntry> = {};
   const seen = new Set<string>();
+  const capturedByParent = buildFixedDescendantSet();
 
   for (const item of chapterList) {
     const sel = item.selectable;
+    if (capturedByParent.has(sel)) continue;
     const key = selectableKey(sel);
     if (seen.has(key)) continue;
     seen.add(key);

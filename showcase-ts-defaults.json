@@ -14,7 +14,21 @@
                 "description": "Simple Text & Layout"
               },
               {
-                "description": "Make it fit"
+                "description": "Make it fit",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1346.8366666666673,
+                    "startMsIntoClip": 2713.25,
+                    "lengthMs": 11641.89
+                  },
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 14335.563333333335,
+                    "startMsIntoClip": 20693.57,
+                    "lengthMs": 34317.6
+                  }
+                ]
               }
             ]
           },
@@ -22,7 +36,15 @@
             "description": "Ridiculously Simple Fourier Decomposition",
             "fixedComponents": [
               {
-                "description": "curve"
+                "description": "curve",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 500,
+                    "startMsIntoClip": 60355.13,
+                    "lengthMs": 21577.15
+                  }
+                ]
               }
             ]
           },
@@ -30,7 +52,15 @@
             "description": "16∙sin³(θ),   13∙cos(θ) - 5∙cos(2∙θ) - 2∙cos(3∙θ) - cos(4∙θ)",
             "fixedComponents": [
               {
-                "description": "tracing"
+                "description": "tracing",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 877.3000000000002,
+                    "startMsIntoClip": 84664.52,
+                    "lengthMs": 4245.4
+                  }
+                ]
               }
             ]
           },
@@ -38,7 +68,15 @@
             "description": "#SoME5 Idea:  Lissajous Spirals",
             "fixedComponents": [
               {
-                "description": "spiral"
+                "description": "spiral",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 738.02,
+                    "startMsIntoClip": 89377.88,
+                    "lengthMs": 5523.96
+                  }
+                ]
               }
             ]
           },
@@ -46,7 +84,15 @@
             "description": "Lissajous Curves — arrow",
             "fixedComponents": [
               {
-                "description": "arrow"
+                "description": "arrow",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 549.4899999999998,
+                    "startMsIntoClip": 107086.63,
+                    "lengthMs": 8401.02
+                  }
+                ]
               }
             ]
           },
@@ -54,7 +100,15 @@
             "description": "offset-path CSS property",
             "fixedComponents": [
               {
-                "description": "curve"
+                "description": "curve",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 0,
+                    "startMsIntoClip": 119734.35,
+                    "lengthMs": 16875.04
+                  }
+                ]
               },
               {
                 "description": "markers"
@@ -65,7 +119,15 @@
             "description": "Flowers with N Petals",
             "fixedComponents": [
               {
-                "description": "flower fill"
+                "description": "flower fill",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 0,
+                    "startMsIntoClip": 141667.94,
+                    "lengthMs": 7819.03
+                  }
+                ]
               }
             ]
           },
@@ -76,7 +138,15 @@
                 "description": "simple parts"
               },
               {
-                "description": "Fonts part 1"
+                "description": "Fonts part 1",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1786.2799999999997,
+                    "startMsIntoClip": 153390.63,
+                    "lengthMs": 11427.44
+                  }
+                ]
               }
             ]
           },
@@ -84,7 +154,15 @@
             "description": "Font Samples",
             "fixedComponents": [
               {
-                "description": "Font Samples"
+                "description": "Font Samples",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1500,
+                    "startMsIntoClip": 167869.88,
+                    "lengthMs": 7613.79
+                  }
+                ]
               }
             ]
           },
@@ -95,7 +173,15 @@
                 "description": "Formatting Pieces of Text"
               },
               {
-                "description": "action"
+                "description": "action",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 180084.69,
+                    "lengthMs": 18065.01
+                  }
+                ]
               }
             ]
           },
@@ -103,7 +189,15 @@
             "description": "Simple Animated Colors",
             "fixedComponents": [
               {
-                "description": "Simple Animated Colors"
+                "description": "Simple Animated Colors",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 201834.92,
+                    "lengthMs": 13526.17
+                  }
+                ]
               }
             ]
           },
@@ -157,6 +251,14 @@
                       }
                     ]
                   }
+                ],
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 229540.9,
+                    "lengthMs": 10190.25
+                  }
                 ]
               }
             ]
@@ -165,12 +267,52 @@
             "description": "Function Graphing",
             "fixedComponents": [
               {
-                "description": "Function Graphing"
+                "description": "Function Graphing",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 500,
+                    "startMsIntoClip": 245743.13,
+                    "lengthMs": 9265.35
+                  }
+                ]
               }
             ]
           },
           {
-            "description": "Morphing Text"
+            "description": "Morphing Text",
+            "soundClips": [
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 250,
+                "startMsIntoClip": 269231.88,
+                "lengthMs": 5760.29
+              },
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 10541.79,
+                "startMsIntoClip": 276070.54,
+                "lengthMs": 3282.29
+              },
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 18355.58,
+                "startMsIntoClip": 280159.63,
+                "lengthMs": 1609.15
+              },
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 24496.230000000003,
+                "startMsIntoClip": 282223.1,
+                "lengthMs": 3902.81
+              },
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 32930.54,
+                "startMsIntoClip": 288234.79,
+                "lengthMs": 6769.46
+              }
+            ]
           },
           {
             "description": "Dots, Dashes, and the PathSplitter",
@@ -273,6 +415,14 @@
                       }
                     ]
                   }
+                ],
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 500,
+                    "startMsIntoClip": 302224,
+                    "lengthMs": 28096.35
+                  }
                 ]
               }
             ]
@@ -281,7 +431,15 @@
             "description": "φ as a Continued Fraction",
             "fixedComponents": [
               {
-                "description": "φ as a Continued Fraction"
+                "description": "φ as a Continued Fraction",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 500,
+                    "startMsIntoClip": 333882.46,
+                    "lengthMs": 3655.75
+                  }
+                ]
               },
               {
                 "description": "continued fraction"
@@ -303,7 +461,15 @@
             "description": "Easing Functions",
             "fixedComponents": [
               {
-                "description": "Easing Functions"
+                "description": "Easing Functions",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 359807.25,
+                    "lengthMs": 33041.25
+                  }
+                ]
               },
               {
                 "description": "Easing race",
@@ -332,7 +498,15 @@
             "description": "Outline Slide Template",
             "fixedComponents": [
               {
-                "description": "Outline slide"
+                "description": "Outline slide",
+                "soundClips": [
+                  {
+                    "source": "./Showcase.FLAC",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 397519.29,
+                    "lengthMs": 19133.17
+                  }
+                ]
               }
             ]
           },
@@ -514,6 +688,14 @@
                     }
                   }
                 ]
+              }
+            ],
+            "soundClips": [
+              {
+                "source": "./Showcase.FLAC",
+                "startMsIntoScene": 0,
+                "startMsIntoClip": 420417.42,
+                "lengthMs": 27618.77
               }
             ]
           },
@@ -719,6 +901,13 @@
                   }
                 ]
               }
+            ],
+            "soundClips": [
+              {
+                "source": "Interpolating Between Paths.m4a",
+                "lengthMs": 68000,
+                "startMsIntoScene": 0
+              }
             ]
           },
           {
@@ -765,736 +954,28 @@
           },
           {
             "description": "Color Pair Readability"
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Simple Text & Layout": {
-    "fixedComponents": [
-      {
-        "description": "Simple Text & Layout"
-      },
-      {
-        "description": "Make it fit"
-      }
-    ]
-  },
-  "showcase|Ridiculously Simple Fourier Decomposition": {
-    "fixedComponents": [
-      {
-        "description": "curve"
-      }
-    ]
-  },
-  "showcase|16∙sin³(θ),   13∙cos(θ) - 5∙cos(2∙θ) - 2∙cos(3∙θ) - cos(4∙θ)": {
-    "fixedComponents": [
-      {
-        "description": "tracing"
-      }
-    ]
-  },
-  "showcase|#SoME5 Idea:  Lissajous Spirals": {
-    "fixedComponents": [
-      {
-        "description": "spiral"
-      }
-    ]
-  },
-  "showcase|Lissajous Curves — arrow": {
-    "fixedComponents": [
-      {
-        "description": "arrow"
-      }
-    ]
-  },
-  "showcase|offset-path CSS property": {
-    "fixedComponents": [
-      {
-        "description": "curve"
-      },
-      {
-        "description": "markers"
-      }
-    ]
-  },
-  "showcase|curve": {},
-  "showcase|Flowers with N Petals": {
-    "fixedComponents": [
-      {
-        "description": "flower fill"
-      }
-    ]
-  },
-  "showcase|Strokable Font List": {
-    "fixedComponents": [
-      {
-        "description": "simple parts"
-      },
-      {
-        "description": "Fonts part 1"
-      }
-    ]
-  },
-  "showcase|Font Samples": {
-    "fixedComponents": [
-      {
-        "description": "Font Samples"
-      }
-    ]
-  },
-  "showcase|Formatting Pieces of Text": {
-    "fixedComponents": [
-      {
-        "description": "Formatting Pieces of Text"
-      },
-      {
-        "description": "action"
-      }
-    ]
-  },
-  "showcase|Simple Animated Colors": {
-    "fixedComponents": [
-      {
-        "description": "Simple Animated Colors"
-      }
-    ]
-  },
-  "showcase|Calligraphy Effect": {
-    "fixedComponents": [
-      {
-        "description": "Calligraphy Effect",
-        "schedules": [
-          {
-            "description": "Eccentricity",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 1,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 3000,
-                "value": 3,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 6000,
-                "value": 1,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 9000,
-                "value": 3,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 12000,
-                "value": 1
-              }
-            ]
           },
           {
-            "description": "Angle (degrees)",
-            "type": "number",
-            "keyframes": [
+            "description": "Rule30",
+            "schedules": [
               {
-                "time": 0,
-                "value": -45
+                "description": "Column Count",
+                "type": "number",
+                "value": 73
               },
               {
-                "time": 12000,
-                "value": 45
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Function Graphing": {
-    "fixedComponents": [
-      {
-        "description": "Function Graphing"
-      }
-    ]
-  },
-  "showcase|Morphing Text": {},
-  "showcase|Dots, Dashes, and the PathSplitter": {
-    "fixedComponents": [
-      {
-        "description": "Dots, Dashes, and the PathSplitter"
-      },
-      {
-        "description": "Dashes demo",
-        "schedules": [
-          {
-            "description": "Draw Length Factor",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
+                "description": "Top Row",
+                "type": "number",
                 "value": 0
               },
               {
-                "time": 3000,
-                "value": 0,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 4000,
-                "value": 0
-              },
-              {
-                "time": 7000,
-                "value": 0,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 8000,
-                "value": 1
-              },
-              {
-                "time": 11000,
-                "value": 1,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 12000,
-                "value": 1
-              },
-              {
-                "time": 15000,
-                "value": 1,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 16000,
-                "value": 1
+                "description": "Initial Color Index",
+                "type": "number",
+                "value": 6
               }
-            ]
-          },
-          {
-            "description": "Gap Length Factor",
-            "type": "number",
-            "keyframes": [
-              {
-                "time": 0,
-                "value": 2
-              },
-              {
-                "time": 3000,
-                "value": 2,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 4000,
-                "value": 3
-              },
-              {
-                "time": 7000,
-                "value": 3,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 8000,
-                "value": 3
-              },
-              {
-                "time": 11000,
-                "value": 3,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 12000,
-                "value": 1
-              },
-              {
-                "time": 15000,
-                "value": 1,
-                "easeAfter": "ease"
-              },
-              {
-                "time": 16000,
-                "value": 0.5
-              }
-            ]
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|φ as a Continued Fraction": {
-    "fixedComponents": [
-      {
-        "description": "φ as a Continued Fraction"
-      },
-      {
-        "description": "continued fraction"
-      }
-    ]
-  },
-  "showcase|π as a Continued Fraction": {
-    "fixedComponents": [
-      {
-        "description": "π as a Continued Fraction"
-      },
-      {
-        "description": "continued fraction"
-      }
-    ]
-  },
-  "showcase|Easing Functions": {
-    "fixedComponents": [
-      {
-        "description": "Easing Functions"
-      },
-      {
-        "description": "Easing race",
-        "schedules": [
-          {
-            "description": "Start Line",
-            "type": "point",
-            "value": {
-              "x": 4.075,
-              "y": 4.5
-            }
-          },
-          {
-            "description": "Finish Line",
-            "type": "point",
-            "value": {
-              "x": 14.6,
-              "y": 4.5
-            }
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Outline Slide Template": {
-    "fixedComponents": [
-      {
-        "description": "Outline slide"
-      }
-    ]
-  },
-  "showcase|<img src=\"...\">": {
-    "schedules": [
-      {
-        "description": "Peano",
-        "type": "rectangle",
-        "keyframes": [
-          {
-            "time": 1500,
-            "value": {
-              "x": 1,
-              "y": 1,
-              "width": 2.2007492690058483,
-              "height": 2.389117324561403
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 2500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            }
-          },
-          {
-            "time": 7500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 8500,
-            "value": {
-              "x": 1,
-              "y": 1,
-              "width": 2.2007492690058483,
-              "height": 2.389117324561403
-            }
-          }
-        ]
-      },
-      {
-        "description": "Philip",
-        "type": "rectangle",
-        "keyframes": [
-          {
-            "time": 7500,
-            "value": {
-              "x": 0.7563048245614037,
-              "y": 5.650356359649122,
-              "width": 2.5989583333333326,
-              "height": 2.4562774122807016
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 8500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            }
-          },
-          {
-            "time": 13500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 14500,
-            "value": {
-              "x": 0.7563048245614037,
-              "y": 5.650356359649122,
-              "width": 2.5989583333333326,
-              "height": 2.4562774122807016
-            }
-          }
-        ]
-      },
-      {
-        "description": "Pi Creature",
-        "type": "rectangle",
-        "keyframes": [
-          {
-            "time": 13500,
-            "value": {
-              "x": 12.436403508771932,
-              "y": 0.9299616228070178,
-              "width": 2.3993055555555527,
-              "height": 3.285727339181287
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 14500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            }
-          },
-          {
-            "time": 19500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 20500,
-            "value": {
-              "x": 12.436403508771932,
-              "y": 0.9299616228070178,
-              "width": 2.3993055555555527,
-              "height": 3.285727339181287
-            }
-          }
-        ]
-      },
-      {
-        "description": "Fourier",
-        "type": "rectangle",
-        "keyframes": [
-          {
-            "time": 19500,
-            "value": {
-              "x": 12.18704312865497,
-              "y": 5.207145467836257,
-              "width": 2.927448830409356,
-              "height": 3.1443713450292394
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 20500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            }
-          },
-          {
-            "time": 25500,
-            "value": {
-              "x": 4.672377558479532,
-              "y": 1.473364400584795,
-              "width": 6.690880847953214,
-              "height": 6.861111111111109
-            },
-            "easeAfter": "ease"
-          },
-          {
-            "time": 26500,
-            "value": {
-              "x": 12.18704312865497,
-              "y": 5.207145467836257,
-              "width": 2.927448830409356,
-              "height": 3.1443713450292394
-            }
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Bezier.lineIntersects()": {
-    "schedules": [
-      {
-        "description": "big location",
-        "type": "point",
-        "value": {
-          "x": 3.323921783625731,
-          "y": 0.8147843567251463
-        }
-      },
-      {
-        "description": "big font size",
-        "type": "number",
-        "value": 5
-      },
-      {
-        "description": "small locations",
-        "type": "rectangle",
-        "value": {
-          "x": 8.458082485104274,
-          "y": 1.2240703961160762,
-          "width": 6.0620267502482585,
-          "height": 3.6159806700319987
-        }
-      },
-      {
-        "description": "small font size",
-        "type": "number",
-        "value": 2
-      },
-      {
-        "description": "Position",
-        "type": "number",
-        "keyframes": [
-          {
-            "time": 0.75,
-            "value": 0,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 0.95,
-            "value": 1
-          }
-        ]
-      },
-      {
-        "description": "Boldness",
-        "type": "number",
-        "keyframes": [
-          {
-            "time": 0.05,
-            "value": 1,
-            "easeAfter": "easeOut"
-          },
-          {
-            "time": 0.25,
-            "value": 0.5,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 0.45,
-            "value": 1.5,
-            "easeAfter": "easeIn"
-          },
-          {
-            "time": 0.65,
-            "value": 1
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Interpolating Between Paths": {
-    "schedules": [
-      {
-        "description": "Which Sample",
-        "type": "number",
-        "keyframes": [
-          {
-            "time": 679.9999999999999,
-            "value": 0
-          },
-          {
-            "time": 3853.333333333333,
-            "value": 1
-          },
-          {
-            "time": 5213.333333333333,
-            "value": 1
-          },
-          {
-            "time": 8386.666666666666,
-            "value": 2
-          },
-          {
-            "time": 9746.666666666666,
-            "value": 2
-          },
-          {
-            "time": 12920,
-            "value": 3
-          },
-          {
-            "time": 14280,
-            "value": 3
-          },
-          {
-            "time": 17453.333333333332,
-            "value": 4
-          },
-          {
-            "time": 18813.333333333332,
-            "value": 4
-          },
-          {
-            "time": 21986.666666666664,
-            "value": 5
-          },
-          {
-            "time": 23346.666666666664,
-            "value": 5
-          },
-          {
-            "time": 26520,
-            "value": 6
-          },
-          {
-            "time": 27880,
-            "value": 6
-          },
-          {
-            "time": 31053.333333333332,
-            "value": 7
-          },
-          {
-            "time": 32413.333333333332,
-            "value": 7
-          },
-          {
-            "time": 35586.666666666664,
-            "value": 8
-          },
-          {
-            "time": 36946.666666666664,
-            "value": 8
-          },
-          {
-            "time": 40120,
-            "value": 9
-          },
-          {
-            "time": 41480,
-            "value": 9
-          },
-          {
-            "time": 44653.33333333333,
-            "value": 10
-          },
-          {
-            "time": 46013.33333333333,
-            "value": 10
-          },
-          {
-            "time": 49186.666666666664,
-            "value": 11
-          },
-          {
-            "time": 50546.666666666664,
-            "value": 11
-          },
-          {
-            "time": 53720,
-            "value": 12
-          },
-          {
-            "time": 55080,
-            "value": 12
-          },
-          {
-            "time": 58253.33333333333,
-            "value": 13
-          },
-          {
-            "time": 59613.33333333333,
-            "value": 13
-          },
-          {
-            "time": 62786.666666666664,
-            "value": 14
-          },
-          {
-            "time": 64146.666666666664,
-            "value": 14
-          },
-          {
-            "time": 67320,
-            "value": 15
-          }
-        ]
-      }
-    ]
-  },
-  "showcase|Rounding Corners": {
-    "schedules": [
-      {
-        "description": "Area",
-        "type": "rectangle",
-        "value": {
-          "x": 2,
-          "y": 2,
-          "height": 3,
-          "width": 3
-        }
-      },
-      {
-        "description": "Roundness",
-        "type": "number",
-        "keyframes": [
-          {
-            "time": 1000,
-            "value": 0,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 5000,
-            "value": 1
-          },
-          {
-            "time": 6000,
-            "value": 1,
-            "easeAfter": "ease"
-          },
-          {
-            "time": 10000,
-            "value": 0
+            ],
+            "components": [],
+            "duration": 30000
           }
         ]
       }
