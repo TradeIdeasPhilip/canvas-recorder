@@ -4561,13 +4561,23 @@ What the hand, dare sieze the fire?`);
        * The lowest column number that we want to display.
        */
       const leftColumn = -rightColumn;
+      const initialY = -positiveModulo(topRow, 1) * size;
       for (
-        let row = 0, y = top + size / 2;
+        let row = Math.floor(topRow), y = initialY + size / 2;
         y - radius < bottom;
         y += size, row++
       ) {
         let colorIndex = initialColorIndex;
-        for (let column = leftColumn; column <= rightColumn; column++) {
+        let column = leftColumn;
+        while (Rule30.valueAt(row, column)) {
+          // We need to know how many cells were true in a row.
+          // If the far left item is false, we are good.
+          // But if the far left item is true, we don't know what color to use.
+          // So we go further left until we find the first false.
+          // Then our count will be right by the time we get back to the first item that's actually visible.
+          column--;
+        }
+        for (; column <= rightColumn; column++) {
           if (Rule30.valueAt(row, column)) {
             // I tried making one big path but that caused all sorts of problems.
             context.fillStyle = myRainbow[colorIndex % myRainbow.length];

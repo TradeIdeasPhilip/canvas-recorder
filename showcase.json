@@ -961,21 +961,21 @@
               {
                 "description": "Column Count",
                 "type": "number",
-                "keyframes": [
-                  {
-                    "time": 0,
-                    "value": 9
-                  },
-                  {
-                    "time": 30000,
-                    "value": 100
-                  }
-                ]
+                "value": 23
               },
               {
                 "description": "Top Row",
                 "type": "number",
-                "value": 1
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 10
+                  },
+                  {
+                    "time": 30000,
+                    "value": 60
+                  }
+                ]
               },
               {
                 "description": "Initial Color Index",

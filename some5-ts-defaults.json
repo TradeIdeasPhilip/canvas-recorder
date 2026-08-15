@@ -4802,7 +4802,7 @@
                 "startMsIntoScene": 1000,
                 "startMsIntoClip": 2152.48,
                 "lengthMs": 3332.88,
-                "id": "7fc89fbb-fa75-45da-87f9-2de4a5e260b8"
+                "id": "2b0c0072-073a-4828-bd2d-36d03466e242"
               },
               {
                 "notes": "These examples ... matrix multiplication.",
@@ -4810,7 +4810,7 @@
                 "startMsIntoScene": 5332.88,
                 "startMsIntoClip": 6100.35,
                 "lengthMs": 9497.02,
-                "id": "ec3bce89-dd3c-4f2b-864b-71733588553a"
+                "id": "781d0a9a-e51e-4522-a530-f79a47fef23f"
               },
               {
                 "notes": "This is an explainer... an easy one.",
@@ -4818,7 +4818,7 @@
                 "startMsIntoScene": 15829.900000000001,
                 "startMsIntoClip": 18100.33,
                 "lengthMs": 3146.46,
-                "id": "59851a9f-a55d-4687-ba58-f9079c4169fa"
+                "id": "90338afb-df3b-4c3d-8de4-9c8b973a13c4"
               },
               {
                 "notes": "The good news: the computer will help you create the matrices.\n",
@@ -4826,7 +4826,7 @@
                 "startMsIntoScene": 19976.36,
                 "startMsIntoClip": 21659.03,
                 "lengthMs": 3964.26,
-                "id": "eedfc541-7e04-491e-9c0f-8a049765cb99"
+                "id": "b5a6100e-8f93-4377-967c-e786eb55b112"
               },
               {
                 "notes": "And the computer will multiply the matrices for you.",
@@ -4834,7 +4834,7 @@
                 "startMsIntoScene": 24940.620000000003,
                 "startMsIntoClip": 26308.06,
                 "lengthMs": 2798.21,
-                "id": "89ae8fe8-feee-4279-9d95-6cbe33b6373f"
+                "id": "e070a116-3642-4edc-9e5e-83708ab4289a"
               },
               {
                 "notes": "All you have to do is put them in the right order.",
@@ -4842,7 +4842,7 @@
                 "startMsIntoScene": 28738.83,
                 "startMsIntoClip": 29656.19,
                 "lengthMs": 2488.9,
-                "id": "12174791-9847-4c79-b12f-f6ef42f04e89"
+                "id": "63408673-684a-4b84-884d-5780f79e4516"
               },
               {
                 "notes": "Am I the only one who gets these things backwards",
@@ -4850,7 +4850,7 @@
                 "startMsIntoScene": 32227.730000000003,
                 "startMsIntoClip": 33409.17,
                 "lengthMs": 2792.56,
-                "id": "2e4530e2-7045-4701-9f5d-4efb60874afa"
+                "id": "0cfcd780-de6c-4c74-b40e-aad3cac0696d"
               },
               {
                 "notes": "There are only two possibilities. ... wrong every time?",
@@ -4858,7 +4858,7 @@
                 "startMsIntoScene": 36020.29,
                 "startMsIntoClip": 37355.25,
                 "lengthMs": 4913.68,
-                "id": "9b57d717-0793-4395-99be-5ce716f8b4a9"
+                "id": "f32afe11-f049-44cf-bc6b-056e649a7579"
               },
               {
                 "notes": "How I stopped guessing ... what's really going on.",
@@ -4866,7 +4866,7 @@
                 "startMsIntoScene": 41933.97,
                 "startMsIntoClip": 43156.5,
                 "lengthMs": 3852.06,
-                "id": "f064e76e-3e72-40a2-b47a-3ee90a958f5f"
+                "id": "963edfc8-f617-4c1e-b5a3-18e795a6383c"
               },
               {
                 "notes": "Affine transform overview",
@@ -4874,7 +4874,7 @@
                 "startMsIntoScene": 46786.03,
                 "startMsIntoClip": 52174.38,
                 "lengthMs": 19280.38,
-                "id": "4e045806-88c4-49cf-be7a-6cf31c7b17ab"
+                "id": "5c6b55cf-0056-4f41-bb76-ccd8dad4fd3e"
               },
               {
                 "notes": "Point = column vector = matrix.",
@@ -4882,7 +4882,7 @@
                 "startMsIntoScene": 67066.41,
                 "startMsIntoClip": 72176.1,
                 "lengthMs": 6636.04,
-                "id": "810e00f3-1ba5-4ae9-bafa-2ab21c281f87"
+                "id": "7491573a-1d0e-4126-b1c9-938040611404"
               },
               {
                 "notes": "Shapes are just a collection of points.",
@@ -4890,7 +4890,7 @@
                 "startMsIntoScene": 74702.45,
                 "startMsIntoClip": 79339.19,
                 "lengthMs": 3877.48,
-                "id": "06fde7fb-1d13-4ebf-8cb4-5f033562e5c7"
+                "id": "dd4fcbf6-770c-4751-98bf-563b046ae479"
               },
               {
                 "notes": "Top left corner of square",
@@ -4898,7 +4898,7 @@
                 "startMsIntoScene": 79579.93,
                 "startMsIntoClip": 83676.98,
                 "lengthMs": 5009.33,
-                "id": "51ead3bd-6878-4e90-a89b-a36228ad65f9"
+                "id": "4d3c84a5-0cee-4db1-b4cc-5958e48667f6"
               },
               {
                 "notes": "Each operation is a square matrix ... computer creates it for you.",
@@ -4906,7 +4906,7 @@
                 "startMsIntoScene": 85589.26,
                 "startMsIntoClip": 89969.63,
                 "lengthMs": 12498.48,
-                "id": "242b59de-1c2e-456e-8694-d8a8c7676693"
+                "id": "6a07cfa8-0ebf-45c7-a04a-071eee8e2522"
               },
               {
                 "notes": "Apply transform to point ... each point in image.",
@@ -4914,7 +4914,7 @@
                 "startMsIntoScene": 99087.73999999999,
                 "startMsIntoClip": 106089.79,
                 "lengthMs": 11654.98,
-                "id": "d7f9b6d7-c455-4b0f-9a2c-4462748a3333"
+                "id": "8021427b-bd01-4d6e-afca-7bbcaeb4ccbe"
               },
               {
                 "notes": "More details... affine matrices are bigger.\n",
@@ -4922,7 +4922,7 @@
                 "startMsIntoScene": 111742.71999999999,
                 "startMsIntoClip": 119657.4,
                 "lengthMs": 10484.96,
-                "id": "7ab290bf-56e2-4aa8-b8a8-c3bd4ba3253a"
+                "id": "9041a76e-9079-4fb4-9b0d-ec1d18c6e7da"
               },
               {
                 "notes": "And sometimes people don't bother to list out all the terms.",
@@ -4930,7 +4930,7 @@
                 "startMsIntoScene": 123227.68,
                 "startMsIntoClip": 130630.46,
                 "lengthMs": 3829.13,
-                "id": "b399eb65-a2fa-43e6-96de-111a7b7dd148"
+                "id": "e1727225-74d6-4d9b-b69f-e4d05d47da13"
               },
               {
                 "notes": "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.",
@@ -4938,7 +4938,7 @@
                 "startMsIntoScene": 128056.81,
                 "startMsIntoClip": 135655.83,
                 "lengthMs": 17360.6,
-                "id": "ed261ae5-c9af-4143-8a95-d01e60d9a509"
+                "id": "64f344b0-0309-4459-add7-0f819d7c3542"
               }
             ]
           }
