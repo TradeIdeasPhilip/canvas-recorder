@@ -355,6 +355,8 @@ TypeScript: 30000
 Current: 27123
 ```
 
+(What happens when whole components are added or removed?)
+
 Use a normal save as dialog box to save this.
 Default file name is the project name, the same thing we use for in IndexedDB keys and the default name when saving json files.
 Use the .txt file extension.

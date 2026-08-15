@@ -961,20 +961,83 @@
               {
                 "description": "Column Count",
                 "type": "number",
-                "value": 73
+                "value": 23
               },
               {
                 "description": "Top Row",
                 "type": "number",
-                "value": 0
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": 10
+                  },
+                  {
+                    "time": 30000,
+                    "value": 60
+                  }
+                ]
               },
               {
                 "description": "Initial Color Index",
                 "type": "number",
-                "value": 6
+                "value": 5
               }
             ],
             "components": [],
+            "fixedComponents": [
+              {
+                "description": "Text",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0.2606572481572476,
+                      "y": 0.3077395577395574,
+                      "width": 6,
+                      "height": 4
+                    }
+                  },
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "Rule 30"
+                  },
+                  {
+                    "description": "Size",
+                    "type": "number",
+                    "value": 0.7
+                  },
+                  {
+                    "description": "Boldness",
+                    "type": "number",
+                    "value": 1.4
+                  },
+                  {
+                    "description": "Obliqueness",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "left"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ]
+              }
+            ],
             "duration": 30000
           }
         ]

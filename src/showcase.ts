@@ -66,6 +66,7 @@ import {
   ComponentWithLiveDuration,
   FunctionGraphComponent,
   SingleImageComponent,
+  TextComponent,
 } from "./slide-components";
 
 FunctionGraphComponent.functions.set("sin", Math.sin);
@@ -4494,7 +4495,7 @@ What the hand, dare sieze the fire?`);
      *
      * This can be a fraction so you can smoothly animate a change.
      */
-    columnCountSchedule = new NumberScheduleInfo("Column Count", 73);
+    columnCountSchedule = new NumberScheduleInfo("Column Count", 23);
     /**
      * Which index to display at the top of the visual.
      * 0 means the top of the triangle is at the top of the visible area.
@@ -4504,13 +4505,22 @@ What the hand, dare sieze the fire?`);
      * Fractions are acceptable and expected.
      * This can scroll smoothly.
      */
-    topRowSchedule = new NumberScheduleInfo("Top Row", 0);
+    topRowSchedule = new NumberScheduleInfo("Top Row", [
+      {
+        time: 0,
+        value: 10,
+      },
+      {
+        time: 30000,
+        value: 60,
+      },
+    ]);
     /**
      * Use this color for the cells that are `true`.
      */
     initialColorIndexSchedule = new NumberScheduleInfo(
       "Initial Color Index",
-      6,
+      5,
     );
     constructor() {
       super("Rule30", 30_000);
@@ -4519,6 +4529,19 @@ What the hand, dare sieze the fire?`);
         this.topRowSchedule,
         this.initialColorIndexSchedule,
       );
+      const title = new TextComponent({
+        color: myRainbow.orange,
+        rect: {
+          x: 0.2606572481572476,
+          y: 0.3077395577395574,
+          width: 6,
+          height: 4,
+        },
+        text: "Rule 30",
+        size: 0.7,
+        boldness: 1.4,
+      });
+      this.addFixed({ child: title });
     }
     showMainContent(options: ShowOptions): void {
       const { context, timeInMs } = options;
