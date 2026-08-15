@@ -337,6 +337,15 @@ It will only show what is needed.
 The JSON file already shows the values correctly.
 (Because of a recent change) it stores the values in exactly the same format that we need for a constructor or a set() method.
 
+## Purpose
+
+To copy changes back into the code, as described above.
+Some changes might be reverted instead.
+And some might be temporarily ignored.
+In any case, this will help me keep track of the changes.
+
+## Displaying Changes to Property Values
+
 Rough sample:
 ```
 Generated:  Fri Aug 14 2026 21:45:51 GMT-0700 (Pacific Daylight Time)
@@ -355,7 +364,23 @@ TypeScript: 30000
 Current: 27123
 ```
 
-(What happens when whole components are added or removed?)
+## Displaying Changes to Structure
+
+What happens when whole components are added or removed?
+This is a little more difficult, but still doable.
+
+We don't expect the the `fixedComponents` to change between the TypeScript defaults and the current state.
+(They are "fixed" by design, created in the constructor.)
+And we don't expect the TypeScript defaults to create removable components.
+(I've tried that in a few places and I've decided that it's better if the TypeScript code only creates fixed components.)
+So that only leaves one possible case:
+
+All "removable" components are considered new items that should be moved into the code and converted into a fixedComponent.
+See my notes above about creating new components.
+This might cause recursive calls to create and configure more subcomponents.
+The code might be several lines long.
+
+## How and Where to Save the Results
 
 Use a normal save as dialog box to save this.
 Default file name is the project name, the same thing we use for in IndexedDB keys and the default name when saving json files.
@@ -368,6 +393,18 @@ But this will make it easy to save the current state to git.
 If I'm making a lot of changes and making lots of commits, I don't want to reconcile these every time I commit.
 This is the quick and easy way to make sure everything gets into git.
 
+## When to Save
+
+Create a new button just past the "Saved Defaults:" section on the top row on the left side.
+Call it "Save Diffs".
+
+Never call this automatically.
+This is a comparison to the current state.
+Often that means setting things up in the Visual Editor exactly the way you want them then hitting save.
+If we save at random or unexpected times, we don't really know what we're looking at.
+
+## Timestamp
+
 In other places I did not want to include the time stamp in the file.
 It means that even if nothing else changes the file will still be changed in git.
 But I think this timestamp is honest.
@@ -375,8 +412,16 @@ Ideally I'd do the diff before each commit.
 But if I forget or I really think it's not important, we're still recording the facts.
 I know if I've saved the current version or not.
 
-## Purpose
+## Example
 
-To copy changes back into the code, as described above.
-Some changes might be reverted instead.
-And some might be temporarily ignored but it's good to keep track.
+See [this commit](https://github.com/TradeIdeasPhilip/canvas-recorder/commit/9560ef397fb3449406597cbe188ffe5cf401ab12) for a perfect example of what I'm trying to improve.
+
+In this case I diffed showcase-ts-defaults.js and showcase.json in VS Code.
+Then I manually moved the changes into showcase.ts, one at a time.
+I could see things disappearing from the diff as I fixed them.
+I set some properties of the Rule30 object.
+And I turned a replaceable component into a fixed component.
+
+This is exactly the type of change that is driving this request for better diffs.
+I expect this sort of thing to happen a lot.
+I want to make this process easier.

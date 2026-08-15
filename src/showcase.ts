@@ -4416,6 +4416,14 @@ What the hand, dare sieze the fire?`);
 // MARK: Rule 30
 
 {
+  // As seen at https://youtu.be/4H6LJvdmnYM
+  /**
+   * Most cells in rule 30 depend on the cell immediately above them, and its two neighbors.
+   * Some cells are hard coded as a base case.
+   * This implementation includes a cache of previously computed values for efficiency.
+   *
+   * https://en.wikipedia.org/wiki/Rule_30
+   */
   class Rule30 {
     private constructor() {
       throw new Error("wtf");
@@ -4516,7 +4524,18 @@ What the hand, dare sieze the fire?`);
       },
     ]);
     /**
-     * Use this color for the cells that are `true`.
+     * If a cell is `true` but its neighbor to the left is `false`, use this number as an index into {@link myRainbow}.
+     * If more cells are `true` to the right, increment the color index by one each one.
+     *
+     * Isolated cells will all have the base color described by this value.
+     * This will be the most common color on the screen.
+     * Longer horizontal segments will display a rainbow starting with this color on the left.
+     *
+     * Colors will repeat.
+     * Requesting a value off the end of the array will wrap around and start back at the beginning.
+     * Negative values also work, -1 meaning to start with the last color in `myRainbow`.
+     *
+     * Index values will be rounded to the nearest integer.
      */
     initialColorIndexSchedule = new NumberScheduleInfo(
       "Initial Color Index",
@@ -4543,9 +4562,17 @@ What the hand, dare sieze the fire?`);
       });
       this.addFixed({ child: title });
     }
+    /**
+     * Show the requested cells.
+     */
     showMainContent(options: ShowOptions): void {
       const { context, timeInMs } = options;
-      // The visible area is the entire slide except for some room at the top reserved for the title.
+      /**
+       * This describes the part of the screen available for drawing.
+       *
+       * Originally I was going to reserve space at the top of the screen for the title, like I do in most slides.
+       * But I eventually decided to fill the entire screen.
+       */
       const top = 0;
       const bottom = 9;
       const width = 16;
@@ -4567,8 +4594,11 @@ What the hand, dare sieze the fire?`);
        */
       const size = width / columnCount;
       /**
-       * Just touching the edges of the cell.
-       * So adjacent circles touch but do not overlap.
+       * Half the side length.
+       *
+       * I was originally drawing circles.
+       * And x and y still refer to the center.
+       * This is the distance from the center to the top, left, bottom or right.
        */
       const radius = size / 2;
       /**
@@ -4578,13 +4608,20 @@ What the hand, dare sieze the fire?`);
       const columnsOnEachSide = (columnCount - 1) / 2;
       /*
        * The highest column number that we want to display.
+       *
+       * Round up.
+       * If a cell is even partially visible on the screen, draw it.
        */
       const rightColumn = Math.ceil(columnsOnEachSide);
       /*
        * The lowest column number that we want to display.
        */
       const leftColumn = -rightColumn;
-      const initialY = -positiveModulo(topRow, 1) * size;
+      /**
+       * Where to draw the *top* of the highest row that is at least partially visible.
+       * This might be off the top of the screen if we are scrolling.
+       */
+      const initialY = -positiveModulo(topRow, 1) * size + top;
       for (
         let row = Math.floor(topRow), y = initialY + size / 2;
         y - radius < bottom;
@@ -4602,19 +4639,24 @@ What the hand, dare sieze the fire?`);
         }
         for (; column <= rightColumn; column++) {
           if (Rule30.valueAt(row, column)) {
-            // I tried making one big path but that caused all sorts of problems.
+            // Draw the cell.
             context.fillStyle = myRainbow[colorIndex % myRainbow.length];
             colorIndex++;
             const x = column * size + width / 2;
             context.fillRect(x - radius, y - radius, size, size);
           } else {
+            // Do not draw this cell.
+            // Reset the color index.
+            // The next time we draw a cell will be the start of a new chain.
             colorIndex = initialColorIndex;
           }
         }
       }
     }
     override show(options: ShowOptions): void {
+      // Draw the cells.
       this.showMainContent(options);
+      // Draw the title and any other children.
       super.show(options);
     }
   }
