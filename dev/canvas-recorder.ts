@@ -3893,9 +3893,9 @@ function updateComponentEditor(selectable: Showable) {
   addBtn.disabled = addTarget === null;
   addBtn.addEventListener("click", () => {
     if (!addTarget) return;
-    const factory = componentRegistry.get(addSelect.value);
-    if (!factory) return;
-    const newChild = factory();
+    const entry = componentRegistry.get(addSelect.value);
+    if (!entry) return;
+    const newChild = entry.create();
     addTarget.replaceableComponents!.push(newChild);
     selectedSlideChild = newChild;
     activeRootComponentEditor?.resetAll();

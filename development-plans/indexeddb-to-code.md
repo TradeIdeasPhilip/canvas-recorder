@@ -215,6 +215,11 @@ This is short and specific.
 
 ### Component Registry
 
+**Status**:
+I have changed the shape of the registry as described here.
+I haven verified that the old functionality was not broken.
+I have not tried to use the new features yet, and the requirements might change when I try.
+
 We need to make changes to the component registry.
 Instead of a key pointing to a function, it will point to an object.
 One property will be the existing function for creating a new component.
@@ -312,7 +317,7 @@ Most properties stay at their default values.
 
 The code generator should create an example of each component, and compare each property of the json file to the same property of the new example object.
 If they are the same, skip that property.
-If the value does *not* match the default then include the property in the call to the constructor.
+If the value does _not_ match the default then include the property in the call to the constructor.
 If we are not sure (maybe a new property type was added after this code was written) be safe and include property in the constructor.
 
 This applies to schedules, scalars, userEditableDescription, and duration.
@@ -347,6 +352,7 @@ In any case, this will help me keep track of the changes.
 ## Displaying Changes to Property Values
 
 Rough sample:
+
 ```
 Generated:  Fri Aug 14 2026 21:45:51 GMT-0700 (Pacific Daylight Time)
 Main

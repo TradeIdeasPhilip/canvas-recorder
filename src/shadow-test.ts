@@ -85,6 +85,8 @@ const FILL_FOR_ROW = [
   (_color: string): string => "transparent",
 ] as const;
 
+const nineShapesRegistryKey = "Nine Shapes (Shadow Test)";
+
 /**
  * Project-specific slide component: nine shapes in a 3×3 grid.
  *
@@ -99,6 +101,7 @@ export function createNineShapesComponent(): Showable {
     { time: 0, value: { x: 2, y: 2, width: 6, height: 4 } },
   ];
   return {
+    registryKey: nineShapesRegistryKey,
     description: "Nine Shapes",
     duration: 0,
     schedules: [
@@ -139,10 +142,11 @@ export function createNineShapesComponent(): Showable {
     },
   };
 }
-componentRegistry.set("Nine Shapes (Shadow Test)", () =>
-  createNineShapesComponent(),
-);
-
+componentRegistry.set(nineShapesRegistryKey, {
+  create: createNineShapesComponent,
+  description:
+    "A sample.  Mostly aimed at testing the halftone shadow component.",
+});
 
 // ---------------------------------------------------------------------------
 // MARK: Slide list
@@ -897,7 +901,10 @@ const slideList = new MakeShowableInSeries("Shadow Test");
 // MARK: Slide 1b — Generic Container
 // ---------------------------------------------------------------------------
 {
-  const slide = new ComponentWithLiveDuration("Slide 1b: Generic Container", 6_000);
+  const slide = new ComponentWithLiveDuration(
+    "Slide 1b: Generic Container",
+    6_000,
+  );
   slideList.add(slide);
 }
 
