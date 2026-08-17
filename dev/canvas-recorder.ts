@@ -2037,12 +2037,12 @@ defaultsAutoSaveCheckbox.addEventListener("change", () => {
 /** Per-video key in the "files" IDB store for the diff save file handle. */
 const DIFF_SAVE_KEY = `__diff-save__|${toShowKey}`;
 
-async function readDiffSaveHandle(): Promise<FileSystemFileHandle | null> {
+async function readDiffSaveRecord(): Promise<FileRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").get(DIFF_SAVE_KEY);
-    req.onsuccess = () => resolve((req.result as FileRecord | undefined)?.handle ?? null);
+    req.onsuccess = () => resolve(req.result as FileRecord | undefined);
     req.onerror = () => reject(req.error);
   });
 }
@@ -2204,43 +2204,24 @@ function buildDiffText(): string {
 }
 
 async function saveDiffs(): Promise<void> {
-  let handle = await readDiffSaveHandle();
-  if (!handle) {
-    try {
-      handle = await window.showSaveFilePicker({
-        id: "diff-save",
-        suggestedName: `${toShowKey || "diff"}.txt`,
-        types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
-      });
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      throw e;
-    }
-    await writeDiffSaveHandle(handle);
-  }
-
-  const body = buildDiffText();
+  const stored = await readDiffSaveRecord();
+  const suggestedName = stored?.handle?.name ?? `${toShowKey || "diff"}.txt`;
+  let handle: FileSystemFileHandle;
   try {
-    const writable = await handle.createWritable();
-    await writable.write(body);
-    await writable.close();
-  } catch {
-    // Stale handle — re-prompt.
-    try {
-      handle = await window.showSaveFilePicker({
-        id: "diff-save",
-        suggestedName: `${toShowKey || "diff"}.txt`,
-        types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
-      });
-    } catch (e) {
-      if (e instanceof DOMException && e.name === "AbortError") return;
-      throw e;
-    }
-    await writeDiffSaveHandle(handle);
-    const writable = await handle.createWritable();
-    await writable.write(body);
-    await writable.close();
+    handle = await window.showSaveFilePicker({
+      id: "diff-save",
+      suggestedName,
+      types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") return;
+    throw e;
   }
+  await writeDiffSaveHandle(handle);
+  const body = buildDiffText();
+  const writable = await handle.createWritable();
+  await writable.write(body);
+  await writable.close();
 }
 
 // MARK: Load-source helpers
