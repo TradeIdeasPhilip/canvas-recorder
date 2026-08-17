@@ -4428,10 +4428,23 @@ What the hand, dare sieze the fire?`);
     private constructor() {
       throw new Error("wtf");
     }
-    static readonly #cached = new ArrayMap<
-      { row: number; column: number },
-      boolean
-    >((a, b) => a.column == b.column && a.row == b.row);
+    // This was easy but slow.
+    // I got the frame drawing time down from about 38ms to 11ms.
+    // That was limiting us to 23 fps.  Now I get 60 fps with lots of room to spare.
+    // static readonly #cached = new ArrayMap<
+    //   { row: number; column: number },
+    //   boolean
+    // >((a, b) => a.column == b.column && a.row == b.row);
+    static #cache = new Array<Map<number, boolean>>();
+    static #getFromCache(row: number, column: number) {
+      return this.#cache[row]?.get(column);
+    }
+    static #addToCache(row: number, column: number, value: boolean) {
+      while (row >= this.#cache.length) {
+        this.#cache.push(new Map<number, boolean>());
+      }
+      this.#cache[row].set(column, value);
+    }
     /**
      *
      * @param row 0 for the top row, which is one cell wide.
@@ -4461,8 +4474,9 @@ What the hand, dare sieze the fire?`);
         return false;
       }
       // Check the cache
-      const key = { row, column };
-      const cachedResult = this.#cached.get(key);
+      //const key = { row, column };
+      //const cachedResult = this.#cached.get(key);
+      const cachedResult = this.#getFromCache(row, column);
       if (cachedResult !== undefined) {
         return cachedResult;
       }
@@ -4472,7 +4486,8 @@ What the hand, dare sieze the fire?`);
       const center = this.valueAt(previousRow, column);
       const right = this.valueAt(previousRow, column + 1);
       const result = left != (center || right);
-      this.#cached.set(key, result);
+      // this.#cached.set(key, result);
+      this.#addToCache(row, column, result);
       return result;
     }
     /**
@@ -4520,7 +4535,7 @@ What the hand, dare sieze the fire?`);
       },
       {
         time: 30000,
-        value: 60,
+        value: 160,
       },
     ]);
     /**

@@ -2032,6 +2032,217 @@ defaultsAutoSaveCheckbox.addEventListener("change", () => {
   }
 });
 
+// MARK: Save Diffs
+
+/** Per-video key in the "files" IDB store for the diff save file handle. */
+const DIFF_SAVE_KEY = `__diff-save__|${toShowKey}`;
+
+async function readDiffSaveHandle(): Promise<FileSystemFileHandle | null> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const req = tx.objectStore("files").get(DIFF_SAVE_KEY);
+    req.onsuccess = () => resolve((req.result as FileRecord | undefined)?.handle ?? null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writeDiffSaveHandle(handle: FileSystemFileHandle): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put({
+      filename: DIFF_SAVE_KEY,
+      handle,
+      savedAt: Date.now(),
+      isActive: false,
+    } satisfies FileRecord);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * Builds a human-readable text diff of the current live state vs the
+ * TypeScript defaults captured at page load ({@link tsDefaults}). Walks
+ * tsDefaults as the authoritative source so that every property — including
+ * those in slides not currently visible — is covered. Outputs "breadcrumb"
+ * context lines so it is always clear where a difference lives in the tree.
+ */
+function buildDiffText(): string {
+  const lines: string[] = [];
+  const lastPath = { value: [] as string[] };
+
+  /** Print only the path segments not yet printed since the last difference. */
+  function printPathIfNeeded(path: string[]): void {
+    const last = lastPath.value;
+    let i = 0;
+    while (i < last.length && i < path.length && last[i] === path[i]) i++;
+    for (let j = i; j < path.length; j++) {
+      lines.push(`${"→ ".repeat(j)}${path[j]}`);
+    }
+    lastPath.value = [...path];
+  }
+
+  function formatScheduleValue(s: SerializedSchedule): string {
+    return s.keyframes !== undefined ? JSON.stringify(s.keyframes) : JSON.stringify(s.value);
+  }
+
+  function formatScalarValue(s: SerializedScalar): string {
+    return JSON.stringify(s.value);
+  }
+
+  function diffNode(
+    defaultEntry: DataHistoryEntry | SerializedFixedChild,
+    sel: Showable,
+    path: string[],
+  ): void {
+    const defSchedules = defaultEntry.schedules ?? [];
+    const curSchedules = sel.schedules?.length ? serializeSchedules(sel.schedules) : [];
+
+    for (const defS of defSchedules) {
+      const curS = curSchedules.find((s) => s.description === defS.description);
+      if (JSON.stringify(defS) !== JSON.stringify(curS)) {
+        printPathIfNeeded([...path, defS.description]);
+        lines.push(`TypeScript: ${formatScheduleValue(defS)}`);
+        lines.push(`Current:    ${curS ? formatScheduleValue(curS) : "(missing)"}`);
+      }
+    }
+    for (const curS of curSchedules) {
+      if (!defSchedules.find((s) => s.description === curS.description)) {
+        printPathIfNeeded([...path, curS.description]);
+        lines.push(`TypeScript: (none)`);
+        lines.push(`Current:    ${formatScheduleValue(curS)}`);
+      }
+    }
+
+    const defScalars = defaultEntry.scalars ?? [];
+    const curScalars = sel.scalars?.length ? serializeScalars(sel.scalars) : [];
+    for (const defSc of defScalars) {
+      const curSc = curScalars.find((s) => s.description === defSc.description);
+      if (JSON.stringify(defSc) !== JSON.stringify(curSc)) {
+        printPathIfNeeded([...path, defSc.description]);
+        lines.push(`TypeScript: ${formatScalarValue(defSc)}`);
+        lines.push(`Current:    ${curSc ? formatScalarValue(curSc) : "(missing)"}`);
+      }
+    }
+    for (const curSc of curScalars) {
+      if (!defScalars.find((s) => s.description === curSc.description)) {
+        printPathIfNeeded([...path, curSc.description]);
+        lines.push(`TypeScript: (none)`);
+        lines.push(`Current:    ${formatScalarValue(curSc)}`);
+      }
+    }
+
+    const defDuration = defaultEntry.duration;
+    const curDuration = sel.setDuration !== undefined ? sel.duration : undefined;
+    if (defDuration !== curDuration && (defDuration !== undefined || curDuration !== undefined)) {
+      printPathIfNeeded([...path, "Duration"]);
+      lines.push(`TypeScript: ${defDuration ?? "(n/a)"}`);
+      lines.push(`Current:    ${curDuration ?? "(n/a)"}`);
+    }
+
+    if (defaultEntry.userEditableDescription !== sel.userEditableDescription) {
+      printPathIfNeeded([...path, "Description"]);
+      lines.push(`TypeScript: ${JSON.stringify(defaultEntry.userEditableDescription)}`);
+      lines.push(`Current:    ${JSON.stringify(sel.userEditableDescription)}`);
+    }
+
+    const defClips = defaultEntry.soundClips;
+    const curClips = sel.soundClips;
+    if (JSON.stringify(defClips) !== JSON.stringify(curClips)) {
+      printPathIfNeeded([...path, "Sound Clips"]);
+      lines.push(`TypeScript: ${JSON.stringify(defClips)}`);
+      lines.push(`Current:    ${JSON.stringify(curClips)}`);
+    }
+
+    const currentComponents = sel.replaceableComponents?.get() ?? [];
+    if (currentComponents.length > 0) {
+      printPathIfNeeded(path);
+      for (const comp of currentComponents) {
+        const key = comp.registryKey ?? comp.description ?? "unknown";
+        lines.push(`  [new removable component: "${key}" — convert to addFixed()]`);
+      }
+    }
+
+    const liveFixed = getFixedComponents(sel);
+    for (const defFixed of defaultEntry.fixedComponents ?? []) {
+      const liveChild = liveFixed.find((c) => c.description === defFixed.description);
+      if (!liveChild) {
+        printPathIfNeeded([...path, defFixed.description]);
+        lines.push(`  [WARNING: fixed child absent from live tree]`);
+        continue;
+      }
+      diffNode(defFixed, liveChild, [...path, defFixed.description]);
+    }
+    for (const liveChild of liveFixed) {
+      if (!(defaultEntry.fixedComponents ?? []).find((c) => c.description === liveChild.description)) {
+        printPathIfNeeded([...path, liveChild.description]);
+        lines.push(`  [fixed child in live tree but absent from TypeScript defaults]`);
+      }
+    }
+  }
+
+  lines.push(`Generated: ${new Date().toString()}`);
+
+  const selectorByKey = new Map(
+    chapterList.map((item) => [selectableKey(item.selectable), item.selectable]),
+  );
+
+  for (const [key, defaultEntry] of tsDefaults) {
+    const sel = selectorByKey.get(key);
+    if (!sel) {
+      lines.push(`[WARNING: no live selectable for key "${key}"]`);
+      continue;
+    }
+    diffNode(defaultEntry, sel, [sel.description]);
+  }
+
+  if (lines.length === 1) lines.push("(no differences found)");
+
+  return lines.join("\n");
+}
+
+async function saveDiffs(): Promise<void> {
+  let handle = await readDiffSaveHandle();
+  if (!handle) {
+    try {
+      handle = await window.showSaveFilePicker({
+        id: "diff-save",
+        suggestedName: `${toShowKey || "diff"}.txt`,
+        types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      throw e;
+    }
+    await writeDiffSaveHandle(handle);
+  }
+
+  const body = buildDiffText();
+  try {
+    const writable = await handle.createWritable();
+    await writable.write(body);
+    await writable.close();
+  } catch {
+    // Stale handle — re-prompt.
+    try {
+      handle = await window.showSaveFilePicker({
+        id: "diff-save",
+        suggestedName: `${toShowKey || "diff"}.txt`,
+        types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
+      });
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      throw e;
+    }
+    await writeDiffSaveHandle(handle);
+    const writable = await handle.createWritable();
+    await writable.write(body);
+    await writable.close();
+  }
+}
+
 // MARK: Load-source helpers
 
 /** Logs abandoned or deleted items; replace console.info with persistent storage if needed. */
@@ -5171,6 +5382,7 @@ getById("saveCopyAsJsonBtn", HTMLButtonElement).addEventListener(
   "click",
   () => void saveJsonAs(false),
 );
+getById("saveDiffsBtn", HTMLButtonElement).addEventListener("click", () => void saveDiffs());
 
 // MARK: Load JSON file
 
