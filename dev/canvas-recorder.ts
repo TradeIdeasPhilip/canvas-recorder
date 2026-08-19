@@ -78,10 +78,14 @@ import {
 import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
+import { setupDelayFiles } from "./delay-files.ts";
 
 // Expose for manual testing from the browser devtools console.
 (window as unknown as Record<string, unknown>).fontsAreAvailable =
   fontsAreAvailable;
+
+// ?delayFiles=1 / ?refreshThread=1 — see dev/delay-files.ts.  No-op otherwise.
+await setupDelayFiles();
 
 /**
  * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.
@@ -606,11 +610,20 @@ async function initAudio(): Promise<void> {
 initAudio();
 
 /**
+ * We disable {@link animationLoop} while rendering to a file.
+ * We can reenable it when we are done rendering.
+ */
+let suspendLiveAnimationLoop = false;
+
+/**
  * Redraw the canvas and update some other controls.
  *
  * This is for live / realtime drawing.  This is disabled when we are saving the file.
  */
 const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
+  if (suspendLiveAnimationLoop) {
+    return;
+  }
   if (!playCheckBox.checked) {
     // Paused.
     stopAudio();
@@ -753,6 +766,15 @@ const liveControls = getById("liveControls", HTMLFieldSetElement);
  */
 let canceled = false;
 
+/**
+ * Escape text before dropping it into `infoDiv.innerHTML`.
+ * Error messages can contain arbitrary text (e.g. a URL with special characters);
+ * this keeps that text from being misinterpreted as markup.
+ */
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   stopAudio();
   startRecordingButton.disabled = true;
@@ -760,7 +782,7 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   cancelRecordingButton.disabled = false;
   canceled = false;
 
-  animationLoop.cancel();
+  suspendLiveAnimationLoop= true;
 
   // Lock canvas at 4K for the duration of recording.
   // Disable all size-changing code paths so the encoder sees a constant frame size.
@@ -778,127 +800,174 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   canvas.style.transform = "translate(-50%, -50%)";
   canvas.style.transformOrigin = "";
 
-  infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
+  // `output` is created inside the try block below, but we need to reach it
+  // from the catch block too, so we can still finalize (and thus flush)
+  // whatever got encoded before the error.
+  let output: Output | undefined;
+  try {
+    infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
 
-  // User picks file
-  const fileHandle = await window.showSaveFilePicker({
-    id: "video-save",
-    suggestedName: "canvas-recording.mp4",
-    types: [
-      {
-        description: "WebM Video",
-        accept: { "video/mp4": [".mp4"] },
-      },
-    ],
-  });
-
-  const writableStream = await fileHandle.createWritable();
-
-  // Set up Mediabunny output (streaming to file)
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target: new StreamTarget(writableStream, { chunked: true }), // Batch writes for speed
-  });
-
-  // Canvas source (VP9 for good quality/size on macOS)
-  const videoSource = new CanvasSource(canvas, {
-    codec: "hevc",
-    bitrate: 16_000_000, // ~8Mbps — tune higher for better quality
-  });
-
-  output.addVideoTrack(videoSource, { frameRate: FPS });
-
-  const fullAudioBuffer = audioBuilder.getAudioBuffer();
-  let audioBuffer: AudioBuffer;
-  if (saveStartMs === 0 && saveEndMs >= toShow.duration) {
-    audioBuffer = fullAudioBuffer;
-  } else {
-    const sr = fullAudioBuffer.sampleRate;
-    const s0 = Math.round((saveStartMs / 1000) * sr);
-    const s1 = Math.min(
-      Math.round((saveEndMs / 1000) * sr),
-      fullAudioBuffer.length,
-    );
-    const len = Math.max(0, s1 - s0);
-    audioBuffer = new AudioBuffer({
-      numberOfChannels: fullAudioBuffer.numberOfChannels,
-      length: len,
-      sampleRate: sr,
+    // User picks file
+    const fileHandle = await window.showSaveFilePicker({
+      id: "video-save",
+      suggestedName: "canvas-recording.mp4",
+      types: [
+        {
+          description: "WebM Video",
+          accept: { "video/mp4": [".mp4"] },
+        },
+      ],
     });
-    for (let ch = 0; ch < fullAudioBuffer.numberOfChannels; ch++) {
-      audioBuffer.copyToChannel(
-        fullAudioBuffer.getChannelData(ch).subarray(s0, s0 + len),
-        ch,
+
+    const writableStream = await fileHandle.createWritable();
+
+    // Set up Mediabunny output (streaming to file)
+    output = new Output({
+      format: new Mp4OutputFormat(),
+      target: new StreamTarget(writableStream, { chunked: true }), // Batch writes for speed
+    });
+
+    // Canvas source (VP9 for good quality/size on macOS)
+    const videoSource = new CanvasSource(canvas, {
+      codec: "hevc",
+      bitrate: 16_000_000, // ~8Mbps — tune higher for better quality
+    });
+
+    output.addVideoTrack(videoSource, { frameRate: FPS });
+
+    const fullAudioBuffer = audioBuilder.getAudioBuffer();
+    let audioBuffer: AudioBuffer;
+    if (saveStartMs === 0 && saveEndMs >= toShow.duration) {
+      audioBuffer = fullAudioBuffer;
+    } else {
+      const sr = fullAudioBuffer.sampleRate;
+      const s0 = Math.round((saveStartMs / 1000) * sr);
+      const s1 = Math.min(
+        Math.round((saveEndMs / 1000) * sr),
+        fullAudioBuffer.length,
       );
+      const len = Math.max(0, s1 - s0);
+      audioBuffer = new AudioBuffer({
+        numberOfChannels: fullAudioBuffer.numberOfChannels,
+        length: len,
+        sampleRate: sr,
+      });
+      for (let ch = 0; ch < fullAudioBuffer.numberOfChannels; ch++) {
+        audioBuffer.copyToChannel(
+          fullAudioBuffer.getChannelData(ch).subarray(s0, s0 + len),
+          ch,
+        );
+      }
     }
-  }
-  const audioSource = new AudioBufferSource({
-    codec: "aac",
-    bitrate: QUALITY_HIGH,
-  });
-  output.addAudioTrack(audioSource);
+    const audioSource = new AudioBufferSource({
+      codec: "aac",
+      bitrate: QUALITY_HIGH,
+    });
+    output.addAudioTrack(audioSource);
 
-  const startTime = performance.now();
+    const startTime = performance.now();
 
-  await output.start();
-  infoDiv.innerHTML = "Recording in progress...";
+    await output.start();
+    infoDiv.innerHTML = "Recording in progress...";
 
-  // Send it all at once, don't `await`, let Media Bunny figure it out.
-  audioSource.add(audioBuffer);
+    // Send it all at once, don't `await`, let Media Bunny figure it out.
+    audioSource.add(audioBuffer);
 
-  const frameDuration = 1000 / FPS;
+    const frameDuration = 1000 / FPS;
 
-  // Offline loop: draw + push frames (not limited to realtime)
-  let frameNumber = 0;
-  while (!canceled) {
-    const timeInMs = saveStartMs + (frameNumber + 0.5) * frameDuration;
-    if (timeInMs >= saveEndMs) {
-      break;
+    // Offline loop: draw + push frames (not limited to realtime)
+    let frameNumber = 0;
+    let warnedNoFramePromises = false;
+    while (!canceled) {
+      const timeInMs = saveStartMs + (frameNumber + 0.5) * frameDuration;
+      if (timeInMs >= saveEndMs) {
+        break;
+      }
+      if (toShow.getFramePromises) {
+        const framePromises = new Set<Promise<unknown>>();
+        toShow.getFramePromises(timeInMs, framePromises);
+        await Promise.all([...framePromises]);
+      } else if (!warnedNoFramePromises) {
+        warnedNoFramePromises = true;
+        console.info(
+          "toShow.getFramePromises is not implemented — recording will not wait for slow-loading content (fonts, images, etc.) to become ready.",
+        );
+      }
+      showFrame(timeInMs, false);
+      loadPlayPositionSeconds(timeInMs);
+      loadPlayPositionRange();
+      // Push frame (timestamp/duration in seconds)
+      const timestampSec = frameNumber / FPS;
+      const durationSec = 1 / FPS;
+      // This await is essential.
+      // 1) It handles backpressure.
+      //    o  Without this the drawing stage will go at full speed.
+      //    o  The output of the draw stages gets queued up somewhere.
+      //    o  When that builds up too much the system becomes less responsive and eventually less stable.
+      // 2) It avoids some errors.
+      //    o  Running at full speed usually worked as long as it didn't crash.
+      //    o  Running with this await works fine.
+      //    o  But when I tried to run without this await, but with a different await in this loop, I got weird error messages.
+      // 3) It keeps the GUI live.
+      //    o  Without this we'd need some other way to break the work up.
+      //    o  This works very well on its own.
+      await videoSource.add(timestampSec, durationSec);
+      frameNumber++;
     }
-    showFrame(timeInMs, false);
-    loadPlayPositionSeconds(timeInMs);
-    loadPlayPositionRange();
-    // Push frame (timestamp/duration in seconds)
-    const timestampSec = frameNumber / FPS;
-    const durationSec = 1 / FPS;
-    // This await is essential.
-    // 1) It handles backpressure.
-    //    o  Without this the drawing stage will go at full speed.
-    //    o  The output of the draw stages gets queued up somewhere.
-    //    o  When that builds up too much the system becomes less responsive and eventually less stable.
-    // 2) It avoids some errors.
-    //    o  Running at full speed usually worked as long as it didn't crash.
-    //    o  Running with this await works fine.
-    //    o  But when I tried to run without this await, but with a different await in this loop, I got weird error messages.
-    // 3) It keeps the GUI live.
-    //    o  Without this we'd need some other way to break the work up.
-    //    o  This works very well on its own.
-    await videoSource.add(timestampSec, durationSec);
-    frameNumber++;
-  }
 
-  infoDiv.innerHTML = "Frames complete.  Finalizing video.";
-  cancelRecordingButton.disabled = true;
+    infoDiv.innerHTML = "Frames complete.  Finalizing video.";
+    cancelRecordingButton.disabled = true;
 
-  await output.finalize(); // Finishes encoding + closes stream automatically
+    await output.finalize(); // Finishes encoding + closes stream automatically
 
-  const elapsedSeconds = (performance.now() - startTime) / 1000;
+    const elapsedSeconds = (performance.now() - startTime) / 1000;
 
-  infoDiv.innerHTML = `
-    <strong>Recording complete!</strong><br>
-    Frames: ${frameNumber}<br>
-    Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
-    Recording Speed: ${(frameNumber / FPS / elapsedSeconds).toFixed(3)} × realtime
-  `;
-
-  // Restore pixel-perfect mode.
-  isRecording = false;
-  zoomControls.inert = false;
-  viewportResizeObserver.observe(viewport);
-  if (zoomSelect.value === "fit") {
-    zoomToFit();
-  } else {
-    applyZoom(currentZoomFactor);
+    infoDiv.innerHTML = `
+      <strong>Recording complete!</strong><br>
+      Frames: ${frameNumber}<br>
+      Elapsed time: ${elapsedSeconds.toFixed(3)} seconds<br>
+      Recording Speed: ${(frameNumber / FPS / elapsedSeconds).toFixed(3)} × realtime
+    `;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      // The user closed the "choose save location" dialog without picking a file.
+      // Not an error — nothing was recorded yet, so there's nothing to finalize.
+      infoDiv.innerHTML = "Recording canceled.";
+    } else {
+      console.error("Recording failed:", e);
+      const message = e instanceof Error ? e.message : String(e);
+      infoDiv.innerHTML = `<strong style="color:red">Recording failed:</strong> ${escapeHtml(message)}`;
+      if (output) {
+        try {
+          // Flush and close the file so whatever was recorded before the
+          // error isn't lost.
+          await output.finalize();
+          infoDiv.innerHTML += "<br>Partial recording saved.";
+        } catch (finalizeError) {
+          console.error(
+            "Failed to finalize output after an earlier error:",
+            finalizeError,
+          );
+          infoDiv.innerHTML +=
+            '<br><strong style="color:red">Could not save even a partial recording.</strong>';
+        }
+      }
+    }
+  } finally {
+    // Restore pixel-perfect mode and re-enable the controls we disabled at the
+    // top, regardless of whether the recording succeeded, was canceled, or failed.
+    cancelRecordingButton.disabled = true;
+    startRecordingButton.disabled = false;
+    liveControls.disabled = false;
+    isRecording = false;
+    zoomControls.inert = false;
+    viewportResizeObserver.observe(viewport);
+    if (zoomSelect.value === "fit") {
+      zoomToFit();
+    } else {
+      applyZoom(currentZoomFactor);
+    }
+    suspendLiveAnimationLoop = false;
   }
 }
 

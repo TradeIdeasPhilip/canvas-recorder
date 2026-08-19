@@ -39,12 +39,13 @@ export class AudioBuilder {
     const sourceBuffer = await this.audioContext.decodeAudioData(encodedSource);
     const time4 = performance.now();
     const fileSizeKB = encodedSource.byteLength / 1024;
-    console.log(
-      `[audio] fetch: ${(time2 - time1).toFixed(0)} ms (${fileSizeKB.toFixed(0)} KB, ` +
-        `${((time2 - time1) / fileSizeKB).toFixed(3)} ms/KB) | ` +
-        `arrayBuffer: ${(time3 - time2).toFixed(0)} ms | ` +
-        `decode: ${(time4 - time3).toFixed(0)} ms`,
-    );
+    false &&
+      console.log(
+        `[audio] fetch: ${(time2 - time1).toFixed(0)} ms (${fileSizeKB.toFixed(0)} KB, ` +
+          `${((time2 - time1) / fileSizeKB).toFixed(3)} ms/KB) | ` +
+          `arrayBuffer: ${(time3 - time2).toFixed(0)} ms | ` +
+          `decode: ${(time4 - time3).toFixed(0)} ms`,
+      );
     return sourceBuffer;
   }
 
@@ -188,13 +189,13 @@ export class AudioBuilder {
         samplesCopied++;
       }
     }
-    const time6 = performance.now();
+    // const time6 = performance.now();
 
-    const copyMs = time6 - time5;
-    const copyRate = copyMs > 0 ? (samplesCopied / copyMs / 1000).toFixed(0) : "∞";
-    console.log(
-      `[audio] copy: ${copyMs.toFixed(1)} ms (${samplesCopied.toLocaleString()} samples, ${copyRate}K samples/ms)`,
-    );
+    // const copyMs = time6 - time5;
+    // const copyRate = copyMs > 0 ? (samplesCopied / copyMs / 1000).toFixed(0) : "∞";
+    // console.log(
+    //   `[audio] copy: ${copyMs.toFixed(1)} ms (${samplesCopied.toLocaleString()} samples, ${copyRate}K samples/ms)`,
+    // );
   }
 
   async toBlob(): Promise<Blob> {

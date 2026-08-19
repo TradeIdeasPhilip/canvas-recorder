@@ -65,6 +65,8 @@ import { zipper } from "./zipper";
 import {
   ComponentWithLiveDuration,
   FunctionGraphComponent,
+  InParallelComponent,
+  InSeriesComponent,
   SingleImageComponent,
   TextComponent,
 } from "./slide-components";
@@ -127,7 +129,7 @@ const DEFAULT_PRE_ROLL_MS = 1_500;
  */
 const DEFAULT_POST_ROLL_MS = 2_000;
 
-const sceneList = new MakeShowableInSeries("Scene List");
+const sceneList = new InSeriesComponent("Scene List");
 // MARK: Simple Text & Layout
 {
   const scene = new MakeShowableInParallel("Simple Text & Layout");
@@ -257,7 +259,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // ── Lissajous Curves ─────────────────────────────────────────────────────────
@@ -521,7 +523,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.stroke(squarePath);
       },
     });
-    sceneList.add(scene.build());
+    sceneList.addFixed1(scene.build());
   }
 
   // MARK: Heart Curve ♡
@@ -618,7 +620,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         }
       },
     });
-    sceneList.add(scene.build());
+    sceneList.addFixed1(scene.build());
   }
 
   // MARK: #SoME5 Idea: Lissajous Spirals
@@ -692,7 +694,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.stroke(spiralPath);
       },
     });
-    sceneList.add(scene.build());
+    sceneList.addFixed1(scene.build());
   }
 
   // MARK: Lissajous Curves — arrow
@@ -762,7 +764,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
         context.restore();
       },
     });
-    sceneList.add(scene.build());
+    sceneList.addFixed1(scene.build());
   }
 
   // MARK: offset-path CSS property
@@ -891,7 +893,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
       },
     });
 
-    sceneList.add(scene.build());
+    sceneList.addFixed1(scene.build());
   }
 }
 
@@ -987,7 +989,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     },
   });
 
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Strokable Font List
@@ -1086,7 +1088,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Font Samples
@@ -1263,7 +1265,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   };
 
   scene.add(showable);
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Formatting Pieces of Text
@@ -1451,7 +1453,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Simple Animated Colors
@@ -1623,7 +1625,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Calligraphy Effect
@@ -1763,7 +1765,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   };
 
   scene.add(showable);
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Function Graphing
@@ -1876,7 +1878,7 @@ const sceneList = new MakeShowableInSeries("Scene List");
   };
 
   scene.add(showable);
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Morphing Text
@@ -2047,7 +2049,7 @@ What the hand, dare sieze the fire?`);
       // context.stroke(morphers[0](progress).canvasPath);
     },
   };
-  sceneList.add(scene);
+  sceneList.addFixed1(scene);
 }
 
 // MARK: Dots, Dashes, and the PathSplitter
@@ -2407,7 +2409,7 @@ What the hand, dare sieze the fire?`);
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: φ as a Continued Fraction
@@ -2535,7 +2537,7 @@ What the hand, dare sieze the fire?`);
       },
     });
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: π as a Continued Fraction
@@ -2722,7 +2724,7 @@ What the hand, dare sieze the fire?`);
       },
     });
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Easing Functions
@@ -2942,7 +2944,7 @@ What the hand, dare sieze the fire?`);
     };
     scene.add(showable);
   }
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: Outline Slide Template
@@ -3079,15 +3081,26 @@ What the hand, dare sieze the fire?`);
   };
 
   scene.add(showable);
-  sceneList.add(scene.build());
+  sceneList.addFixed1(scene.build());
 }
 
 // MARK: <img src="...">
 {
+  // This object is created in an older style.
+  // The main showable does not expose any children.
+  // I export very specific schedules from the children.
+  // Newer code would typically use InParallelComponent as a base class.
+  // InParallelComponent.addFixed() prevents the Visual Editor from deleting the children.
+  // But it exposes all properties of the children.
+  // That's a nice combination that works well.
   /**
    * Draw four images.
    */
   const description = '<img src="...">';
+  /**
+   * Information about the title.
+   * We draw it as a rainbow just for fun.
+   */
   const pathShape = ParagraphLayout.singlePathShape({
     text: description,
     font: titleFont,
@@ -3098,6 +3111,12 @@ What the hand, dare sieze the fire?`);
   const path = pathShape.canvasPath;
   const schedules: ScheduleInfo[] = [];
   const components = new Map<string, Showable>();
+  // Notice the three different ways this sample accesses images.
+  // Peano and Fourier can be found in this project's public folder and are available at "./".
+  // My picture can be found with the source files and can be accessed by an import statement.
+  // And the plush Pi Creature can be found on an external web server.
+  // The SingleImageComponent doesn't care; use whichever is most convenient to you.
+  // However, be careful of CORS issues with some external web sites.
   components.set(
     "Peano",
     new SingleImageComponent({ url: "./Giuseppe_Peano.jpg" }),
@@ -3113,21 +3132,31 @@ What the hand, dare sieze the fire?`);
     "Fourier",
     new SingleImageComponent({ url: "./Fourier2_-_restoration1.jpg" }),
   );
+  // Copy the position schedule from each image to the top level object.
   components.forEach((component, name) => {
     const original = only(
       component.schedules!.filter(
         (originalSchedule) => originalSchedule.type == "rectangle",
       ),
     );
+    // Rename the schedules so they don't conflict with each other.
+    // Copy the name of the image component and use that as the name of the schedule.
     const visible: ScheduleInfo = { ...original, description: name };
     schedules.push(visible);
   });
+  /**
+   * Each picture shows up here briefly.
+   */
   const middleRectangle: ReadOnlyRect = {
     x: 4.672377558479532,
     y: 1.473364400584795,
     width: 6.690880847953214,
     height: 6.861111111111109,
   };
+  /**
+   * Each picture spends most of its time here.
+   * It moves into the the {@link middleRectangle} briefly then moves back here.
+   */
   const smallRectangles: readonly ReadOnlyRect[] = [
     { x: 1, y: 1, width: 2.2007492690058483, height: 2.389117324561403 },
     {
@@ -3150,6 +3179,8 @@ What the hand, dare sieze the fire?`);
     },
   ];
   let startTime = DEFAULT_PRE_ROLL_MS;
+  // Create each image's schedule.
+  // Each moves after the next.
   zipper([schedules, smallRectangles]).forEach(
     ([scheduleInfo, smallRectangle]) => {
       if (scheduleInfo.type != "rectangle") {
@@ -3185,8 +3216,18 @@ What the hand, dare sieze the fire?`);
         lengthMs: 27618.77,
       },
     ],
+    getFramePromises(
+      timeInMs: number,
+      set: Pick<Set<Promise<unknown>>, "add">,
+    ): void {
+      components.forEach((image) => {
+        image.getFramePromises?.(timeInMs, set);
+      });
+    },
     show(options) {
+      // Show the images.
       components.forEach((component) => component.show(options));
+      // Show the title.
       const context = options.context;
       const gradient = context.createLinearGradient(
         boundingBox.x.min,
@@ -3204,7 +3245,7 @@ What the hand, dare sieze the fire?`);
       context.stroke(path);
     },
   };
-  sceneList.add(scene);
+  sceneList.addFixed1(scene);
 }
 
 // MARK: Bezier.lineIntersects()
@@ -3435,7 +3476,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.add(scene);
+  sceneList.addFixed1(scene);
 }
 
 // MARK: Cross-Fade
@@ -3739,7 +3780,7 @@ What the hand, dare sieze the fire?`);
       context.stroke(movingPathShape.canvasPath);
     },
   };
-  sceneList.add(scene);
+  sceneList.addFixed1(scene);
 }
 
 // MARK: Rounding Corners
@@ -3951,7 +3992,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.add(scene);
+  sceneList.addFixed1(scene);
 }
 
 // MARK: Pixel Perfect Freaky Dot Patterns
@@ -4060,7 +4101,7 @@ What the hand, dare sieze the fire?`);
       fillRotated(rotLayer2, osc2(globalTime), "rgba(255,255,255,0.20)");
     },
   };
-  //sceneList.add(freakyDots);
+  //sceneList.addFixed1(freakyDots);
 }
 
 // MARK: Rainbow Color Spacing
@@ -4200,7 +4241,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.add(rainbowSpacing);
+  sceneList.addFixed1(rainbowSpacing);
 }
 
 // MARK: Color Pair Readability
@@ -4410,7 +4451,7 @@ What the hand, dare sieze the fire?`);
       }
     },
   };
-  sceneList.add(colorPairReadability);
+  sceneList.addFixed1(colorPairReadability);
 }
 
 // MARK: Rule 30
@@ -4675,11 +4716,9 @@ What the hand, dare sieze the fire?`);
       super.show(options);
     }
   }
-  sceneList.add(new Rule30Slide());
+  sceneList.addFixed1(new Rule30Slide());
 }
 
-const mainBuilder = new MakeShowableInParallel("Showcase");
-mainBuilder.add(blackBackground);
-mainBuilder.add(sceneList.build());
-
-export const showcase = mainBuilder.build();
+export const showcase = new InParallelComponent("Showcase");
+showcase.addFixed1(blackBackground);
+showcase.addFixed1(sceneList);

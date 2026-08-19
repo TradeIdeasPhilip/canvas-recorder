@@ -130,6 +130,20 @@ type ShowChildInfo = {
  * That version assumed that the contents and durations were fixed.
  */
 export class InParallelComponent implements Showable, ShowableParent {
+  getFramePromises(
+    timeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ): void {
+    // This function should mirror the show() & showChild() methods for each class.
+    // That logic got broken into two pieces to help with subclassing.
+    // That makes it a little annoying to copy that code.
+    // show() is responsible for iterating over the the list of children and adjusting for the start time of each child.
+    // (Don't forget to adjust the start time!)
+    // showChild() can adjust or skip the request based on details of each child.
+    this.children.forEach(({ child, start }) => {
+      child.getFramePromises?.(timeInMs - start, set);
+    });
+  }
   protected makeNotifyingScalar<T extends "string" | "number">(
     type: T,
     description: string,
@@ -320,6 +334,13 @@ export class InParallelComponent implements Showable, ShowableParent {
     this.#setParent(child);
     this.#fixedChildren.push({ child, zIndex });
     this.scheduleHasChanged();
+  }
+  /**
+   * This is a simple wrapper around {@link addFixed}.
+   * @param child To add.
+   */
+  addFixed1(child: Showable) {
+    this.addFixed({ child });
   }
   #setParent(child: Showable) {
     if (child.parent) {
@@ -639,6 +660,44 @@ export class PaddingComponent extends InParallelComponent {
     }
     info.child.show({ ...info.options, timeInMs });
   }
+  override getFramePromises(
+    timeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ): void {
+    // Copy exactly what show() and showChild() do.
+    // Ignore the same children.
+    // When passing the request onto a child, use the same timestamp as show() and showChild().
+    this.children.forEach((info, index) => {
+      if (info.child.getFramePromises) {
+        const primary = index == 0;
+        let childTime = timeInMs - info.start;
+        if (childTime < 0) {
+          const before = primary ? this.showBeforeScalar.value : "live";
+          switch (before) {
+            case "hide": {
+              return;
+            }
+            case "freeze": {
+              childTime = 0;
+            }
+            // case "live": leave it alone.  Let the child deal with the out of bounds time.
+          }
+        } else if (childTime > info.child.duration) {
+          const after = primary ? this.showAfterScalar.value : "live";
+          switch (after) {
+            case "hide": {
+              return;
+            }
+            case "freeze": {
+              childTime = info.child.duration;
+            }
+            // case "live": leave it alone.  Let the child deal with the out of bounds time.
+          }
+        }
+        info.child.getFramePromises(childTime, set);
+      }
+    });
+  }
 }
 
 // MARK: In Series
@@ -691,6 +750,77 @@ export class InSeriesComponent extends InParallelComponent {
     });
     return start;
   }
+  #allowExtendedTimes(child: Showable) {
+    // The padding component is specifically designed to handle times before 0 and after duration.
+    // It will blank and/or hold its primary child, so that is only shown at times between 0 and duration.
+    // And the other children are expecting extending times, so callouts do not have to be limited to their immediate parent's allotted time.
+    // So the result is clearly true for any child of type PaddingComponent.
+    // Maybe it should be true in other cases, too, but I can't picture those cases.
+    // Default to false because it's safer; most Showable objects do not expect to be called at extended times.
+    return child instanceof PaddingComponent;
+  }
+  override getFramePromises(
+    incomingTimeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ): void {
+    this.children.forEach(({ start, child }, index, children) => {
+      const isLastChild = () => {
+        return index == children.length - 1;
+      };
+      const timeInMs = incomingTimeInMs - start;
+      const duration = child.duration;
+      if (
+        this.#allowExtendedTimes(child) ||
+        (timeInMs >= 0 &&
+          (timeInMs < duration || (timeInMs == duration && isLastChild())))
+      ) {
+        if (InSeriesComponent.TRANSITION in child) {
+          // Do a transition.
+          // Simplifying assumption:
+          //   The transition will actually use any and all of the children we give it.
+          //   We know that's not true.
+          //   HoldPreviousTransition and HoldNextTransition each ignore one of the inputs.
+          //   So we assume that it's safe to call getFramePromises() on extra children when we are unsure.
+          //   That's not 100% guaranteed.
+          //   Maybe part of the code is broken or incomplete.
+          //   We have a false reference to code that will fail, so the recording will stop.
+          //   Those cases are possible, but they are not a concern at the moment.
+          //   Maybe I'll return to this when the design settles down, but for now I'm declaring this *good enough*.
+          // Assumption:
+          //   The child will choose the last frame of `before` and the first frame of `after`.
+          //   This has always been the assumption.
+          //   But the implementation of that is left to the children, so they could do something different.
+          //   I'm not 100% happy with my decision to let the children make that choice, but I don't have any better alternatives.
+          //   This code is inheriting the assumption that the children will work the normal way.
+          //   Again, this could be done more thoroughly, but I'm declaring this assumption "good enough".
+          const children = this.children;
+          let before: Showable | undefined;
+          if (index > 0) {
+            before = children[index - 1].child;
+            if (InSeriesComponent.TRANSITION in before) {
+              // Avoid an infinite recursion.
+              // Assume this is a temporary issue as the user is rearranging things, and don't crash.
+              before = undefined;
+            }
+          }
+          let after = children.at(index + 1)?.child;
+          if (after && InSeriesComponent.TRANSITION in after) {
+            // Avoid an infinite recursion.
+            after = undefined;
+          }
+          // Call getFramePromises on the *special* children.
+          // This is what the actual child would have called show() on.
+          if (before?.getFramePromises) {
+            before.getFramePromises(before.duration, set);
+          }
+          after?.getFramePromises?.(0, set);
+        } else {
+          // A "normal" child.
+          child.getFramePromises?.(timeInMs, set);
+        }
+      }
+    });
+  }
   protected override showChild(info: ShowChildInfo): void {
     /**
      * I haven't decided on a policy for this yet.
@@ -698,15 +828,6 @@ export class InSeriesComponent extends InParallelComponent {
      * @returns `true` if we should always show this child,
      * `false` if we should only show this child during its allotted time.
      */
-    function allowExtendedTimes() {
-      // The padding component is specifically designed to handle times before 0 and after duration.
-      // It will blank and/or hold its primary child, so that is only shown at times between 0 and duration.
-      // And the other children are expecting extending times, so callouts do not have to be limited to their immediate parent's allotted time.
-      // So the result is clearly true for any child of type PaddingComponent.
-      // Maybe it should be true in other cases, too, but I can't picture those cases.
-      // Default to false because it's safer; most Showable objects do not expect to be called at extended times.
-      return info.child instanceof PaddingComponent;
-    }
     /**
      * Time is allocated exactly the same way as in {@link MakeShowableInSeries}:
      * * Most children are drawn at time >= 0 and < duration.
@@ -730,7 +851,7 @@ export class InSeriesComponent extends InParallelComponent {
     const timeInMs = info.options.timeInMs;
     const duration = info.child.duration;
     if (
-      allowExtendedTimes() ||
+      this.#allowExtendedTimes(info.child) ||
       (timeInMs >= 0 &&
         (timeInMs < duration || (timeInMs == duration && isLastChild())))
     ) {
@@ -779,11 +900,11 @@ export type Transition = {
    * This will be undefined if the Transition is followed immediately by a another Transition.
    * Typically undefined will be treated like a showable that does nothing.
    */
-  [InSeriesComponent.TRANSITION](
+  [InSeriesComponent.TRANSITION]: (
     options: ShowOptions,
     before: Showable | undefined,
     after: Showable | undefined,
-  ): void;
+  ) => void;
 };
 
 // MARK: Slide Left
@@ -814,7 +935,7 @@ export class SlideLeftTransition
   [InSeriesComponent.TRANSITION](
     options: ShowOptions,
     before: Showable | undefined,
-    after: Showable,
+    after: Showable | undefined,
   ): void {
     const progress = options.timeInMs / this.duration;
     const context = options.context;
@@ -2247,8 +2368,8 @@ export class ArrowComponent extends DurationAgnosticComponent {
 /**
  * Standard registry component: draws a single image loaded from a URL.
  *
- * While the image is loading (or if the URL is empty), the destination
- * rectangle is left blank.  If the URL is non-empty but the load fails,
+ * If the URL is empty, the destination rectangle is left blank.
+ * While the image is loading of if the URL is non-empty but the load fails,
  * {@link SlowImage.showError} draws a red ✕ so the problem is obvious.
  *
  * The URL schedule is discrete — changing it mid-animation triggers a fresh
@@ -2279,23 +2400,32 @@ export class SingleImageComponent implements Showable {
     if (initialValues.destRect !== undefined)
       this.destRectSchedule.set(initialValues.destRect);
   }
-  show({ context, timeInMs }: ShowOptions) {
+  #getImage(timeInMs: number) {
     const url = this.urlSchedule.at(timeInMs);
-    const dest = this.destRectSchedule.at(timeInMs);
-
     if (url !== this.#trackedUrl) {
       this.#trackedUrl = url;
       this.#image = url ? new SingleImage(url) : null;
     }
+    return this.#image;
+  }
+  getFramePromises(timeInMs: number, set: Pick<Set<Promise<unknown>>, "add">) {
+    const image = this.#getImage(timeInMs);
+    if (image) {
+      set.add(image.getPromise());
+    }
+  }
+  show({ context, timeInMs }: ShowOptions) {
+    const image = this.#getImage(timeInMs);
+    const dest = this.destRectSchedule.at(timeInMs);
 
-    if (!this.#image) return;
-    if (!this.#image.somethingIsAvailable) {
+    if (!image) return;
+    if (!image.somethingIsAvailable) {
       SlowImage.showError(context, dest.x, dest.y, dest.width, dest.height);
       return;
     }
 
     // Fit the image inside dest, preserving aspect ratio (centered).
-    const imgAspect = this.#image.naturalWidth / this.#image.naturalHeight;
+    const imgAspect = image.naturalWidth / image.naturalHeight;
     const destAspect = dest.width / dest.height;
     let drawW: number, drawH: number;
     if (imgAspect > destAspect) {
@@ -2308,7 +2438,7 @@ export class SingleImageComponent implements Showable {
     const drawX = dest.x + (dest.width - drawW) / 2;
     const drawY = dest.y + (dest.height - drawH) / 2;
     context.drawImage(
-      this.#image.data as CanvasImageSource,
+      image.data as CanvasImageSource,
       drawX,
       drawY,
       drawW,

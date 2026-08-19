@@ -343,6 +343,34 @@ export type Showable = {
    * pipeline can round-trip it correctly.
    */
   registryKey?: string;
+
+  /**
+   * Tell the object to get ready to display a specific frame.
+   * Some operations will require an `await` before we have the data to display a frame.
+   *
+   * It would be tempting to make show() an `async` function.
+   * One problem with that is that we often call show() in the animation frame callback, so we can't `await`.
+   * We only call `getFramePromises` when we are recording, not when we are running in realtime mode.
+   * The show() routine might have to display an indication of an error in realtime when the recording would pause and wait for the data.
+   * See TraditionalTextComponent for an example.
+   *
+   * Also, calling this function on the entire tree before the first call to show() means that we can wait on multiple things in parallel.
+   *
+   * If there is a problem we expect a promise to reject.
+   * We can display a red X or similar in realtime.
+   * But if we get a failure when recording, maybe a font is not available because the network is down, that's a fatal error.
+   * The error message should be good enough to show an end user.
+   *
+   * This should automatically pass the request on to all of its children.
+   * Consider starting from a base class which handles that for you.
+   * @param timeInMs The time we will be sending to the next show().
+   * @param set A set of promises.  Add any new promises to this set.
+   */
+  getFramePromises?: (
+    timeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ) => void;
+
   /**
    * Draw this object to the canvas.
    *

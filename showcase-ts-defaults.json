@@ -1,11 +1,13 @@
 {
   "showcase|Showcase": {
+    "components": [],
     "fixedComponents": [
       {
         "description": "background"
       },
       {
         "description": "Scene List",
+        "components": [],
         "fixedComponents": [
           {
             "description": "Simple Text & Layout",
