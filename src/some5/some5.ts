@@ -348,6 +348,12 @@ function addToBoth(toAdd: Showable) {
   forTimeline.push(toAdd);
 }
 
+// MARK: Spacer
+{
+  const slide = new ComponentWithLiveDuration("Spacer",10_000);
+  slideList.addFixed({child:slide});
+}
+
 // MARK: Slide 1
 {
   /**

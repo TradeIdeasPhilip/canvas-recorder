@@ -56,7 +56,7 @@ showableOptions.add([
         return (await import("../src/peano-arithmetic.ts")).peanoArithmetic;
       },
       description:
-        "Make take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8",
+        "My take on Peano arithmetic, as seen here:  https://youtu.be/4_Wiwai-gO8",
     },
   ],
   [

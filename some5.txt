@@ -1,0 +1,85 @@
+Generated: Wed Aug 19 2026 17:46:26 GMT-0700 (Pacific Daylight Time)
+SoME5 » shadow
+→ SoME5
+→ → Spacer
+  const title = new TextComponent();
+  title.colorSchedule.set("rgb(255, 0, 255)");
+  title.rectSchedule.set({"x":0,"y":0,"width":16,"height":4});
+  title.textSchedule.set("Spacer");
+  title.sizeSchedule.set(0.7);
+  title.alignmentSchedule.set("center");
+  title.userEditableDescription = "Title";
+  this.addFixed({ child: title, description: "Title" });
+  const body = new TextComponent();
+  body.colorSchedule.set("rgb(128, 0, 255)");
+  body.rectSchedule.set([{"time":0,"value":{"x":0.75,"y":5,"width":12.1,"height":4}},{"time":9999.9,"value":{"x":3.214258982035928,"y":2.1085329341317367,"width":12.1,"height":4}}]);
+  body.textSchedule.set("I don’t want the next screen to appear in the preview.  I want the cache to be clean until I hit “record.”");
+  body.sizeSchedule.set(0.5);
+  body.userEditableDescription = "Body";
+  this.addFixed({ child: body, description: "Body" });
+→ → Slide 1
+  const slide = new SlideComponent();
+  slide.placeA.set([{"time":0,"value":3.5,"easeAfter":"ease"},{"time":5000,"value":7.7,"easeAfter":"ease"},{"time":10000,"value":3.5}]);
+  slide.placeB.set([{"time":0,"value":0,"easeAfter":"easeOut"},{"time":2500,"value":2,"easeAfter":"ease"},{"time":7500,"value":-2,"easeAfter":"easeIn"},{"time":10000,"value":0,"easeAfter":"easeIn"}]);
+  slide.transformTemplate.value = "translate(𝓑px, 𝓐px)";
+  this.addFixed({ child: slide, description: "Slide" });
+  const slide = new SlideComponent();
+  slide.placeA.set([{"time":0,"value":1,"easeAfter":"ease"},{"time":1000,"value":-1,"easeAfter":"ease"},{"time":2500,"value":-1,"easeAfter":"ease"},{"time":3500,"value":1}]);
+  slide.transformTemplate.value = "translate(13.5px,1px) scale(𝓐, 1)";
+  this.addFixed({ child: slide, description: "Slide" });
+  const slide = new SlideComponent();
+  slide.placeA.set([{"time":0,"value":1},{"time":1000,"value":1,"easeAfter":"easeIn"},{"time":1500,"value":2.5},{"time":3200,"value":2.5},{"time":3700,"value":1}]);
+  slide.placeB.set([{"time":0,"value":0},{"time":1600,"value":0},{"time":3100,"value":360}]);
+  slide.transformTemplate.value = "translateY(-0.225px) translate(2px, 𝓐px) rotate(𝓑deg) translateY(0.225px)";
+  this.addFixed({ child: slide, description: "Slide" });
+  const slide = new SlideComponent();
+  slide.placeA.set([{"time":0,"value":1},{"time":4000,"value":1},{"time":5000,"value":1.5},{"time":6000,"value":1.5},{"time":7000,"value":1}]);
+  slide.placeB.set([{"time":0,"value":1},{"time":6000,"value":1},{"time":7000,"value":3},{"time":8000,"value":3},{"time":9000,"value":1}]);
+  slide.transformTemplate.value = "translate(15.5px, 8.5px) scale(𝓐, 𝓑)";
+  this.addFixed({ child: slide, description: "Slide" });
+  const slide = new SlideComponent();
+  slide.placeA.set([{"time":0,"value":0},{"time":4750,"value":0,"easeAfter":"ease"},{"time":5250,"value":-30,"easeAfter":"ease"},{"time":5750,"value":0,"easeAfter":"ease"},{"time":6250,"value":-30,"easeAfter":"ease"},{"time":6750,"value":0,"easeAfter":"ease"},{"time":7250,"value":-30,"easeAfter":"ease"},{"time":7750,"value":0}]);
+  slide.transformTemplate.value = "translateY(8.5px) skewX(𝓐deg)";
+  this.addFixed({ child: slide, description: "Slide" });
+→ → Try New Items
+  const inSeries = new InSeriesComponent();
+  this.addFixed({ child: inSeries, description: "In Series" });
+  const padding = new PaddingComponent();
+  this.addFixed({ child: padding, description: "Padding" });
+  const paddingMST = new PaddingComponent();
+  paddingMST.initialTimeScalar.value = 6172.8185642556655;
+  paddingMST.showAfterScalar.value = "hide";
+  paddingMST.userEditableDescription = "Padding MST";
+  this.addFixed({ child: paddingMST, description: "Padding MST" });
+  const frameCounter = new FrameCounter();
+  frameCounter.minDurationScalar.value = 2906.3467492260065;
+  this.addFixed({ child: frameCounter, description: "Frame Counter" });
+  const forArrow = new PaddingComponent();
+  forArrow.initialTimeScalar.value = 1713.4983786894497;
+  forArrow.showAfterScalar.value = "hide";
+  forArrow.userEditableDescription = "for arrow";
+  this.addFixed({ child: forArrow, description: "for arrow" });
+→ → → dos wrapper
+→ → → → Initial Time
+TypeScript: 6000
+Current:    6756.344144388655
+→ → → → Text
+→ → → → → Min Duration
+TypeScript: 3000
+Current:    3028.3959831727498
+→ → → 3 wrapper
+→ → → → Initial Time
+TypeScript: 9000
+Current:    10781.884527102584
+→ → → frameCounter wrapper
+→ → → → Initial Time
+TypeScript: 3000
+Current:    5261.014398123043
+→ → → → Frame Counter
+→ → → → → Min Duration
+TypeScript: 0
+Current:    1271.7580269007058
+→ → Main Timeline
+→ → → Sound Clips
+TypeScript: [{"notes":"Let’s watch some matrices in their natural habitat.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":1000,"startMsIntoClip":2152.48,"lengthMs":3332.88,"id":"5f029839-daa3-422c-a4b6-f4abbc5ce415"},{"notes":"These examples ... matrix multiplication.","source":"./Some 5 part 1.m4a","startMsIntoScene":5332.88,"startMsIntoClip":6100.35,"lengthMs":9497.02,"id":"44d9685c-ce77-4400-a980-5c37985b81e1"},{"notes":"This is an explainer... an easy one.","source":"./Some 5 part 1.m4a","startMsIntoScene":15829.900000000001,"startMsIntoClip":18100.33,"lengthMs":3146.46,"id":"aca65263-9049-436d-858f-8b80d45d0059"},{"notes":"The good news: the computer will help you create the matrices.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":19976.36,"startMsIntoClip":21659.03,"lengthMs":3964.26,"id":"ec534bc6-266b-4ad4-ad7b-a0852aeae487"},{"notes":"And the computer will multiply the matrices for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":24940.620000000003,"startMsIntoClip":26308.06,"lengthMs":2798.21,"id":"d834e50d-6246-4fb5-a60e-c121aecb4434"},{"notes":"All you have to do is put them in the right order.","source":"./Some 5 part 1.m4a","startMsIntoScene":28738.83,"startMsIntoClip":29656.19,"lengthMs":2488.9,"id":"4f8e0bfc-177b-4ad2-8c92-9921027356b8"},{"notes":"Am I the only one who gets these things backwards","source":"./Some 5 part 1.m4a","startMsIntoScene":32227.730000000003,"startMsIntoClip":33409.17,"lengthMs":2792.56,"id":"02a3f437-e44f-457d-81ea-b33b2bd7bba2"},{"notes":"There are only two possibilities. ... wrong every time?","source":"./Some 5 part 1.m4a","startMsIntoScene":36020.29,"startMsIntoClip":37355.25,"lengthMs":4913.68,"id":"c439cf21-dd6e-45cc-b5ab-78374791328b"},{"notes":"How I stopped guessing ... what's really going on.","source":"./Some 5 part 1.m4a","startMsIntoScene":41933.97,"startMsIntoClip":43156.5,"lengthMs":3852.06,"id":"81f095a5-ad07-4cb8-b656-ce1688a97e6d"},{"notes":"Affine transform overview","source":"./Some 5 part 1.m4a","startMsIntoScene":46786.03,"startMsIntoClip":52174.38,"lengthMs":19280.38,"id":"3570943a-62c9-4411-8c1f-a04383e9faca"},{"notes":"Point = column vector = matrix.","source":"./Some 5 part 1.m4a","startMsIntoScene":67066.41,"startMsIntoClip":72176.1,"lengthMs":6636.04,"id":"78c36867-23da-42de-9df7-b516bf43c06e"},{"notes":"Shapes are just a collection of points.","source":"./Some 5 part 1.m4a","startMsIntoScene":74702.45,"startMsIntoClip":79339.19,"lengthMs":3877.48,"id":"4cf590c2-be5c-45af-9cb6-5bc817ae12c6"},{"notes":"Top left corner of square","source":"./Some 5 part 1.m4a","startMsIntoScene":79579.93,"startMsIntoClip":83676.98,"lengthMs":5009.33,"id":"63e6d90d-7b4c-4a8f-9698-3fb23c5502eb"},{"notes":"Each operation is a square matrix ... computer creates it for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":85589.26,"startMsIntoClip":89969.63,"lengthMs":12498.48,"id":"41c6b37d-ebe8-42bd-9177-c0d122e66370"},{"notes":"Apply transform to point ... each point in image.","source":"./Some 5 part 1.m4a","startMsIntoScene":99087.73999999999,"startMsIntoClip":106089.79,"lengthMs":11654.98,"id":"20c71d60-b4a7-436f-b500-91b8cded3599"},{"notes":"More details... affine matrices are bigger.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":111742.71999999999,"startMsIntoClip":119657.4,"lengthMs":10484.96,"id":"a2dff217-eb45-4da4-bd1d-ddda708cc50f"},{"notes":"And sometimes people don't bother to list out all the terms.","source":"./Some 5 part 1.m4a","startMsIntoScene":123227.68,"startMsIntoClip":130630.46,"lengthMs":3829.13,"id":"8f1beeb6-1af7-43e2-b353-ad7c223f4e41"},{"notes":"Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":128056.81,"startMsIntoClip":135655.83,"lengthMs":17360.6,"id":"41c4c647-36ee-46c7-86ae-d012b94ed1ea"}]
+Current:    [{"notes":"Let’s watch some matrices in their natural habitat.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":1000,"startMsIntoClip":2152.48,"lengthMs":3332.88,"id":"b039625a-b4e0-491c-a3c4-910395fdedb0"},{"notes":"These examples ... matrix multiplication.","source":"./Some 5 part 1.m4a","startMsIntoScene":5332.88,"startMsIntoClip":6100.35,"lengthMs":9497.02,"id":"03770ff4-7b16-4c5a-8450-c1825ed26c0e"},{"notes":"This is an explainer... an easy one.","source":"./Some 5 part 1.m4a","startMsIntoScene":15829.900000000001,"startMsIntoClip":18100.33,"lengthMs":3146.46,"id":"1c8036a2-c085-420c-927d-9a2de0ba99e1"},{"notes":"The good news: the computer will help you create the matrices.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":19976.36,"startMsIntoClip":21659.03,"lengthMs":3964.26,"id":"f769bcd3-3da7-40c0-a67c-0676cf5b91a3"},{"notes":"And the computer will multiply the matrices for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":24940.620000000003,"startMsIntoClip":26308.06,"lengthMs":2798.21,"id":"6cd8c654-9427-49a9-9c3d-0a0867d5b69b"},{"notes":"All you have to do is put them in the right order.","source":"./Some 5 part 1.m4a","startMsIntoScene":28738.83,"startMsIntoClip":29656.19,"lengthMs":2488.9,"id":"741cb393-5024-438f-a675-6caf7df6cbdd"},{"notes":"Am I the only one who gets these things backwards","source":"./Some 5 part 1.m4a","startMsIntoScene":32227.730000000003,"startMsIntoClip":33409.17,"lengthMs":2792.56,"id":"659590d0-c6cc-40a9-a6ef-01e57b3ebeae"},{"notes":"There are only two possibilities. ... wrong every time?","source":"./Some 5 part 1.m4a","startMsIntoScene":36020.29,"startMsIntoClip":37355.25,"lengthMs":4913.68,"id":"607809ed-07ee-4e16-85d4-311daabad1c9"},{"notes":"How I stopped guessing ... what's really going on.","source":"./Some 5 part 1.m4a","startMsIntoScene":41933.97,"startMsIntoClip":43156.5,"lengthMs":3852.06,"id":"5b95db57-57ef-42d8-a09b-7a8bc2e7f363"},{"notes":"Affine transform overview","source":"./Some 5 part 1.m4a","startMsIntoScene":46786.03,"startMsIntoClip":52174.38,"lengthMs":19280.38,"id":"8b71f485-27ae-4d91-8a44-660ce522b09a"},{"notes":"Point = column vector = matrix.","source":"./Some 5 part 1.m4a","startMsIntoScene":67066.41,"startMsIntoClip":72176.1,"lengthMs":6636.04,"id":"b1111cc6-dae3-47cd-bcee-564a01855286"},{"notes":"Shapes are just a collection of points.","source":"./Some 5 part 1.m4a","startMsIntoScene":74702.45,"startMsIntoClip":79339.19,"lengthMs":3877.48,"id":"2e2075d6-a6e6-449c-9a2d-8291a8e4d587"},{"notes":"Top left corner of square","source":"./Some 5 part 1.m4a","startMsIntoScene":79579.93,"startMsIntoClip":83676.98,"lengthMs":5009.33,"id":"b201cf2c-7688-4fd6-a3e8-e615b0e9945b"},{"notes":"Each operation is a square matrix ... computer creates it for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":85589.26,"startMsIntoClip":89969.63,"lengthMs":12498.48,"id":"0b6bc22c-2889-4fb3-8760-f759f8f58ce6"},{"notes":"Apply transform to point ... each point in image.","source":"./Some 5 part 1.m4a","startMsIntoScene":99087.73999999999,"startMsIntoClip":106089.79,"lengthMs":11654.98,"id":"8f19ddf2-7064-4319-831d-50b20574733f"},{"notes":"More details... affine matrices are bigger.\n","source":"./Some 5 part 1.m4a","startMsIntoScene":111742.71999999999,"startMsIntoClip":119657.4,"lengthMs":10484.96,"id":"4e290544-dca8-49e9-84bc-021863453fbb"},{"notes":"And sometimes people don't bother to list out all the terms.","source":"./Some 5 part 1.m4a","startMsIntoScene":123227.68,"startMsIntoClip":130630.46,"lengthMs":3829.13,"id":"d995d309-1110-467d-862f-43cced222b0a"},{"notes":"Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.","source":"./Some 5 part 1.m4a","startMsIntoScene":128056.81,"startMsIntoClip":135655.83,"lengthMs":17360.6,"id":"c142e5f7-af40-42d3-80bd-894122f677db"}]

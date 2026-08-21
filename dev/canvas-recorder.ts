@@ -2161,6 +2161,89 @@ function buildDiffText(): string {
     return JSON.stringify(s.value);
   }
 
+  /** Convert a user-visible label into a camelCase JavaScript identifier. */
+  function toVarName(label: string): string {
+    const words = label
+      .replace(/[^a-zA-Z0-9 ]/g, "")
+      .split(" ")
+      .filter(Boolean);
+    return words
+      .map((w, i) => (i === 0 ? w[0].toLowerCase() + w.slice(1) : w[0].toUpperCase() + w.slice(1)))
+      .join("");
+  }
+
+  function formatScheduleAsCode(s: SerializedSchedule): string {
+    return s.keyframes !== undefined ? JSON.stringify(s.keyframes) : JSON.stringify(s.value);
+  }
+
+  /**
+   * Generate TypeScript constructor + .set() lines for a removable component,
+   * omitting any property whose value matches the class default.
+   */
+  function generateComponentCode(comp: Showable, indent: string): string[] {
+    const out: string[] = [];
+    const rk = comp.registryKey ?? "unknown";
+    const regEntry = componentRegistry.get(rk);
+
+    if (!regEntry?.howToGenerate) {
+      out.push(`${indent}// [WARNING: no howToGenerate for "${rk}" — manual conversion needed]`);
+      return out;
+    }
+
+    const cls = regEntry.howToGenerate.class;
+    const className = cls.name;
+    const def = new cls() as Showable;
+
+    // Map schedule/scalar description → property name via reference identity
+    const schedPropMap = new Map<string, string>();
+    for (const sched of def.schedules ?? []) {
+      for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
+        if (v === sched) { schedPropMap.set(sched.description, k); break; }
+      }
+    }
+    const scalarPropMap = new Map<string, string>();
+    for (const scalar of def.scalars ?? []) {
+      for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
+        if (v === scalar) { scalarPropMap.set(scalar.description, k); break; }
+      }
+    }
+
+    const defSchedules = serializeSchedules(def.schedules ?? []);
+    const curSchedules = serializeSchedules(comp.schedules ?? []);
+    const defScalars = serializeScalars(def.scalars ?? []);
+    const curScalars = serializeScalars(comp.scalars ?? []);
+
+    const displayName = comp.userEditableDescription ?? comp.description ?? rk;
+    const varName = toVarName(displayName) || "comp";
+
+    out.push(`${indent}const ${varName} = new ${className}();`);
+
+    for (const curS of curSchedules) {
+      const defS = defSchedules.find((s) => s.description === curS.description);
+      if (JSON.stringify(defS) !== JSON.stringify(curS)) {
+        const prop = schedPropMap.get(curS.description) ?? curS.description.toLowerCase() + "Schedule";
+        out.push(`${indent}${varName}.${prop}.set(${formatScheduleAsCode(curS)});`);
+      }
+    }
+
+    for (const curSc of curScalars) {
+      const defSc = defScalars.find((s) => s.description === curSc.description);
+      if (JSON.stringify(defSc) !== JSON.stringify(curSc)) {
+        const prop = scalarPropMap.get(curSc.description) ?? curSc.description.toLowerCase() + "Scalar";
+        out.push(`${indent}${varName}.${prop}.value = ${JSON.stringify(curSc.value)};`);
+      }
+    }
+
+    if (comp.userEditableDescription !== undefined) {
+      out.push(`${indent}${varName}.userEditableDescription = ${JSON.stringify(comp.userEditableDescription)};`);
+    }
+
+    const addDesc = comp.userEditableDescription ?? comp.description ?? rk;
+    out.push(`${indent}this.addFixed({ child: ${varName}, description: ${JSON.stringify(addDesc)} });`);
+
+    return out;
+  }
+
   function diffNode(
     defaultEntry: DataHistoryEntry | SerializedFixedChild,
     sel: Showable,
@@ -2229,8 +2312,7 @@ function buildDiffText(): string {
     if (currentComponents.length > 0) {
       printPathIfNeeded(path);
       for (const comp of currentComponents) {
-        const key = comp.registryKey ?? comp.description ?? "unknown";
-        lines.push(`  [new removable component: "${key}" — convert to addFixed()]`);
+        lines.push(...generateComponentCode(comp, "  "));
       }
     }
 
