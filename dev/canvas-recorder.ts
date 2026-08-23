@@ -1057,12 +1057,12 @@ getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener(
   },
 );
 
-saveStartSecondsInput.addEventListener("change", () => {
+saveStartSecondsInput.addEventListener("input", () => {
   saveChapterSelect.selectedIndex = -1;
   updateSaveDialogInfo();
 });
 
-saveEndSecondsInput.addEventListener("change", () => {
+saveEndSecondsInput.addEventListener("input", () => {
   saveChapterSelect.selectedIndex = -1;
   updateSaveDialogInfo();
 });

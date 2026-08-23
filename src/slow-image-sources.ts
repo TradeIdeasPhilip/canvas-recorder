@@ -197,15 +197,29 @@ export class ImportedVideo extends SlowImage {
   requestFrame(timeInSeconds: number) {
     // TODO
   }
-  // TODO de we need some way to verify that the correct frame is available?
-  // TODO The plan for realtime is to update the play position from time to time,
-  // like when the user hits pause or play or alters the time in the main control.
-  // Do we need to check for drift?  I don't think so.  I think it's like audio where there's a precise timer built in.
-  // Could we even ask if we are on the exact right frame?
-  // We don't know the underlying frame rate of the video we are reading.
-  // And for realtime playback, the frames will come at arbitrary times anyway.
-  // Mostly I just assume that time is continuous, but I don't trust `==` on floating point numbers!
-  // And doubly so here because that number might get quantized to an integer frame number.
-  // Current plan:  Just try it!
-  // Eventually create a good test input video that lists the precise time and frame number every frame.
+  //     Implementation suggestions:
+
+  // Render-to-file: seek and await a specific frame
+  // There's no frame-number API on <video> — only time, which fits this project's philosophy fine. The core loop:
+
+  // video.currentTime = timeInSeconds;
+  // await new Promise<void>((resolve, reject) => {
+  //   video.addEventListener("seeked", () => resolve(), { once: true });
+  //   video.addEventListener("error", () => reject(video.error), { once: true });
+  // });
+  // // video now holds the frame at timeInSeconds; drawImage(video, ...) is safe.
+  // seeked fires once the browser has actually landed on that time and has a decoded frame ready — that's your getPromise() for ImportedVideo, matching the "reject on failure" contract you already established for SingleImage. A couple of refinements worth having:
+  // 	•	Skip the seek entirely if Math.abs(video.currentTime - timeInSeconds) < epsilon — requestFrame() may get called again before the previous seek's promise settles or with a time you're already sitting on, and reseeking to the same spot is wasted work.
+  // 	•	If you want certainty about which frame actually got presented (not just "a seek finished"), video.requestVideoFrameCallback(callback) gives you { mediaTime, presentedFrames, ... } metadata — more precise than seeked alone, but check your TS lib version has it typed (it's fairly recent; you may need a small ambient declaration, same as the DOMMatrix shim in record/cli-record.ts).
+  // 	•	Set video.crossOrigin = "anonymous" before setting .src, same as SingleImage does for images — otherwise drawImage(video, …) taints the canvas the moment the source isn't same-origin with proper CORS headers.
+  // 	•	somethingIsAvailable maps naturally to video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA (2).
+  // Live: match playback speed, don't fight the clock
+  // Set video.playbackRate to the same multiplier you already track as audioPlaybackRate, mute it (video.muted = true, since your own audio pipeline is the sound source), call .play() once when your timer starts, .pause() when it stops, and hard-set video.currentTime on explicit seeks/scrubs — mirroring exactly what startAudio()/stopAudio()/setPlaybackRate() already do for the AudioBufferSourceNode.
+  // Should you worry about drift? Yes, a little — don't just set the initial time and walk away. Your currentAudioTimeMs() is driven by AudioContext.currentTime, which tracks the audio hardware clock — very stable. <video>'s internal clock is driven by its own decode/render pipeline and is not guaranteed to stay locked to that, especially away from playbackRate = 1.0 or under any system load; over tens of seconds a real (if small) offset is plausible. Given your own tolerance ("off by a frame or two is fine"), you don't need per-frame reseeking — that would actually cause visible stutter, since <video> seeking isn't built to be called every animation frame. Instead, check drift cheaply every rAF tick and only correct when it exceeds a threshold:
+
+  // const expected = currentAudioTimeMs() / 1000; // your timer is authoritative
+  // if (Math.abs(video.currentTime - expected) > 0.05 /* ~3 frames @ 60fps */) {
+  //   video.currentTime = expected;
+  // }
+  // That's the standard "genlock" pattern (used the same way in video conferencing / AV-sync code): let the video element run natively via .play()/.playbackRate most of the time, and snap it back only when it's actually drifted past your tolerance — cheap, and matches what you already said is acceptable.
 }
