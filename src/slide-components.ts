@@ -130,6 +130,7 @@ type ShowChildInfo = {
  * That version assumed that the contents and durations were fixed.
  */
 export class InParallelComponent implements Showable, ShowableParent {
+  userEditableDescription?: string;
   getFramePromises(
     timeInMs: number,
     set: Pick<Set<Promise<unknown>>, "add">,
@@ -731,8 +732,12 @@ export class PaddingComponent extends InParallelComponent {
 export class InSeriesComponent extends InParallelComponent {
   static readonly TRANSITION = Symbol("Transition");
   readonly registryKey = "In Series";
-  constructor(description = "In Series") {
-    super(description);
+  constructor(
+    initialValues: {
+      description?: string;
+    } = {},
+  ) {
+    super(initialValues.description ?? "In Series");
   }
   /**
    * Display the children one after another, sorted by zIndex.
@@ -1339,15 +1344,68 @@ export class SlideComponent extends DurationAgnosticComponent {
 // MARK: Traditional Text
 
 /**
+ * `document.fonts.check()`/`.load()` only know about `FontFace` objects that
+ * have actually been registered from parsed CSS.  If a `@font-face` rule
+ * never loaded at all — e.g. the stylesheet request failed because the
+ * network was down — there is no `FontFace` to be "pending", so `check()`
+ * vacuously reports the font as available.  That's indistinguishable, from
+ * the Font Loading API's point of view, from a family that was always meant
+ * to be a local/system font.  This checks membership directly instead.
+ */
+function isFontFamilyRegistered(fontFamily: string): boolean {
+  const normalized = fontFamily.trim().toLowerCase();
+  for (const face of document.fonts) {
+    if (
+      face.family.replace(/^["']|["']$/g, "").trim().toLowerCase() ===
+      normalized
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * `queryLocalFonts()` enumerates every font installed on the system — slow
+ * enough that it must not run once per frame.  Cache the one query for the
+ * life of the page; the set of installed fonts isn't going to change while
+ * we're recording.
+ */
+let localFontFamilies: Promise<Set<string>> | undefined;
+function getLocalFontFamilies(): Promise<Set<string>> {
+  if (!localFontFamilies) {
+    localFontFamilies = (async () => {
+      const families = new Set<string>();
+      if ("queryLocalFonts" in globalThis) {
+        try {
+          const local = await (
+            globalThis as unknown as {
+              queryLocalFonts: () => Promise<Array<{ family: string }>>;
+            }
+          ).queryLocalFonts();
+          for (const f of local) families.add(f.family.trim().toLowerCase());
+        } catch {
+          // Permission denied or API unavailable — proceed with web fonts only.
+        }
+      }
+      return families;
+    })();
+  }
+  return localFontFamilies;
+}
+
+/**
  * Traditional text component.
  *
  * Uses the canvas's strokeText() and fillText().
  * Does **not** use the custom strokable fonts, like {@link TextComponent}.
  * Uses CSS fonts, including downloaded or built in fonts.
  *
- * TODO: https://developer.mozilla.org/en-US/docs/Web/API/Document/fonts offers ways to ensure that the font has loaded.
- * We should add methods to this class for awaiting and possibly failing.
- * Like we started and discussed in {@link SlowImage}.
+ * {@link getFramePromises} awaits `document.fonts.load()`/`.check()` so recording
+ * fails fatally rather than silently baking in a fallback font, following the
+ * pattern started in {@link SlowImage}.  Live preview is unchanged: it relies on
+ * the existing self-healing behavior of `fillText()`/`strokeText()`, which
+ * triggers the same load in the background and looks right within a frame or two.
  *
  * TODO??:   direction?? Seems worthless.
  * The best I can tell it is used to manually say whether context.textAlign="start"
@@ -1546,6 +1604,68 @@ export class TraditionalTextComponent extends DurationAgnosticComponent {
     if (initialValues.textBaseline !== undefined)
       this.textBaselineSchedule.set(initialValues.textBaseline);
   }
+  /**
+   * CSS font shorthand: [style] [weight] [size] [family].
+   * Shared by {@link show} and {@link getFramePromises} so they can never disagree
+   * about which font a given frame needs.
+   */
+  #fontStringAt(timeInMs: number): string {
+    const fontSize = this.fontSizeSchedule.at(timeInMs);
+    const fontStyle = this.fontStyleSchedule.at(timeInMs);
+    const fontWeight = this.fontWeightSchedule.at(timeInMs);
+    const fontFamily = this.fontFamilySchedule.at(timeInMs);
+    return `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+  }
+  override getFramePromises(
+    timeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ): void {
+    super.getFramePromises(timeInMs, set);
+    // `document` is unavailable in Node.js (record/cli-record.ts) — nothing
+    // async to wait for there.
+    if (typeof document === "undefined") {
+      return;
+    }
+    const text = this.textSchedule.at(timeInMs);
+    const fontFamily = this.fontFamilySchedule.at(timeInMs);
+    const fontString = this.#fontStringAt(timeInMs);
+    set.add(
+      (async () => {
+        // document.fonts.load() does not reliably reject just because the
+        // requested family was never registered anywhere — it can resolve
+        // having loaded nothing.  The checks below verify explicitly so a
+        // bad/missing font is still fatal when recording.
+        await document.fonts.load(fontString, text);
+        if (isFontFamilyRegistered(fontFamily)) {
+          // A real @font-face rule exists for this family — check whether
+          // the exact weight/style/subset this frame needs is ready.
+          // Passing `text` (rather than the default, a single space)
+          // matters here: web fonts are often served as one file per
+          // Unicode-range subset, so a family can be "loaded" for Latin
+          // text while the subset this specific text needs is not.
+          if (!document.fonts.check(fontString, text)) {
+            throw new Error(
+              `Font not available: "${fontString}" (needed for "${text}")`,
+            );
+          }
+          return;
+        }
+        // No @font-face rule was ever registered for this family — either
+        // its CSS failed to load (e.g. no network), or it was always meant
+        // to be a local/system font.  document.fonts.check() can't tell
+        // these two cases apart (it reports "available" either way), so
+        // fall back to checking installed fonts directly.
+        const localFamilies = await getLocalFontFamilies();
+        if (!localFamilies.has(fontFamily.trim().toLowerCase())) {
+          throw new Error(
+            `Font family "${fontFamily}" was not found.  Its @font-face ` +
+              `CSS may have failed to load (check your network connection), ` +
+              `or it isn't installed on this system.`,
+          );
+        }
+      })(),
+    );
+  }
   override show(options: ShowOptions) {
     super.show(options);
     const { context, timeInMs } = options;
@@ -1553,12 +1673,8 @@ export class TraditionalTextComponent extends DurationAgnosticComponent {
     const position = this.positionSchedule.at(timeInMs);
     const fillColor = this.fillColorSchedule.at(timeInMs);
     const outlineWidth = this.outlineWidthSchedule.at(timeInMs);
-    const fontSize = this.fontSizeSchedule.at(timeInMs);
-    const fontStyle = this.fontStyleSchedule.at(timeInMs);
-    const fontWeight = this.fontWeightSchedule.at(timeInMs);
     const fontFamily = this.fontFamilySchedule.at(timeInMs);
-    // CSS font shorthand: [style] [weight] [size] [family]
-    const fontString = `${fontStyle} ${fontWeight} ${fontSize}px ${fontFamily}`;
+    const fontString = this.#fontStringAt(timeInMs);
     context.font = fontString;
     context.textAlign = this.textAlignSchedule.at(timeInMs);
     context.textBaseline = this.textBaselineSchedule.at(timeInMs);
@@ -2025,63 +2141,6 @@ export class TextFormatComponent implements Showable {
   }
 }
 
-/**
- * Resolves when every family in `familyNames` is confirmed available — either
- * as a loaded web font in `document.fonts` or as a local system font from
- * `queryLocalFonts()`.
- *
- * Rejects with a user-readable message listing any missing families.
- *
- * Intended for the recording pipeline: await this before encoding a frame so
- * that text is never rendered with a silent fallback font.
- *
- * In a Node.js / CLI context (where `document` is absent) the promise
- * resolves immediately without checking anything.
- *
- * If `queryLocalFonts()` is unavailable or the user denies permission, the
- * check falls back to web fonts only — local fonts are simply not verified.
- */
-export async function fontsAreAvailable(
-  familyNames: readonly string[],
-): Promise<void> {
-  if (typeof document === "undefined") return;
-
-  await document.fonts.ready;
-
-  const known = new Set<string>();
-  for (const face of document.fonts) {
-    known.add(
-      face.family
-        .replace(/^["']|["']$/g, "")
-        .trim()
-        .toLowerCase(),
-    );
-  }
-
-  if ("queryLocalFonts" in globalThis) {
-    try {
-      const local = await (
-        globalThis as unknown as {
-          queryLocalFonts: () => Promise<Array<{ family: string }>>;
-        }
-      ).queryLocalFonts();
-      for (const f of local) known.add(f.family.trim().toLowerCase());
-    } catch {
-      // Permission denied or API unavailable — proceed with web fonts only.
-    }
-  }
-
-  const missing = familyNames.filter(
-    (name) => !known.has(name.trim().toLowerCase()),
-  );
-  if (missing.length > 0) {
-    const list = missing.map((n) => `"${n}"`).join(", ");
-    throw new Error(
-      `Font${missing.length === 1 ? "" : "s"} not found: ${list}`,
-    );
-  }
-}
-
 // MARK: Simple Text
 
 export class TextComponent extends DurationAgnosticComponent {
@@ -2106,6 +2165,7 @@ export class TextComponent extends DurationAgnosticComponent {
   override readonly replaceableComponents = undefined;
   constructor(
     initialValues: {
+      description?: string;
       minDuration?: number;
       color?: string | readonly Keyframe<string>[];
       rect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
@@ -2123,7 +2183,7 @@ export class TextComponent extends DurationAgnosticComponent {
       >[0];
     } = {},
   ) {
-    super("Text");
+    super(initialValues.description ?? "Text");
     if (initialValues.minDuration !== undefined) {
       this.minDurationScalar.value = initialValues.minDuration;
     }
@@ -2235,14 +2295,16 @@ export class RectangleComponent implements Showable {
     height: 4,
   });
   readonly schedules = [this.colorSchedule, this.rectSchedule] as const;
-  readonly description = "Rectangle";
+  readonly description: string;
   readonly duration = 0;
   constructor(
     initialValues: {
+      description?: string;
       color?: string | readonly Keyframe<string>[];
       rect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
     } = {},
   ) {
+    this.description = initialValues.description ?? "Rectangle";
     if (initialValues.color !== undefined)
       this.colorSchedule.set(initialValues.color);
     if (initialValues.rect !== undefined)
@@ -2997,6 +3059,36 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
     },
   ],
 ]);
+
+if (false) {
+  //test
+  // This is a work in progress.
+  // I want to make the inputs to the constructors of the components more similar,
+  // for the sake of the code generator in the "Save Diffs" button.
+  // In particular, Showable.description is read only and must be set in the constructor.
+  // This won't be difficult, but I'm still considering some design decision.
+  new PaddingComponent({ description: "test" });
+  new FrameCounter({ description: "test" });
+  new InSeriesComponent({ description: "test" });
+  new SlideLeftTransition({ description: "test" });
+  new CrossFadeTransition({ description: "test" });
+  new HoldPreviousTransition({ description: "test" });
+  new HoldNextTransition({ description: "test" });
+  new SlideComponent({ description: "test" });
+  new TextComponent({ description: "test" });
+  new TraditionalTextComponent({ description: "test" });
+  new RectangleComponent({ description: "test" });
+  new ArrowComponent({ description: "test" });
+  // @ts-expect-error: TODO make this work.
+  new FunctionGraphComponent({ description: "test" });
+  // @ts-expect-error: TODO make this work.
+  new SingleImageComponent({ description: "test" });
+  new MultiTextComponent({ description: "test" });
+  // @ts-expect-error: TODO make this work.
+  new TextSpanComponent({ description: "test" });
+  new TextFormatComponent({ description: "test" });
+  new HalftoneShadowComponent({ description: "test" });
+}
 
 // MARK: Serialize
 

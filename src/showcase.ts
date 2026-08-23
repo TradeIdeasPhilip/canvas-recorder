@@ -129,7 +129,7 @@ const DEFAULT_PRE_ROLL_MS = 1_500;
  */
 const DEFAULT_POST_ROLL_MS = 2_000;
 
-const sceneList = new InSeriesComponent("Scene List");
+const sceneList = new InSeriesComponent({ description: "Scene List" });
 // MARK: Simple Text & Layout
 {
   const scene = new MakeShowableInParallel("Simple Text & Layout");

@@ -1,13 +1,6 @@
 import { assertFinite } from "phil-lib/misc";
 import { ShowOptions } from "./showable";
 
-// ‼️ Short term plan:
-// 1) Verify that I like the interface, and the video part will be possible.
-// 2) Finish implementing the single image part.  (Might be done already!)
-// 3) Create a component in canvas-recorder.ts to test single images.
-// 4) Work on the the video part.
-// At some point Showable will need a new optional property or method to return relevant promises.
-
 /**
  * A common interface for requesting image data.
  *

@@ -28,7 +28,11 @@ import {
   NumberScheduleInfo,
 } from "../schedule-helper";
 import { DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
-import { FrameCounter, HalftoneShadowComponent, InSeriesComponent } from "../slide-components";
+import {
+  FrameCounter,
+  HalftoneShadowComponent,
+  InSeriesComponent,
+} from "../slide-components";
 import {
   MakeShowableInSeries,
   progressAxisLabel,
@@ -296,7 +300,7 @@ function showColorfulBox(options: ShowOptions, transform?: DOMMatrixReadOnly) {
 /**
  * Show all of these to the top level GUI.
  */
-const slideList = new InSeriesComponent("SoME5");
+const slideList = new InSeriesComponent({ description: "SoME5" });
 
 /**
  * Add these to my prototype of a timeline editor.
@@ -344,14 +348,42 @@ let mainTimelineSoundClips: SoundClip[] = [];
  * @param toAdd The new slide.
  */
 function addToBoth(toAdd: Showable) {
-  slideList.addFixed({child:toAdd});
+  slideList.addFixed({ child: toAdd });
   forTimeline.push(toAdd);
 }
 
 // MARK: Spacer
 {
-  const slide = new ComponentWithLiveDuration("Spacer",10_000);
-  slideList.addFixed({child:slide});
+  const slide = new ComponentWithLiveDuration("Spacer", 10_000);
+  const title = new TextComponent({ description: "Title" });
+  title.colorSchedule.set("rgb(255, 0, 255)");
+  title.rectSchedule.set({ x: 0, y: 0, width: 16, height: 4 });
+  title.textSchedule.set("Spacer");
+  title.sizeSchedule.set(0.7);
+  title.alignmentSchedule.set("center");
+  title.userEditableDescription = "Title";
+  slide.addFixed({ child: title });
+  const body = new TextComponent({ description: "Body" });
+  body.colorSchedule.set("rgb(128, 0, 255)");
+  body.rectSchedule.set([
+    { time: 0, value: { x: 0.75, y: 5, width: 12.1, height: 4 } },
+    {
+      time: 9999.9,
+      value: {
+        x: 3.214258982035928,
+        y: 2.1085329341317367,
+        width: 12.1,
+        height: 4,
+      },
+    },
+  ]);
+  body.textSchedule.set(
+    "I don’t want the next screen to appear in the preview.  I want the cache to be clean until I hit “record.”",
+  );
+  body.sizeSchedule.set(0.5);
+  body.userEditableDescription = "Body";
+  slide.addFixed({ child: body });
+  slideList.addFixed({ child: slide });
 }
 
 // MARK: Slide 1
@@ -2122,7 +2154,7 @@ ${status.sample.typescript}`);
       showAfter: "freeze",
     });
   }
-  slideList.addFixed({child:tryNewItems});
+  slideList.addFixed({ child: tryNewItems });
 }
 
 /**
@@ -2721,7 +2753,7 @@ class ChildWrapper extends SlideComponent {
       });
     }
   })();
-  slideList.addFixed({child:parallelCombination});
+  slideList.addFixed({ child: parallelCombination });
 }
 
 // MARK: Blank Sides
@@ -2729,9 +2761,12 @@ class ChildWrapper extends SlideComponent {
 // Use this to make blank slides.
 // Fill them in with the Visual Editors.
 for (let i = 11; i <= 10; i++) {
-  slideList.addFixed(
-  {child:  new ComponentWithLiveDuration(`Slide ${i}`, DEFAULT_SLIDE_DURATION_MS)},
-  );
+  slideList.addFixed({
+    child: new ComponentWithLiveDuration(
+      `Slide ${i}`,
+      DEFAULT_SLIDE_DURATION_MS,
+    ),
+  });
 }
 
 // MARK: Main Timeline Prototype
@@ -4186,7 +4221,9 @@ class MainTimeline {
   }
 }
 
-slideList.addFixed({child:new MainTimeline(forTimeline, mainTimelineSoundClips)});
+slideList.addFixed({
+  child: new MainTimeline(forTimeline, mainTimelineSoundClips),
+});
 
 export const some5 = new HalftoneShadowComponent({
   base: slideList,

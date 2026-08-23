@@ -55,7 +55,6 @@ import {
   buildComponents,
   componentRegistry,
   DurationAgnosticComponent,
-  fontsAreAvailable,
   PaddingComponent,
   SerializedChild,
   SlideComponent,
@@ -79,10 +78,6 @@ import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { setupDelayFiles } from "./delay-files.ts";
-
-// Expose for manual testing from the browser devtools console.
-(window as unknown as Record<string, unknown>).fontsAreAvailable =
-  fontsAreAvailable;
 
 // ?delayFiles=1 / ?refreshThread=1 — see dev/delay-files.ts.  No-op otherwise.
 await setupDelayFiles();
@@ -2195,10 +2190,10 @@ function buildDiffText(): string {
     const def = new cls() as Showable;
 
     // Map schedule/scalar description → property name via reference identity
-    const schedPropMap = new Map<string, string>();
-    for (const sched of def.schedules ?? []) {
+    const schedulePropMap = new Map<string, string>();
+    for (const schedule of def.schedules ?? []) {
       for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
-        if (v === sched) { schedPropMap.set(sched.description, k); break; }
+        if (v === schedule) { schedulePropMap.set(schedule.description, k); break; }
       }
     }
     const scalarPropMap = new Map<string, string>();
@@ -2215,13 +2210,14 @@ function buildDiffText(): string {
 
     const displayName = comp.userEditableDescription ?? comp.description ?? rk;
     const varName = toVarName(displayName) || "comp";
+    const ctorDesc = comp.userEditableDescription ?? comp.description ?? rk;
 
-    out.push(`${indent}const ${varName} = new ${className}();`);
+    out.push(`${indent}const ${varName} = new ${className}({ description: ${JSON.stringify(ctorDesc)} });`);
 
     for (const curS of curSchedules) {
       const defS = defSchedules.find((s) => s.description === curS.description);
       if (JSON.stringify(defS) !== JSON.stringify(curS)) {
-        const prop = schedPropMap.get(curS.description) ?? curS.description.toLowerCase() + "Schedule";
+        const prop = schedulePropMap.get(curS.description) ?? curS.description.toLowerCase() + "Schedule";
         out.push(`${indent}${varName}.${prop}.set(${formatScheduleAsCode(curS)});`);
       }
     }
@@ -2238,8 +2234,7 @@ function buildDiffText(): string {
       out.push(`${indent}${varName}.userEditableDescription = ${JSON.stringify(comp.userEditableDescription)};`);
     }
 
-    const addDesc = comp.userEditableDescription ?? comp.description ?? rk;
-    out.push(`${indent}this.addFixed({ child: ${varName}, description: ${JSON.stringify(addDesc)} });`);
+    out.push(`${indent}this.addFixed({ child: ${varName} });`);
 
     return out;
   }
