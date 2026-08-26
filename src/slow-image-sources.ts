@@ -222,4 +222,18 @@ export class ImportedVideo extends SlowImage {
   //   video.currentTime = expected;
   // }
   // That's the standard "genlock" pattern (used the same way in video conferencing / AV-sync code): let the video element run natively via .play()/.playbackRate most of the time, and snap it back only when it's actually drifted past your tolerance — cheap, and matches what you already said is acceptable.
+
+  // Notes after trying a few things from the console:
+  // https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/seeked_event
+  // does what I need for recording.
+  // Even if I request the exact same frame twice in a row,
+  // or if request 0.00001 more than last time, it will do the callback.
+  // Set the video.src value *before* trying to seek or you might get spurious callbacks.
+  // If you request a time before 0 or after video.duration, video.currentTime will be clamped in range.
+  // If you request a time between two frames video.currentTime will return the requested time.
+
+  // I get https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/error_event
+  // any time I set video.src to an invalid url, including "".
+  // I have never seen that as a result of seek,
+  // but I can imagine it happening if a file is partially bad or the network gives out while seeking.
 }

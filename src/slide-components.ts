@@ -130,6 +130,16 @@ type ShowChildInfo = {
  * That version assumed that the contents and durations were fixed.
  */
 export class InParallelComponent implements Showable, ShowableParent {
+  // This is a workaround for a strange TypeScript issue.
+  // Without this
+  //   const asClass = new TraditionalTextComponent();
+  //   asClass.userEditableDescription = "Part 1";
+  // will fail, even though
+  //   const asType : Showable = asClass;
+  //   asType.userEditableDescription = "Part 1";
+  // succeeds.
+  // Copying the declaration like this will automatically grab the
+  // documentation comments associated with Showable.userEditableDescription.
   userEditableDescription?: string;
   getFramePromises(
     timeInMs: number,
@@ -1620,6 +1630,17 @@ export class TraditionalTextComponent extends DurationAgnosticComponent {
     timeInMs: number,
     set: Pick<Set<Promise<unknown>>, "add">,
   ): void {
+    // To test:
+    // * philDebug.loadServiceWorker() to slow some web fonts down enough to be very visible.
+    // * Set the program to display a page that does not use those fonts.
+    // * Use flush cache and hard reload to flush the cache.
+    // * Use normal reload to restart the service worker.
+    // * Hit record and watch when the web fonts are first used.
+    // * The screen should pause when loading the web fonts.
+    // * The screen and the saved version should only have the correct version of the font.
+    // * Or, instead of recording, just play the part of the video with the slow fonts.
+    // * On the live screen you should see the fallback font for a short time before the real version appears.
+    // * The live version does not call getFramePromises(), only when you save.
     super.getFramePromises(timeInMs, set);
     // `document` is unavailable in Node.js (record/cli-record.ts) — nothing
     // async to wait for there.

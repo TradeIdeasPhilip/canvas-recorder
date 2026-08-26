@@ -77,10 +77,11 @@ import {
 import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
-import { setupDelayFiles } from "./delay-files.ts";
+import { watchServiceWorkerReady } from "./delay-files.ts";
 
-// ?delayFiles=1 / ?refreshThread=1 — see dev/delay-files.ts.  No-op otherwise.
-await setupDelayFiles();
+// Automatically check for status and report to console.
+// Also, register philDebug.loadServiceWorker() and philDebug.unloadServiceWorker().
+watchServiceWorkerReady();
 
 /**
  * Reads the `?toShow=` query parameter and returns the matching {@link Showable}.
@@ -687,7 +688,8 @@ addEventListener("keydown", (event) => {
   if (
     event.target instanceof HTMLInputElement ||
     event.target instanceof HTMLTextAreaElement
-  ) return;
+  )
+    return;
   event.preventDefault();
   if (historyDialog.open) return;
   const target = currentSaveTarget();
@@ -767,7 +769,10 @@ let canceled = false;
  * this keeps that text from being misinterpreted as markup.
  */
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
@@ -777,7 +782,7 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   cancelRecordingButton.disabled = false;
   canceled = false;
 
-  suspendLiveAnimationLoop= true;
+  suspendLiveAnimationLoop = true;
 
   // Lock canvas at 4K for the duration of recording.
   // Disable all size-changing code paths so the encoder sees a constant frame size.
@@ -800,7 +805,8 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
   // whatever got encoded before the error.
   let output: Output | undefined;
   try {
-    infoDiv.innerHTML = "Choose save location... (recording starts immediately)";
+    infoDiv.innerHTML =
+      "Choose save location... (recording starts immediately)";
 
     // User picks file
     const fileHandle = await window.showSaveFilePicker({
@@ -1582,7 +1588,10 @@ timelineDisplay.onBlockClick = (id) => {
   // Find the Showable that was clicked (may be nested) and select it.
   const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return;
-  function findIn(children: NonNullable<Showable["children"]>, container: Showable): boolean {
+  function findIn(
+    children: NonNullable<Showable["children"]>,
+    container: Showable,
+  ): boolean {
     for (const { child } of children) {
       if (child === id) {
         selectedSlideChild = child;
@@ -1626,29 +1635,40 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
         if (!primaryChild || seen.has(primaryChild)) continue;
         seen.add(primaryChild);
         seen.add(child);
-        const primaryLabel = primaryChild.userEditableDescription ?? primaryChild.description;
+        const primaryLabel =
+          primaryChild.userEditableDescription ?? primaryChild.description;
         const blockLabel = primaryLabel || label;
         const paddedStart = () => absoluteStart + child.initialTimeScalar.value;
         const durationAgnosticChild =
-          primaryChild instanceof DurationAgnosticComponent ? primaryChild : undefined;
+          primaryChild instanceof DurationAgnosticComponent
+            ? primaryChild
+            : undefined;
         blocks.push({
           id: child,
           label: blockLabel,
           startMs: paddedStart,
           durationMs: () => primaryChild.duration,
           onDragLeft: (newStartMs) => {
-            child.initialTimeScalar.value = Math.max(0, newStartMs - absoluteStart);
+            child.initialTimeScalar.value = Math.max(
+              0,
+              newStartMs - absoluteStart,
+            );
           },
           handleEndMs: durationAgnosticChild
-            ? () => paddedStart() + durationAgnosticChild.minDurationScalar.value
+            ? () =>
+                paddedStart() + durationAgnosticChild.minDurationScalar.value
             : undefined,
           onDragRight: durationAgnosticChild
             ? (newEndMs) => {
-                durationAgnosticChild.minDurationScalar.value = Math.max(0, newEndMs - paddedStart());
+                durationAgnosticChild.minDurationScalar.value = Math.max(
+                  0,
+                  newEndMs - paddedStart(),
+                );
               }
             : undefined,
           onCommitRight: durationAgnosticChild
-            ? () => paddedStart() + durationAgnosticChild.minDurationScalar.value
+            ? () =>
+                paddedStart() + durationAgnosticChild.minDurationScalar.value
             : undefined,
         });
       } else if (child instanceof DurationAgnosticComponent) {
@@ -1661,7 +1681,10 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
           durationMs: () => child.duration,
           handleEndMs: () => absoluteStart + child.minDurationScalar.value,
           onDragRight: (newEndMs) => {
-            child.minDurationScalar.value = Math.max(0, newEndMs - absoluteStart);
+            child.minDurationScalar.value = Math.max(
+              0,
+              newEndMs - absoluteStart,
+            );
           },
           onCommitRight: () => absoluteStart + child.minDurationScalar.value,
         });
@@ -1845,8 +1868,10 @@ function openScheduleDB(): Promise<IDBDatabase> {
     req.onupgradeneeded = (event) => {
       const db = req.result;
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
-      if (oldVersion < 1) db.createObjectStore("history", { keyPath: "selectableKey" });
-      if (oldVersion < 2) db.createObjectStore("files", { keyPath: "filename" });
+      if (oldVersion < 1)
+        db.createObjectStore("history", { keyPath: "selectableKey" });
+      if (oldVersion < 2)
+        db.createObjectStore("files", { keyPath: "filename" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -1865,13 +1890,19 @@ type FileRecord = {
   videoKey?: string;
 };
 
-async function readActiveFileRecord(videoKey: string): Promise<FileRecord | undefined> {
+async function readActiveFileRecord(
+  videoKey: string,
+): Promise<FileRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").getAll();
     req.onsuccess = () =>
-      resolve((req.result as FileRecord[]).find((r) => r.videoKey === videoKey && r.isActive));
+      resolve(
+        (req.result as FileRecord[]).find(
+          (r) => r.videoKey === videoKey && r.isActive,
+        ),
+      );
     req.onerror = () => reject(req.error);
   });
 }
@@ -1892,7 +1923,13 @@ async function writeActiveFileRecord(
         if (r.videoKey === videoKey && r.filename !== filename && r.isActive)
           store.put({ ...r, isActive: false });
       }
-      store.put({ filename, handle, savedAt: Date.now(), isActive: true, videoKey });
+      store.put({
+        filename,
+        handle,
+        savedAt: Date.now(),
+        isActive: true,
+        videoKey,
+      });
     };
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
@@ -1910,7 +1947,8 @@ async function writeNoFileRecord(videoKey: string): Promise<void> {
     getAllReq.onsuccess = () => {
       // Clear isActive only on records belonging to the same video.
       for (const r of getAllReq.result as FileRecord[]) {
-        if (r.videoKey === videoKey && r.isActive) store.put({ ...r, isActive: false });
+        if (r.videoKey === videoKey && r.isActive)
+          store.put({ ...r, isActive: false });
       }
       store.put({
         filename: sentinelFilename,
@@ -1932,7 +1970,9 @@ async function readAllFileRecords(videoKey: string): Promise<FileRecord[]> {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").getAll();
     req.onsuccess = () =>
-      resolve((req.result as FileRecord[]).filter((r) => r.videoKey === videoKey));
+      resolve(
+        (req.result as FileRecord[]).filter((r) => r.videoKey === videoKey),
+      );
     req.onerror = () => reject(req.error);
   });
 }
@@ -1968,11 +2008,17 @@ async function readAllHistory(): Promise<HistoryRecord[]> {
   });
 }
 
-async function writeHistory(key: string, entries: HistoryEntry[]): Promise<void> {
+async function writeHistory(
+  key: string,
+  entries: HistoryEntry[],
+): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("history", "readwrite");
-    tx.objectStore("history").put({ selectableKey: key, entries } satisfies HistoryRecord);
+    tx.objectStore("history").put({
+      selectableKey: key,
+      entries,
+    } satisfies HistoryRecord);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -1988,12 +2034,15 @@ async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").get(DEFAULTS_AUTO_SAVE_KEY);
-    req.onsuccess = () => resolve((req.result as FileRecord | undefined)?.handle ?? null);
+    req.onsuccess = () =>
+      resolve((req.result as FileRecord | undefined)?.handle ?? null);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function writeDefaultsAutoSaveHandle(handle: FileSystemFileHandle): Promise<void> {
+async function writeDefaultsAutoSaveHandle(
+  handle: FileSystemFileHandle,
+): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readwrite");
@@ -2008,8 +2057,14 @@ async function writeDefaultsAutoSaveHandle(handle: FileSystemFileHandle): Promis
   });
 }
 
-const defaultsAutoSaveCheckbox = getById("defaultsAutoSaveCheckbox", HTMLInputElement);
-const defaultsAutoSaveStatusEl = getById("defaultsAutoSaveStatus", HTMLSpanElement);
+const defaultsAutoSaveCheckbox = getById(
+  "defaultsAutoSaveCheckbox",
+  HTMLInputElement,
+);
+const defaultsAutoSaveStatusEl = getById(
+  "defaultsAutoSaveStatus",
+  HTMLSpanElement,
+);
 
 /** Current file handle for the defaults auto-save file, or null if the feature is off. */
 let _defaultsAutoSaveHandle: FileSystemFileHandle | null = null;
@@ -2020,10 +2075,13 @@ type DefaultsAutoSaveStatus = "Off" | "Pending" | "Saved" | "Error";
 function _setDefaultsAutoSaveStatus(status: DefaultsAutoSaveStatus): void {
   defaultsAutoSaveStatusEl.textContent = status;
   defaultsAutoSaveStatusEl.style.color =
-    status === "Error" ? "red"
-    : status === "Pending" ? "orange"
-    : status === "Saved" ? "green"
-    : "gray";
+    status === "Error"
+      ? "red"
+      : status === "Pending"
+        ? "orange"
+        : status === "Saved"
+          ? "green"
+          : "gray";
 }
 
 /** Build a `Record<key, JsonFileEntry>` from {@link tsDefaults} — the code-defined starting point. */
@@ -2034,7 +2092,8 @@ function buildDefaultsSnapshot(): Record<string, JsonFileEntry> {
     if (entry.schedules.length) jsonEntry.schedules = entry.schedules;
     if (entry.scalars?.length) jsonEntry.scalars = entry.scalars;
     if (entry.components !== undefined) jsonEntry.components = entry.components;
-    if (entry.fixedComponents?.length) jsonEntry.fixedComponents = entry.fixedComponents;
+    if (entry.fixedComponents?.length)
+      jsonEntry.fixedComponents = entry.fixedComponents;
     if (entry.duration !== undefined) jsonEntry.duration = entry.duration;
     if (entry.userEditableDescription !== undefined)
       jsonEntry.userEditableDescription = entry.userEditableDescription;
@@ -2063,7 +2122,10 @@ function scheduleDefaultsAutoSave(immediate = false): void {
   if (immediate) {
     void _doDefaultsAutoSave();
   } else {
-    _defaultsAutoSaveTimer = setTimeout(() => void _doDefaultsAutoSave(), 5_000);
+    _defaultsAutoSaveTimer = setTimeout(
+      () => void _doDefaultsAutoSave(),
+      5_000,
+    );
   }
 }
 
@@ -2080,7 +2142,9 @@ defaultsAutoSaveCheckbox.addEventListener("change", () => {
         handle = await window.showSaveFilePicker({
           id: "defaults-auto-save",
           suggestedName: `${toShowKey || "defaults"}-ts-defaults.json`,
-          types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+          types: [
+            { description: "JSON", accept: { "application/json": [".json"] } },
+          ],
         });
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") {
@@ -2111,7 +2175,9 @@ async function readDiffSaveRecord(): Promise<FileRecord | undefined> {
   });
 }
 
-async function writeDiffSaveHandle(handle: FileSystemFileHandle): Promise<void> {
+async function writeDiffSaveHandle(
+  handle: FileSystemFileHandle,
+): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readwrite");
@@ -2149,7 +2215,9 @@ function buildDiffText(): string {
   }
 
   function formatScheduleValue(s: SerializedSchedule): string {
-    return s.keyframes !== undefined ? JSON.stringify(s.keyframes) : JSON.stringify(s.value);
+    return s.keyframes !== undefined
+      ? JSON.stringify(s.keyframes)
+      : JSON.stringify(s.value);
   }
 
   function formatScalarValue(s: SerializedScalar): string {
@@ -2163,12 +2231,18 @@ function buildDiffText(): string {
       .split(" ")
       .filter(Boolean);
     return words
-      .map((w, i) => (i === 0 ? w[0].toLowerCase() + w.slice(1) : w[0].toUpperCase() + w.slice(1)))
+      .map((w, i) =>
+        i === 0
+          ? w[0].toLowerCase() + w.slice(1)
+          : w[0].toUpperCase() + w.slice(1),
+      )
       .join("");
   }
 
   function formatScheduleAsCode(s: SerializedSchedule): string {
-    return s.keyframes !== undefined ? JSON.stringify(s.keyframes) : JSON.stringify(s.value);
+    return s.keyframes !== undefined
+      ? JSON.stringify(s.keyframes)
+      : JSON.stringify(s.value);
   }
 
   /**
@@ -2181,7 +2255,9 @@ function buildDiffText(): string {
     const regEntry = componentRegistry.get(rk);
 
     if (!regEntry?.howToGenerate) {
-      out.push(`${indent}// [WARNING: no howToGenerate for "${rk}" — manual conversion needed]`);
+      out.push(
+        `${indent}// [WARNING: no howToGenerate for "${rk}" — manual conversion needed]`,
+      );
       return out;
     }
 
@@ -2193,13 +2269,19 @@ function buildDiffText(): string {
     const schedulePropMap = new Map<string, string>();
     for (const schedule of def.schedules ?? []) {
       for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
-        if (v === schedule) { schedulePropMap.set(schedule.description, k); break; }
+        if (v === schedule) {
+          schedulePropMap.set(schedule.description, k);
+          break;
+        }
       }
     }
     const scalarPropMap = new Map<string, string>();
     for (const scalar of def.scalars ?? []) {
       for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
-        if (v === scalar) { scalarPropMap.set(scalar.description, k); break; }
+        if (v === scalar) {
+          scalarPropMap.set(scalar.description, k);
+          break;
+        }
       }
     }
 
@@ -2212,26 +2294,38 @@ function buildDiffText(): string {
     const varName = toVarName(displayName) || "comp";
     const ctorDesc = comp.userEditableDescription ?? comp.description ?? rk;
 
-    out.push(`${indent}const ${varName} = new ${className}({ description: ${JSON.stringify(ctorDesc)} });`);
+    out.push(
+      `${indent}const ${varName} = new ${className}({ description: ${JSON.stringify(ctorDesc)} });`,
+    );
 
     for (const curS of curSchedules) {
       const defS = defSchedules.find((s) => s.description === curS.description);
       if (JSON.stringify(defS) !== JSON.stringify(curS)) {
-        const prop = schedulePropMap.get(curS.description) ?? curS.description.toLowerCase() + "Schedule";
-        out.push(`${indent}${varName}.${prop}.set(${formatScheduleAsCode(curS)});`);
+        const prop =
+          schedulePropMap.get(curS.description) ??
+          curS.description.toLowerCase() + "Schedule";
+        out.push(
+          `${indent}${varName}.${prop}.set(${formatScheduleAsCode(curS)});`,
+        );
       }
     }
 
     for (const curSc of curScalars) {
       const defSc = defScalars.find((s) => s.description === curSc.description);
       if (JSON.stringify(defSc) !== JSON.stringify(curSc)) {
-        const prop = scalarPropMap.get(curSc.description) ?? curSc.description.toLowerCase() + "Scalar";
-        out.push(`${indent}${varName}.${prop}.value = ${JSON.stringify(curSc.value)};`);
+        const prop =
+          scalarPropMap.get(curSc.description) ??
+          curSc.description.toLowerCase() + "Scalar";
+        out.push(
+          `${indent}${varName}.${prop}.value = ${JSON.stringify(curSc.value)};`,
+        );
       }
     }
 
     if (comp.userEditableDescription !== undefined) {
-      out.push(`${indent}${varName}.userEditableDescription = ${JSON.stringify(comp.userEditableDescription)};`);
+      out.push(
+        `${indent}${varName}.userEditableDescription = ${JSON.stringify(comp.userEditableDescription)};`,
+      );
     }
 
     out.push(`${indent}this.addFixed({ child: ${varName} });`);
@@ -2245,14 +2339,18 @@ function buildDiffText(): string {
     path: string[],
   ): void {
     const defSchedules = defaultEntry.schedules ?? [];
-    const curSchedules = sel.schedules?.length ? serializeSchedules(sel.schedules) : [];
+    const curSchedules = sel.schedules?.length
+      ? serializeSchedules(sel.schedules)
+      : [];
 
     for (const defS of defSchedules) {
       const curS = curSchedules.find((s) => s.description === defS.description);
       if (JSON.stringify(defS) !== JSON.stringify(curS)) {
         printPathIfNeeded([...path, defS.description]);
         lines.push(`TypeScript: ${formatScheduleValue(defS)}`);
-        lines.push(`Current:    ${curS ? formatScheduleValue(curS) : "(missing)"}`);
+        lines.push(
+          `Current:    ${curS ? formatScheduleValue(curS) : "(missing)"}`,
+        );
       }
     }
     for (const curS of curSchedules) {
@@ -2270,7 +2368,9 @@ function buildDiffText(): string {
       if (JSON.stringify(defSc) !== JSON.stringify(curSc)) {
         printPathIfNeeded([...path, defSc.description]);
         lines.push(`TypeScript: ${formatScalarValue(defSc)}`);
-        lines.push(`Current:    ${curSc ? formatScalarValue(curSc) : "(missing)"}`);
+        lines.push(
+          `Current:    ${curSc ? formatScalarValue(curSc) : "(missing)"}`,
+        );
       }
     }
     for (const curSc of curScalars) {
@@ -2282,8 +2382,12 @@ function buildDiffText(): string {
     }
 
     const defDuration = defaultEntry.duration;
-    const curDuration = sel.setDuration !== undefined ? sel.duration : undefined;
-    if (defDuration !== curDuration && (defDuration !== undefined || curDuration !== undefined)) {
+    const curDuration =
+      sel.setDuration !== undefined ? sel.duration : undefined;
+    if (
+      defDuration !== curDuration &&
+      (defDuration !== undefined || curDuration !== undefined)
+    ) {
       printPathIfNeeded([...path, "Duration"]);
       lines.push(`TypeScript: ${defDuration ?? "(n/a)"}`);
       lines.push(`Current:    ${curDuration ?? "(n/a)"}`);
@@ -2291,7 +2395,9 @@ function buildDiffText(): string {
 
     if (defaultEntry.userEditableDescription !== sel.userEditableDescription) {
       printPathIfNeeded([...path, "Description"]);
-      lines.push(`TypeScript: ${JSON.stringify(defaultEntry.userEditableDescription)}`);
+      lines.push(
+        `TypeScript: ${JSON.stringify(defaultEntry.userEditableDescription)}`,
+      );
       lines.push(`Current:    ${JSON.stringify(sel.userEditableDescription)}`);
     }
 
@@ -2313,7 +2419,9 @@ function buildDiffText(): string {
 
     const liveFixed = getFixedComponents(sel);
     for (const defFixed of defaultEntry.fixedComponents ?? []) {
-      const liveChild = liveFixed.find((c) => c.description === defFixed.description);
+      const liveChild = liveFixed.find(
+        (c) => c.description === defFixed.description,
+      );
       if (!liveChild) {
         printPathIfNeeded([...path, defFixed.description]);
         lines.push(`  [WARNING: fixed child absent from live tree]`);
@@ -2322,9 +2430,15 @@ function buildDiffText(): string {
       diffNode(defFixed, liveChild, [...path, defFixed.description]);
     }
     for (const liveChild of liveFixed) {
-      if (!(defaultEntry.fixedComponents ?? []).find((c) => c.description === liveChild.description)) {
+      if (
+        !(defaultEntry.fixedComponents ?? []).find(
+          (c) => c.description === liveChild.description,
+        )
+      ) {
         printPathIfNeeded([...path, liveChild.description]);
-        lines.push(`  [fixed child in live tree but absent from TypeScript defaults]`);
+        lines.push(
+          `  [fixed child in live tree but absent from TypeScript defaults]`,
+        );
       }
     }
   }
@@ -2332,7 +2446,10 @@ function buildDiffText(): string {
   lines.push(`Generated: ${new Date().toString()}`);
 
   const selectorByKey = new Map(
-    chapterList.map((item) => [selectableKey(item.selectable), item.selectable]),
+    chapterList.map((item) => [
+      selectableKey(item.selectable),
+      item.selectable,
+    ]),
   );
 
   for (const [key, defaultEntry] of tsDefaults) {
@@ -2378,7 +2495,11 @@ function sendToRecycleBin(...args: unknown[]): void {
 }
 
 function getFixedComponents(showable: Showable): Showable[] {
-  return showable.children?.flatMap(({ replaceable, child }) => replaceable ? [] : child) ?? [];
+  return (
+    showable.children?.flatMap(({ replaceable, child }) =>
+      replaceable ? [] : child,
+    ) ?? []
+  );
 }
 
 /** Serializes the current in-memory state of a selectable to a JSON string. */
@@ -2398,7 +2519,8 @@ function currentSnapshotJson(selectable: Showable): string {
       return fc.length ? serializeFixedComponents(fc) : undefined;
     })(),
     userEditableDescription: selectable.userEditableDescription,
-    duration: selectable.setDuration !== undefined ? selectable.duration : undefined,
+    duration:
+      selectable.setDuration !== undefined ? selectable.duration : undefined,
     soundClips: selectable.soundClips,
   });
 }
@@ -2429,7 +2551,10 @@ const saveJsonBtn = getById("saveJsonBtn", HTMLButtonElement);
 const loadJsonBtn = getById("loadJsonTestBtn", HTMLButtonElement);
 
 /** In-memory reference to the currently active file (the last saved-to or saved-as file). */
-let _activeFileRecord: { filename: string; handle: FileSystemFileHandle } | null = null;
+let _activeFileRecord: {
+  filename: string;
+  handle: FileSystemFileHandle;
+} | null = null;
 
 /**
  * The serialized JSON body last written to (or read from) the active file.
@@ -2453,8 +2578,10 @@ function updateJsonSaveStatus(): void {
     jsonSaveStatusElement.title = "";
     return;
   }
-  const dirty = JSON.stringify(buildJsonSnapshot(), null, 2) !== _lastKnownJsonBody;
-  jsonSaveStatusElement.textContent = _activeFileRecord.filename + (dirty ? " *" : "");
+  const dirty =
+    JSON.stringify(buildJsonSnapshot(), null, 2) !== _lastKnownJsonBody;
+  jsonSaveStatusElement.textContent =
+    _activeFileRecord.filename + (dirty ? " *" : "");
   jsonSaveStatusElement.style.color = dirty ? "darkorange" : "";
   jsonSaveStatusElement.title = dirty ? "Unsaved changes" : "";
 }
@@ -2496,7 +2623,9 @@ function buildFixedDescendantSet(): Set<Showable> {
       collect(child);
     }
   }
-  const chapterSelectables = new Set(chapterList.map((item) => item.selectable));
+  const chapterSelectables = new Set(
+    chapterList.map((item) => item.selectable),
+  );
   for (const sel of chapterSelectables) collect(sel);
   return result;
 }
@@ -2524,16 +2653,27 @@ function captureDefaults(): void {
     const hasFixed = fixedComponents.length > 0;
     const hasDuration = sel.setDuration !== undefined;
     const hasSoundClips = sel.soundClips !== undefined;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) continue;
+    if (
+      !hasSchedules &&
+      !hasScalars &&
+      !hasChildren &&
+      !hasFixed &&
+      !hasDuration &&
+      !hasSoundClips
+    )
+      continue;
     const entry: DataHistoryEntry = {
       timestamp: 0,
       schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
     };
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
-    if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
+    if (hasChildren)
+      entry.components = serializeComponents(sel.replaceableComponents!.get());
+    if (hasFixed)
+      entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (hasDuration) entry.duration = sel.duration;
-    if (hasSoundClips) entry.soundClips = sel.soundClips!.map((c) => ({ ...c }));
+    if (hasSoundClips)
+      entry.soundClips = sel.soundClips!.map((c) => ({ ...c }));
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
     tsDefaults.set(key, entry);
@@ -2668,7 +2808,6 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   }
 }
 
-
 function selectableKey(selectable: Showable): string {
   return `${toShowKey}|${selectable.description}`;
 }
@@ -2683,7 +2822,15 @@ async function saveScheduleState(selectable: Showable, force = false) {
   const hasFixed = fixedComponents.length > 0;
   const hasDuration = selectable.setDuration !== undefined;
   const hasSoundClips = selectable.soundClips !== undefined;
-  if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) return;
+  if (
+    !hasSchedules &&
+    !hasScalars &&
+    !hasChildren &&
+    !hasFixed &&
+    !hasDuration &&
+    !hasSoundClips
+  )
+    return;
   const key = selectableKey(selectable);
 
   // Skip auto-saving when state is clean — content matches what was loaded,
@@ -2738,7 +2885,8 @@ async function saveScheduleState(selectable: Showable, force = false) {
   if (newComponents !== undefined) entry.components = newComponents;
   if (newFixed !== undefined) entry.fixedComponents = newFixed;
   if (newDuration !== undefined) entry.duration = newDuration;
-  if (newSoundClips !== undefined) entry.soundClips = newSoundClips.map((c) => ({ ...c }));
+  if (newSoundClips !== undefined)
+    entry.soundClips = newSoundClips.map((c) => ({ ...c }));
   if (selectable.userEditableDescription !== undefined)
     entry.userEditableDescription = selectable.userEditableDescription;
   entries.push(entry);
@@ -2763,7 +2911,6 @@ async function saveScheduleState(selectable: Showable, force = false) {
   // Update source tracking and snapshot
   loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
   loadedSnapshots.set(key, newJson);
-
 }
 
 // MARK: Auto-save timer
@@ -2834,7 +2981,14 @@ function saveOnUnload() {
     const fixedComponents = getFixedComponents(sel);
     const hasFixed = fixedComponents.length > 0;
     const hasSoundClips = sel.soundClips !== undefined;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasSoundClips) continue;
+    if (
+      !hasSchedules &&
+      !hasScalars &&
+      !hasChildren &&
+      !hasFixed &&
+      !hasSoundClips
+    )
+      continue;
 
     // When the history dialog is open, `sel` may contain a transient preview
     // state from `_dialogSelectItem`.  Use the pre-dialog snapshot instead so
@@ -2994,8 +3148,7 @@ function _dialogSelectItem(index: number, target: Showable) {
 
   const item = _dialogItems[index];
   // Top item (index 0) and ts-defaults are never deletable.
-  historyDeleteBtn.disabled =
-    index === 0 || item.kind === "ts-defaults";
+  historyDeleteBtn.disabled = index === 0 || item.kind === "ts-defaults";
 
   // Preview the selected state
   if (item.kind === "ts-defaults") {
@@ -3050,12 +3203,18 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   for (let i = 0; i < _allHistoryEntries.length; i++) {
     const e = _allHistoryEntries[i];
     if (!isMarker(e)) {
-      stamped.push({ timestamp: e.timestamp, item: { kind: "db-entry", entry: e, entryIndex: i } });
+      stamped.push({
+        timestamp: e.timestamp,
+        item: { kind: "db-entry", entry: e, entryIndex: i },
+      });
     }
   }
 
   // TypeScript defaults — positioned by sentinel or pinned to the bottom.
-  stamped.push({ timestamp: tsDefaultsTimestamp, item: { kind: "ts-defaults" } });
+  stamped.push({
+    timestamp: tsDefaultsTimestamp,
+    item: { kind: "ts-defaults" },
+  });
 
   stamped.sort((a, b) => b.timestamp - a.timestamp);
   _dialogItems = stamped.map((s) => s.item);
@@ -3092,14 +3251,21 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
 
     const idx = i;
     li.addEventListener("click", () => _dialogSelectItem(idx, target));
-    li.addEventListener("mouseover", () => { li.style.background = "#f0f0f0"; });
-    li.addEventListener("mouseout", () => { li.style.background = ""; });
+    li.addEventListener("mouseover", () => {
+      li.style.background = "#f0f0f0";
+    });
+    li.addEventListener("mouseout", () => {
+      li.style.background = "";
+    });
     historyList.append(li);
   }
 
   historyList.tabIndex = 0;
   historyList.onkeydown = (e) => {
-    if (e.key === "ArrowDown" && _selectedDialogIndex < _dialogItems.length - 1) {
+    if (
+      e.key === "ArrowDown" &&
+      _selectedDialogIndex < _dialogItems.length - 1
+    ) {
       _dialogSelectItem(_selectedDialogIndex + 1, target);
     } else if (e.key === "ArrowUp" && _selectedDialogIndex > 0) {
       _dialogSelectItem(_selectedDialogIndex - 1, target);
@@ -3121,8 +3287,18 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
     const src = _preDialogSource;
     const found = _dialogItems.findIndex((it) => {
       if (src?.kind === "ts-defaults" && it.kind === "ts-defaults") return true;
-      if (src?.kind === "db" && it.kind === "db-entry" && it.entry.timestamp === src.timestamp) return true;
-      if (src?.kind === "json" && it.kind === "file-entry" && it.fileRecord.filename === src.filename) return true;
+      if (
+        src?.kind === "db" &&
+        it.kind === "db-entry" &&
+        it.entry.timestamp === src.timestamp
+      )
+        return true;
+      if (
+        src?.kind === "json" &&
+        it.kind === "file-entry" &&
+        it.fileRecord.filename === src.filename
+      )
+        return true;
       return false;
     });
     initialIndex = found >= 0 ? found : 0;
@@ -3131,7 +3307,10 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
 }
 
 /** Async: fetch a file entry's content and refresh the list when done. */
-async function _loadFileEntry(fileRecord: FileRecord, target: Showable): Promise<void> {
+async function _loadFileEntry(
+  fileRecord: FileRecord,
+  target: Showable,
+): Promise<void> {
   const filename = fileRecord.filename;
   try {
     const perm = await fileRecord.handle!.queryPermission({ mode: "read" });
@@ -3144,7 +3323,9 @@ async function _loadFileEntry(fileRecord: FileRecord, target: Showable): Promise
     if (_activeFileRecord?.filename !== filename) {
       // Stale handle for a non-active file — remove it silently from the DB and list.
       void deleteFileRecord(filename);
-      _dialogFileRecords = _dialogFileRecords.filter((r) => r.filename !== filename);
+      _dialogFileRecords = _dialogFileRecords.filter(
+        (r) => r.filename !== filename,
+      );
       _dialogFileStates.delete(filename);
     } else {
       // Active file failed: keep the record but show it red.
@@ -3275,8 +3456,12 @@ openHistoryDialogBtn.addEventListener("click", () => {
 });
 
 // Any edit in the schedule editor kicks the auto-save timer.
-scheduleEditorFieldset.addEventListener("input", () => { markDirty(); });
-scheduleEditorFieldset.addEventListener("change", () => { markDirty(); });
+scheduleEditorFieldset.addEventListener("input", () => {
+  markDirty();
+});
+scheduleEditorFieldset.addEventListener("change", () => {
+  markDirty();
+});
 
 // MARK: Font info panel (TraditionalTextComponent)
 
@@ -3749,19 +3934,33 @@ function buildScheduleSection(
       };
       fieldInputs["fx"] = makeInput(
         () => arKf.value.flat.x,
-        (n) => { arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, x: n } }; },
+        (n) => {
+          arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, x: n } };
+        },
       );
       fieldInputs["fy"] = makeInput(
         () => arKf.value.flat.y,
-        (n) => { arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, y: n } }; },
+        (n) => {
+          arKf.value = { ...arKf.value, flat: { ...arKf.value.flat, y: n } };
+        },
       );
       fieldInputs["px"] = makeInput(
         () => arKf.value.pointy.x,
-        (n) => { arKf.value = { ...arKf.value, pointy: { ...arKf.value.pointy, x: n } }; },
+        (n) => {
+          arKf.value = {
+            ...arKf.value,
+            pointy: { ...arKf.value.pointy, x: n },
+          };
+        },
       );
       fieldInputs["py"] = makeInput(
         () => arKf.value.pointy.y,
-        (n) => { arKf.value = { ...arKf.value, pointy: { ...arKf.value.pointy, y: n } }; },
+        (n) => {
+          arKf.value = {
+            ...arKf.value,
+            pointy: { ...arKf.value.pointy, y: n },
+          };
+        },
       );
       row.insertCell().append(fieldInputs["fx"]!);
       row.insertCell().append(fieldInputs["fy"]!);
@@ -4265,10 +4464,12 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
   }
 
   const section = document.createElement("div");
-  section.style.cssText = "border-top:2px solid #888;padding-top:0.4em;margin-top:0.3em";
+  section.style.cssText =
+    "border-top:2px solid #888;padding-top:0.4em;margin-top:0.3em";
 
   const header = document.createElement("div");
-  header.style.cssText = "display:flex;align-items:center;gap:0.4em;margin-bottom:0.3em";
+  header.style.cssText =
+    "display:flex;align-items:center;gap:0.4em;margin-bottom:0.3em";
   const title = document.createElement("b");
   title.textContent = `Sound Clips (${clips.length})`;
   const addBtn = document.createElement("button");
@@ -4335,7 +4536,8 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
 
     // Row 2: source URL
     const row2 = document.createElement("div");
-    row2.style.cssText = "display:flex;gap:0.25em;align-items:center;margin-top:0.2em";
+    row2.style.cssText =
+      "display:flex;gap:0.25em;align-items:center;margin-top:0.2em";
     const srcLabel = document.createElement("span");
     srcLabel.textContent = "src:";
     srcLabel.style.cssText = "flex-shrink:0;font-size:0.85em;color:#555";
@@ -4361,7 +4563,8 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
       setValue: (v: number | undefined) => void,
     ): HTMLElement {
       const lbl = document.createElement("label");
-      lbl.style.cssText = "display:flex;align-items:center;gap:0.2em;white-space:nowrap";
+      lbl.style.cssText =
+        "display:flex;align-items:center;gap:0.2em;white-space:nowrap";
       lbl.textContent = labelText;
       const inp = document.createElement("input");
       inp.type = "number";
@@ -4387,9 +4590,27 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
     }
 
     row3.append(
-      makeTimeInput("scene:", () => clip.startMsIntoScene, (v) => { clip.startMsIntoScene = v ?? 0; }),
-      makeTimeInput("clip-in:", () => clip.startMsIntoClip, (v) => { clip.startMsIntoClip = v; }),
-      makeTimeInput("length:", () => clip.lengthMs, (v) => { clip.lengthMs = v; }),
+      makeTimeInput(
+        "scene:",
+        () => clip.startMsIntoScene,
+        (v) => {
+          clip.startMsIntoScene = v ?? 0;
+        },
+      ),
+      makeTimeInput(
+        "clip-in:",
+        () => clip.startMsIntoClip,
+        (v) => {
+          clip.startMsIntoClip = v;
+        },
+      ),
+      makeTimeInput(
+        "length:",
+        () => clip.lengthMs,
+        (v) => {
+          clip.lengthMs = v;
+        },
+      ),
     );
 
     card.append(row1, row2, row3);
@@ -4707,8 +4928,12 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
   // View-mode arrows
   for (const kf of viewingArrowKfs) {
     if (kf === editingArrowKf) continue;
-    const f = relTf ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf) : kf.value.flat;
-    const p = relTf ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf) : kf.value.pointy;
+    const f = relTf
+      ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf)
+      : kf.value.flat;
+    const p = relTf
+      ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf)
+      : kf.value.pointy;
     ctx.beginPath();
     ctx.moveTo(f.x, f.y);
     ctx.lineTo(p.x, p.y);
@@ -4730,18 +4955,37 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
   // Edit-mode arrow: line + 3 drag handles + optional constraint guides
   if (editingArrowKf) {
     const kf = editingArrowKf;
-    const f = relTf ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf) : kf.value.flat;
-    const p = relTf ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf) : kf.value.pointy;
+    const f = relTf
+      ? localToLogical(kf.value.flat.x, kf.value.flat.y, relTf)
+      : kf.value.flat;
+    const p = relTf
+      ? localToLogical(kf.value.pointy.x, kf.value.pointy.y, relTf)
+      : kf.value.pointy;
     const c = { x: (f.x + p.x) / 2, y: (f.y + p.y) / 2 };
 
     // Constraint guides while dragging a non-center handle
-    if (draggingArrow && draggingArrowMouseLocal && draggingArrow.handle !== "center" && draggingArrow.kf === kf) {
+    if (
+      draggingArrow &&
+      draggingArrowMouseLocal &&
+      draggingArrow.handle !== "center" &&
+      draggingArrow.kf === kf
+    ) {
       const isFlat = draggingArrow.handle === "flat";
-      const movingLocal = isFlat ? draggingArrow.startFlat : draggingArrow.startPointy;
-      const fixedLocal = isFlat ? draggingArrow.startPointy : draggingArrow.startFlat;
-      const fixedLog = relTf ? localToLogical(fixedLocal.x, fixedLocal.y, relTf) : fixedLocal;
+      const movingLocal = isFlat
+        ? draggingArrow.startFlat
+        : draggingArrow.startPointy;
+      const fixedLocal = isFlat
+        ? draggingArrow.startPointy
+        : draggingArrow.startFlat;
+      const fixedLog = relTf
+        ? localToLogical(fixedLocal.x, fixedLocal.y, relTf)
+        : fixedLocal;
       const mouseLog = relTf
-        ? localToLogical(draggingArrowMouseLocal.x, draggingArrowMouseLocal.y, relTf)
+        ? localToLogical(
+            draggingArrowMouseLocal.x,
+            draggingArrowMouseLocal.y,
+            relTf,
+          )
         : draggingArrowMouseLocal;
       ctx.setLineDash([0.12, 0.12]);
       ctx.lineWidth = 0.035;
@@ -4752,9 +4996,16 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
         if (len > 1e-9) {
           const ux = sdx / len;
           const uy = sdy / len;
-          const t = (draggingArrowMouseLocal.x - fixedLocal.x) * ux + (draggingArrowMouseLocal.y - fixedLocal.y) * uy;
-          const projLocal = { x: fixedLocal.x + t * ux, y: fixedLocal.y + t * uy };
-          const projLog = relTf ? localToLogical(projLocal.x, projLocal.y, relTf) : projLocal;
+          const t =
+            (draggingArrowMouseLocal.x - fixedLocal.x) * ux +
+            (draggingArrowMouseLocal.y - fixedLocal.y) * uy;
+          const projLocal = {
+            x: fixedLocal.x + t * ux,
+            y: fixedLocal.y + t * uy,
+          };
+          const projLog = relTf
+            ? localToLogical(projLocal.x, projLocal.y, relTf)
+            : projLocal;
           // Dashed perpendicular drop from raw mouse to the axis
           ctx.beginPath();
           ctx.moveTo(mouseLog.x, mouseLog.y);
@@ -4770,8 +5021,13 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
           ctx.stroke();
         }
       } else if (draggingArrowConstraint === "radial") {
-        const movingLog = relTf ? localToLogical(movingLocal.x, movingLocal.y, relTf) : movingLocal;
-        const r = Math.hypot(movingLog.x - fixedLog.x, movingLog.y - fixedLog.y);
+        const movingLog = relTf
+          ? localToLogical(movingLocal.x, movingLocal.y, relTf)
+          : movingLocal;
+        const r = Math.hypot(
+          movingLog.x - fixedLog.x,
+          movingLog.y - fixedLog.y,
+        );
         ctx.beginPath();
         ctx.arc(fixedLog.x, fixedLog.y, r, 0, 2 * Math.PI);
         ctx.strokeStyle = "rgba(180,0,180,0.5)";
@@ -4797,12 +5053,19 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     // Three handles: flat, center, pointy
     const RADIUS = 0.18;
     const isDraggingThis = draggingArrow?.kf === kf;
-    for (const [handle, pt] of [["flat", f], ["center", c], ["pointy", p]] as [ArrowHandle, { x: number; y: number }][]) {
+    for (const [handle, pt] of [
+      ["flat", f],
+      ["center", c],
+      ["pointy", p],
+    ] as [ArrowHandle, { x: number; y: number }][]) {
       const isActive = isDraggingThis && draggingArrow!.handle === handle;
       // Endpoint is hollow when it's the one being moved (directly or via center drag).
       const isEndpoint = handle === "flat" || handle === "pointy";
-      const hollow = isEndpoint && isDraggingThis &&
-        (draggingArrow!.handle === handle || draggingArrow!.handle === "center");
+      const hollow =
+        isEndpoint &&
+        isDraggingThis &&
+        (draggingArrow!.handle === handle ||
+          draggingArrow!.handle === "center");
       const r = isActive ? RADIUS * 1.4 : RADIUS;
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, r, 0, 2 * Math.PI);
@@ -4857,14 +5120,23 @@ function applyPointDrag(localX: number, localY: number) {
   pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
 }
 
-function hitTestArrowMarker(logX: number, logY: number): { kf: ArrowKf; handle: ArrowHandle } | null {
+function hitTestArrowMarker(
+  logX: number,
+  logY: number,
+): { kf: ArrowKf; handle: ArrowHandle } | null {
   if (!editingArrowKf) return null;
   const relTf = getMarkerRelTf();
-  const local = relTf ? logicalToLocal(logX, logY, relTf) : { x: logX, y: logY };
+  const local = relTf
+    ? logicalToLocal(logX, logY, relTf)
+    : { x: logX, y: logY };
   const { flat, pointy } = editingArrowKf.value;
   const center = { x: (flat.x + pointy.x) / 2, y: (flat.y + pointy.y) / 2 };
   const HIT = 0.35;
-  for (const [handle, pt] of [["flat", flat], ["pointy", pointy], ["center", center]] as [ArrowHandle, { x: number; y: number }][]) {
+  for (const [handle, pt] of [
+    ["flat", flat],
+    ["pointy", pointy],
+    ["center", center],
+  ] as [ArrowHandle, { x: number; y: number }][]) {
     const dx = local.x - pt.x;
     const dy = local.y - pt.y;
     if (dx * dx + dy * dy <= HIT * HIT) return { kf: editingArrowKf, handle };
@@ -4872,9 +5144,14 @@ function hitTestArrowMarker(logX: number, logY: number): { kf: ArrowKf; handle: 
   return null;
 }
 
-function applyArrowDrag(localX: number, localY: number, e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean }) {
+function applyArrowDrag(
+  localX: number,
+  localY: number,
+  e: { shiftKey: boolean; ctrlKey: boolean; metaKey: boolean },
+) {
   if (!draggingArrow) return;
-  const { kf, handle, startFlat, startPointy, startLocalX, startLocalY } = draggingArrow;
+  const { kf, handle, startFlat, startPointy, startLocalX, startLocalY } =
+    draggingArrow;
   const dx = localX - startLocalX;
   const dy = localY - startLocalY;
 
@@ -4905,7 +5182,10 @@ function applyArrowDrag(localX: number, localY: number, e: { shiftKey: boolean; 
       }
     } else if (e.ctrlKey || e.metaKey) {
       // Radial: project mouse onto circle of original radius around fixedPt
-      const r = Math.hypot(movingStart.x - fixedPt.x, movingStart.y - fixedPt.y);
+      const r = Math.hypot(
+        movingStart.x - fixedPt.x,
+        movingStart.y - fixedPt.y,
+      );
       /**
        * mouse delta x -- The horizontal distance between the mouse and the fixed point.
        */
@@ -5035,7 +5315,8 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
   // Read before sessionStorage.clear() fires in the layout-restore block below.
-  const noActiveFileAtStartup = sessionStorage.getItem("noActiveFile") === "true";
+  const noActiveFileAtStartup =
+    sessionStorage.getItem("noActiveFile") === "true";
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
@@ -5048,7 +5329,8 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup).then(async () => {
     // Try to auto-load from the most recently saved file handle.
-    const loadedFromFile = !noActiveFileAtStartup && await tryLoadFromActiveFile();
+    const loadedFromFile =
+      !noActiveFileAtStartup && (await tryLoadFromActiveFile());
 
     if (!loadedFromFile) {
       // Fallback: URL-based JSON for any key that still has ts-defaults.
@@ -5293,9 +5575,11 @@ canvas.addEventListener("pointercancel", () => {
 // Arrow drag keyboard handling (document-level so focus doesn't matter).
 function refreshArrowConstraint(e: KeyboardEvent) {
   if (!draggingArrow || !draggingArrowMouseLocal) return;
-  draggingArrowConstraint = e.shiftKey ? "axial"
-    : e.ctrlKey || e.metaKey ? "radial"
-    : "none";
+  draggingArrowConstraint = e.shiftKey
+    ? "axial"
+    : e.ctrlKey || e.metaKey
+      ? "radial"
+      : "none";
   applyArrowDrag(draggingArrowMouseLocal.x, draggingArrowMouseLocal.y, e);
 }
 document.addEventListener("keydown", (e) => {
@@ -5358,7 +5642,6 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
 
 // MARK: Save JSON file
 
-
 /** Serialize the current in-memory state to a `Record<key, JsonFileEntry>`. */
 function buildJsonSnapshot(): Record<string, JsonFileEntry> {
   const result: Record<string, JsonFileEntry> = {};
@@ -5379,13 +5662,23 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
     const hasFixed = fixedComponents.length > 0;
     const hasDuration = sel.setDuration !== undefined;
     const hasSoundClips = sel.soundClips !== undefined;
-    if (!hasSchedules && !hasScalars && !hasChildren && !hasFixed && !hasDuration && !hasSoundClips) continue;
+    if (
+      !hasSchedules &&
+      !hasScalars &&
+      !hasChildren &&
+      !hasFixed &&
+      !hasDuration &&
+      !hasSoundClips
+    )
+      continue;
 
     const entry: JsonFileEntry = {};
     if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
     if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren) entry.components = serializeComponents(sel.replaceableComponents!.get());
-    if (hasFixed) entry.fixedComponents = serializeFixedComponents(fixedComponents);
+    if (hasChildren)
+      entry.components = serializeComponents(sel.replaceableComponents!.get());
+    if (hasFixed)
+      entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (hasDuration) entry.duration = sel.duration;
     if (sel.userEditableDescription !== undefined)
       entry.userEditableDescription = sel.userEditableDescription;
@@ -5468,14 +5761,20 @@ async function saveJsonAs(setActive: boolean): Promise<void> {
     handle = await window.showSaveFilePicker({
       id: "json-state",
       suggestedName: _activeFileRecord?.filename ?? `${toShowKey}.json`,
-      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      types: [
+        { description: "JSON", accept: { "application/json": [".json"] } },
+      ],
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
     throw e;
   }
 
-  if (!setActive && _activeFileRecord && handle.name === _activeFileRecord.filename) {
+  if (
+    !setActive &&
+    _activeFileRecord &&
+    handle.name === _activeFileRecord.filename
+  ) {
     alert(
       `Cannot save a copy over the active file "${_activeFileRecord.filename}".\n\n` +
         `Use Save or Save As instead.`,
@@ -5509,7 +5808,10 @@ getById("saveCopyAsJsonBtn", HTMLButtonElement).addEventListener(
   "click",
   () => void saveJsonAs(false),
 );
-getById("saveDiffsBtn", HTMLButtonElement).addEventListener("click", () => void saveDiffs());
+getById("saveDiffsBtn", HTMLButtonElement).addEventListener(
+  "click",
+  () => void saveDiffs(),
+);
 
 // MARK: Load JSON file
 
@@ -5606,7 +5908,10 @@ function applyJsonSnapshotFromFile(
     if (fileSavedAt <= dbTimestamp) continue;
 
     applyJsonEntry(sel, entry);
-    loadSources.set(key, { kind: "json", filename: _activeFileRecord!.filename });
+    loadSources.set(key, {
+      kind: "json",
+      filename: _activeFileRecord!.filename,
+    });
     loadedSnapshots.set(key, currentSnapshotJson(sel));
   }
 
@@ -5631,7 +5936,10 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
   if (!fileRecord || !fileRecord.handle) return false;
 
   // Always populate `_activeFileRecord` so the Save button is available.
-  _activeFileRecord = { filename: fileRecord.filename, handle: fileRecord.handle };
+  _activeFileRecord = {
+    filename: fileRecord.filename,
+    handle: fileRecord.handle,
+  };
 
   try {
     // `requestPermission` requires a user gesture at startup — only proceed if
@@ -5648,7 +5956,10 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
     _lastKnownJsonBody = fileContent;
     return true;
   } catch (e) {
-    console.warn(`Unable to load "${fileRecord.filename}". Using internal backups.`, e);
+    console.warn(
+      `Unable to load "${fileRecord.filename}". Using internal backups.`,
+      e,
+    );
     return false;
   }
 }
@@ -5662,7 +5973,9 @@ async function loadFromJsonFile(): Promise<void> {
   try {
     const [picked] = await window.showOpenFilePicker({
       id: "json-state",
-      types: [{ description: "JSON", accept: { "application/json": [".json"] } }],
+      types: [
+        { description: "JSON", accept: { "application/json": [".json"] } },
+      ],
       startIn: _activeFileRecord?.handle ?? "documents",
     });
     handle = picked;
