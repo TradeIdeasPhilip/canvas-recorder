@@ -3,6 +3,9 @@
  * elsewhere in the project. See random-tests.html.
  */
 
+import { getById, querySelector } from "phil-lib/client-misc";
+import { sleep } from "phil-lib/misc";
+
 // MARK: Log helper
 
 const logEl = document.getElementById("log") as HTMLPreElement;
@@ -198,3 +201,76 @@ document.getElementById("checkStatus")!.addEventListener("click", async () => {
 });
 
 log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
+
+// MARK: Video
+
+{
+  // The goal is to seek to a specific frame.
+  // This works but it is slow.
+  //
+  // I'm working with a test file that was the output of canvas-recorder.html.
+  // I.e. 60 fps, 4k, HEVC/H.265.
+  //
+  // If I start fresh and only advance or retreat by a single frame at a time,
+  // I get reasonable values of about 0.056 seconds per frame.
+  // That's about 1/3 of real time.
+  //
+  // If I start jumping around randomly the first three to five seeks take about 1/2 second.
+  // After that they start to take about 1 second per seek.
+  // Hitting refresh will take that number back down to 1/2!
+  // Somewhat random, but fairly repeatable.
+  //
+  // If I start jumping around then I try to advance one frame at a time,
+  // I see numbers around 1 second per seek.
+  // The randomizing step leaves us in a bad state where the single step becomes slow!
+  //
+  // The three seeks in a row code is very inconsistent.
+  // Most of the seeks take around 1 second each.
+  // Some are closer to 1/2 second.
+  // And some are very fast, maybe one in 10 will take less than 1/10 of a second.
+  // I can't predict the individual times, but those times repeat a lot.
+  const video = querySelector("video", HTMLVideoElement);
+  const goto = async (time: number) => {
+    const startTime = performance.now();
+    video.currentTime = time;
+    video.addEventListener(
+      "seeked",
+      () => {
+        console.log(
+          `seeked event fired after ${((performance.now() - startTime) / 1000).toFixed(3)} seconds ${video.seeking ? "WRONG" : "confirmed"}`,
+        );
+      },
+      { once: true },
+    );
+    while (true) {
+      if (!video.seeking) {
+        console.log(
+          `done in ${((performance.now() - startTime) / 1000).toFixed(3)} seconds`,
+        );
+        break;
+      }
+      console.log("seeking");
+      await sleep(10);
+    }
+  };
+  getById("randomSeek", HTMLButtonElement).addEventListener("click", () => {
+    goto(video.duration * Math.random());
+  });
+  getById("seekNextFrame", HTMLButtonElement).addEventListener("click", () => {
+    goto((video.currentTime + 1 / 60) % video.duration);
+  });
+  getById("seekPreviousFrame", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      goto((video.currentTime - 1 / 60 + video.duration) % video.duration);
+    },
+  );
+  getById("threeSeeks", HTMLButtonElement).addEventListener(
+    "click",
+    async () => {
+      await goto((video.currentTime + 1) % video.duration);
+      await goto((video.currentTime + 1) % video.duration);
+      await goto((video.currentTime + 1) % video.duration);
+    },
+  );
+}

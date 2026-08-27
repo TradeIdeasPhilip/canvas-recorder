@@ -259,7 +259,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // ── Lissajous Curves ─────────────────────────────────────────────────────────
@@ -523,7 +523,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
         context.stroke(squarePath);
       },
     });
-    sceneList.addFixed1(scene.build());
+    sceneList.add(scene.build());
   }
 
   // MARK: Heart Curve ♡
@@ -620,7 +620,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
         }
       },
     });
-    sceneList.addFixed1(scene.build());
+    sceneList.add(scene.build());
   }
 
   // MARK: #SoME5 Idea: Lissajous Spirals
@@ -694,7 +694,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
         context.stroke(spiralPath);
       },
     });
-    sceneList.addFixed1(scene.build());
+    sceneList.add(scene.build());
   }
 
   // MARK: Lissajous Curves — arrow
@@ -764,7 +764,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
         context.restore();
       },
     });
-    sceneList.addFixed1(scene.build());
+    sceneList.add(scene.build());
   }
 
   // MARK: offset-path CSS property
@@ -893,7 +893,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
       },
     });
 
-    sceneList.addFixed1(scene.build());
+    sceneList.add(scene.build());
   }
 }
 
@@ -989,7 +989,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
     },
   });
 
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Strokable Font List
@@ -1088,7 +1088,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Font Samples
@@ -1265,7 +1265,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
   };
 
   scene.add(showable);
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Formatting Pieces of Text
@@ -1453,7 +1453,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Simple Animated Colors
@@ -1625,7 +1625,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Calligraphy Effect
@@ -1765,7 +1765,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
   };
 
   scene.add(showable);
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Function Graphing
@@ -1878,7 +1878,7 @@ const sceneList = new InSeriesComponent({ description: "Scene List" });
   };
 
   scene.add(showable);
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Morphing Text
@@ -2049,7 +2049,7 @@ What the hand, dare sieze the fire?`);
       // context.stroke(morphers[0](progress).canvasPath);
     },
   };
-  sceneList.addFixed1(scene);
+  sceneList.add(scene);
 }
 
 // MARK: Dots, Dashes, and the PathSplitter
@@ -2409,7 +2409,7 @@ What the hand, dare sieze the fire?`);
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: φ as a Continued Fraction
@@ -2537,7 +2537,7 @@ What the hand, dare sieze the fire?`);
       },
     });
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: π as a Continued Fraction
@@ -2724,7 +2724,7 @@ What the hand, dare sieze the fire?`);
       },
     });
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Easing Functions
@@ -2944,7 +2944,7 @@ What the hand, dare sieze the fire?`);
     };
     scene.add(showable);
   }
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: Outline Slide Template
@@ -3081,7 +3081,7 @@ What the hand, dare sieze the fire?`);
   };
 
   scene.add(showable);
-  sceneList.addFixed1(scene.build());
+  sceneList.add(scene.build());
 }
 
 // MARK: <img src="...">
@@ -3245,7 +3245,7 @@ What the hand, dare sieze the fire?`);
       context.stroke(path);
     },
   };
-  sceneList.addFixed1(scene);
+  sceneList.add(scene);
 }
 
 // MARK: Bezier.lineIntersects()
@@ -3476,7 +3476,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.addFixed1(scene);
+  sceneList.add(scene);
 }
 
 // MARK: Cross-Fade
@@ -3780,7 +3780,7 @@ What the hand, dare sieze the fire?`);
       context.stroke(movingPathShape.canvasPath);
     },
   };
-  sceneList.addFixed1(scene);
+  sceneList.add(scene);
 }
 
 // MARK: Rounding Corners
@@ -3992,7 +3992,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.addFixed1(scene);
+  sceneList.add(scene);
 }
 
 // MARK: Pixel Perfect Freaky Dot Patterns
@@ -4241,7 +4241,7 @@ What the hand, dare sieze the fire?`);
       );
     },
   };
-  sceneList.addFixed1(rainbowSpacing);
+  sceneList.add(rainbowSpacing);
 }
 
 // MARK: Color Pair Readability
@@ -4451,7 +4451,7 @@ What the hand, dare sieze the fire?`);
       }
     },
   };
-  sceneList.addFixed1(colorPairReadability);
+  sceneList.add(colorPairReadability);
 }
 
 // MARK: Rule 30
@@ -4716,9 +4716,9 @@ What the hand, dare sieze the fire?`);
       super.show(options);
     }
   }
-  sceneList.addFixed1(new Rule30Slide());
+  sceneList.add(new Rule30Slide());
 }
 
 export const showcase = new InParallelComponent("Showcase");
-showcase.addFixed1(blackBackground);
-showcase.addFixed1(sceneList);
+showcase.add(blackBackground);
+showcase.add(sceneList);

@@ -17,6 +17,9 @@ import {
   componentRegistry,
   HalftoneShadowComponent,
   RectangleComponent,
+  ComponentWithFixedDuration,
+  FrameCounter,
+  InSeriesComponent,
 } from "./slide-components";
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
@@ -152,7 +155,7 @@ componentRegistry.set(nineShapesRegistryKey, {
 // MARK: Slide list
 // ---------------------------------------------------------------------------
 
-const slideList = new MakeShowableInSeries("Shadow Test");
+const slideList = new InSeriesComponent({description:"Shadow Test"});
 
 // ---------------------------------------------------------------------------
 // MARK: Slide 1 — shape gallery
@@ -1243,8 +1246,48 @@ const slideList = new MakeShowableInSeries("Shadow Test");
   slideList.add(slide);
 }
 
+// MARK: Frame Counter
+{
+  const duration = 90_000;
+  const slide = new (class extends ComponentWithFixedDuration {
+    constructor() {
+      super("Simple Frame Counter", duration);
+      this.add(
+        new FrameCounter({
+          minDuration: duration,
+          position: { x: 15, y: 8 },
+          fillColor: "rgb(32, 64, 255)",
+          fontSize: 3,
+          fontFamily: "Roboto",
+        }),
+      );
+    }
+  })();
+  slideList.add(slide);
+}
+
+// MARK: Video Clip
+{
+  const duration = 90_000;
+  const slide = new (class extends ComponentWithFixedDuration {
+    constructor() {
+      super("Video Clip", duration);
+      this.add(
+        new FrameCounter({
+          minDuration: duration,
+          position: { x: 15, y: 3.5 },
+          fillColor: myRainbow.violet,
+          fontSize: 3,
+          fontFamily: "Roboto",
+        }),
+      );
+    }
+  })();
+  slideList.add(slide);
+}
+
 export const shadowTest = new HalftoneShadowComponent({
-  base: slideList.build(),
+  base: slideList,
   backgroundColor: "white",
   dotColor: "#ccc",
   dx: 0.2,

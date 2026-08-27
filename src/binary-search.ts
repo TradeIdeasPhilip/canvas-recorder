@@ -474,7 +474,7 @@ export class BinaryInserter<T> extends BinarySearcher<T> {
   }
 }
 
-philDebug.BinarySearcher = BinarySearcher;
-philDebug.BinaryInserter = BinaryInserter;
+//philDebug.BinarySearcher = BinarySearcher;
+//philDebug.BinaryInserter = BinaryInserter;
 //BinarySearcher.test();
 //BinaryInserter.test();

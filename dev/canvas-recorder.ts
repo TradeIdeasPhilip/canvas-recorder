@@ -320,6 +320,7 @@ function showFrame(timeInMs: number, live: boolean) {
       globalTime: timeInMs,
       quality,
       registerTransform: (c, t) => componentTransforms.set(c, t),
+      playSpeed: 0 /* TODO use the real value. */,
     });
     drawScheduleMarkers(context);
   } else {
@@ -328,6 +329,7 @@ function showFrame(timeInMs: number, live: boolean) {
       context,
       globalTime: timeInMs,
       quality: "High Quality",
+      playSpeed: "exact",
     });
   }
 }

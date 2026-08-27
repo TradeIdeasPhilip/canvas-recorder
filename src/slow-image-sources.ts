@@ -1,5 +1,7 @@
-import { assertFinite } from "phil-lib/misc";
+import { assertFinite, makePromise } from "phil-lib/misc";
 import { ShowOptions } from "./showable";
+
+// MARK: Base Class
 
 /**
  * A common interface for requesting image data.
@@ -92,6 +94,29 @@ export abstract class SlowImage {
    * In realtime mode just use what's there and assume it's close.
    */
   abstract readonly somethingIsAvailable: boolean;
+}
+
+// MARK: Single Image
+
+export class SingleImage extends SlowImage {
+  #somethingIsAvailable = false;
+  get somethingIsAvailable() {
+    return this.#somethingIsAvailable;
+  }
+  readonly data: CanvasImageSourceWebCodecs;
+  get naturalWidth() {
+    return this.#element.naturalWidth;
+  }
+  get naturalHeight() {
+    return this.#element.naturalHeight;
+  }
+  /**
+   * {@link SingleImage} only uses the promise for loading and decoding.
+   * And there is no way to change the url after constructing this object.
+   * So we only need a single promise to handle the state of this object.
+   * The interface allows {@link ImportedVideo} to create a new promise each frame.
+   */
+  readonly #promise: Promise<void>;
   /**
    * Report data is available.
    *
@@ -119,33 +144,11 @@ export abstract class SlowImage {
    *   * If any promise rejects the whole process will be aborted.
    *   * Any work in progress will be cleanly flushed and closed.
    */
-  abstract getPromise(): Promise<void>;
-}
-
-export class SingleImage extends SlowImage {
-  #somethingIsAvailable = false;
-  get somethingIsAvailable() {
-    return this.#somethingIsAvailable;
-  }
-  readonly data: CanvasImageSourceWebCodecs;
-  get naturalWidth() {
-    return this.#element.naturalWidth;
-  }
-  get naturalHeight() {
-    return this.#element.naturalHeight;
-  }
-  /**
-   * {@link SingleImage} only uses the promise for loading and decoding.
-   * And there is no way to change the url after constructing this object.
-   * So we only need a single promise to handle the state of this object.
-   * The interface allows {@link ImportedVideo} to create a new promise each frame.
-   */
-  readonly #promise: Promise<void>;
   getPromise(): Promise<void> {
     return this.#promise;
   }
   #element: HTMLImageElement;
-  constructor(url: string) {
+  constructor(readonly url: string) {
     super();
     this.#element = new Image();
     this.#element.crossOrigin = "anonymous";
@@ -164,38 +167,92 @@ export class SingleImage extends SlowImage {
   }
 }
 
+//  MARK: Imported Video
+
+let tempLastRequest = -Infinity;
+
 export class ImportedVideo extends SlowImage {
-  #promise: Promise<void>;
-  getPromise(): Promise<void> {
-    return this.#promise;
+  #error: Promise<void> | undefined;
+  #seekInProgress: undefined | ((reason?: any) => void);
+  liveSync(timeInMs: number, speed: number): void {
+    if (this.#seekInProgress) {
+      // This should never happen.
+      // It suggests an internal logic error.
+      console.warn(
+        "Calling ImportedVideo.liveSync() while a seek is in progress.",
+      );
+    }
+    // TODO We should let the video run continuously.
+    this.#videoElement.pause();
+    const desiredTime = timeInMs / 1_000;
+    const jump = desiredTime - tempLastRequest; // this.#videoElement.currentTime;
+    if (Math.abs(jump) > 1 / 60 / 10) {
+      tempLastRequest = desiredTime;
+      this.#videoElement.currentTime = desiredTime;
+    }
   }
-  readonly data: CanvasImageSourceWebCodecs;
+  getPromise(timeInMs: number): Promise<void> {
+    if (this.#error) {
+      // Any failure is permanent.
+      return this.#error;
+    }
+    if (this.#seekInProgress) {
+      // This should never happen.
+      // It suggests an internal logic error.
+      console.warn(
+        "Calling ImportedVideo.getPromise() while a seek is in progress.",
+      );
+    }
+    const promise = makePromise();
+    this.#seekInProgress = promise.reject;
+    this.#videoElement.addEventListener(
+      "seeked",
+      () => {
+        if (this.#videoElement.seeking) {
+          console.error("Still seeking after “seeked” event fired");
+        }
+        if (!this.#seekInProgress) {
+          console.log("wtf");
+        }
+        this.#seekInProgress = undefined;
+        promise.resolve();
+      },
+      { once: true },
+    );
+    if (this.#videoElement.seeking) {
+      console.error("Already seeking before seek requested.");
+    }
+    this.#videoElement.currentTime = timeInMs / 1_000;
+    if (!this.#videoElement.seeking) {
+      console.error("Not seeking after seek requested.");
+    }
+    return promise.promise;
+  }
+  // TODO `document` is unavailable in Node.js (record/cli-record.ts).
+  readonly #videoElement = document.createElement("video");
+  readonly data: CanvasImageSourceWebCodecs = this.#videoElement;
   get naturalWidth() {
-    return (this.data as HTMLVideoElement).videoWidth;
+    return this.#videoElement.videoWidth;
   }
   get naturalHeight() {
-    return (this.data as HTMLVideoElement).videoHeight;
+    return this.#videoElement.videoHeight;
   }
-  #somethingIsAvailable = false;
   get somethingIsAvailable() {
-    return this.#somethingIsAvailable;
+    // TODO test this.
+    // The image component works a different way.
+    // Do these both handle src="" the same way?
+    return this.naturalWidth > 0 && this.naturalHeight > 0 && !this.#error;
   }
-  constructor(url: string) {
+  constructor(readonly url: string) {
     super();
-    this.#promise = undefined!; //TODO
-    this.data = undefined!; // TODO
-  }
-  /**
-   * This never fails.
-   * At worst it silently ignores a request because it was already in an error.
-   * It might have to store some data for later, like if the underlying API doesn't allow us to seek before the load is completely,
-   * this class should hide such things from the user.
-   *
-   *
-   * @param timeInSeconds
-   */
-  requestFrame(timeInSeconds: number) {
-    // TODO
+    this.#videoElement.crossOrigin = "anonymous";
+    this.#videoElement.addEventListener("error", (event) => {
+      console.error(event, this);
+      this.#error = Promise.reject(event.message);
+      this.#seekInProgress?.(event.message);
+    });
+    this.#videoElement.src = url;
+    // TODO   is there something like HTMLImageElement.decode() for HTMLVideoElement?
   }
   //     Implementation suggestions:
 

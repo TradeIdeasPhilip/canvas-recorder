@@ -30,6 +30,7 @@
     "findbbox",
     "FLAC",
     "futura",
+    "genlock",
     "halvings",
     "handwriters",
     "Heckbert",
@@ -50,6 +51,7 @@
     "Manim",
     "Mbps",
     "mediabunny",
+    "Modak",
     "morphable",
     "morpher",
     "morphers",
@@ -71,6 +73,8 @@
     "rehomed",
     "Rehoming",
     "replaceables",
+    "reseeking",
+    "Roboto",
     "rrggbb",
     "saddlebrown",
     "selectables",
@@ -102,6 +106,8 @@
     "wicg",
     "yada",
     "yuva",
-    "לוֹם"
+    "לוֹם",
+    "עולם",
+    "שלום"
   ]
 }

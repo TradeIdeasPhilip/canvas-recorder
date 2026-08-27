@@ -1,0 +1,66 @@
+Generated: Thu Aug 27 2026 14:45:35 GMT-0700 (Pacific Daylight Time)
+Shadow Test » shadow
+→ Shadow Test
+→ → Slide 1: Shape Gallery
+  // [WARNING: no howToGenerate for "Nine Shapes (Shadow Test)" — manual conversion needed]
+  const text = new TextComponent({ description: "Text" });
+  text.rectSchedule.set({"x":0.5,"y":0.5,"width":8,"height":4});
+  text.textSchedule.set([{"time":0,"value":"a b c d e f g h i j k l m n o p q r s t u v w x y z"},{"time":9178.699999999999,"value":"a b c d e f g h i j k l m n o p q r s t u v w x y z"}]);
+  text.boldnessSchedule.set([{"time":0,"value":1},{"time":1250,"value":0.5},{"time":3750,"value":1.5},{"time":5000,"value":1}]);
+  text.obliquenessSchedule.set([{"time":0,"value":0},{"time":5000,"value":0},{"time":7500,"value":15},{"time":10000,"value":0}]);
+  text.alignmentSchedule.set("justify");
+  this.addFixed({ child: text });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+  const traditionalText = new TraditionalTextComponent({ description: "Traditional Text" });
+  traditionalText.textSchedule.set("Traditional Text");
+  traditionalText.positionSchedule.set({"x":6.841521062021537,"y":6.7561945054266515});
+  traditionalText.outlineWidthSchedule.set(0.05);
+  traditionalText.fontSizeSchedule.set(1);
+  traditionalText.textAlignSchedule.set("start");
+  traditionalText.textBaselineSchedule.set("bottom");
+  this.addFixed({ child: traditionalText });
+→ → Slide 1a: Generic Container
+  const slide = new SlideComponent({ description: "Slide" });
+  slide.placeA.set([{"time":0,"value":2.2},{"time":5000,"value":9},{"time":10000,"value":2.2}]);
+  slide.placeB.set([{"time":0,"value":0,"easeAfter":"easeOut"},{"time":2500,"value":2,"easeAfter":"ease"},{"time":7500,"value":-2,"easeAfter":"easeIn"},{"time":10000,"value":0,"easeAfter":"easeIn"}]);
+  slide.transformTemplate.value = "translate(𝓑px, 𝓐px)";
+  this.addFixed({ child: slide });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+  const newTest = new TraditionalTextComponent({ description: "New Test" });
+  newTest.textSchedule.set("Hello, hello!");
+  newTest.positionSchedule.set({"x":7.195974576271187,"y":7.652277542372881});
+  newTest.userEditableDescription = "New Test";
+  this.addFixed({ child: newTest });
+→ → Slide 1b: Generic Container
+  const multiText = new MultiTextComponent({ description: "Multi Text" });
+  multiText.positionSchedule.set({"x":8,"y":8.9});
+  multiText.textBaselineSchedule.set("bottom");
+  multiText.additionalLineHeightSchedule.set(-0.4);
+  this.addFixed({ child: multiText });
+  const slide = new SlideComponent({ description: "Slide" });
+  this.addFixed({ child: slide });
+→ → Slide 2: Growing Rectangle
+  const rectangle = new RectangleComponent({ description: "Rectangle" });
+  rectangle.rectSchedule.set([{"time":0,"value":{"x":1,"y":1,"width":1,"height":2}},{"time":10000,"value":{"x":1,"y":1,"width":14,"height":2}}]);
+  this.addFixed({ child: rectangle });
+→ → Slide 5: Vertical Lines
+→ → → Starting Position
+TypeScript: {"x":1,"y":1}
+Current:    [{"time":0,"value":{"x":1,"y":1}},{"time":8400,"value":{"x":1,"y":3}}]
+→ → Video Clip
+  const videoClip = new VideoClipComponent({ description: "Video Clip" });
+  videoClip.urlScalar.value = "frame counter.mp4";
+  videoClip.endMsIntoClipScalar.value = 90000;
+  this.addFixed({ child: videoClip });
+→ → → Frame Counter
+→ → → → Fill Color
+TypeScript: "rgb(128, 0, 255)"
+Current:    "rgb(255, 128, 0)"

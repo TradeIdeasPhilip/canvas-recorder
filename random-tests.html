@@ -10,14 +10,15 @@
     <h1>Random Tests</h1>
     <h2>Saving File Handles</h2>
     <p>
-      <code>showSaveFilePicker()</code> and <code>showOpenFilePicker()</code>
-      return a <code>FileSystemFileHandle</code>. That handle can't go in
+      <code>showSaveFilePicker()</code> and
+      <code>showOpenFilePicker()</code> return a
+      <code>FileSystemFileHandle</code>. That handle can't go in
       <code>localStorage</code>/<code>sessionStorage</code> (they only hold
       strings) but it <em>can</em> be structured-cloned into IndexedDB. Once
       it's there, we can pull it back out on a later page load and reuse it —
       the browser will still ask for permission again (that's a spec
-      requirement, "prompt" persists is not guaranteed across sessions), but
-      it won't ask us to re-pick the file.
+      requirement, "prompt" persists is not guaranteed across sessions), but it
+      won't ask us to re-pick the file.
     </p>
 
     <fieldset>
@@ -36,9 +37,7 @@
       <button type="button" id="pickOpenHandle">
         1. Pick a file to open &amp; remember it
       </button>
-      <button type="button" id="readRemembered">
-        2. Read remembered file
-      </button>
+      <button type="button" id="readRemembered">2. Read remembered file</button>
       <button type="button" id="forgetOpenHandle">Forget it</button>
     </fieldset>
 
@@ -61,5 +60,11 @@
         word-break: break-word;
       "
     ></pre>
+    <h2>Video Player</h2>
+    <video style="max-width: 95%" src="./frame counter.mp4"></video>
+    <button id="randomSeek">Random Seek</button>
+    <button id="seekNextFrame">Seek Next Frame</button>
+    <button id="seekPreviousFrame">Seek Previous Frame</button>
+    <button id="threeSeeks">Three Seeks</button>
   </body>
 </html>

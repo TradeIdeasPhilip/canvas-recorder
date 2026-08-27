@@ -1,0 +1,1786 @@
+{
+  "shadow-test|Shadow Test » shadow": {
+    "schedules": [
+      {
+        "description": "Dot Color",
+        "type": "color",
+        "value": "#ccc"
+      },
+      {
+        "description": "Background Color",
+        "type": "color",
+        "value": "white"
+      },
+      {
+        "description": "Dx",
+        "type": "number",
+        "value": 0.2
+      },
+      {
+        "description": "Dy",
+        "type": "number",
+        "value": 0.2
+      },
+      {
+        "description": "Period",
+        "type": "number",
+        "value": 0.25
+      }
+    ],
+    "components": [],
+    "fixedComponents": [
+      {
+        "description": "Shadow Test",
+        "components": [],
+        "fixedComponents": [
+          {
+            "description": "Slide 1: Shape Gallery",
+            "components": [
+              {
+                "registryKey": "Nine Shapes (Shadow Test)",
+                "schedules": [
+                  {
+                    "description": "Layout",
+                    "type": "rectangle",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": {
+                          "x": 0.5,
+                          "y": 4.5,
+                          "width": 6,
+                          "height": 4
+                        }
+                      },
+                      {
+                        "time": 3000,
+                        "value": {
+                          "x": 5,
+                          "y": 0.5,
+                          "width": 6,
+                          "height": 4
+                        }
+                      },
+                      {
+                        "time": 6500,
+                        "value": {
+                          "x": 9.5,
+                          "y": 4.5,
+                          "width": 6,
+                          "height": 4
+                        }
+                      },
+                      {
+                        "time": 9500,
+                        "value": {
+                          "x": 0.5,
+                          "y": 0.5,
+                          "width": 15,
+                          "height": 8
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "registryKey": "Text",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "#888"
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0.5,
+                      "y": 0.5,
+                      "width": 8,
+                      "height": 4
+                    }
+                  },
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "a b c d e f g h i j k l m n o p q r s t u v w x y z"
+                      },
+                      {
+                        "time": 9178.699999999999,
+                        "value": "a b c d e f g h i j k l m n o p q r s t u v w x y z"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Size",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Boldness",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 1
+                      },
+                      {
+                        "time": 1250,
+                        "value": 0.5
+                      },
+                      {
+                        "time": 3750,
+                        "value": 1.5
+                      },
+                      {
+                        "time": 5000,
+                        "value": 1
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Obliqueness",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 0
+                      },
+                      {
+                        "time": 5000,
+                        "value": 0
+                      },
+                      {
+                        "time": 7500,
+                        "value": 15
+                      },
+                      {
+                        "time": 10000,
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "justify"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Slide",
+                    "schedules": [
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓐",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓑",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓒",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓓",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓔",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓕",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓖",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓗",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓘",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "𝓙",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Transform Template",
+                        "type": "string",
+                        "value": "scale(1)"
+                      }
+                    ],
+                    "components": [
+                      {
+                        "registryKey": "Text",
+                        "schedules": [
+                          {
+                            "description": "Color",
+                            "type": "color",
+                            "value": "#888"
+                          },
+                          {
+                            "description": "Rect",
+                            "type": "rectangle",
+                            "value": {
+                              "x": 2,
+                              "y": 2,
+                              "width": 6,
+                              "height": 4
+                            }
+                          },
+                          {
+                            "description": "Text",
+                            "type": "string",
+                            "value": "Type Here"
+                          },
+                          {
+                            "description": "Size",
+                            "type": "number",
+                            "value": 1
+                          },
+                          {
+                            "description": "Boldness",
+                            "type": "number",
+                            "value": 1
+                          },
+                          {
+                            "description": "Obliqueness",
+                            "type": "number",
+                            "value": 0
+                          },
+                          {
+                            "description": "Alignment",
+                            "type": "select",
+                            "value": "left"
+                          }
+                        ],
+                        "scalars": [
+                          {
+                            "description": "Min Duration",
+                            "type": "number",
+                            "value": 0
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Text",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "#888"
+                      },
+                      {
+                        "description": "Rect",
+                        "type": "rectangle",
+                        "value": {
+                          "x": 2,
+                          "y": 2,
+                          "width": 6,
+                          "height": 4
+                        }
+                      },
+                      {
+                        "description": "Text",
+                        "type": "string",
+                        "value": "Type Here"
+                      },
+                      {
+                        "description": "Size",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alignment",
+                        "type": "select",
+                        "value": "left"
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "registryKey": "Traditional Text",
+                "schedules": [
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "Traditional Text"
+                  },
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 6.841521062021537,
+                      "y": 6.7561945054266515
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(128, 0, 255)"
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "value": 0.05
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "value": "normal"
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "value": 400
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "value": "Life Savers"
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "value": "start"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "bottom"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": []
+              }
+            ],
+            "duration": 10000
+          },
+          {
+            "description": "Slide 1a: Generic Container",
+            "components": [
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 2.2
+                      },
+                      {
+                        "time": 5000,
+                        "value": 9
+                      },
+                      {
+                        "time": 10000,
+                        "value": 2.2
+                      }
+                    ]
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 0,
+                        "easeAfter": "easeOut"
+                      },
+                      {
+                        "time": 2500,
+                        "value": 2,
+                        "easeAfter": "ease"
+                      },
+                      {
+                        "time": 7500,
+                        "value": -2,
+                        "easeAfter": "easeIn"
+                      },
+                      {
+                        "time": 10000,
+                        "value": 0,
+                        "easeAfter": "easeIn"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "translate(𝓑px, 𝓐px)"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Traditional Text",
+                    "schedules": [
+                      {
+                        "description": "Text",
+                        "type": "string",
+                        "value": "Philip says “Hi!”"
+                      },
+                      {
+                        "description": "Position",
+                        "type": "point",
+                        "value": {
+                          "x": 8,
+                          "y": 0
+                        }
+                      },
+                      {
+                        "description": "Fill Color",
+                        "type": "color",
+                        "value": "rgb(128, 0, 255)"
+                      },
+                      {
+                        "description": "Outline Color",
+                        "type": "color",
+                        "value": "rgb(255, 128, 0)"
+                      },
+                      {
+                        "description": "Outline Width",
+                        "type": "number",
+                        "value": 0.05
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 2
+                      },
+                      {
+                        "description": "Font Style",
+                        "type": "select",
+                        "value": "normal"
+                      },
+                      {
+                        "description": "Font Weight",
+                        "type": "number",
+                        "value": 400
+                      },
+                      {
+                        "description": "Font Family",
+                        "type": "string",
+                        "value": "Modak"
+                      },
+                      {
+                        "description": "Align",
+                        "type": "select",
+                        "value": "center"
+                      },
+                      {
+                        "description": "Baseline",
+                        "type": "select",
+                        "value": "bottom"
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ],
+                    "components": []
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Traditional Text",
+                    "schedules": [
+                      {
+                        "description": "Text",
+                        "type": "string",
+                        "value": "שלום עולם"
+                      },
+                      {
+                        "description": "Position",
+                        "type": "point",
+                        "value": {
+                          "x": 13.689545416986952,
+                          "y": 1.0788689913516452
+                        }
+                      },
+                      {
+                        "description": "Fill Color",
+                        "type": "color",
+                        "value": "rgb(128, 0, 255)"
+                      },
+                      {
+                        "description": "Outline Color",
+                        "type": "color",
+                        "value": "rgb(255, 128, 0)"
+                      },
+                      {
+                        "description": "Outline Width",
+                        "type": "number",
+                        "value": 0.1
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.85
+                      },
+                      {
+                        "description": "Font Style",
+                        "type": "select",
+                        "value": "normal"
+                      },
+                      {
+                        "description": "Font Weight",
+                        "type": "number",
+                        "value": 400
+                      },
+                      {
+                        "description": "Font Family",
+                        "type": "string",
+                        "value": "Helvetica"
+                      },
+                      {
+                        "description": "Align",
+                        "type": "select",
+                        "value": "center"
+                      },
+                      {
+                        "description": "Baseline",
+                        "type": "select",
+                        "value": "alphabetic"
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ],
+                    "components": []
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Traditional Text",
+                    "schedules": [
+                      {
+                        "description": "Text",
+                        "type": "string",
+                        "value": "你好世界"
+                      },
+                      {
+                        "description": "Position",
+                        "type": "point",
+                        "value": {
+                          "x": 2,
+                          "y": 1
+                        }
+                      },
+                      {
+                        "description": "Fill Color",
+                        "type": "color",
+                        "value": "rgb(128, 0, 255)"
+                      },
+                      {
+                        "description": "Outline Color",
+                        "type": "color",
+                        "value": "rgb(255, 128, 0)"
+                      },
+                      {
+                        "description": "Outline Width",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.75
+                      },
+                      {
+                        "description": "Font Style",
+                        "type": "select",
+                        "value": "normal"
+                      },
+                      {
+                        "description": "Font Weight",
+                        "type": "number",
+                        "value": 800
+                      },
+                      {
+                        "description": "Font Family",
+                        "type": "string",
+                        "value": "American Typewriter"
+                      },
+                      {
+                        "description": "Align",
+                        "type": "select",
+                        "value": "center"
+                      },
+                      {
+                        "description": "Baseline",
+                        "type": "select",
+                        "value": "alphabetic"
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Min Duration",
+                        "type": "number",
+                        "value": 0
+                      }
+                    ],
+                    "components": []
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": []
+              },
+              {
+                "registryKey": "Traditional Text",
+                "schedules": [
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "Hello, hello!"
+                  },
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 7.195974576271187,
+                      "y": 7.652277542372881
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(128, 0, 255)"
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 0.5
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "value": "normal"
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "value": 400
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "value": "Life Savers"
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "alphabetic"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "userEditableDescription": "New Test"
+              }
+            ],
+            "duration": 10000
+          },
+          {
+            "description": "Slide 1b: Generic Container",
+            "components": [
+              {
+                "registryKey": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 8,
+                      "y": 8.9
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "bottom"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 7.5
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": -0.4
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Scale\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "#666"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "keyframes": [
+                          {
+                            "time": 0,
+                            "value": 1.5
+                          },
+                          {
+                            "time": 4000,
+                            "value": 2.5
+                          },
+                          {
+                            "time": 6000,
+                            "value": 1.5
+                          }
+                        ]
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1.5
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "and\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "and"
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "#666"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 1.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1.5
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "and"
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "skew!"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "skew"
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "#666"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 1.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1.5
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "keyframes": [
+                          {
+                            "time": 0,
+                            "value": 0
+                          },
+                          {
+                            "time": 3000,
+                            "value": 25
+                          },
+                          {
+                            "time": 6000,
+                            "value": 0
+                          }
+                        ]
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "skew"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "registryKey": "Slide",
+                "schedules": [
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓐",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓑",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓒",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓓",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓔",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓕",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓖",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓗",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓘",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "𝓙",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Transform Template",
+                    "type": "string",
+                    "value": "scale(1)"
+                  }
+                ],
+                "components": []
+              }
+            ],
+            "duration": 6000
+          },
+          {
+            "description": "Slide 2: Growing Rectangle",
+            "components": [
+              {
+                "registryKey": "Rectangle",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "cyan"
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": {
+                          "x": 1,
+                          "y": 1,
+                          "width": 1,
+                          "height": 2
+                        }
+                      },
+                      {
+                        "time": 10000,
+                        "value": {
+                          "x": 1,
+                          "y": 1,
+                          "width": 14,
+                          "height": 2
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "duration": 10000
+          },
+          {
+            "description": "Slide 3: Diagonal + Curve Edge"
+          },
+          {
+            "description": "Slide 4: Pattern Fill Linearity Test"
+          },
+          {
+            "description": "Slide 5: Vertical Lines",
+            "schedules": [
+              {
+                "description": "Starting Position",
+                "type": "point",
+                "keyframes": [
+                  {
+                    "time": 0,
+                    "value": {
+                      "x": 1,
+                      "y": 1
+                    }
+                  },
+                  {
+                    "time": 8400,
+                    "value": {
+                      "x": 1,
+                      "y": 3
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "description": "Font Inspector",
+            "schedules": [
+              {
+                "description": "Text",
+                "type": "string",
+                "value": "Ag"
+              },
+              {
+                "description": "Zoom Area",
+                "type": "rectangle",
+                "value": {
+                  "x": 0.3,
+                  "y": 0.5,
+                  "width": 10.5,
+                  "height": 8
+                }
+              },
+              {
+                "description": "Simple Text Position",
+                "type": "point",
+                "value": {
+                  "x": 12.5,
+                  "y": 5
+                }
+              }
+            ]
+          },
+          {
+            "description": "Simple Frame Counter",
+            "components": [],
+            "fixedComponents": [
+              {
+                "description": "Frame Counter",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 15,
+                      "y": 8
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(32, 64, 255)"
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 3
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "value": "normal"
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "value": 400
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "value": "Roboto"
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "value": "right"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "alphabetic"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 90000
+                  }
+                ],
+                "components": []
+              }
+            ]
+          },
+          {
+            "description": "Video Clip",
+            "components": [
+              {
+                "registryKey": "Video Clip",
+                "schedules": [
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 16,
+                      "height": 9
+                    }
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "URL",
+                    "type": "string",
+                    "value": "frame counter.mp4"
+                  },
+                  {
+                    "description": "Start Ms Into Clip",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "End Ms Into Clip",
+                    "type": "number",
+                    "value": 90000
+                  }
+                ],
+                "components": [],
+                "duration": 90000
+              }
+            ],
+            "fixedComponents": [
+              {
+                "description": "Frame Counter",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 15,
+                      "y": 3.5
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 3
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "value": "normal"
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "value": 400
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "value": "Roboto"
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "value": "right"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "alphabetic"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 90000
+                  }
+                ],
+                "components": []
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

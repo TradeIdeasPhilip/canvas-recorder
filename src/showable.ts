@@ -646,6 +646,21 @@ export type ShowOptions = {
    */
   readonly globalTime: number;
   /**
+   * How fast are we displaying frames.
+   *
+   * Most of the drawing will ignore this.
+   * However, a video element needs to run in a different thread.
+   * It uses `await` if you want to go to a specific frame.
+   *
+   * When we are saving to a file we first call {@link Showable.getFramePromises}() to set up the frame.
+   * Then we call {@link Showable.show}() with {@link Showable.playSpeed} set to "exact".
+   * When we are in live/preview/development mode, then we ask the video clip to play at a specific speed.
+   * The frames might not be an exact match but they will be good enough.
+   * 1 means realtime playback, 0 means paused.
+   * Fractions and negative numbers are allowed.
+   */
+  readonly playSpeed: number | "exact";
+  /**
    * Rendering quality level.
    * - `"High Quality"`: full effects (halftone shadows, etc.) — always used during recording.
    * - `"Low Power"`: expensive effects disabled — set via the GUI during live preview to

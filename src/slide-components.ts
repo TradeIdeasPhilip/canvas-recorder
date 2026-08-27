@@ -12,7 +12,7 @@ import {
   ShowableParent,
   ShowOptions,
 } from "./showable";
-import { SingleImage, SlowImage } from "./slow-image-sources";
+import { ImportedVideo, SingleImage, SlowImage } from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
 import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
@@ -350,7 +350,7 @@ export class InParallelComponent implements Showable, ShowableParent {
    * This is a simple wrapper around {@link addFixed}.
    * @param child To add.
    */
-  addFixed1(child: Showable) {
+  add(child: Showable) {
     this.addFixed({ child });
   }
   #setParent(child: Showable) {
@@ -1366,8 +1366,10 @@ function isFontFamilyRegistered(fontFamily: string): boolean {
   const normalized = fontFamily.trim().toLowerCase();
   for (const face of document.fonts) {
     if (
-      face.family.replace(/^["']|["']$/g, "").trim().toLowerCase() ===
-      normalized
+      face.family
+        .replace(/^["']|["']$/g, "")
+        .trim()
+        .toLowerCase() === normalized
     ) {
       return true;
     }
@@ -2470,24 +2472,24 @@ export class SingleImageComponent implements Showable {
   readonly schedules = [this.urlSchedule, this.destRectSchedule] as const;
   readonly description = "Static Image";
   readonly duration = 0;
-  #trackedUrl = "";
-  #image: SingleImage | null = null;
+  #image: SingleImage | undefined;
   constructor(
     initialValues: {
       url?: string | readonly Keyframe<string>[];
       destRect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
     } = {},
   ) {
-    if (initialValues.url !== undefined)
+    if (initialValues.url !== undefined) {
       this.urlSchedule.set(initialValues.url);
-    if (initialValues.destRect !== undefined)
+    }
+    if (initialValues.destRect !== undefined) {
       this.destRectSchedule.set(initialValues.destRect);
+    }
   }
   #getImage(timeInMs: number) {
     const url = this.urlSchedule.at(timeInMs);
-    if (url !== this.#trackedUrl) {
-      this.#trackedUrl = url;
-      this.#image = url ? new SingleImage(url) : null;
+    if (url !== this.#image?.url) {
+      this.#image = url ? new SingleImage(url) : undefined;
     }
     return this.#image;
   }
@@ -2527,6 +2529,135 @@ export class SingleImageComponent implements Showable {
       drawW,
       drawH,
     );
+  }
+}
+
+// MARK: Video Clip
+
+export class VideoClipComponent extends ComponentWithLiveDuration {
+  readonly registryKey = "Video Clip";
+  readonly urlScalar: Scalar<"string"> = {
+    description: "URL",
+    type: "string",
+    value: "",
+  };
+  readonly startMsIntoClipScalar: Scalar<"number"> = {
+    description: "Start Ms Into Clip",
+    type: "number",
+    value: 0,
+  };
+  readonly endMsIntoClipScalar: Scalar<"number"> = {
+    description: "End Ms Into Clip",
+    type: "number",
+    value: 1000,
+  };
+  readonly destinationRectSchedule = new RectangleScheduleInfo("Dest Rect", {
+    x: 0,
+    y: 0,
+    width: 16,
+    height: 9,
+  });
+  #video: ImportedVideo | undefined;
+  #getVideo() {
+    const url = this.urlScalar.value;
+    if (url == "") {
+      this.#video = undefined;
+    } else if (url !== this.#video?.url) {
+      this.#video = url ? new ImportedVideo(url) : undefined;
+    }
+    return this.#video;
+  }
+  constructor(
+    initialValues: {
+      description?: string;
+      url?: string;
+      startMsIntoClip?: number;
+      endMsIntoClip?: number;
+      duration?: number;
+      destinationRect?: ReadOnlyRect | readonly Keyframe<ReadOnlyRect>[];
+    } = {},
+  ) {
+    super(
+      initialValues.description ?? "Video Clip",
+      initialValues.duration ?? 1_000,
+    );
+    if (initialValues.url !== undefined) {
+      this.urlScalar.value = initialValues.url;
+    }
+    if (initialValues.startMsIntoClip !== undefined) {
+      this.startMsIntoClipScalar.value = initialValues.startMsIntoClip;
+    }
+    if (initialValues.endMsIntoClip !== undefined) {
+      this.endMsIntoClipScalar.value = initialValues.endMsIntoClip;
+    }
+    if (initialValues.destinationRect !== undefined) {
+      this.destinationRectSchedule.set(initialValues.destinationRect);
+    }
+    this.scalars.push(
+      this.urlScalar,
+      this.startMsIntoClipScalar,
+      this.endMsIntoClipScalar,
+    );
+    this.schedules.push(this.destinationRectSchedule);
+  }
+  override getFramePromises(
+    timeInMs: number,
+    set: Pick<Set<Promise<unknown>>, "add">,
+  ) {
+    const video = this.#getVideo();
+    if (video) {
+      set.add(video.getPromise(timeInMs));
+    }
+    super.getFramePromises(timeInMs, set);
+  }
+  override show(options: ShowOptions): void {
+    const { context, playSpeed, timeInMs } = options;
+    const video = this.#getVideo();
+    const destination = this.destinationRectSchedule.at(timeInMs);
+    if (video) {
+      if (playSpeed === "exact") {
+        // This was already handled in getFramePromises().
+      } else {
+        video.liveSync(timeInMs, playSpeed);
+      }
+      if (!video.somethingIsAvailable) {
+        SlowImage.showError(
+          context,
+          destination.x,
+          destination.y,
+          destination.width,
+          destination.height,
+        );
+      } else {
+        const sourceAspect = video.naturalWidth / video.naturalHeight;
+        const destAspect = destination.width / destination.height;
+        let drawW: number, drawH: number;
+        if (sourceAspect > destAspect) {
+          drawW = destination.width;
+          drawH = destination.width / sourceAspect;
+        } else {
+          drawH = destination.height;
+          drawW = destination.height * sourceAspect;
+        }
+        const drawX = destination.x + (destination.width - drawW) / 2;
+        const drawY = destination.y + (destination.height - drawH) / 2;
+        context.drawImage(video.data, drawX, drawY, drawW, drawH);
+      }
+    }
+    super.show(options);
+  }
+  locationInClip(timeInMs: number): number {
+    if (timeInMs < 0 || timeInMs > this.duration) {
+      return NaN;
+    }
+    if (this.duration > 0) {
+      return (
+        (timeInMs / this.duration) *
+          (this.endMsIntoClipScalar.value - this.startMsIntoClipScalar.value) +
+        this.startMsIntoClipScalar.value
+      );
+    }
+    return this.startMsIntoClipScalar.value;
   }
 }
 
@@ -3028,6 +3159,16 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       },
       isGoodForWrapping: false,
       howToGenerate: { type: "class", class: SingleImageComponent },
+    },
+  ],
+  [
+    "Video Clip",
+    {
+      create() {
+        return new VideoClipComponent();
+      },
+      isGoodForWrapping: false,
+      howToGenerate: { type: "class", class: VideoClipComponent },
     },
   ],
   [
