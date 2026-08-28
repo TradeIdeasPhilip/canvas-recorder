@@ -229,7 +229,68 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
   // Some are closer to 1/2 second.
   // And some are very fast, maybe one in 10 will take less than 1/10 of a second.
   // I can't predict the individual times, but those times repeat a lot.
+  //
+  // Stepping through one frame at a time from 0.
+  // It started from 0.034 seconds per seek.
+  // By 2 seconds it takes 0.657 seconds per seek.
+  // There was a little bit of jitter, but it mostly got slower as time progressed.
+  // When I stepped backward one frame at a time, the time per seek decreased each time.
+  // The numbers were similar to the numbers I saw going forward.
+  // Proposal:
+  // * The first frame is keyframe.
+  // * I did not hit any other keyframes in the first 2 seconds.
+  // * Each request restarts from 0, and processes all the frames up to the requested frame.
+  //
+  // I exported goto() to window.goto() so I could try interactive tests.
+  // It seems like it is smart enough to take almost no time if the frame number does not change.
+  // Even if the current time is a fraction different, but it's the same frame, it's still fast.
+  // If I jump to 5n seconds (where n is an integer) it is fast.
+  // If I jump to 5n + m seconds, where m is a number between 0 and 5,
+  // then the time only depends on m, not n.
+  // That suggests that there is a keyframe every 5 seconds.
+  // And that it always works forward from the closest keyframe one frame at a time.
+  //
+  // Note:  These files are hard to edit in CapCut.
+  // TODO:  Try a video from my camera phone, another from a screen recording, and one saved in ProRes.
+  // These have worked better from me in CapCut in the past.
+  // The HEVC/H.265 output is aimed at a final output to send to YouTube, not further editing.
+  // I used this test file because I had it handy, not because it is realistic.
+  // The whole point of this program is never render my output until the final version!
+  //
+  // My original expectations:
+  // I knew there would be some cost to jumping around randomly.
+  // But I was hoping that advancing a single frame at a time could be done very quickly.
+  //
+  // I haven't seriously tried the realtime / preview mode, yet.
+  // I am curious how much trouble the seek time will cause.
+  // I was originally assuming that I could start the video clip at any specific time,
+  // and let it run at full speed.
+  // But what if I'm running at realtime speed,
+  // and I request that we seek to the time that I want now,
+  // and it takes between 0.02 and 2.0 seconds to do the initial seek?
+  // Will it stay behind that amount as it continues?
+  // Should I try to seek to a time in advance, to match that delay?
+  // That seems impossible since I don't know the delay.
+  // Being off by a whole second seems bad.
+  // Maybe, if I knew where the keyframes were in the file that I'm looking at,
+  // I could ask to synchronize again when we get to a keyframe.
+  // That would require knowing a lot about the media that I'm playing.
+  // I was originally worried about the video and audio getting off over time
+  // because they are run by different clocks and this is a known issue.
+  // But not being able to start when I want to will cause much bigger discrepancy.
+  // I need to write some tests to try this and see what happens.
+  // I.e. if I am in play mode
+  // and I set the video.currentTime to 4 seconds
+  // at exactly 12:00:04,
+  // and I check video.currentTime at 12:00:10,
+  // do I expect video.currentTime to be 10?
+  // Or will it be somewhere around 9 because of the approximately 1 second required to seek?
   const video = querySelector("video", HTMLVideoElement);
+  /**
+   *
+   * @param time Seek to this position in the video.
+   * This is the number of seconds from the start of the video.
+   */
   const goto = async (time: number) => {
     const startTime = performance.now();
     video.currentTime = time;
@@ -253,6 +314,7 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
       await sleep(10);
     }
   };
+  (window as any).goto = goto;
   getById("randomSeek", HTMLButtonElement).addEventListener("click", () => {
     goto(video.duration * Math.random());
   });
