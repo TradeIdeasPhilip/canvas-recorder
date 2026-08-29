@@ -9,6 +9,7 @@ import {
   ALL_FORMATS,
   CanvasSink,
   Input,
+  InputVideoTrack,
   UrlSource,
   WrappedCanvas,
 } from "mediabunny";
@@ -361,11 +362,8 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
     currentlyPlaying = undefined;
   }
 
-  // Opened once, up front.  poolSize is left at the default (undefined),
-  // which disables the pool -- every WrappedCanvas gets its own freshly
-  // allocated canvas, so nothing is ever silently overwritten while we're
-  // testing.
-  const sinkPromise: Promise<CanvasSink> = (async () => {
+  // Opened once, up front.
+  const trackPromise: Promise<InputVideoTrack> = (async () => {
     const input = new Input({
       source: new UrlSource("./frame counter.mp4"),
       formats: ALL_FORMATS,
@@ -374,11 +372,17 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
     if (!track) {
       throw new Error('No video track found in "./frame counter.mp4".');
     }
-    return new CanvasSink(track);
+    return track;
   })();
-  sinkPromise.catch((error) => {
+  trackPromise.catch((error) => {
     log(`Mediabunny: failed to open "./frame counter.mp4": ${error}`);
   });
+  // poolSize is left at the default (undefined), which disables the pool --
+  // every WrappedCanvas gets its own freshly allocated canvas, so nothing is
+  // ever silently overwritten while we're testing.
+  const sinkPromise: Promise<CanvasSink> = trackPromise.then(
+    (track) => new CanvasSink(track),
+  );
 
   /**
    * The generator currently in use.  jumpTo() replaces this with a fresh
@@ -502,5 +506,31 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
   getById("play", HTMLButtonElement).addEventListener("click", () => {
     play();
   });
+  getById("frameRateMetrics", HTMLButtonElement).addEventListener(
+    "click",
+    async () => {
+      const track = await trackPromise;
+      // Scan every packet in the file instead of just the default sample of
+      // 256.  The docs say to pass Infinity for this, but that throws at
+      // runtime ("must be a non-negative number") -- Number.MAX_SAFE_INTEGER
+      // works around it.
+      const metrics = await track.computeFrameRateMetrics({
+        targetPacketCount: Number.MAX_SAFE_INTEGER,
+      });
+      log(
+        `Mediabunny frame rate metrics:\n` +
+          `  underlyingFrameRate: ${metrics.underlyingFrameRate}\n` +
+          `  bestGuessFrameRate: ${metrics.bestGuessFrameRate}\n` +
+          `  minFrameRate: ${metrics.minFrameRate}\n` +
+          `  maxFrameRate: ${metrics.maxFrameRate}\n` +
+          `  averageFrameRate: ${metrics.averageFrameRate}\n` +
+          `  medianFrameRate: ${metrics.medianFrameRate}\n` +
+          `  frameRateIsConstant: ${metrics.frameRateIsConstant}\n` +
+          `  probedPacketCount: ${metrics.probedPacketCount}`,
+      );
+      const transparent = await track.canBeTransparent();
+      log(`Mediabunny canBeTransparent(): ${transparent}`);
+    },
+  );
   (window as any).mediabunny = { jumpTo, pause, play, skipNFrames };
 }
