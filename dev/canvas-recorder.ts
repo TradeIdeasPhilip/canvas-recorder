@@ -873,9 +873,6 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
     await output.start();
     infoDiv.innerHTML = "Recording in progress...";
 
-    // Send it all at once, don't `await`, let Media Bunny figure it out.
-    audioSource.add(audioBuffer);
-
     const frameDuration = 1000 / FPS;
 
     // Offline loop: draw + push frames (not limited to realtime)
@@ -916,6 +913,30 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
       //    o  This works very well on its own.
       await videoSource.add(timestampSec, durationSec);
       frameNumber++;
+    }
+
+    // Trim audio to match actual recorded frames, then send.
+    const actualAudioMs = frameNumber * frameDuration;
+    const sr = audioBuffer.sampleRate;
+    const samplesNeeded = Math.min(
+      Math.round((actualAudioMs / 1000) * sr),
+      audioBuffer.length,
+    );
+    if (samplesNeeded >= audioBuffer.length) {
+      audioSource.add(audioBuffer);
+    } else {
+      const trimmedAudio = new AudioBuffer({
+        numberOfChannels: audioBuffer.numberOfChannels,
+        length: samplesNeeded,
+        sampleRate: sr,
+      });
+      for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+        trimmedAudio.copyToChannel(
+          audioBuffer.getChannelData(ch).subarray(0, samplesNeeded),
+          ch,
+        );
+      }
+      audioSource.add(trimmedAudio);
     }
 
     infoDiv.innerHTML = "Frames complete.  Finalizing video.";
