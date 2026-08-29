@@ -12,7 +12,12 @@ import {
   ShowableParent,
   ShowOptions,
 } from "./showable";
-import { ImportedVideo, SingleImage, SlowImage } from "./slow-image-sources";
+import {
+  ImportedMediaBunnyVideo,
+  ImportedVideo,
+  SingleImage,
+  SlowImage,
+} from "./slow-image-sources";
 import { computeGridTransform, drawGrid } from "./glib/grid";
 import { Font } from "./glib/letters-base";
 import { makeLineFont, makeLineFontRatio } from "./glib/line-font";
@@ -2557,13 +2562,13 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
     width: 16,
     height: 9,
   });
-  #video: ImportedVideo | undefined;
+  #video: ImportedMediaBunnyVideo | undefined;
   #getVideo() {
     const url = this.urlScalar.value;
     if (url == "") {
       this.#video = undefined;
     } else if (url !== this.#video?.url) {
-      this.#video = url ? new ImportedVideo(url) : undefined;
+      this.#video = url ? new ImportedMediaBunnyVideo(url) : undefined;
     }
     return this.#video;
   }

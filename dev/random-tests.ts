@@ -3,8 +3,15 @@
  * elsewhere in the project. See random-tests.html.
  */
 
-import { getById, querySelector } from "phil-lib/client-misc";
+import { AnimationLoop, getById, querySelector } from "phil-lib/client-misc";
 import { sleep } from "phil-lib/misc";
+import {
+  ALL_FORMATS,
+  CanvasSink,
+  Input,
+  UrlSource,
+  WrappedCanvas,
+} from "mediabunny";
 
 // MARK: Log helper
 
@@ -335,4 +342,165 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
       await goto((video.currentTime + 1) % video.duration);
     },
   );
+}
+
+// MARK: Mediabunny
+{
+  const putMediabunnyCanvasHere = getById(
+    "putMediabunnyCanvasHere",
+    HTMLDivElement,
+  );
+  let currentlyPlaying: AnimationLoop | undefined;
+  function displayCanvas(currentFrame: HTMLCanvasElement) {
+    putMediabunnyCanvasHere.innerHTML = "";
+    putMediabunnyCanvasHere.append(currentFrame);
+  }
+  function pause() {
+    // Stop playing
+    currentlyPlaying?.cancel();
+    currentlyPlaying = undefined;
+  }
+
+  // Opened once, up front.  poolSize is left at the default (undefined),
+  // which disables the pool -- every WrappedCanvas gets its own freshly
+  // allocated canvas, so nothing is ever silently overwritten while we're
+  // testing.
+  const sinkPromise: Promise<CanvasSink> = (async () => {
+    const input = new Input({
+      source: new UrlSource("./frame counter.mp4"),
+      formats: ALL_FORMATS,
+    });
+    const track = await input.getPrimaryVideoTrack();
+    if (!track) {
+      throw new Error('No video track found in "./frame counter.mp4".');
+    }
+    return new CanvasSink(track);
+  })();
+  sinkPromise.catch((error) => {
+    log(`Mediabunny: failed to open "./frame counter.mp4": ${error}`);
+  });
+
+  /**
+   * The generator currently in use.  jumpTo() replaces this with a fresh
+   * one; skipNFrames(), play(), and the "Display Next Frame" button just
+   * keep pulling from whichever one is current.
+   */
+  let currentIterator: AsyncGenerator<WrappedCanvas, void, unknown> | undefined;
+
+  /**
+   * Pull one frame from currentIterator and display it.
+   * @returns The frame that was displayed, or undefined if there is no
+   * current iterator (jumpTo() hasn't been called yet) or the file is
+   * exhausted.
+   */
+  async function nextFrame(): Promise<WrappedCanvas | undefined> {
+    if (!currentIterator) {
+      log("Mediabunny: jump to a time before playing/stepping.");
+      return undefined;
+    }
+    const result = await currentIterator.next();
+    if (result.done) {
+      log("Mediabunny: reached the end of the file.");
+      return undefined;
+    }
+    const { canvas } = result.value;
+    // CanvasSink yields HTMLCanvasElements in a DOM context (like this one)
+    // and OffscreenCanvases otherwise -- see the CanvasSink doc comment.
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error("Expected an HTMLCanvasElement in a DOM context.");
+    }
+    displayCanvas(canvas);
+    return result.value;
+  }
+
+  async function jumpTo(seconds: number) {
+    pause();
+    const startTime = performance.now();
+    const sink = await sinkPromise;
+    currentIterator = sink.canvases(seconds);
+    await nextFrame();
+    const elapsedSeconds = (performance.now() - startTime) / 1000;
+    console.log(
+      `Jumped to ${seconds.toFixed(3)} in ${elapsedSeconds.toFixed(3)} seconds.`,
+    );
+  }
+  async function skipNFrames(numberOfFrames: number) {
+    pause();
+    const startTime = performance.now();
+    for (let i = 0; i < numberOfFrames; i++) {
+      if (!currentIterator) {
+        log("Mediabunny: jump to a time before skipping.");
+        return;
+      }
+      const result = await currentIterator.next();
+      if (result.done) {
+        log("Mediabunny: reached the end of the file while skipping.");
+        return;
+      }
+    }
+    await nextFrame();
+    const elapsedSeconds = (performance.now() - startTime) / 1000;
+    console.log(
+      `Skipped ${numberOfFrames} frames in ${elapsedSeconds.toFixed(3)} seconds.`,
+    );
+  }
+  function play() {
+    pause();
+    /**
+     * Milliseconds.
+     * Basically the same as performance.now().
+     * But sometimes slightly different.
+     * You should never compare `performance.now()` to `animationTime` directly.
+     */
+    let startTime: number | undefined;
+    /**
+     * The timestamp of the initial frame.
+     * We can compare how much time has passed in the video we are playing
+     * against the amount of realtime that has passed,
+     * to check for clock drift.
+     *
+     * Eventually we will use this to correct for clock drift,
+     * but let's start simple and always display one frame of video per animation frame.
+     */
+    let initialFrameTime: number | undefined;
+    // True while a previous tick's nextFrame() is still in flight.  Without
+    // this, a decode slower than one animation frame would let ticks pile up
+    // and call currentIterator.next() concurrently.
+    let busy = false;
+    currentlyPlaying = new AnimationLoop((animationTime) => {
+      if (startTime === undefined) {
+        startTime = animationTime;
+      }
+      if (busy) {
+        return;
+      }
+      busy = true;
+      nextFrame()
+        .then((frame) => {
+          if (frame && initialFrameTime === undefined) {
+            initialFrameTime = frame.timestamp;
+          }
+        })
+        .finally(() => {
+          busy = false;
+        });
+    });
+  }
+  getById("jumpToBeginning", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      jumpTo(0);
+    },
+  );
+  getById("displayNextFrame", HTMLButtonElement).addEventListener(
+    "click",
+    () => {
+      pause();
+      nextFrame();
+    },
+  );
+  getById("play", HTMLButtonElement).addEventListener("click", () => {
+    play();
+  });
+  (window as any).mediabunny = { jumpTo, pause, play, skipNFrames };
 }

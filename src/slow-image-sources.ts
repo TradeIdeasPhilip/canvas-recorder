@@ -1,4 +1,5 @@
 import { assertFinite, makePromise } from "phil-lib/misc";
+import { ALL_FORMATS, CanvasSink, Input, UrlSource } from "mediabunny";
 import { ShowOptions } from "./showable";
 
 // MARK: Base Class
@@ -293,4 +294,130 @@ export class ImportedVideo extends SlowImage {
   // any time I set video.src to an invalid url, including "".
   // I have never seen that as a result of seek,
   // but I can imagine it happening if a file is partially bad or the network gives out while seeking.
+}
+
+// MARK: Imported Media Bunny Video
+
+/**
+ * Same job as {@link ImportedVideo}, but reads frames via Mediabunny's WebCodecs-based
+ * `Input`/`CanvasSink` instead of an `HTMLVideoElement` + `currentTime` seeking.
+ *
+ * This exists to compare the two approaches for the render-to-file case: a `<video>`
+ * element re-decodes from the nearest preceding keyframe on *every* seek (even a
+ * single-frame step), which gets expensive fast on a file with a long GOP.
+ * `CanvasSink` gives more direct control and, for sequential access in particular,
+ * can decode each packet at most once instead of repeatedly re-walking a GOP.
+ *
+ * `data` differs from {@link ImportedVideo} in an important way: `ImportedVideo.data`
+ * is a fixed reference to one `<video>` element that the browser mutates in place, so
+ * whichever frame is "current" is always found at that same reference.  There is no
+ * single mutable object like that here — each decoded frame is its own canvas — so
+ * `data` is a getter over the most recently decoded canvas, swapped out every time
+ * {@link getPromise} or {@link liveSync} pulls a new one.
+ */
+export class ImportedMediaBunnyVideo extends SlowImage {
+  #error: Promise<void> | undefined;
+  #naturalWidth = 0;
+  #naturalHeight = 0;
+  #currentCanvas: HTMLCanvasElement | OffscreenCanvas;
+  get data(): CanvasImageSourceWebCodecs {
+    return this.#currentCanvas;
+  }
+  get naturalWidth() {
+    return this.#naturalWidth;
+  }
+  get naturalHeight() {
+    return this.#naturalHeight;
+  }
+  get somethingIsAvailable() {
+    return this.#naturalWidth > 0 && this.#naturalHeight > 0 && !this.#error;
+  }
+  /**
+   * Resolves once the input's primary video track has been found and the
+   * {@link CanvasSink} is ready to pull frames from it.  Rejects (and sets
+   * {@link #error}) if the file has no video track or fails to open.
+   */
+  readonly #sinkReady: Promise<CanvasSink>;
+  #seekInProgress = false;
+  constructor(readonly url: string) {
+    super();
+    // TODO `document` is unavailable in Node.js (record/cli-record.ts) --
+    // same limitation ImportedVideo has today.
+    this.#currentCanvas = document.createElement("canvas");
+    const input = new Input({
+      source: new UrlSource(url),
+      formats: ALL_FORMATS,
+    });
+    this.#sinkReady = (async () => {
+      const track = await input.getPrimaryVideoTrack();
+      if (!track) {
+        throw new Error(`No video track found in "${url}".`);
+      }
+      this.#naturalWidth = track.displayWidth;
+      this.#naturalHeight = track.displayHeight;
+      // A small pool keeps VRAM use constant instead of allocating a fresh
+      // canvas for every frame.  See the "performance" note on this class --
+      // tune this once we know how it behaves in practice.
+      return new CanvasSink(track, { poolSize: 2 });
+    })();
+    // Report setup failures the same way SingleImage does, so somethingIsAvailable
+    // reflects a bad file even before anyone calls getPromise()/liveSync().
+    this.#sinkReady.catch((e) => {
+      this.#error = Promise.reject(e);
+      this.#error.catch(() => {});
+    });
+  }
+  /**
+   * See {@link SlowImage.getPromise}'s doc comment for the live-vs-recording contract.
+   * @param timeInMs Where to seek to, in milliseconds from the start of this clip.
+   */
+  async getPromise(timeInMs: number): Promise<void> {
+    if (this.#error) {
+      // Any failure is permanent.
+      return this.#error;
+    }
+    if (this.#seekInProgress) {
+      // This should never happen in the recording path (each frame is
+      // requested and awaited before the next begins), but liveSync() can
+      // still be mid-fetch when this fires.
+      console.warn(
+        "Calling ImportedMediaBunnyVideo.getPromise() while a fetch is in progress.",
+      );
+    }
+    this.#seekInProgress = true;
+    try {
+      const sink = await this.#sinkReady;
+      const wrapped = await sink.getCanvas(timeInMs / 1_000);
+      if (wrapped) {
+        this.#currentCanvas = wrapped.canvas;
+      }
+      // wrapped is null only when timeInMs is before the track's first
+      // frame -- leave #currentCanvas as it was, same as ImportedVideo just
+      // staying on whatever frame it's already showing.
+    } catch (e) {
+      this.#error = Promise.reject(e);
+      this.#error.catch(() => {});
+      throw e;
+    } finally {
+      this.#seekInProgress = false;
+    }
+  }
+  /**
+   * TODO We should let the video run continuously, same as {@link ImportedVideo.liveSync}.
+   * For now this just jumps to the nearest available frame -- good enough to compare
+   * the two approaches side by side while paused / scrubbing on the timeline.
+   * `speed` is unused until continuous playback is implemented.
+   */
+  liveSync(timeInMs: number, speed: number): void {
+    void speed;
+    if (this.#seekInProgress) {
+      // Already fetching a frame -- don't pile on another overlapping
+      // request.  The next liveSync() tick will catch up.
+      return;
+    }
+    void this.getPromise(timeInMs).catch(() => {
+      // getPromise() already recorded the failure in #error; swallow here
+      // so this fire-and-forget call doesn't produce an unhandled rejection.
+    });
+  }
 }
