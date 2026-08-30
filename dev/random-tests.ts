@@ -421,6 +421,12 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
     pause();
     const startTime = performance.now();
     const sink = await sinkPromise;
+    // canvases() pre-decodes a few frames ahead of whatever we've actually
+    // consumed.  Abandoning the old generator by just overwriting the
+    // variable leaves any of those already-decoded VideoSamples orphaned --
+    // return() tells it to stop and run its cleanup (closing them) instead
+    // of waiting on GC to notice.
+    await currentIterator?.return();
     currentIterator = sink.canvases(seconds);
     await nextFrame();
     const elapsedSeconds = (performance.now() - startTime) / 1000;
