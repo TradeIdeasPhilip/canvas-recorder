@@ -23,7 +23,6 @@ import {
 } from "mediabunny";
 import {
   RootComponentEditor,
-  ScalarInfo,
   SerializedScalar,
   SerializedSchedule,
   Showable,
@@ -70,7 +69,6 @@ import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
 import { DurationAgnosticComponent } from "../src/slide-components/duration-agnostic.ts";
-import { PaddingComponent } from "../src/slide-components/padding.ts";
 import { componentRegistry } from "../src/slide-components/registry.ts";
 import {
   SerializedChild,
@@ -78,6 +76,7 @@ import {
 } from "../src/slide-components/serialize.ts";
 import { SlideComponent } from "../src/slide-components/slide-component.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
+import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
 // Automatically check for status and report to console.
 // Also, register philDebug.loadServiceWorker() and philDebug.unloadServiceWorker().

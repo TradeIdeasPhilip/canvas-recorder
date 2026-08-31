@@ -20,8 +20,8 @@ import {
   InParallelComponent,
   ParallelChildInfo,
   ShowChildInfo,
+  PaddingComponent,
 } from "./in-parallel";
-import { PaddingComponent } from "./padding";
 
 /**
  * Each of the children is displayed one after the next.

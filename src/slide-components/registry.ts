@@ -6,13 +6,13 @@ import { FunctionGraphComponent } from "./function-graph";
 import { HalftoneShadowComponent } from "./halftone-shadow";
 import { HoldPreviousTransition, HoldNextTransition } from "./hold";
 import { SingleImageComponent } from "./image";
+import { PaddingComponent } from "./in-parallel";
 import { InSeriesComponent } from "./in-series";
 import {
   MultiTextComponent,
   TextSpanComponent,
   TextFormatComponent,
 } from "./multi-text";
-import { PaddingComponent } from "./padding";
 import { RectangleComponent } from "./rectangle";
 import { TextComponent } from "./simple-text";
 import { SlideComponent } from "./slide-component";

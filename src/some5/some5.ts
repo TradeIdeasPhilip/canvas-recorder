@@ -52,7 +52,10 @@ import { ArrowComponent } from "../slide-components/arrow";
 import { ComponentWithFixedDuration } from "../slide-components/fixed-duration";
 import { FrameCounter } from "../slide-components/frame-counter";
 import { HalftoneShadowComponent } from "../slide-components/halftone-shadow";
-import { InParallelComponent } from "../slide-components/in-parallel";
+import {
+  InParallelComponent,
+  PaddingComponent,
+} from "../slide-components/in-parallel";
 import { InSeriesComponent } from "../slide-components/in-series";
 import { ComponentWithLiveDuration } from "../slide-components/live-duration";
 import {
@@ -60,7 +63,6 @@ import {
   MultiTextComponent,
   TextSpanComponent,
 } from "../slide-components/multi-text";
-import { PaddingComponent } from "../slide-components/padding";
 import { buildComponents } from "../slide-components/serialize";
 import { TextComponent } from "../slide-components/simple-text";
 import { SlideComponent } from "../slide-components/slide-component";
