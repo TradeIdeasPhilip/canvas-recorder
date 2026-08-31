@@ -536,6 +536,8 @@ log("Ready. Note: this all requires a Chromium-based browser (Chrome/Edge).");
       );
       const transparent = await track.canBeTransparent();
       log(`Mediabunny canBeTransparent(): ${transparent}`);
+      const timeResolution=await track.getTimeResolution()
+      log(`Mediabunny timeResolution(): ${timeResolution}`);
     },
   );
   (window as any).mediabunny = { jumpTo, pause, play, skipNFrames };
