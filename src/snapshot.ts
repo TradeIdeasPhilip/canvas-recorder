@@ -10,7 +10,7 @@ import {
   Showable,
   SoundClip,
 } from "./showable";
-import { buildComponents, SerializedChild } from "./slide-components";
+import { SerializedChild, buildComponents } from "./slide-components/serialize";
 
 /**
  * Serialized state of one {@link Showable.fixedComponents} item.
@@ -177,7 +177,8 @@ export function serializeFixedComponents(
     if (fixedComponents.length)
       entry.fixedComponents = serializeFixedComponents(fixedComponents);
     if (child.setDuration !== undefined) entry.duration = child.duration;
-    if (child.soundClips !== undefined) entry.soundClips = child.soundClips.map((c) => ({ ...c }));
+    if (child.soundClips !== undefined)
+      entry.soundClips = child.soundClips.map((c) => ({ ...c }));
     if (child.userEditableDescription !== undefined)
       entry.userEditableDescription = child.userEditableDescription;
     return entry;
@@ -208,7 +209,8 @@ export function applyFixedComponents(
     if (childFixedComponents.length && sc.fixedComponents?.length)
       applyFixedComponents(childFixedComponents, sc.fixedComponents);
     if (sc.duration !== undefined) child.setDuration?.(sc.duration);
-    if (sc.soundClips !== undefined) child.soundClips = sc.soundClips.map((c) => ({ ...c }));
+    if (sc.soundClips !== undefined)
+      child.soundClips = sc.soundClips.map((c) => ({ ...c }));
     if (sc.userEditableDescription !== undefined)
       child.userEditableDescription = sc.userEditableDescription;
   }

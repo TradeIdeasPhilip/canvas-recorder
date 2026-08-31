@@ -1,6 +1,10 @@
 import { sum, zip } from "phil-lib/misc";
 import { Showable } from "./showable";
 
+export type Mutable<T> = {
+  -readonly [P in keyof T]: T[P];
+};
+
 /**
  * Modify an array by removing the designated items.
  *

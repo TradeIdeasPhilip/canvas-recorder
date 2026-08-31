@@ -11,19 +11,18 @@ import { MakeShowableInSeries, Showable } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
-import {
-  buildComponents,
-  ComponentWithLiveDuration,
-  componentRegistry,
-  HalftoneShadowComponent,
-  RectangleComponent,
-  ComponentWithFixedDuration,
-  FrameCounter,
-  InSeriesComponent,
-} from "./slide-components";
+
 import { LineFontMetrics, makeLineFont } from "./glib/line-font";
 import { ParagraphLayout } from "./glib/paragraph-layout";
 import { computeGridTransform, drawGrid } from "./glib/grid";
+import { ComponentWithFixedDuration } from "./slide-components/fixed-duration";
+import { FrameCounter } from "./slide-components/frame-counter";
+import { HalftoneShadowComponent } from "./slide-components/halftone-shadow";
+import { InSeriesComponent } from "./slide-components/in-series";
+import { ComponentWithLiveDuration } from "./slide-components/live-duration";
+import { RectangleComponent } from "./slide-components/rectangle";
+import { componentRegistry } from "./slide-components/registry";
+import { buildComponents } from "./slide-components/serialize";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -155,7 +154,7 @@ componentRegistry.set(nineShapesRegistryKey, {
 // MARK: Slide list
 // ---------------------------------------------------------------------------
 
-const slideList = new InSeriesComponent({description:"Shadow Test"});
+const slideList = new InSeriesComponent({ description: "Shadow Test" });
 
 // ---------------------------------------------------------------------------
 // MARK: Slide 1 — shape gallery

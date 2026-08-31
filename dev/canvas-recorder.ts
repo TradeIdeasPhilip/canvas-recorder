@@ -51,15 +51,6 @@ import {
 } from "../src/snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
 import { AudioBuilder } from "./audio-builder.ts";
-import {
-  buildComponents,
-  componentRegistry,
-  DurationAgnosticComponent,
-  PaddingComponent,
-  SerializedChild,
-  SlideComponent,
-  TraditionalTextComponent,
-} from "../src/slide-components.ts";
 import { openColorPickerDialog } from "./color-picker.ts";
 import { setSwatchColor } from "./color-utils.ts";
 import {
@@ -78,6 +69,15 @@ import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
+import { DurationAgnosticComponent } from "../src/slide-components/duration-agnostic.ts";
+import { PaddingComponent } from "../src/slide-components/padding.ts";
+import { componentRegistry } from "../src/slide-components/registry.ts";
+import {
+  SerializedChild,
+  buildComponents,
+} from "../src/slide-components/serialize.ts";
+import { SlideComponent } from "../src/slide-components/slide-component.ts";
+import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 
 // Automatically check for status and report to console.
 // Also, register philDebug.loadServiceWorker() and philDebug.unloadServiceWorker().

@@ -29,31 +29,12 @@ import {
 } from "../schedule-helper";
 import { DEFAULT_SLIDE_DURATION_MS } from "../shadow-test";
 import {
-  FrameCounter,
-  HalftoneShadowComponent,
-  InSeriesComponent,
-} from "../slide-components";
-import {
-  MakeShowableInSeries,
   progressAxisLabel,
   RootComponentEditor,
   Showable,
   ShowOptions,
   VisualEditorAPI,
 } from "../showable";
-import {
-  ArrowComponent,
-  buildComponents,
-  ComponentWithFixedDuration,
-  ComponentWithLiveDuration,
-  InParallelComponent,
-  MultiTextComponent,
-  PaddingComponent,
-  SlideComponent,
-  TextComponent,
-  TextFormatComponent,
-  TextSpanComponent,
-} from "../slide-components";
 import slide1 from "./slide1.json";
 import {
   FourierTerm,
@@ -67,6 +48,22 @@ import { PathShapeSplitter } from "../glib/path-shape-splitter";
 import { matchShapes } from "../morph-animation";
 import { createPathShapeCrossFade } from "../cross-fade";
 import { removeIf } from "../utility";
+import { ArrowComponent } from "../slide-components/arrow";
+import { ComponentWithFixedDuration } from "../slide-components/fixed-duration";
+import { FrameCounter } from "../slide-components/frame-counter";
+import { HalftoneShadowComponent } from "../slide-components/halftone-shadow";
+import { InParallelComponent } from "../slide-components/in-parallel";
+import { InSeriesComponent } from "../slide-components/in-series";
+import { ComponentWithLiveDuration } from "../slide-components/live-duration";
+import {
+  TextFormatComponent,
+  MultiTextComponent,
+  TextSpanComponent,
+} from "../slide-components/multi-text";
+import { PaddingComponent } from "../slide-components/padding";
+import { buildComponents } from "../slide-components/serialize";
+import { TextComponent } from "../slide-components/simple-text";
+import { SlideComponent } from "../slide-components/slide-component";
 
 const paddedEaseSubSchedule: readonly Keyframe<number>[] = [
   { time: 0.15, value: 0, easeAfter: ease },

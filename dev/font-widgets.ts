@@ -1,5 +1,5 @@
 import { Keyframe } from "../src/interpolate.ts";
-import { TraditionalTextComponent } from "../src/slide-components.ts";
+import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import {
   _fetchLocalFonts,
   _findAlternativeFonts,

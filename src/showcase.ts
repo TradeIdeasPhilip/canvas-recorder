@@ -62,14 +62,6 @@ import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
 import { ArrayMap, blackBackground, distribute, philDebug } from "./utility";
 import { zipper } from "./zipper";
-import {
-  ComponentWithLiveDuration,
-  FunctionGraphComponent,
-  InParallelComponent,
-  InSeriesComponent,
-  SingleImageComponent,
-  TextComponent,
-} from "./slide-components";
 
 FunctionGraphComponent.functions.set("sin", Math.sin);
 FunctionGraphComponent.functions.set("cos", Math.cos);
@@ -91,6 +83,12 @@ import {
   createCrossFadeFunction,
   pathToParametric,
 } from "./cross-fade";
+import { FunctionGraphComponent } from "./slide-components/function-graph";
+import { SingleImageComponent } from "./slide-components/image";
+import { InParallelComponent } from "./slide-components/in-parallel";
+import { InSeriesComponent } from "./slide-components/in-series";
+import { ComponentWithLiveDuration } from "./slide-components/live-duration";
+import { TextComponent } from "./slide-components/simple-text";
 
 // Some of my examples constantly change as I try new things.
 // These are examples that will stick around, so I can easily see how I did something in the past.

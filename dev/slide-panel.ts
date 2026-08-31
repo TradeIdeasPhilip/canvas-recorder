@@ -1,7 +1,7 @@
 import {
   SlideComponent,
   TRANSFORM_PLACEHOLDERS,
-} from "../src/slide-components.ts";
+} from "../src/slide-components/slide-component";
 
 /**
  * Build the Transform Info panel shown at the top of the schedule editor
