@@ -1,6 +1,3 @@
-// MARK: Proposed New Video Component,
-// mediabunny streams
-
 import { WrappedCanvas } from "mediabunny";
 import { ComponentWithLiveDuration } from "./live-duration";
 import { ReadOnlyRect } from "phil-lib/misc";
@@ -8,6 +5,9 @@ import { RectangleScheduleInfo } from "../schedule-helper";
 import { Scalar, ShowOptions } from "../showable";
 import { ImportedMediaBunnyVideo, SlowImage } from "../slow-image-sources";
 import { Keyframe } from "../interpolate";
+
+// MARK: Proposed New Video Component,
+// mediabunny streams
 
 /**
  * A single frame of the input video clip.
