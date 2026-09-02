@@ -19,7 +19,7 @@ export default defineConfig({
     // I am storing the source and object code on GitHub, so there are
     // no secrets to protect.
     sourcemap: "inline",
-    chunkSizeWarningLimit:5000,
+    chunkSizeWarningLimit: 5000,
     target: "esnext",
     // This works well with GitHub pages.  GitHub can put everything in the docs directory on the web.
     outDir: "docs",
@@ -30,9 +30,10 @@ export default defineConfig({
         // files that have hashes in their file names.  A user would never see these unless he was
         // looking at the page source, the dev tools, etc.  I.e. the property names don't matter.
         // So I have fun with them.
-        "index": resolve(__dirname, "index.html"),
+        index: resolve(__dirname, "index.html"),
         "canvas-recorder": resolve(__dirname, "canvas-recorder.html"),
         "sound-explorer": resolve(__dirname, "sound-explorer.html"),
+        "random-tests": resolve(__dirname, "random-tests.html"),
       },
       output: {
         // Extract shared library modules into a separate sync chunk so that
