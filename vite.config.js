@@ -34,6 +34,7 @@ export default defineConfig({
         "canvas-recorder": resolve(__dirname, "canvas-recorder.html"),
         "sound-explorer": resolve(__dirname, "sound-explorer.html"),
         "random-tests": resolve(__dirname, "random-tests.html"),
+        "media-browser": resolve(__dirname, "media-browser.html"),
       },
       output: {
         // Extract shared library modules into a separate sync chunk so that

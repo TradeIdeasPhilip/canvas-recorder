@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎬 Media Browser</title>
+    <script type="module" src="/dev/media-browser.ts"></script>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 1100px;
+        margin: 1em auto;
+        padding: 0 1em;
+      }
+      textarea {
+        width: 100%;
+        box-sizing: border-box;
+        font-family: monospace;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 0.5em;
+      }
+      th,
+      td {
+        border-bottom: 1px solid #ccc;
+        padding: 0.4em 0.6em;
+        text-align: left;
+        vertical-align: top;
+      }
+      td.url {
+        max-width: 22em;
+        overflow-wrap: anywhere;
+        font-family: monospace;
+        font-size: 0.85em;
+      }
+      tr.selected {
+        background: #eef6ff;
+      }
+      .status-loading {
+        color: #886600;
+      }
+      .status-error {
+        color: #a00;
+      }
+      .status-ready {
+        color: #070;
+      }
+      #editor {
+        margin-top: 1.5em;
+        padding: 1em;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+      }
+      #editor[hidden] {
+        display: none;
+      }
+      #editor fieldset {
+        margin-bottom: 1em;
+      }
+      #editor label {
+        display: inline-block;
+        margin-right: 1.5em;
+      }
+      #editor input[type="number"] {
+        width: 7em;
+      }
+      #previewContainer {
+        overflow: auto;
+        border: 1px solid #999;
+        background: #222;
+        margin-bottom: 1em;
+      }
+      #previewVideo {
+        display: block;
+      }
+      .field-row {
+        margin-bottom: 0.5em;
+      }
+      .hint {
+        color: #666;
+        font-size: 0.85em;
+      }
+      #copyFeedback {
+        color: #070;
+        font-size: 0.85em;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Media Browser</h1>
+    <p class="hint">
+      A quick strawman for a CapCut-"Media tab"-style tool: paste video URLs,
+      see their real duration/size/frame rate, and produce
+      <code>VideoClipComponent</code>-shaped JSON to paste into your source.
+      Cross-origin URLs need CORS headers from the host or this will fail to
+      probe them.
+    </p>
+
+    <textarea id="urlInput" rows="4" placeholder="One URL per line…"></textarea>
+    <button id="loadButton" type="button">Load</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>URL</th>
+          <th>Status</th>
+          <th>Duration</th>
+          <th>Size (px)</th>
+          <th>FPS</th>
+          <th></th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+
+    <div id="editor" hidden>
+      <h2>Selected: <span id="editorUrl"></span></h2>
+
+      <div id="previewContainer">
+        <video id="previewVideo" muted></video>
+      </div>
+
+      <fieldset>
+        <legend>Trim</legend>
+        <div class="field-row">
+          Start (ms): <input id="startMs" type="number" step="1" />
+          <button id="goToStart" type="button">Go to Start</button>
+          <button id="setStartNow" type="button">Set Start = Current</button>
+        </div>
+        <div class="field-row">
+          End (ms): <input id="endMs" type="number" step="1" />
+          <button id="goToEnd" type="button">Go to End</button>
+          <button id="setEndNow" type="button">Set End = Current</button>
+        </div>
+        <div class="field-row">
+          Duration (ms): <input id="durationMs" type="number" step="1" />
+          <span class="hint">(redundant with End − Start; editing this moves End)</span>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Destination size (canvas units, 16×9 total)</legend>
+        <div class="field-row">
+          Width: <input id="destWidth" type="number" step="0.01" />
+          Height: <input id="destHeight" type="number" step="0.01" />
+        </div>
+        <div class="field-row">
+          <button id="fitMaxFit" type="button">Max Fit (contain in 16×9)</button>
+          <button id="fitMinCover" type="button">Min to Cover (fill 16×9)</button>
+          <button id="fitPreservePixels" type="button">
+            Preserve Pixels (native size @ 240px/unit)
+          </button>
+        </div>
+        <p class="hint">
+          The top-left corner is always (0, 0) — not shown here, forced to
+          0, 0 on copy. Preview always fills its box, cropping as needed
+          (scroll to see what would be cropped), regardless of which button
+          you last clicked here.
+        </p>
+      </fieldset>
+    </div>
+  </body>
+</html>

@@ -9,6 +9,14 @@ import { Keyframe } from "../interpolate";
 // MARK: Proposed New Video Component,
 // mediabunny streams
 
+// If you see "Unsupported edit list: multiple edits are not currently supported. Only using first edit."
+// This message comes from Mediabunny.
+// This can be caused by editing a file with QuickTime and cutting something out of the middle.
+// Trimming seems to work okay, but if the editor shows N+1 clips before saving, I get N copies of this message.
+// If you need to fix a file like this, try `ffmpeg -i input.mov -c copy output.mp4`.
+//
+// So: document it as "caused by QuickTime's non-destructive trim/delete when the edit ends up with more than one remaining segment," not pause/resume — my original guess was wrong, this one's right. Practical note worth keeping alongside it: the ffmpeg -i in.mov -c copy out.mp4 stream-copy workaround from before still applies if you ever need one of these post-edit files to read correctly — it bakes the edit list into one clean segment.
+
 /**
  * A single frame of the input video clip.
  *

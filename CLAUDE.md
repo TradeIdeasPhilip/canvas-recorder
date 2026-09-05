@@ -30,6 +30,14 @@ Open the app at:
 
 `dev/canvas-recorder.ts` is the index of every available video; browse it to see what exists.
 
+## Adding a New Top-Level Page
+
+1. Create `your-page.html` at the project root, with `<script type="module" src="/dev/your-page.ts">` for its logic.
+2. Link it from `index.html`.
+3. Register it in `vite.config.js`'s `rollupOptions.input`. Without this, the page works fine under `npm run dev` but is silently excluded from `npm run build`'s output — no error, it just won't be there.
+
+(`canvas-recorder.html`, `sound-explorer.html`, `random-tests.html`, `media-browser.html` are all examples of this pattern.)
+
 ## Coordinate System
 
 The canvas is always **16 units wide × 9 units tall**, regardless of actual pixel dimensions. The root transform (`scale(canvas.width/16, canvas.height/9)`) is applied before any `show()` call. All drawing uses these logical units. Never work in pixels directly.
