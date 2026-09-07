@@ -7,7 +7,7 @@ import {
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { myRainbow } from "./glib/my-rainbow";
-import { MakeShowableInSeries, Showable } from "./showable";
+import { MakeShowableInSeries, Showable, ShowOptions } from "./showable";
 import { lerp } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
 import { applyTransform, panAndZoom } from "./glib/transforms";
@@ -23,6 +23,10 @@ import { ComponentWithLiveDuration } from "./slide-components/live-duration";
 import { RectangleComponent } from "./slide-components/rectangle";
 import { componentRegistry } from "./slide-components/registry";
 import { buildComponents } from "./slide-components/serialize";
+import { TraditionalTextComponent } from "./slide-components/traditional-text";
+import { VideoClipComponent } from "./slide-components/video-clip";
+import { makeLissajousPath } from "./lissajous";
+import { strokeColors } from "./stroke-colors";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -1266,23 +1270,227 @@ const slideList = new InSeriesComponent({ description: "Shadow Test" });
 }
 
 // MARK: Video Clip
+
+const SCREEN_RECORDING_URL = "./Screen_Recording_2026-09-05_at_8.55.17_AM.mov";
+// This file also triggers Mediabunny's "Unsupported edit list" warning (see
+// the comment at the top of slide-components/video-clip.ts) -- using it here
+// deliberately, to see what that actually looks like rather than avoiding it.
+// getDurationFromMetadata() reports 4.900s (what Media Browser would show
+// you) -- using that exact figure, not backed off with a safety margin, is
+// the point: it's what a real user would type in, and it's deliberately
+// right at the boundary the Padding Hold test below is investigating.
+const SCREEN_RECORDING_DURATION_MS = 4_900;
+
+// ---------------------------------------------------------------------------
+// MARK: Video Clip -- Fit + Lissajous Letterbox
+//
+// The common case: a full-screen Mac recording, "fit" (contain) into 16:9,
+// with the resulting letterbox strips put to use rather than left black.
+// The recording is 2880x1800 (aspect 1.6), which happens to exactly match
+// lissajous.ts's own assumed 16:10 layout, so its side-strip geometry drops
+// in unchanged.
+// ---------------------------------------------------------------------------
 {
-  const duration = 90_000;
-  const slide = new (class extends ComponentWithFixedDuration {
+  const CENTER_WIDTH = 9 * 1.6; // 14.4 -- contain a 1.6-aspect source in a 9-tall box
+  const SIDE_WIDTH = (16 - CENTER_WIDTH) / 2; // 0.8
+  const RIGHT_X = SIDE_WIDTH + CENTER_WIDTH; // 15.2
+
+  class FitWithLissajousLetterboxSlide extends ComponentWithFixedDuration {
+    readonly #leftPath = makeLissajousPath(
+      SIDE_WIDTH / 2,
+      4.5,
+      (SIDE_WIDTH / 2) * 0.9,
+      4.4,
+    );
+    readonly #rightPath = makeLissajousPath(
+      RIGHT_X + SIDE_WIDTH / 2,
+      4.5,
+      (SIDE_WIDTH / 2) * 0.9,
+      4.4,
+    );
     constructor() {
-      super("Video Clip", duration);
+      super(
+        "Video Clip: Fit + Lissajous Letterbox",
+        SCREEN_RECORDING_DURATION_MS,
+      );
+      this.add(
+        new VideoClipComponent({
+          url: SCREEN_RECORDING_URL,
+          startMsIntoClip: 0,
+          endMsIntoClip: SCREEN_RECORDING_DURATION_MS,
+          duration: SCREEN_RECORDING_DURATION_MS,
+          destinationRect: {
+            x: SIDE_WIDTH,
+            y: 0,
+            width: CENTER_WIDTH,
+            height: 9,
+          },
+        }),
+      );
+    }
+    override show(options: ShowOptions): void {
+      const { context, timeInMs } = options;
+      context.fillStyle = "black";
+      context.fillRect(0, 0, 16, 9);
+      context.lineWidth = 0.025;
+      context.lineJoin = "round";
+      context.lineCap = "round";
+      // 2 complete color cycles over the full duration -- seamless loop,
+      // same convention as lissajous.ts.
+      const relativeOffset = (timeInMs / SCREEN_RECORDING_DURATION_MS) * 2;
+      context.save();
+      context.beginPath();
+      context.rect(0, 0, SIDE_WIDTH, 9);
+      context.clip();
+      strokeColors({
+        context,
+        pathShape: this.#leftPath,
+        relativeOffset,
+        repeatCount: 3,
+      });
+      context.restore();
+      context.save();
+      context.beginPath();
+      context.rect(RIGHT_X, 0, SIDE_WIDTH, 9);
+      context.clip();
+      strokeColors({
+        context,
+        pathShape: this.#rightPath,
+        relativeOffset,
+        repeatCount: 3,
+      });
+      context.restore();
+      super.show(options); // draws the VideoClipComponent child
+    }
+  }
+  slideList.add(new FitWithLissajousLetterboxSlide());
+}
+
+// ---------------------------------------------------------------------------
+// MARK: Video Clip -- Pixel Perfect
+//
+// Less common, but no scaling at all: destination size comes straight from
+// the source's native pixel dimensions at 240px/unit (see PIXELS_PER_UNIT in
+// dev/media-browser.ts for where that constant comes from), leaving real
+// margin to put text in.
+// ---------------------------------------------------------------------------
+{
+  const PIXELS_PER_UNIT = 240; // 3840x2160 recording resolution / 16x9 units
+  const NATURAL_WIDTH = 2880;
+  const NATURAL_HEIGHT = 1800;
+  const DEST_WIDTH = NATURAL_WIDTH / PIXELS_PER_UNIT; // 12
+  const DEST_HEIGHT = NATURAL_HEIGHT / PIXELS_PER_UNIT; // 7.5
+  const DEST_X = (16 - DEST_WIDTH) / 2; // 2
+  const DEST_Y = (9 - DEST_HEIGHT) / 2; // 0.75
+
+  class PixelPerfectSlide extends ComponentWithFixedDuration {
+    constructor() {
+      super("Video Clip: Pixel Perfect", SCREEN_RECORDING_DURATION_MS);
+      this.add(
+        new VideoClipComponent({
+          url: SCREEN_RECORDING_URL,
+          startMsIntoClip: 0,
+          endMsIntoClip: SCREEN_RECORDING_DURATION_MS,
+          duration: SCREEN_RECORDING_DURATION_MS,
+          destinationRect: {
+            x: DEST_X,
+            y: DEST_Y,
+            width: DEST_WIDTH,
+            height: DEST_HEIGHT,
+          },
+        }),
+      );
+      this.add(
+        new TraditionalTextComponent({
+          text: `Pixel Perfect — ${NATURAL_WIDTH}×${NATURAL_HEIGHT} native, no scaling`,
+          position: { x: 8, y: DEST_Y / 2 },
+          fontSize: 0.4,
+          fontFamily: "Roboto",
+          textAlign: "center",
+          textBaseline: "middle",
+          fillColor: myRainbow.violet,
+        }),
+      );
+    }
+    override show(options: ShowOptions): void {
+      options.context.fillStyle = "#111";
+      options.context.fillRect(0, 0, 16, 9);
+      super.show(options);
+    }
+  }
+  slideList.add(new PixelPerfectSlide());
+}
+
+// ---------------------------------------------------------------------------
+// MARK: Video Clip -- Padding Hold (before/after)
+//
+// The "before" case for the boundary-frame concern: does holding the last
+// frame (a common Padding use) show the real last frame, or something worse
+// (e.g. a transparent/blank frame representing the instant just past the
+// clip's end)?  No special-case fix yet -- just observe what happens.
+// The border color makes the current phase unmissable.
+// ---------------------------------------------------------------------------
+{
+  const HOLD_MS = 3_000;
+  const TOTAL_MS = HOLD_MS + SCREEN_RECORDING_DURATION_MS + HOLD_MS;
+
+  class PaddingHoldSlide extends ComponentWithFixedDuration {
+    constructor() {
+      super("Video Clip: Padding Hold (before/after)", TOTAL_MS);
+      this.addFixed({
+        child: new VideoClipComponent({
+          url: SCREEN_RECORDING_URL,
+          startMsIntoClip: 0,
+          endMsIntoClip: SCREEN_RECORDING_DURATION_MS,
+          duration: SCREEN_RECORDING_DURATION_MS,
+          destinationRect: { x: 2, y: 0.5, width: 12, height: 7.5 },
+        }),
+        padding: {
+          initialTime: HOLD_MS,
+          extraTime: HOLD_MS,
+          showBefore: "freeze",
+          showAfter: "freeze",
+        },
+      });
       this.add(
         new FrameCounter({
-          minDuration: duration,
-          position: { x: 15, y: 3.5 },
+          minDuration: TOTAL_MS,
+          position: { x: 15, y: 8.7 },
           fillColor: myRainbow.violet,
-          fontSize: 3,
+          fontSize: 0.5,
           fontFamily: "Roboto",
         }),
       );
     }
-  })();
-  slideList.add(slide);
+    override show(options: ShowOptions): void {
+      const { context, timeInMs } = options;
+      context.fillStyle = "#222";
+      context.fillRect(0, 0, 16, 9);
+
+      let phase: string;
+      let color: string;
+      if (timeInMs < HOLD_MS) {
+        phase = "HOLD BEFORE (first frame)";
+        color = "orange";
+      } else if (timeInMs > HOLD_MS + SCREEN_RECORDING_DURATION_MS) {
+        phase = "HOLD AFTER (last frame)";
+        color = "red";
+      } else {
+        phase = "PLAYING";
+        color = "lime";
+      }
+      context.strokeStyle = color;
+      context.lineWidth = 0.15;
+      context.strokeRect(0.075, 0.075, 16 - 0.15, 9 - 0.15);
+      context.font = "0.5px sans-serif";
+      context.fillStyle = color;
+      context.textAlign = "center";
+      context.fillText(phase, 8, 8.6);
+
+      super.show(options);
+    }
+  }
+  slideList.add(new PaddingHoldSlide());
 }
 
 export const shadowTest = new HalftoneShadowComponent({

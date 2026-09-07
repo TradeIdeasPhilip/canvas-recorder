@@ -1,21 +1,18 @@
-import { CanvasSink, WrappedCanvas } from "mediabunny";
+import { ALL_FORMATS, CanvasSink, Input, UrlSource, WrappedCanvas } from "mediabunny";
 import { ComponentWithLiveDuration } from "./live-duration";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { RectangleScheduleInfo } from "../schedule-helper";
 import { Scalar, ShowOptions } from "../showable";
-import { ImportedMediaBunnyVideo, SlowImage } from "../slow-image-sources";
+import { SlowImage } from "../slow-image-sources";
 import { Keyframe } from "../interpolate";
 
-// MARK: Proposed New Video Component,
-// mediabunny streams
+// MARK: Streaming Frame Sources
 
 // If you see "Unsupported edit list: multiple edits are not currently supported. Only using first edit."
 // This message comes from Mediabunny.
 // This can be caused by editing a file with QuickTime and cutting something out of the middle.
 // Trimming seems to work okay, but if the editor shows N+1 clips before saving, I get N copies of this message.
 // If you need to fix a file like this, try `ffmpeg -i input.mov -c copy output.mp4`.
-//
-// So: document it as "caused by QuickTime's non-destructive trim/delete when the edit ends up with more than one remaining segment," not pause/resume — my original guess was wrong, this one's right. Practical note worth keeping alongside it: the ffmpeg -i in.mov -c copy out.mp4 stream-copy workaround from before still applies if you ever need one of these post-edit files to read correctly — it bakes the edit list into one clean segment.
 
 /**
  * A single frame of the input video clip.
@@ -290,6 +287,33 @@ class FrameSource {
 
 // MARK: Video Clip
 
+/**
+ * Everything needed to draw frames from one video file: the open Mediabunny
+ * pipeline plus the natural pixel dimensions, read once when the URL is
+ * (re)opened.
+ */
+type OpenVideo = {
+  readonly frameSource: FrameSource;
+  readonly naturalWidth: number;
+  readonly naturalHeight: number;
+};
+
+async function openVideo(url: string): Promise<OpenVideo> {
+  const input = new Input({ source: new UrlSource(url), formats: ALL_FORMATS });
+  const track = await input.getPrimaryVideoTrack();
+  if (!track) {
+    throw new Error(`No video track found in "${url}".`);
+  }
+  const naturalWidth = await track.getDisplayWidth();
+  const naturalHeight = await track.getDisplayHeight();
+  // poolSize is left at the default (disabled): RafFrameSource can hold up
+  // to MAX_FRAMES canvases alive at once, and a pool smaller than that would
+  // silently overwrite a frame we're still displaying.  Revisit only if
+  // per-frame allocation turns out to matter in practice.
+  const frameSource = new FrameSource(new CanvasSink(track));
+  return { frameSource, naturalWidth, naturalHeight };
+}
+
 export class VideoClipComponent extends ComponentWithLiveDuration {
   readonly registryKey = "Video Clip";
   readonly urlScalar: Scalar<"string"> = {
@@ -313,16 +337,40 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
     width: 16,
     height: 9,
   });
-  #video: ImportedMediaBunnyVideo | undefined;
-  #getVideo() {
+
+  #url = "";
+  #videoPromise: Promise<OpenVideo> | undefined;
+  /** Set once #videoPromise resolves -- see #getVideoPromise() for why this can't just be read off the promise itself. */
+  #video: OpenVideo | undefined;
+  /** The frame most recently fetched for an exact (recording) request; drawn by show() when playSpeed === "exact". */
+  #lastExactFrame: Frame | undefined;
+
+  /**
+   * (Re)opens the video if the URL changed since the last call.  Returns
+   * undefined if there is no URL to show.
+   */
+  #getVideoPromise(): Promise<OpenVideo> | undefined {
     const url = this.urlScalar.value;
-    if (url == "") {
+    if (url !== this.#url) {
+      this.#url = url;
       this.#video = undefined;
-    } else if (url !== this.#video?.url) {
-      this.#video = url ? new ImportedMediaBunnyVideo(url) : undefined;
+      this.#lastExactFrame = undefined;
+      // The old FrameSource (if any) is simply dropped.  Unlike
+      // FilePathSource (Node-only), UrlSource holds no OS-level resource
+      // like a file handle, so there's nothing to explicitly release.
+      this.#videoPromise = url ? openVideo(url) : undefined;
+      // A promise only resolves its .then() callbacks in a later microtask,
+      // even if already settled -- so show() (synchronous) can't peek at
+      // #videoPromise directly.  This side-channel keeps #video, a plain
+      // field, in sync for show() to read.  Attaching .then() here (even
+      // though a separate .then() in getFramePromises() also observes this
+      // same promise) is what marks #videoPromise's rejection "handled" --
+      // no unhandled-rejection console noise either way.
+      this.#videoPromise?.then((v) => (this.#video = v)).catch(() => {});
     }
-    return this.#video;
+    return this.#videoPromise;
   }
+
   constructor(
     initialValues: {
       description?: string;
@@ -360,23 +408,35 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
     timeInMs: number,
     set: Pick<Set<Promise<unknown>>, "add">,
   ) {
-    const video = this.#getVideo();
-    if (video) {
-      set.add(video.getPromise(timeInMs));
+    const videoPromise = this.#getVideoPromise();
+    const clipTimeMs = this.locationInClip(timeInMs);
+    if (videoPromise && !Number.isNaN(clipTimeMs)) {
+      set.add(
+        videoPromise.then(({ frameSource }) =>
+          frameSource.getAsync(clipTimeMs).then((frame) => {
+            this.#lastExactFrame = frame;
+          }),
+        ),
+      );
     }
     super.getFramePromises(timeInMs, set);
   }
   override show(options: ShowOptions): void {
     const { context, playSpeed, timeInMs } = options;
-    const video = this.#getVideo();
     const destination = this.destinationRectSchedule.at(timeInMs);
-    if (video) {
+    const videoPromise = this.#getVideoPromise();
+    const clipTimeMs = this.locationInClip(timeInMs);
+
+    if (videoPromise && !Number.isNaN(clipTimeMs)) {
+      let frame: Frame | undefined;
       if (playSpeed === "exact") {
-        // This was already handled in getFramePromises().
+        // Already requested and cached by getFramePromises().
+        frame = this.#lastExactFrame;
       } else {
-        video.liveSync(timeInMs, playSpeed);
+        frame = this.#video?.frameSource.getRaf(clipTimeMs)?.frame;
       }
-      if (!video.somethingIsAvailable) {
+
+      if (!frame || !this.#video) {
         SlowImage.showError(
           context,
           destination.x,
@@ -385,7 +445,7 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
           destination.height,
         );
       } else {
-        const sourceAspect = video.naturalWidth / video.naturalHeight;
+        const sourceAspect = this.#video.naturalWidth / this.#video.naturalHeight;
         const destAspect = destination.width / destination.height;
         let drawW: number, drawH: number;
         if (sourceAspect > destAspect) {
@@ -397,22 +457,29 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
         }
         const drawX = destination.x + (destination.width - drawW) / 2;
         const drawY = destination.y + (destination.height - drawH) / 2;
-        context.drawImage(video.data, drawX, drawY, drawW, drawH);
+        context.drawImage(frame, drawX, drawY, drawW, drawH);
       }
     }
     super.show(options);
   }
+  /**
+   * Where in the clip's own timeline `timeInMs` (this component's local
+   * time) falls, in milliseconds.  NaN outside [0, duration].
+   *
+   * The end is clamped to be >= the start.  If the user sets these two
+   * fields independently they may briefly end up reversed; playing
+   * backwards isn't supported, so rather than throw or flip the direction we
+   * just show the start frame, frozen, until the user fixes the range.
+   */
   locationInClip(timeInMs: number): number {
     if (timeInMs < 0 || timeInMs > this.duration) {
       return NaN;
     }
+    const start = this.startMsIntoClipScalar.value;
+    const end = Math.max(start, this.endMsIntoClipScalar.value);
     if (this.duration > 0) {
-      return (
-        (timeInMs / this.duration) *
-          (this.endMsIntoClipScalar.value - this.startMsIntoClipScalar.value) +
-        this.startMsIntoClipScalar.value
-      );
+      return (timeInMs / this.duration) * (end - start) + start;
     }
-    return this.startMsIntoClipScalar.value;
+    return start;
   }
 }

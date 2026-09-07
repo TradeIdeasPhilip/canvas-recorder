@@ -13,7 +13,7 @@ const B = 1;
 const DELTA = Math.PI / 2;
 const STEPS = 600;
 
-function makeLissajousPath(
+export function makeLissajousPath(
   cx: number,
   cy: number,
   rx: number,
