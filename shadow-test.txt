@@ -1,4 +1,4 @@
-Generated: Thu Aug 27 2026 14:45:35 GMT-0700 (Pacific Daylight Time)
+Generated: Wed Sep 09 2026 15:28:58 GMT-0700 (Pacific Daylight Time)
 Shadow Test » shadow
 → Shadow Test
 → → Slide 1: Shape Gallery
@@ -55,12 +55,36 @@ Shadow Test » shadow
 → → → Starting Position
 TypeScript: {"x":1,"y":1}
 Current:    [{"time":0,"value":{"x":1,"y":1}},{"time":8400,"value":{"x":1,"y":3}}]
-→ → Video Clip
+→ → Video Clip: Fit + Lissajous Letterbox
+→ → → Video Clip
+→ → → → End Ms Into Clip
+TypeScript: 4900
+Current:    4800
+→ → → → Duration
+TypeScript: 4900
+Current:    4800
+→ → Video Clip: Pixel Perfect
+→ → → Video Clip
+→ → → → End Ms Into Clip
+TypeScript: 4900
+Current:    4800
+→ → → → Duration
+TypeScript: 4900
+Current:    4800
+→ → Video Clip: Padding Hold (before/after)
+→ → → Padding
+→ → → → Video Clip
+→ → → → → End Ms Into Clip
+TypeScript: 4900
+Current:    4800
+→ → → → → Duration
+TypeScript: 4900
+Current:    4800
   const videoClip = new VideoClipComponent({ description: "Video Clip" });
   videoClip.urlScalar.value = "frame counter.mp4";
   videoClip.endMsIntoClipScalar.value = 90000;
   this.addFixed({ child: videoClip });
 → → → Frame Counter
-→ → → → Fill Color
-TypeScript: "rgb(128, 0, 255)"
-Current:    "rgb(255, 128, 0)"
+→ → → → Min Duration
+TypeScript: 10900
+Current:    10800

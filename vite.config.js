@@ -43,11 +43,21 @@ export default defineConfig({
         // await). A static import of an async module blocks evaluation until
         // that module finishes — creating a deadlock when the async entry is
         // itself awaiting the dynamic import of that video chunk.
+        //
+        // This also keeps chunk boundaries stable across rebuilds (see
+        // development-plans/ci-pages-deploy.md): anything Rollup would
+        // otherwise auto-split on its own heuristic can get reshuffled --
+        // and re-hashed -- by a change anywhere else in the dependency
+        // graph, even when a given chunk's own content didn't change.
+        // Explicitly bucketing everything below avoids that.
         manualChunks(id) {
           const libPaths = [
             "/src/showable.",
             "/src/interpolate.",
-            "/src/slide-components.",
+            // slide-components.ts was later split into slide-components/*.ts;
+            // matching the directory (trailing slash) instead of the old
+            // single-file prefix (trailing dot) so this still actually hits.
+            "/src/slide-components/",
             "/src/slow-image-sources.",
             "/src/utility.",
             "/src/stroke-colors.",
@@ -57,6 +67,12 @@ export default defineConfig({
           ];
           if (libPaths.some((p) => id.includes(p))) {
             return "lib";
+          }
+          // Third-party dependencies: bucket them all into one stable
+          // "vendor" chunk instead of leaving them to Rollup's automatic
+          // (and less predictable) chunk-splitting heuristic.
+          if (id.includes("node_modules")) {
+            return "vendor";
           }
         },
       },

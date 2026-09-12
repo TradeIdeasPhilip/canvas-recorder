@@ -1673,18 +1673,19 @@
             ]
           },
           {
-            "description": "Video Clip",
-            "components": [
+            "description": "Video Clip: Fit + Lissajous Letterbox",
+            "components": [],
+            "fixedComponents": [
               {
-                "registryKey": "Video Clip",
+                "description": "Video Clip",
                 "schedules": [
                   {
                     "description": "Dest Rect",
                     "type": "rectangle",
                     "value": {
-                      "x": 0,
+                      "x": 0.7999999999999998,
                       "y": 0,
-                      "width": 16,
+                      "width": 14.4,
                       "height": 9
                     }
                   }
@@ -1693,7 +1694,7 @@
                   {
                     "description": "URL",
                     "type": "string",
-                    "value": "frame counter.mp4"
+                    "value": "./Screen_Recording_2026-09-05_at_8.55.17_AM.mov"
                   },
                   {
                     "description": "Start Ms Into Clip",
@@ -1703,29 +1704,72 @@
                   {
                     "description": "End Ms Into Clip",
                     "type": "number",
-                    "value": 90000
+                    "value": 4800
                   }
                 ],
                 "components": [],
-                "duration": 90000
+                "duration": 4800
               }
-            ],
+            ]
+          },
+          {
+            "description": "Video Clip: Pixel Perfect",
+            "components": [],
             "fixedComponents": [
               {
-                "description": "Frame Counter",
+                "description": "Video Clip",
                 "schedules": [
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 2,
+                      "y": 0.75,
+                      "width": 12,
+                      "height": 7.5
+                    }
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "URL",
+                    "type": "string",
+                    "value": "./Screen_Recording_2026-09-05_at_8.55.17_AM.mov"
+                  },
+                  {
+                    "description": "Start Ms Into Clip",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "End Ms Into Clip",
+                    "type": "number",
+                    "value": 4800
+                  }
+                ],
+                "components": [],
+                "duration": 4800
+              },
+              {
+                "description": "Traditional Text",
+                "schedules": [
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "Pixel Perfect — 2880×1800 native, no scaling"
+                  },
                   {
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 15,
-                      "y": 3.5
+                      "x": 8,
+                      "y": 0.375
                     }
                   },
                   {
                     "description": "Fill Color",
                     "type": "color",
-                    "value": "rgb(255, 128, 0)"
+                    "value": "rgb(128, 0, 255)"
                   },
                   {
                     "description": "Outline Color",
@@ -1740,7 +1784,176 @@
                   {
                     "description": "Font Size",
                     "type": "number",
-                    "value": 3
+                    "value": 0.4
+                  },
+                  {
+                    "description": "Font Style",
+                    "type": "select",
+                    "value": "normal"
+                  },
+                  {
+                    "description": "Font Weight",
+                    "type": "number",
+                    "value": 400
+                  },
+                  {
+                    "description": "Font Family",
+                    "type": "string",
+                    "value": "Roboto"
+                  },
+                  {
+                    "description": "Align",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": []
+              }
+            ]
+          },
+          {
+            "description": "Video Clip: Padding Hold (before/after)",
+            "components": [],
+            "fixedComponents": [
+              {
+                "description": "Padding",
+                "scalars": [
+                  {
+                    "description": "Initial Time",
+                    "type": "number",
+                    "value": 3000
+                  },
+                  {
+                    "description": "Extra Time",
+                    "type": "number",
+                    "value": 3000
+                  },
+                  {
+                    "description": "Show Before",
+                    "type": "select",
+                    "value": "freeze"
+                  },
+                  {
+                    "description": "Show After",
+                    "type": "select",
+                    "value": "freeze"
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Video Clip",
+                    "schedules": [
+                      {
+                        "description": "Dest Rect",
+                        "type": "rectangle",
+                        "value": {
+                          "x": 2,
+                          "y": 0.5,
+                          "width": 12,
+                          "height": 7.5
+                        }
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "URL",
+                        "type": "string",
+                        "value": "./Screen_Recording_2026-09-05_at_8.55.17_AM.mov"
+                      },
+                      {
+                        "description": "Start Ms Into Clip",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "End Ms Into Clip",
+                        "type": "number",
+                        "value": 4800
+                      }
+                    ],
+                    "components": [
+                      {
+                        "registryKey": "Video Clip",
+                        "schedules": [
+                          {
+                            "description": "Dest Rect",
+                            "type": "rectangle",
+                            "value": {
+                              "x": 0,
+                              "y": 0,
+                              "width": 16,
+                              "height": 9
+                            }
+                          }
+                        ],
+                        "scalars": [
+                          {
+                            "description": "URL",
+                            "type": "string",
+                            "value": "frame counter.mp4"
+                          },
+                          {
+                            "description": "Start Ms Into Clip",
+                            "type": "number",
+                            "value": 0
+                          },
+                          {
+                            "description": "End Ms Into Clip",
+                            "type": "number",
+                            "value": 90000
+                          }
+                        ],
+                        "components": [],
+                        "duration": 90000
+                      }
+                    ],
+                    "duration": 4800
+                  }
+                ]
+              },
+              {
+                "description": "Frame Counter",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 15,
+                      "y": 8.7
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(128, 0, 255)"
+                  },
+                  {
+                    "description": "Outline Color",
+                    "type": "color",
+                    "value": "rgb(255, 128, 0)"
+                  },
+                  {
+                    "description": "Outline Width",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 0.5
                   },
                   {
                     "description": "Font Style",
@@ -1772,7 +1985,7 @@
                   {
                     "description": "Min Duration",
                     "type": "number",
-                    "value": 90000
+                    "value": 10800
                   }
                 ],
                 "components": []

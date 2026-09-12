@@ -5,6 +5,7 @@ import { RectangleScheduleInfo } from "../schedule-helper";
 import { Scalar, ShowOptions } from "../showable";
 import { SlowImage } from "../slow-image-sources";
 import { Keyframe } from "../interpolate";
+import { debugLog } from "../debug-log";
 
 // MARK: Streaming Frame Sources
 
@@ -35,7 +36,10 @@ class AsyncFrameSource {
    */
   static readonly MAX_FRAMES_TO_SKIP = 30;
 
-  constructor(private readonly sink: CanvasSink) {}
+  constructor(
+    private readonly sink: CanvasSink,
+    private readonly label: string,
+  ) {}
 
   #iter: AsyncGenerator<WrappedCanvas, void, unknown> | undefined;
   #mostRecent: WrappedCanvas | undefined;
@@ -140,13 +144,18 @@ class RafFrameSource {
    */
   static readonly MAX_SKIP_SECONDS = 0.5;
 
-  constructor(private readonly sink: CanvasSink) {}
+  constructor(
+    private readonly sink: CanvasSink,
+    private readonly label: string,
+  ) {}
 
   #localCache: WrappedCanvas[] = [];
   #iter: AsyncGenerator<WrappedCanvas, void, unknown> | undefined;
   #fetchInProgress = false;
   #atEnd = false;
   #canceled = false;
+  /** Bumped every time get() decides to throw away #localCache and reseek. Purely for correlating debugLog() lines. */
+  #generation = 0;
 
   get(timeInMs: number): { frame: Frame; error: number } | undefined {
     // AsyncFrameSource only returned a canvas.
@@ -174,6 +183,13 @@ class RafFrameSource {
     const tooFarBehind =
       this.#localCache[0] !== undefined && seconds < this.#localCache[0].timestamp;
     if (tooFarAhead || tooFarBehind) {
+      this.#generation++;
+      debugLog(
+        "RafFrameSource",
+        `${this.label}: reseek #${this.#generation} (${tooFarAhead ? "too far ahead" : "too far behind"}) -- ` +
+          `requested=${seconds.toFixed(3)}s, cache was [${this.#localCache[0]?.timestamp.toFixed(3)}..${newest?.toFixed(3)}] ` +
+          `(${this.#localCache.length} frame(s)); clearing cache now, next get() will MISS until a new frame arrives`,
+      );
       void this.#iter?.return().catch(() => {});
       this.#iter = undefined;
       this.#localCache.length = 0;
@@ -195,7 +211,13 @@ class RafFrameSource {
     this.#maybeRequestMore(seconds);
 
     const first = this.#localCache[0];
-    if (!first) return undefined;
+    if (!first) {
+      debugLog(
+        "RafFrameSource",
+        `${this.label}: get(${seconds.toFixed(3)}s) MISS -- cache empty (gen #${this.#generation}), returning undefined`,
+      );
+      return undefined;
+    }
 
     let error: number;
     if (seconds < first.timestamp) {
@@ -218,20 +240,31 @@ class RafFrameSource {
       this.#iter = this.sink.canvases(seconds);
     }
     this.#fetchInProgress = true;
+    const wasEmpty = this.#localCache.length === 0;
+    const requestedAt = performance.now();
     this.#iter.next().then(
       (result) => {
         this.#fetchInProgress = false;
         if (this.#canceled) return;
         if (result.done) {
           this.#atEnd = true;
+          debugLog("RafFrameSource", `${this.label}: stream ended (gen #${this.#generation})`);
           return;
         }
         this.#localCache.push(result.value);
+        if (wasEmpty) {
+          debugLog(
+            "RafFrameSource",
+            `${this.label}: first frame after gap (gen #${this.#generation}) -- ` +
+              `timestamp=${result.value.timestamp.toFixed(3)}s, took ${(performance.now() - requestedAt).toFixed(1)}ms to decode`,
+          );
+        }
       },
-      () => {
+      (error) => {
         // A failed decode just means we stay at whatever we already have;
         // the next get() will try again.
         this.#fetchInProgress = false;
+        debugLog("RafFrameSource", `${this.label}: decode failed (gen #${this.#generation}): ${error}`);
       },
     );
   }
@@ -263,7 +296,10 @@ class FrameSource {
   // how to read from an already-open sink.
   // The source can be read only.
   // Cancel this object and create a new one with the new request.
-  constructor(private readonly sink: CanvasSink) {}
+  constructor(
+    private readonly sink: CanvasSink,
+    private readonly label: string,
+  ) {}
   #current: AsyncFrameSource | RafFrameSource | undefined;
   cancel() {
     this.#current?.cancel();
@@ -272,14 +308,14 @@ class FrameSource {
   getAsync(timeInMs: number): Promise<Frame | undefined> {
     if (!(this.#current instanceof AsyncFrameSource)) {
       this.cancel();
-      this.#current = new AsyncFrameSource(this.sink);
+      this.#current = new AsyncFrameSource(this.sink, this.label);
     }
     return this.#current.get(timeInMs);
   }
   getRaf(timeInMs: number): { frame: Frame; error: number } | undefined {
     if (!(this.#current instanceof RafFrameSource)) {
       this.cancel();
-      this.#current = new RafFrameSource(this.sink);
+      this.#current = new RafFrameSource(this.sink, this.label);
     }
     return this.#current.get(timeInMs);
   }
@@ -310,11 +346,18 @@ async function openVideo(url: string): Promise<OpenVideo> {
   // to MAX_FRAMES canvases alive at once, and a pool smaller than that would
   // silently overwrite a frame we're still displaying.  Revisit only if
   // per-frame allocation turns out to matter in practice.
-  const frameSource = new FrameSource(new CanvasSink(track));
+  const frameSource = new FrameSource(new CanvasSink(track), url);
   return { frameSource, naturalWidth, naturalHeight };
 }
 
 export class VideoClipComponent extends ComponentWithLiveDuration {
+  /**
+   * How far off (ms) a live-mode "close enough" frame can be before show()
+   * marks it visually.  Below this, the frame is used silently -- ordinary
+   * playback jitter, not worth flagging.  First guess at the threshold;
+   * tune once this has actually been watched in practice.
+   */
+  static readonly CLOSE_ENOUGH_MARK_THRESHOLD_MS = 100;
   readonly registryKey = "Video Clip";
   readonly urlScalar: Scalar<"string"> = {
     description: "URL",
@@ -429,14 +472,22 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
 
     if (videoPromise && !Number.isNaN(clipTimeMs)) {
       let frame: Frame | undefined;
+      let frameError: number | undefined; // ms; see RafFrameSource.get(). Only set in live mode.
       if (playSpeed === "exact") {
         // Already requested and cached by getFramePromises().
         frame = this.#lastExactFrame;
       } else {
-        frame = this.#video?.frameSource.getRaf(clipTimeMs)?.frame;
+        const result = this.#video?.frameSource.getRaf(clipTimeMs);
+        frame = result?.frame;
+        frameError = result?.error;
       }
 
       if (!frame || !this.#video) {
+        debugLog(
+          "VideoClip",
+          `${this.urlScalar.value || "(no url)"}: drawing X -- mode=${playSpeed === "exact" ? "exact" : "live"}, ` +
+            `clipTimeMs=${clipTimeMs.toFixed(1)}, reason=${!this.#video ? "video not open yet" : "no frame available"}`,
+        );
         SlowImage.showError(
           context,
           destination.x,
@@ -458,6 +509,31 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
         const drawX = destination.x + (destination.width - drawW) / 2;
         const drawY = destination.y + (destination.height - drawH) / 2;
         context.drawImage(frame, drawX, drawY, drawW, drawH);
+
+        if (
+          frameError !== undefined &&
+          Math.abs(frameError) > VideoClipComponent.CLOSE_ENOUGH_MARK_THRESHOLD_MS
+        ) {
+          debugLog(
+            "VideoClip",
+            `${this.urlScalar.value}: close-enough mark -- error=${frameError}ms, clipTimeMs=${clipTimeMs.toFixed(1)}`,
+          );
+          // "Close enough" but not exact -- a small corner mark, not
+          // anything that obscures the frame itself.  Color notes which
+          // direction: the returned frame is ahead of (cyan) or behind
+          // (orange) where we actually asked to be.
+          context.fillStyle = frameError > 0 ? "cyan" : "orange";
+          const markRadius = Math.min(destination.width, destination.height) * 0.03;
+          context.beginPath();
+          context.arc(
+            destination.x + destination.width - markRadius * 2,
+            destination.y + markRadius * 2,
+            markRadius,
+            0,
+            Math.PI * 2,
+          );
+          context.fill();
+        }
       }
     }
     super.show(options);

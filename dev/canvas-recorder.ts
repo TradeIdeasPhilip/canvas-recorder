@@ -49,6 +49,7 @@ import {
   SerializedFixedChild,
 } from "../src/snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
+import { getNewDebugLogEntries } from "../src/debug-log.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import { openColorPickerDialog } from "./color-picker.ts";
 import { setSwatchColor } from "./color-utils.ts";
@@ -5642,6 +5643,40 @@ function reload(): void {
 }
 
 getById("reloadBtn", HTMLButtonElement).addEventListener("click", reload);
+
+// MARK: Debug Log
+
+// debugLog() itself is just an array push -- cheap enough to call from a RAF
+// handler. Rendering it to the page is intentionally decoupled onto its own
+// slow timer, so a spammy source (e.g. a video clip stuck in a reseek loop)
+// can't turn into a DOM-thrashing problem on top of whatever it's already
+// diagnosing.
+const debugLogPre = getById("debugLog", HTMLPreElement);
+const MAX_DEBUG_LOG_LINES = 1000;
+function renderNewDebugLogEntries(): void {
+  const newEntries = getNewDebugLogEntries();
+  if (newEntries.length === 0) return;
+  const wasScrolledToBottom =
+    debugLogPre.scrollTop + debugLogPre.clientHeight >=
+    debugLogPre.scrollHeight - 4;
+  const newLines = newEntries.map(
+    (entry) => `${(entry.time / 1000).toFixed(3)}  [${entry.tag}]  ${entry.message}`,
+  );
+  const allLines = debugLogPre.textContent
+    ? debugLogPre.textContent.split("\n").concat(newLines)
+    : newLines;
+  debugLogPre.textContent = allLines.slice(-MAX_DEBUG_LOG_LINES).join("\n");
+  if (wasScrolledToBottom) {
+    debugLogPre.scrollTop = debugLogPre.scrollHeight;
+  }
+}
+setInterval(renderNewDebugLogEntries, 250);
+getById("debugLogClearBtn", HTMLButtonElement).addEventListener(
+  "click",
+  () => {
+    debugLogPre.textContent = "";
+  },
+);
 
 getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
   const records = await readAllHistory();
