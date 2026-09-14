@@ -19,11 +19,17 @@ export class AudioBuilder {
 
   constructor(totalDurationMs: number) {
     const sampleRate = 48000;
+    // OfflineAudioContext requires length >= 1 -- a project can legitimately
+    // start out at duration 0 (e.g. an empty timeline before any clips have
+    // been added yet), so clamp rather than let the constructor throw.
     this.audioContext = new OfflineAudioContext({
-      length: totalDurationMs * 1000,
+      length: Math.max(1, totalDurationMs * 1000),
       sampleRate,
     });
-    const totalSamples = Math.ceil((totalDurationMs / 1000) * sampleRate);
+    const totalSamples = Math.max(
+      1,
+      Math.ceil((totalDurationMs / 1000) * sampleRate),
+    );
 
     // Create buffer with 1 or 2 channels — we'll decide later based on first file
     this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate); // Start with mono
@@ -99,6 +105,14 @@ export class AudioBuilder {
    * and you fast forward the initial clip in another player to `trimFromStartMs`,
    * and you hit play in both at the same time,
    * they'd play the same thing.
+   *
+   * **Video files and edit lists**: `decodeAudioData()` ignores the MP4/MOV container's
+   * edit list. If the source is a video file (e.g. a Mac screen recording), the audio
+   * samples start at media-time 0, but the *presentation* timeline may start later.
+   * The caller is responsible for computing the offset from
+   * `InputTrack.getFirstTimestamp()` (Mediabunny) and adding it to `trimFromStartMs`
+   * so the audio aligns with the video's visible frames.
+   * See `development-plans/import-audio-button.md` for the full plan.
    * @param length How much of this clip to include.
    * Stop copying this many milliseconds after `trimFromStartMs`.
    *

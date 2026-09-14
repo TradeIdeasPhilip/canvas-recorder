@@ -116,6 +116,16 @@ showableOptions.add([
     },
   ],
   [
+    "galaga",
+    {
+      async create() {
+        return (await import("../src/galaga.ts")).galaga;
+      },
+      description:
+        "How to play Galaga using https://archive.org/details/arcade_20pacgal#",
+    },
+  ],
+  [
     "alpha-test",
     {
       async create() {

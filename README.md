@@ -197,6 +197,10 @@ The Visual Editor is optional.
 You can build everything in TypeScript.
 Sometimes I use the Visual Editor to add prototypes, but the final result is all TypeScript.
 
+"RAF" stands for [Request Animation Frame](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame).
+I hate acronyms, but this one comes up a lot.
+Short version: This is code that gets called every time the screen updates, often 60 times per second.
+
 ## Project history
 
 I've had a few attempts at this.
