@@ -359,9 +359,17 @@ export class InParallelComponent implements Showable, ShowableParent {
   /**
    * Remove a schedule from the Visual Editor's editable list.
    * This is typically done when other code modifies the schedule.
+   * I.e. when a user can't actually change the value and there's no point trying save or load the value.
    */
   hideSchedule(schedule: ScheduleInfo): void {
     removeIf(this.schedules, (contender) => contender === schedule);
+  }
+  /**
+   * Remove a scalar from the Visual Editor's editable list.
+   * The scalar version of {@link hideSchedule}().
+   */
+  hideScalar(scalar: ScalarInfo): void {
+    removeIf(this.scalars, (contender) => contender === scalar);
   }
 }
 

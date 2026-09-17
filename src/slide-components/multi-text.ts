@@ -3,7 +3,7 @@
 import { Point } from "bezier-js";
 import { Font } from "../glib/letters-base";
 import { makeLineFontRatio } from "../glib/line-font";
-import { ParagraphLayout } from "../glib/paragraph-layout";
+import { LaidOut, ParagraphLayout } from "../glib/paragraph-layout";
 import { PathShape } from "../glib/path-shape";
 import {
   PointScheduleInfo,
@@ -69,6 +69,26 @@ function setTextFormatList(
 ) {
   return { ...options, [TEXT_FORMAT_LIST]: textFormatList };
 }
+/**
+ * What {@link MultiTextComponent.layoutAt}() returns:  everything you need to
+ * know about what show() is about to draw, without drawing it.
+ */
+export type PlacedText = {
+  /**
+   * The paragraph in its own coordinates, where the top of the first line is
+   * at y = 0 and x = 0 is the left edge of the wrap width.
+   */
+  readonly laidOut: LaidOut;
+  /**
+   * show() translates the paragraph by this much before drawing it, to honor
+   * the Position, Alignment and Baseline schedules.
+   *
+   * Anyone measuring the text needs to include this.  The layout alone says
+   * how big the text is, not where it ends up.
+   */
+  readonly offset: Point;
+};
+
 /**
  * Use this to combine multiple formats into one paragraph.
  *
@@ -205,31 +225,42 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       super.showChild(info);
     }
   }
-  override show(options: ShowOptions): void {
+  /**
+   * Our own {@link TextFormatComponent} children.
+   * These name the styles that our {@link TextSpanComponent} children can ask for.
+   */
+  #ownFormatters(): TextFormatComponent[] {
+    return this.children.flatMap(({ child }) =>
+      child instanceof TextFormatComponent ? [child] : [],
+    );
+  }
+  /**
+   * Lay the text out exactly as {@link show}() does, but draw nothing.
+   *
+   * This is how another component can find out what this text is really going
+   * to look like.
+   * See `galaga.ts`'s `FittedText` for a worked example:
+   * it measures the text, then picks a transform that makes the text fit a given rectangle.
+   *
+   * Nothing is cached.
+   * The spans, the formats, and the layout can all change from one frame to the next,
+   * so this repeats the same work show() does.
+   * Measuring and then drawing therefore costs twice, which has not been a problem in practice.
+   */
+  layoutAt(options: ShowOptions): PlacedText {
     const { context, timeInMs } = options;
-    const sources = new Array<TextSpanComponent>();
-    const newFormatters = new Array<TextFormatComponent>();
-    const otherChildren = new Array<Showable>();
-    this.children.forEach(({ child }) => {
-      if (child instanceof TextSpanComponent) {
-        sources.push(child);
-      } else if (child instanceof TextFormatComponent) {
-        newFormatters.push(child);
-      } else {
-        otherChildren.push(child);
-      }
-    });
-    const allFormatters = extractTextFormatList(options, newFormatters);
-    const childOptions = setTextFormatList(options, allFormatters);
-    otherChildren.forEach((child) => {
-      child.show(childOptions);
-    });
+    const allFormatters = extractTextFormatList(options, this.#ownFormatters());
     const paragraphLayout = new ParagraphLayout(baseFont);
     const initializedFormatters = new Map<
       string,
       ReturnType<TextFormatComponent["freeze"]> | undefined
     >();
-    sources.push(...this.#temporaryText);
+    const sources = [
+      ...this.children.flatMap(({ child }) =>
+        child instanceof TextSpanComponent ? [child] : [],
+      ),
+      ...this.#temporaryText,
+    ];
     sources.forEach((source) => {
       const { content, style } = source.get(timeInMs);
       const initializedFormatter = initializedFormatters.getOrInsertComputed(
@@ -247,29 +278,58 @@ export class MultiTextComponent extends DurationAgnosticComponent {
         initializedFormatter(content, paragraphLayout);
       }
     });
-    const position = this.positionSchedule.at(timeInMs);
-    const alignment = this.alignmentSchedule.at(timeInMs);
     // Note:  paragraphLayout.align() has partial support for more.
     // Things like capital top or (normal text) baseline.
     // But that code seems to be in a state of flux at the moment.
     // TODO fix it.
-    const baseline = this.textBaselineSchedule.at(timeInMs);
+    const alignment = this.alignmentSchedule.at(timeInMs);
     const width = this.widthSchedule.at(timeInMs);
-    const additionalLineHeight = this.additionalLineHeightSchedule.at(timeInMs);
-    const aligned = paragraphLayout.align(
+    const laidOut = paragraphLayout.align(
       width,
       alignment,
-      additionalLineHeight,
+      this.additionalLineHeightSchedule.at(timeInMs),
     );
-    const x =
-      position.x -
-      (alignment == "right" ? width : alignment == "center" ? width / 2 : 0);
-    const height = aligned.height;
-    const y =
-      position.y -
-      (baseline == "bottom" ? height : baseline == "middle" ? height / 2 : 0);
-    aligned.pathShapeByTag().forEach((pathShape, callback) => {
-      pathShape = pathShape.translate(x, y);
+    const position = this.positionSchedule.at(timeInMs);
+    const baseline = this.textBaselineSchedule.at(timeInMs);
+    const height = laidOut.height;
+    return {
+      laidOut,
+      offset: {
+        x:
+          position.x -
+          (alignment == "right"
+            ? width
+            : alignment == "center"
+              ? width / 2
+              : 0),
+        y:
+          position.y -
+          (baseline == "bottom"
+            ? height
+            : baseline == "middle"
+              ? height / 2
+              : 0),
+      },
+    };
+  }
+  override show(options: ShowOptions): void {
+    // Children that are neither spans nor formats draw normally, before the
+    // text, and they can see our formatters.
+    const childOptions = setTextFormatList(
+      options,
+      extractTextFormatList(options, this.#ownFormatters()),
+    );
+    this.children.forEach(({ child }) => {
+      if (
+        !(child instanceof TextSpanComponent) &&
+        !(child instanceof TextFormatComponent)
+      ) {
+        child.show(childOptions);
+      }
+    });
+    const { laidOut, offset } = this.layoutAt(options);
+    laidOut.pathShapeByTag().forEach((pathShape, callback) => {
+      pathShape = pathShape.translate(offset.x, offset.y);
       (callback as (options: ShowOptions, pathShape: PathShape) => void)(
         options,
         pathShape,
