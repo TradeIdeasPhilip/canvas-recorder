@@ -2643,9 +2643,56 @@ function updateJsonSaveStatus(): void {
   jsonSaveStatusElement.title = dirty ? "Unsaved changes" : "";
 }
 
+/**
+ * Search an ancestor's captured defaults for the sub-entry belonging to
+ * `wanted`, pairing live fixed children with serialized ones by description
+ * exactly the way {@link applyFixedComponents} does on restore.
+ */
+function findNestedTsDefaults(
+  liveParent: Showable,
+  serialized: SerializedFixedChild[] | undefined,
+  wanted: Showable,
+): SerializedFixedChild | undefined {
+  if (!serialized?.length) return undefined;
+  for (const child of getFixedComponents(liveParent)) {
+    const sc = serialized.find((s) => s.description === child.description);
+    if (!sc) continue;
+    if (child === wanted) return sc;
+    const deeper = findNestedTsDefaults(child, sc.fixedComponents, wanted);
+    if (deeper) return deeper;
+  }
+  return undefined;
+}
+
+/**
+ * The captured TypeScript defaults for one selectable.
+ *
+ * Most chapters have their own entry in {@link tsDefaults}.  But a chapter that
+ * is *also* a fixed descendant of another chapter is deliberately skipped by
+ * {@link captureDefaults}() -- its state is already captured nested inside that
+ * ancestor's entry, and writing it twice would duplicate it on save.  Every
+ * slide in a series is in exactly that position, so the flat lookup misses far
+ * more often than it hits; fall back to searching the ancestors' entries.
+ */
+function findTsDefaults(selectable: Showable): JsonFileEntry | undefined {
+  const direct = tsDefaults.get(selectableKey(selectable));
+  if (direct) return direct;
+  const seen = new Set<Showable>();
+  for (const item of chapterList) {
+    const root = item.selectable;
+    if (root === selectable || seen.has(root)) continue;
+    seen.add(root);
+    const entry = tsDefaults.get(selectableKey(root));
+    if (!entry) continue;
+    const found = findNestedTsDefaults(root, entry.fixedComponents, selectable);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 /** Apply TypeScript defaults to a selectable in-place. */
 function applyTsDefaults(selectable: Showable): void {
-  const defaults = tsDefaults.get(selectableKey(selectable));
+  const defaults = findTsDefaults(selectable);
   if (defaults) applyJsonEntry(selectable, defaults);
 }
 

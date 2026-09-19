@@ -1041,6 +1041,25 @@
               }
             ],
             "duration": 30000
+          },
+          {
+            "description": "Lattice Property",
+            "schedules": [
+              {
+                "description": "Lattice",
+                "type": "lattice",
+                "value": {
+                  "x": 1,
+                  "y": 2,
+                  "width": 14,
+                  "height": 6.5,
+                  "cellWidth": 2.2,
+                  "cellHeight": 1.5
+                }
+              }
+            ],
+            "components": [],
+            "duration": 10000
           }
         ]
       }
