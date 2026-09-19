@@ -29,9 +29,20 @@ Add a second button next to it labeled "Wrap Component".
 
 ### Dialog Box
 
-The window should say "Insert New Child" or "Wrap Component"
+The window should say "Insert New Child" or "Wrap Component".
 
 ## The Parent Can Customize the List
+
+Transition objects only make sense inside of an in series component.
+These should be hidden by default but available as direct children of an in series component.
+The in series component needs to add them to the top of the list.
+
+The multi text component is a little more complicated.
+A formatting object only makes sense as a direct child of a multi text component.
+A text span object can exist anywhere but it makes a lot of sense as a direct child of a multi text.
+So text span to the top of the list when adding to a multi text.
+
+Most parents do nothing.
 
 ## References
 
