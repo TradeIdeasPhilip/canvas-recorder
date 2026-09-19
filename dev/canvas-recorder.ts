@@ -33,11 +33,13 @@ import {
 import {
   discreteKeyframes,
   interpolateColors,
+  interpolateLattices,
   interpolateNumbers,
   interpolatePoints,
   interpolateRects,
   Keyframe,
 } from "../src/interpolate.ts";
+import { Lattice, LatticeValue } from "../src/lattice.ts";
 import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
@@ -1413,6 +1415,38 @@ let draggingMarker: {
   startLocalX: number;
   startLocalY: number;
   startRect: ReadOnlyRect;
+} | null = null;
+
+// MARK: Lattice marker drag state
+/** Starting point for a brand new lattice keyframe: a 4x3 area of 1x1 cells. */
+const DEFAULT_LATTICE: LatticeValue = {
+  x: 0,
+  y: 0,
+  width: 4,
+  height: 3,
+  cellWidth: 1,
+  cellHeight: 1,
+};
+
+type LatticeKf = Keyframe<LatticeValue>;
+/** The rect handles, plus one more that drags the bottom-right corner of the top-left cell. */
+type LatticeHandle = RectHandle | "cell";
+
+/** The single lattice keyframe currently in "edit" mode. At most one at a time. */
+let editingLatticeKf: LatticeKf | null = null;
+
+/** Lattice keyframes in "view" mode (shown as overlays, but not draggable). */
+const viewingLatticeKfs = new Set<LatticeKf>();
+
+/** Maps each lattice keyframe to a callback that syncs the editor number inputs when a drag changes the value. */
+const latticeSyncCallbacks = new Map<LatticeKf, (v: LatticeValue) => void>();
+
+let draggingLattice: {
+  kf: LatticeKf;
+  handle: LatticeHandle;
+  startLocalX: number;
+  startLocalY: number;
+  startValue: LatticeValue;
 } | null = null;
 
 // MARK: Point marker drag state
@@ -3516,6 +3550,14 @@ function buildScheduleSection(
         if (!kfSet.has(kf)) viewingRectKfs.delete(kf);
       }
     }
+    if (info.type === "lattice") {
+      const kfSet = new Set(info.schedule as LatticeKf[]);
+      if (editingLatticeKf && !kfSet.has(editingLatticeKf))
+        editingLatticeKf = null;
+      for (const kf of viewingLatticeKfs) {
+        if (!kfSet.has(kf)) viewingLatticeKfs.delete(kf);
+      }
+    }
     if (info.type === "point") {
       const kfSet = new Set(info.schedule as PointKf[]);
       if (editingPointKf && !kfSet.has(editingPointKf)) editingPointKf = null;
@@ -3551,6 +3593,8 @@ function buildScheduleSection(
       value = interpolateNumbers(t, info.schedule);
     else if (info.type === "rectangle")
       value = interpolateRects(t, info.schedule);
+    else if (info.type === "lattice")
+      value = interpolateLattices(t, info.schedule);
     else if (info.type === "point") value = interpolatePoints(t, info.schedule);
     else if (info.type === "arrow")
       value =
@@ -3594,11 +3638,13 @@ function buildScheduleSection(
             ? 0
             : info.type === "rectangle"
               ? { x: 0, y: 0, width: 4, height: 3 }
-              : info.type === "point"
-                ? { x: 0, y: 0 }
-                : info.type === "arrow"
-                  ? { flat: { x: 2, y: 4.5 }, pointy: { x: 12, y: 4.5 } }
-                  : "";
+              : info.type === "lattice"
+                ? DEFAULT_LATTICE
+                : info.type === "point"
+                  ? { x: 0, y: 0 }
+                  : info.type === "arrow"
+                    ? { flat: { x: 2, y: 4.5 }, pointy: { x: 12, y: 4.5 } }
+                    : "";
       schedule.push({ time: 5000, value } as (typeof info.schedule)[number]);
       rebuild();
     });
@@ -3679,7 +3725,9 @@ function buildScheduleSection(
         ? ["x0", "y0", "x1", "y1", "Canvas"]
         : info.type === "rectangle"
           ? ["x", "y", "width", "height", "Canvas"]
-          : ["Value"];
+          : info.type === "lattice"
+            ? ["x", "y", "width", "height", "cell w", "cell h", "Canvas"]
+            : ["Value"];
   for (const h of [
     info.timeAxisLabel ?? (info.editDurations ? "Duration (ms)" : "Time (ms)"),
     ...valueHeaders,
@@ -3945,6 +3993,63 @@ function buildScheduleSection(
           .forEach((b) => b.classList.remove("active"));
         editingRectKf = wasEditing ? null : rectKf;
         if (editingRectKf) editBtn.classList.add("active");
+      });
+
+      canvasCell.append(viewBtn, "\u00a0", editBtn);
+    } else if (info.type === "lattice") {
+      const latKf = kf as LatticeKf;
+      const fields = [
+        "x",
+        "y",
+        "width",
+        "height",
+        "cellWidth",
+        "cellHeight",
+      ] as const;
+      const fieldInputs: Partial<Record<(typeof fields)[number], HTMLInputElement>> =
+        {};
+      for (const field of fields) {
+        const input = buildNumericInput(latKf.value[field], (n) => {
+          latKf.value = { ...latKf.value, [field]: n };
+        });
+        fieldInputs[field] = input;
+        row.insertCell().append(input);
+      }
+      latticeSyncCallbacks.set(latKf, (v) => {
+        for (const field of fields) {
+          fieldInputs[field]!.valueAsNumber = v[field];
+        }
+      });
+
+      const canvasCell = row.insertCell();
+      const viewBtn = document.createElement("button");
+      viewBtn.type = "button";
+      viewBtn.textContent = "\ud83d\udc41";
+      viewBtn.title = "Show on canvas";
+      if (viewingLatticeKfs.has(latKf)) viewBtn.classList.add("active");
+      viewBtn.addEventListener("click", () => {
+        if (viewingLatticeKfs.has(latKf)) {
+          viewingLatticeKfs.delete(latKf);
+          viewBtn.classList.remove("active");
+        } else {
+          viewingLatticeKfs.add(latKf);
+          viewBtn.classList.add("active");
+        }
+      });
+
+      const editBtn = document.createElement("button");
+      editBtn.type = "button";
+      editBtn.textContent = "\u270e";
+      editBtn.title = "Edit on canvas";
+      editBtn.classList.add("edit-btn");
+      if (editingLatticeKf === latKf) editBtn.classList.add("active");
+      editBtn.addEventListener("click", () => {
+        const wasEditing = editingLatticeKf === latKf;
+        section
+          .querySelectorAll<HTMLButtonElement>("button.edit-btn")
+          .forEach((b) => b.classList.remove("active"));
+        editingLatticeKf = wasEditing ? null : latKf;
+        if (editingLatticeKf) editBtn.classList.add("active");
       });
 
       canvasCell.append(viewBtn, "\u00a0", editBtn);
@@ -4689,6 +4794,9 @@ function updateScheduleEditor(selectable: Showable) {
   editingRectKf = null;
   viewingRectKfs.clear();
   markerSyncCallbacks.clear();
+  editingLatticeKf = null;
+  viewingLatticeKfs.clear();
+  latticeSyncCallbacks.clear();
   editingPointKf = null;
   viewingPointKfs.clear();
   pointSyncCallbacks.clear();
@@ -4840,10 +4948,88 @@ function logicalToLocal(
   return { x: pt.x, y: pt.y };
 }
 
+/**
+ * Draw one cell of a lattice: a rectangle with both diagonals, the same
+ * "here is a cell" mark used elsewhere for placeholder content.
+ *
+ * `dashed` marks a lattice that has no cells in at least one direction.  We
+ * still draw a single cell flush against the top left so the user can see and
+ * grab the control point, but the dashes say it isn't really there.
+ */
+function drawLatticeCell(
+  ctx: CanvasRenderingContext2D,
+  rect: ReadOnlyRect,
+  dashed: boolean,
+) {
+  const { x, y, width, height } = rect;
+  if (!(width > 0) || !(height > 0)) return;
+  // 25% duty cycle, scaled to the cell so the pattern stays readable at any size.
+  const dash = Math.min(width, height) / 8;
+  ctx.setLineDash(dashed ? [dash, dash * 3] : []);
+  ctx.beginPath();
+  ctx.rect(x, y, width, height);
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + width, y + height);
+  ctx.moveTo(x, y + height);
+  ctx.lineTo(x + width, y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/**
+ * Draw a whole lattice in component-local space: the bounding area we are
+ * trying to cover, plus a cell mark for each cell.
+ *
+ * A lattice with no cells in one direction still gets a single dashed cell so
+ * the user can see what he is adjusting.
+ */
+function drawLatticeOutline(
+  ctx: CanvasRenderingContext2D,
+  value: LatticeValue,
+  stroke: string,
+  fill: string | undefined,
+) {
+  const { x, y, width, height } = value;
+  ctx.strokeStyle = stroke;
+  ctx.lineWidth = 0.05;
+  if (fill) {
+    ctx.fillStyle = fill;
+    ctx.fillRect(x, y, width, height);
+  }
+  ctx.setLineDash([]);
+  ctx.strokeRect(x, y, width, height);
+
+  const lattice = new Lattice(value);
+  const empty = lattice.columnCount < 1 || lattice.rowCount < 1;
+  if (empty) {
+    drawLatticeCell(ctx, lattice.cellRect(0, 0), true);
+  } else {
+    lattice.cells().forEach(({ rect }) => drawLatticeCell(ctx, rect, false));
+  }
+}
+
+/** Where the lattice's cell-size control point sits: bottom-right of the top-left cell. */
+function latticeCellHandlePosition(value: LatticeValue): { x: number; y: number } {
+  const lattice = new Lattice(value);
+  const cell = lattice.cellRect(0, 0);
+  return { x: cell.x + cell.width, y: cell.y + cell.height };
+}
+
+function latticeHandlePositions(
+  value: LatticeValue,
+): Record<LatticeHandle, { x: number; y: number }> {
+  return {
+    ...rectHandlePositions(value),
+    cell: latticeCellHandlePosition(value),
+  };
+}
+
 function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
   if (
     !editingRectKf &&
     viewingRectKfs.size === 0 &&
+    !editingLatticeKf &&
+    viewingLatticeKfs.size === 0 &&
     !editingPointKf &&
     viewingPointKfs.size === 0 &&
     !editingArrowKf &&
@@ -4878,6 +5064,17 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
     ctx.strokeStyle = "#e74c3c";
     ctx.lineWidth = 0.05;
     ctx.strokeRect(x, y, width, height);
+  }
+
+  // View-mode lattices: bounding area plus every cell, in the "view" blue.
+  for (const kf of viewingLatticeKfs) {
+    if (kf === editingLatticeKf) continue; // edit mode takes visual priority
+    drawLatticeOutline(ctx, kf.value, "#3498db", "rgba(52, 152, 219, 0.2)");
+  }
+
+  // Edit-mode lattice: same shape, in the "edit" red, no fill.
+  if (editingLatticeKf) {
+    drawLatticeOutline(ctx, editingLatticeKf.value, "#e74c3c", undefined);
   }
 
   ctx.restore();
@@ -4918,6 +5115,37 @@ function drawScheduleMarkers(ctx: CanvasRenderingContext2D) {
       ctx.fillStyle = active ? "white" : "#e74c3c";
       ctx.fill();
       ctx.strokeStyle = "#e74c3c";
+      ctx.lineWidth = 0.04;
+      ctx.stroke();
+    }
+  }
+
+  // Edit-mode lattice handles: the rect's five, plus the cell-size handle.
+  // The cell handle is drawn in a different color so it reads as a different
+  // kind of control -- it resizes the cells, not the covered area.
+  if (editingLatticeKf) {
+    const RADIUS = 0.18;
+    const positions = latticeHandlePositions(editingLatticeKf.value);
+    for (const handle of [
+      "tl",
+      "tr",
+      "bl",
+      "br",
+      "center",
+      "cell",
+    ] as LatticeHandle[]) {
+      const localPos = positions[handle];
+      const pos = relTf
+        ? localToLogical(localPos.x, localPos.y, relTf)
+        : localPos;
+      const active = draggingLattice?.handle === handle;
+      const r = active ? RADIUS * 1.4 : RADIUS;
+      const color = handle === "cell" ? "#f39c12" : "#e74c3c";
+      ctx.beginPath();
+      ctx.arc(pos.x, pos.y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = active ? "white" : color;
+      ctx.fill();
+      ctx.strokeStyle = color;
       ctx.lineWidth = 0.04;
       ctx.stroke();
     }
@@ -5124,6 +5352,70 @@ function hitTestMarker(logX: number, logY: number) {
   return null;
 }
 
+function hitTestLatticeMarker(logX: number, logY: number) {
+  if (!editingLatticeKf) return null;
+  const relTf = getMarkerRelTf();
+  const local = relTf
+    ? logicalToLocal(logX, logY, relTf)
+    : { x: logX, y: logY };
+  const HIT_RADIUS = 0.3;
+  const positions = latticeHandlePositions(editingLatticeKf.value);
+  // "cell" is tested first: when the lattice is a single cell filling the whole
+  // area it sits exactly on top of "br", and the cell handle is the one the
+  // user is reaching for in that situation.
+  for (const handle of [
+    "cell",
+    "tl",
+    "tr",
+    "bl",
+    "br",
+    "center",
+  ] as LatticeHandle[]) {
+    const pos = positions[handle];
+    const dx = local.x - pos.x;
+    const dy = local.y - pos.y;
+    if (dx * dx + dy * dy <= HIT_RADIUS * HIT_RADIUS) {
+      return { kf: editingLatticeKf, handle };
+    }
+  }
+  return null;
+}
+
+function applyLatticeDrag(localX: number, localY: number, shiftKey = false) {
+  if (!draggingLattice) return;
+  const { kf, handle, startLocalX, startLocalY, startValue } = draggingLattice;
+
+  if (handle === "cell") {
+    // The handle is the bottom-right corner of the top-left cell, and the
+    // top-left cell is always flush with the top-left of the covered area.
+    // So the cell size is just the distance from that corner.  Never negative:
+    // 0 is allowed and means "exactly one row/column" (see Lattice).
+    kf.value = {
+      ...startValue,
+      cellWidth: Math.max(0, localX - startValue.x),
+      cellHeight: Math.max(0, localY - startValue.y),
+    };
+  } else {
+    // Reuse the rectangle rules for the covered area, including letting the
+    // user drag one corner past the other -- normalizeRect() sorts it out.
+    const asRect = applyRectDrag(
+      handle,
+      startValue,
+      startLocalX,
+      startLocalY,
+      localX,
+      localY,
+      shiftKey,
+    );
+    kf.value = {
+      ...asRect,
+      cellWidth: startValue.cellWidth,
+      cellHeight: startValue.cellHeight,
+    };
+  }
+  latticeSyncCallbacks.get(kf)?.(kf.value);
+}
+
 function hitTestPointMarker(logX: number, logY: number): PointKf | null {
   if (!editingPointKf) return null;
   const relTf = getMarkerRelTf();
@@ -5237,9 +5529,22 @@ function applyArrowDrag(
   arrowSyncCallbacks.get(kf)?.(kf.value);
 }
 
-function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
-  if (!draggingMarker) return;
-  const { kf, handle, startLocalX, startLocalY, startRect } = draggingMarker;
+/**
+ * The rectangle drag rules, as a pure function so the lattice editor can reuse
+ * them for its covered area.
+ *
+ * @returns The new rectangle, already normalized -- the user is allowed to drag
+ * one corner past the other, and this sorts out which edge is left or top.
+ */
+function applyRectDrag(
+  handle: RectHandle,
+  startRect: ReadOnlyRect,
+  startLocalX: number,
+  startLocalY: number,
+  localX: number,
+  localY: number,
+  shiftKey: boolean,
+): ReadOnlyRect {
   const dx = localX - startLocalX;
   const dy = localY - startLocalY;
   let newRect: ReadOnlyRect;
@@ -5329,7 +5634,21 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
         break;
     }
   }
-  kf.value = normalizeRect(newRect);
+  return normalizeRect(newRect);
+}
+
+function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
+  if (!draggingMarker) return;
+  const { kf, handle, startLocalX, startLocalY, startRect } = draggingMarker;
+  kf.value = applyRectDrag(
+    handle,
+    startRect,
+    startLocalX,
+    startLocalY,
+    localX,
+    localY,
+    shiftKey,
+  );
   markerSyncCallbacks.get(kf)?.(kf.value);
 }
 
@@ -5500,6 +5819,20 @@ canvas.addEventListener("pointerdown", (pointerEvent) => {
     };
     return;
   }
+  const hitLattice = hitTestLatticeMarker(logical.x, logical.y);
+  if (hitLattice) {
+    canvas.setPointerCapture(pointerEvent.pointerId);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    draggingLattice = {
+      kf: hitLattice.kf,
+      handle: hitLattice.handle,
+      startLocalX: local.x,
+      startLocalY: local.y,
+      startValue: { ...hitLattice.kf.value },
+    };
+    return;
+  }
   const hitPt = hitTestPointMarker(logical.x, logical.y);
   if (hitPt) {
     canvas.setPointerCapture(pointerEvent.pointerId);
@@ -5535,6 +5868,7 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
   if (pointerEvent.buttons === 0) {
     isDragging = false;
     draggingMarker = null;
+    draggingLattice = null;
     draggingPoint = null;
     draggingArrow = null;
     draggingArrowMouseLocal = null;
@@ -5545,6 +5879,13 @@ canvas.addEventListener("pointermove", (pointerEvent) => {
     const relTf = getMarkerRelTf();
     const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
     applyMarkerDrag(local.x, local.y, pointerEvent.shiftKey);
+    return;
+  }
+  if (draggingLattice) {
+    const logical = clientToLogical(pointerEvent.clientX, pointerEvent.clientY);
+    const relTf = getMarkerRelTf();
+    const local = relTf ? logicalToLocal(logical.x, logical.y, relTf) : logical;
+    applyLatticeDrag(local.x, local.y, pointerEvent.shiftKey);
     return;
   }
   if (draggingPoint) {
@@ -5579,8 +5920,10 @@ canvas.addEventListener("pointerup", () => {
   isDragging = false;
   // Marker drags update keyframe values without firing fieldset events,
   // so kick the auto-save timer here when any drag just completed.
-  if (draggingMarker || draggingPoint || draggingArrow) markDirty();
+  if (draggingMarker || draggingLattice || draggingPoint || draggingArrow)
+    markDirty();
   draggingMarker = null;
+  draggingLattice = null;
   draggingPoint = null;
   draggingArrow = null;
   draggingArrowMouseLocal = null;
@@ -5589,6 +5932,7 @@ canvas.addEventListener("pointerup", () => {
 canvas.addEventListener("pointercancel", () => {
   isDragging = false;
   draggingMarker = null;
+  draggingLattice = null;
   draggingPoint = null;
   draggingArrow = null;
   draggingArrowMouseLocal = null;

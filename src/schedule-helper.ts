@@ -3,6 +3,7 @@ import {
   discreteKeyframes,
   durationKeyframes,
   interpolateColors,
+  interpolateLattices,
   interpolateNumbers,
   interpolatePoints,
   interpolateRects,
@@ -10,6 +11,7 @@ import {
 } from "./interpolate";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { Point } from "./glib/path-shape";
+import { Lattice, LatticeValue } from "./lattice";
 
 // This code is often used to create schedules for Showable.schedules.
 // This interface makes it easier for the TypeScript programmer to access the data.
@@ -272,6 +274,48 @@ export class RectangleScheduleInfo {
       this.schedule = schedule.slice();
     } else {
       this.schedule = [{ time: 0, value: schedule }];
+    }
+  }
+}
+
+// MARK: Lattice schedule
+
+export class LatticeScheduleInfo {
+  set(overwriteWith: LatticeValue | readonly Keyframe<LatticeValue>[]) {
+    this.schedule.length = 0;
+    if (overwriteWith instanceof Array) {
+      this.schedule.push(...overwriteWith);
+    } else {
+      this.schedule.push({ time: 0, value: overwriteWith as LatticeValue });
+    }
+  }
+  readonly type = "lattice";
+  readonly schedule: Keyframe<LatticeValue>[];
+  at(timeInMs: number): LatticeValue {
+    return interpolateLattices(timeInMs, this.schedule);
+  }
+  /**
+   * The same value as {@link at}(), already wrapped up in a {@link Lattice} so
+   * you can ask it where the cells are.  This is what drawing code usually wants.
+   */
+  latticeAt(timeInMs: number): Lattice {
+    return new Lattice(this.at(timeInMs));
+  }
+  /**
+   * @param description Human-readable label shown in the visual editor.
+   * Also serves as the sub-key that identifies this schedule within its
+   * parent {@link VisuallyEditable}'s database record.
+   * @param schedule Initial keyframes. The array is explicitly mutable and
+   * will be modified by the Visual Editor at runtime.
+   */
+  constructor(
+    readonly description: string,
+    schedule: readonly Keyframe<LatticeValue>[] | LatticeValue,
+  ) {
+    if (schedule instanceof Array) {
+      this.schedule = schedule.slice();
+    } else {
+      this.schedule = [{ time: 0, value: schedule as LatticeValue }];
     }
   }
 }

@@ -6,6 +6,7 @@ import {
   RealSvgRect,
 } from "phil-lib/misc";
 import { LCommand, PathShape, Point, QCommand } from "./glib/path-shape";
+import { LatticeValue } from "./lattice";
 import { Showable } from "./showable";
 
 /**
@@ -308,6 +309,40 @@ export function interpolateRects(
   } else {
     const { from, to, progress } = relevant;
     return interpolateRectangle(progress, from, to);
+  }
+}
+
+export function interpolateLattice(
+  progress: number,
+  from: LatticeValue,
+  to: LatticeValue,
+): LatticeValue {
+  return {
+    x: lerp(from.x, to.x, progress),
+    y: lerp(from.y, to.y, progress),
+    width: lerp(from.width, to.width, progress),
+    height: lerp(from.height, to.height, progress),
+    cellWidth: lerp(from.cellWidth, to.cellWidth, progress),
+    cellHeight: lerp(from.cellHeight, to.cellHeight, progress),
+  };
+}
+
+/**
+ *
+ * @param time There is no fixed scale.  This fits into the values of time in the array.
+ * @param array Inputs should come in order.
+ * @returns The value associated with the given time.
+ */
+export function interpolateLattices(
+  time: number,
+  keyframes: readonly Keyframe<LatticeValue>[],
+): LatticeValue {
+  const relevant = timedKeyframes(time, keyframes);
+  if (relevant.single) {
+    return relevant.value;
+  } else {
+    const { from, to, progress } = relevant;
+    return interpolateLattice(progress, from, to);
   }
 }
 

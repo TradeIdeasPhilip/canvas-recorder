@@ -1,5 +1,6 @@
 import { ease, easeIn, easeOut } from "../src/interpolate.ts";
 import { easeName } from "../src/snapshot.ts";
+import { LatticeValue } from "../src/lattice.ts";
 import { ScalarInfo, ScheduleInfo, Showable } from "../src/showable.ts";
 import { openColorPickerDialog } from "./color-picker.ts";
 import { setSwatchColor } from "./color-utils.ts";
@@ -89,6 +90,12 @@ export function scheduleToTypeScript(
     } else if (info.type === "point") {
       const v = value as { x: number; y: number };
       return `{ x: ${v.x}, y: ${v.y} }`;
+    } else if (info.type === "lattice") {
+      const v = value as LatticeValue;
+      return (
+        `{ x: ${v.x}, y: ${v.y}, width: ${v.width}, height: ${v.height}, ` +
+        `cellWidth: ${v.cellWidth}, cellHeight: ${v.cellHeight} }`
+      );
     } else {
       const v = value as { x: number; y: number; width: number; height: number };
       return `{ x: ${v.x}, y: ${v.y}, width: ${v.width}, height: ${v.height} }`;
@@ -142,6 +149,18 @@ export function validateKfValue(
         typeof v.height === "number"
       );
     }
+    case "lattice": {
+      if (typeof value !== "object" || value === null) return false;
+      const v = value as Record<string, unknown>;
+      return (
+        typeof v.x === "number" &&
+        typeof v.y === "number" &&
+        typeof v.width === "number" &&
+        typeof v.height === "number" &&
+        typeof v.cellWidth === "number" &&
+        typeof v.cellHeight === "number"
+      );
+    }
     case "arrow": {
       if (typeof value !== "object" || value === null) return false;
       const v = value as Record<string, unknown>;
@@ -176,7 +195,7 @@ export function parseScheduleFromClipboard(
     );
     // quote any remaining unquoted object keys
     cleaned = cleaned.replace(
-      /\b(time|value|easeAfter|x|y|width|height)\s*:/g,
+      /\b(time|value|easeAfter|cellWidth|cellHeight|x|y|width|height)\s*:/g,
       '"$1":',
     );
     // remove trailing commas before } or ]
