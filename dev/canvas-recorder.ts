@@ -43,13 +43,20 @@ import { Lattice, LatticeValue } from "../src/lattice.ts";
 import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
+  findCoverageProblems,
+  findSerializedNode,
+  isVideoSnapshot,
   JsonFileEntry,
   serializeComponents,
   serializeFixedComponents,
   serializeScalars,
   serializeSchedules,
+  serializeTree,
   SerializedFixedChild,
+  SNAPSHOT_FORMAT_VERSION,
+  VideoSnapshot,
 } from "../src/snapshot.ts";
+import { parseLegacySnapshot } from "../src/legacy-snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
 import { getNewDebugLogEntries } from "../src/debug-log.ts";
 import { AudioBuilder } from "./audio-builder.ts";
@@ -1906,11 +1913,14 @@ const MAX_HISTORY_ENTRIES = 20;
 
 /**
  * TypeScript defaults captured at page load — before any DB restoration.
- * Keyed by {@link selectableKey}. Shown as a permanent "TypeScript defaults"
- * option in the history select so the user can always reset to the
- * code-defined starting point. Never written to IndexedDB.
+ *
+ * One tree for the whole video, matching the shape a video is actually saved in.  Shown as a
+ * permanent "TypeScript defaults" option in the history list so the user can always reset to
+ * the code-defined starting point. Never written to IndexedDB.
+ *
+ * Undefined only before {@link captureDefaults}() has run.
  */
-const tsDefaults = new Map<string, DataHistoryEntry>();
+let tsDefaultsTree: SerializedFixedChild | undefined;
 /** Set to true once initFromDB has finished. */
 let initFromDBComplete = false;
 /** Where each selectable's current in-memory state was loaded from. */
@@ -2262,22 +2272,14 @@ function _setDefaultsAutoSaveStatus(status: DefaultsAutoSaveStatus): void {
           : "gray";
 }
 
-/** Build a `Record<key, JsonFileEntry>` from {@link tsDefaults} — the code-defined starting point. */
-function buildDefaultsSnapshot(): Record<string, JsonFileEntry> {
-  const result: Record<string, JsonFileEntry> = {};
-  for (const [key, entry] of tsDefaults) {
-    const jsonEntry: JsonFileEntry = {};
-    if (entry.schedules.length) jsonEntry.schedules = entry.schedules;
-    if (entry.scalars?.length) jsonEntry.scalars = entry.scalars;
-    if (entry.components !== undefined) jsonEntry.components = entry.components;
-    if (entry.fixedComponents?.length)
-      jsonEntry.fixedComponents = entry.fixedComponents;
-    if (entry.duration !== undefined) jsonEntry.duration = entry.duration;
-    if (entry.userEditableDescription !== undefined)
-      jsonEntry.userEditableDescription = entry.userEditableDescription;
-    result[key] = jsonEntry;
-  }
-  return result;
+/** The code-defined starting point, in the same format as {@link buildJsonSnapshot}. */
+function buildDefaultsSnapshot(): VideoSnapshot {
+  return {
+    formatVersion: SNAPSHOT_FORMAT_VERSION,
+    videoKey: toShowKey,
+    // captureDefaults() runs before anything can save, so this is always set by now.
+    tree: tsDefaultsTree ?? serializeTree(toShow),
+  };
 }
 
 async function _doDefaultsAutoSave(): Promise<void> {
@@ -2623,20 +2625,9 @@ function buildDiffText(): string {
 
   lines.push(`Generated: ${new Date().toString()}`);
 
-  const selectorByKey = new Map(
-    chapterList.map((item) => [
-      selectableKey(item.selectable),
-      item.selectable,
-    ]),
-  );
-
-  for (const [key, defaultEntry] of tsDefaults) {
-    const sel = selectorByKey.get(key);
-    if (!sel) {
-      lines.push(`[WARNING: no live selectable for key "${key}"]`);
-      continue;
-    }
-    diffNode(defaultEntry, sel, [sel.description]);
+  // One tree, so one walk: diffNode() recurses through fixedComponents on its own.
+  if (tsDefaultsTree) {
+    diffNode(tsDefaultsTree, toShow, [toShow.description]);
   }
 
   if (lines.length === 1) lines.push("(no differences found)");
@@ -2825,56 +2816,15 @@ function updateJsonSaveStatus(): void {
 }
 
 /**
- * Search an ancestor's captured defaults for the sub-entry belonging to
- * `wanted`, pairing live fixed children with serialized ones by description
- * exactly the way {@link applyFixedComponents} does on restore.
- */
-function findNestedTsDefaults(
-  liveParent: Showable,
-  serialized: SerializedFixedChild[] | undefined,
-  wanted: Showable,
-): SerializedFixedChild | undefined {
-  if (!serialized?.length) return undefined;
-  for (const child of getFixedComponents(liveParent)) {
-    const sc = serialized.find((s) => s.description === child.description);
-    if (!sc) continue;
-    if (child === wanted) return sc;
-    const deeper = findNestedTsDefaults(child, sc.fixedComponents, wanted);
-    if (deeper) return deeper;
-  }
-  return undefined;
-}
-
-/**
- * The captured TypeScript defaults for one selectable.
+ * Apply TypeScript defaults to a selectable in-place.
  *
- * Most chapters have their own entry in {@link tsDefaults}.  But a chapter that
- * is *also* a fixed descendant of another chapter is deliberately skipped by
- * {@link captureDefaults}() -- its state is already captured nested inside that
- * ancestor's entry, and writing it twice would duplicate it on save.  Every
- * slide in a series is in exactly that position, so the flat lookup misses far
- * more often than it hits; fall back to searching the ancestors' entries.
+ * Locates the selectable's node inside the one captured tree.  This replaces a flat lookup
+ * plus a fallback scan of every ancestor's entry: the flat map never held an entry for a
+ * nested slide, which is why restoring defaults on one used to do nothing at all.
  */
-function findTsDefaults(selectable: Showable): JsonFileEntry | undefined {
-  const direct = tsDefaults.get(selectableKey(selectable));
-  if (direct) return direct;
-  const seen = new Set<Showable>();
-  for (const item of chapterList) {
-    const root = item.selectable;
-    if (root === selectable || seen.has(root)) continue;
-    seen.add(root);
-    const entry = tsDefaults.get(selectableKey(root));
-    if (!entry) continue;
-    const found = findNestedTsDefaults(root, entry.fixedComponents, selectable);
-    if (found) return found;
-  }
-  return undefined;
-}
-
-/** Apply TypeScript defaults to a selectable in-place. */
 function applyTsDefaults(selectable: Showable): void {
-  const defaults = findTsDefaults(selectable);
-  if (defaults) applyJsonEntry(selectable, defaults);
+  const node = findSerializedNode(toShow, tsDefaultsTree, selectable);
+  if (node) applyJsonEntry(selectable, node);
 }
 
 /**
@@ -2916,53 +2866,13 @@ function buildFixedDescendantSet(): Set<Showable> {
 }
 
 /**
- * Snapshots the current (TypeScript-defined) schedule state for every
- * selectable in the chapter list into {@link tsDefaults}.
- * Must be called once at page load, before any DB restoration, so the
- * map always reflects the true code-defined starting point.
+ * Snapshots the current (TypeScript-defined) state of the whole video into
+ * {@link tsDefaultsTree}.
+ * Must be called once at page load, before any DB restoration, so the tree
+ * always reflects the true code-defined starting point.
  */
 function captureDefaults(): void {
-  tsDefaults.clear();
-  const seen = new Set<string>();
-  const capturedByParent = buildFixedDescendantSet();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    if (capturedByParent.has(sel)) continue;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const hasSchedules = !!sel.schedules?.length;
-    const hasScalars = !!sel.scalars?.length;
-    const hasChildren = sel.replaceableComponents !== undefined;
-    const fixedComponents = getFixedComponents(sel);
-    const hasFixed = fixedComponents.length > 0;
-    const hasDuration = sel.setDuration !== undefined;
-    const hasSoundClips = sel.soundClips !== undefined;
-    if (
-      !hasSchedules &&
-      !hasScalars &&
-      !hasChildren &&
-      !hasFixed &&
-      !hasDuration &&
-      !hasSoundClips
-    )
-      continue;
-    const entry: DataHistoryEntry = {
-      timestamp: 0,
-      schedules: hasSchedules ? serializeSchedules(sel.schedules!) : [],
-    };
-    if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren)
-      entry.components = serializeComponents(sel.replaceableComponents!.get());
-    if (hasFixed)
-      entry.fixedComponents = serializeFixedComponents(fixedComponents);
-    if (hasDuration) entry.duration = sel.duration;
-    if (hasSoundClips)
-      entry.soundClips = sel.soundClips!.map((c) => ({ ...c }));
-    if (sel.userEditableDescription !== undefined)
-      entry.userEditableDescription = sel.userEditableDescription;
-    tsDefaults.set(key, entry);
-  }
+  tsDefaultsTree = serializeTree(toShow);
 }
 
 /**
@@ -3397,7 +3307,7 @@ document.addEventListener("visibilitychange", () => {
 type FileEntryState =
   | { status: "loading" }
   | { status: "error" }
-  | { status: "loaded"; fullSnapshot: Record<string, JsonFileEntry> };
+  | { status: "loaded"; tree: SerializedFixedChild };
 
 /** Describes a single item in the history dialog's list. */
 type DialogListItem =
@@ -3462,8 +3372,6 @@ function _dialogSelectItem(index: number, target: Showable) {
  * Safe to call after deletion or async file loads.
  */
 function _rebuildDialogList(target: Showable, selectIndex?: number): void {
-  const key = selectableKey(target);
-
   // Sentinel's savedAt determines where "TypeScript defaults" appears in the list.
   const sentinel = _dialogFileRecords.find((r) => r.handle === null);
   const tsDefaultsTimestamp = sentinel?.savedAt ?? -Infinity;
@@ -3475,8 +3383,12 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
   for (const fr of _dialogFileRecords) {
     if (fr.handle === null) continue;
     const state = _dialogFileStates.get(fr.filename);
+    // Locate the selected chapter's node inside the file's whole-video tree, so the dialog
+    // still previews only what the chapter selector has selected.
     const jsonEntry =
-      state?.status === "loaded" ? state.fullSnapshot[key] : undefined;
+      state?.status === "loaded"
+        ? findSerializedNode(toShow, state.tree, target)
+        : undefined;
     const loadError = state?.status === "error";
     stamped.push({
       timestamp: fr.savedAt,
@@ -3604,8 +3516,9 @@ async function _loadFileEntry(
     if (perm !== "granted") throw new Error("permission denied");
     const file = await handle.getFile();
     const content = await file.text();
-    const fullSnapshot = JSON.parse(content) as Record<string, JsonFileEntry>;
-    _dialogFileStates.set(filename, { status: "loaded", fullSnapshot });
+    const tree = parseAnySnapshot(JSON.parse(content));
+    if (!tree) throw new Error("no usable state in file");
+    _dialogFileStates.set(filename, { status: "loaded", tree });
   } catch {
     if (_activeFileRecord?.filename !== filename) {
       // Stale handle for a non-active file — remove it silently from the DB and list.
@@ -5914,6 +5827,28 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     updateJsonSaveStatus();
   });
 
+  // Temporary gate for the single-tree refactor: prove that one whole-tree save really does
+  // cover every chapter, before anything starts relying on that.  Delete once the refactor
+  // is finished -- see development-plans/single-tree-per-video.md.
+  {
+    const problems = findCoverageProblems(
+      toShow,
+      chapterList.map((item) => item.selectable),
+    );
+    if (problems.length) {
+      console.error(
+        `serializeTree() would not fully cover ${problems.length} selectable(s) of "${toShowKey}":`,
+      );
+      for (const p of problems) {
+        console.error(`  [${p.reason}] "${p.description}" — ${p.detail}`);
+      }
+    } else {
+      console.info(
+        `✓ serializeTree() covers all ${chapterList.length} selectable(s) of "${toShowKey}".`,
+      );
+    }
+  }
+
   // Initialize defaults auto-save: read the stored handle, enable the checkbox.
   void readDefaultsAutoSaveHandle().then((handle) => {
     defaultsAutoSaveCheckbox.disabled = false;
@@ -6273,50 +6208,13 @@ getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
 
 // MARK: Save JSON file
 
-/** Serialize the current in-memory state to a `Record<key, JsonFileEntry>`. */
-function buildJsonSnapshot(): Record<string, JsonFileEntry> {
-  const result: Record<string, JsonFileEntry> = {};
-  const seen = new Set<string>();
-  const capturedByParent = buildFixedDescendantSet();
-
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    if (capturedByParent.has(sel)) continue;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const hasSchedules = !!sel.schedules?.length;
-    const hasScalars = !!sel.scalars?.length;
-    const hasChildren = sel.replaceableComponents !== undefined;
-    const fixedComponents = getFixedComponents(sel);
-    const hasFixed = fixedComponents.length > 0;
-    const hasDuration = sel.setDuration !== undefined;
-    const hasSoundClips = sel.soundClips !== undefined;
-    if (
-      !hasSchedules &&
-      !hasScalars &&
-      !hasChildren &&
-      !hasFixed &&
-      !hasDuration &&
-      !hasSoundClips
-    )
-      continue;
-
-    const entry: JsonFileEntry = {};
-    if (hasSchedules) entry.schedules = serializeSchedules(sel.schedules!);
-    if (hasScalars) entry.scalars = serializeScalars(sel.scalars!);
-    if (hasChildren)
-      entry.components = serializeComponents(sel.replaceableComponents!.get());
-    if (hasFixed)
-      entry.fixedComponents = serializeFixedComponents(fixedComponents);
-    if (hasDuration) entry.duration = sel.duration;
-    if (sel.userEditableDescription !== undefined)
-      entry.userEditableDescription = sel.userEditableDescription;
-    if (hasSoundClips) entry.soundClips = sel.soundClips;
-    result[key] = entry;
-  }
-  return result;
+/** Serialize the current in-memory state of the whole video. */
+function buildJsonSnapshot(): VideoSnapshot {
+  return {
+    formatVersion: SNAPSHOT_FORMAT_VERSION,
+    videoKey: toShowKey,
+    tree: serializeTree(toShow),
+  };
 }
 
 /**
@@ -6326,7 +6224,6 @@ function buildJsonSnapshot(): Record<string, JsonFileEntry> {
 async function _commitActiveFile(
   handle: FileSystemFileHandle,
   body: string,
-  snapshot: Record<string, JsonFileEntry>,
 ): Promise<void> {
   const writable = await handle.createWritable();
   await writable.write(body);
@@ -6336,16 +6233,9 @@ async function _commitActiveFile(
   _lastKnownJsonBody = body;
 
   const filename = handle.name;
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (!snapshot[key]) continue;
-    loadSources.set(key, { kind: "json", filename });
-    loadedSnapshots.set(key, currentSnapshotJson(sel));
-  }
+  const key = selectableKey(toShow);
+  loadSources.set(key, { kind: "json", filename });
+  loadedSnapshots.set(key, currentSnapshotJson(toShow));
   void writeActiveFileRecord(filename, handle, toShowKey);
   updateJsonSaveStatus();
 }
@@ -6369,7 +6259,7 @@ async function saveJsonToActiveFile(): Promise<void> {
   const snapshot = buildJsonSnapshot();
   const body = JSON.stringify(snapshot, null, 2);
   try {
-    await _commitActiveFile(_activeFileRecord.handle, body, snapshot);
+    await _commitActiveFile(_activeFileRecord.handle, body);
   } catch {
     alert(
       `Could not write to "${_activeFileRecord.filename}".\n\n` +
@@ -6415,7 +6305,7 @@ async function saveJsonAs(setActive: boolean): Promise<void> {
 
   try {
     if (setActive) {
-      await _commitActiveFile(handle, body, snapshot);
+      await _commitActiveFile(handle, body);
     } else {
       // Save Copy As: write only, leave the active file unchanged.
       const writable = await handle.createWritable();
@@ -6448,8 +6338,19 @@ savePropertiesBtn.addEventListener("click", () => void saveAllToProperties());
 // MARK: Load JSON file
 
 type FetchJsonResult =
-  | { ok: true; data: Record<string, JsonFileEntry> }
+  | { ok: true; data: SerializedFixedChild }
   | { ok: false; reason: "not-found" | "parse-error" | "network-error" };
+
+/**
+ * Turn parsed JSON from any saved-file version into one tree.
+ *
+ * The single choke point for reading files, so the legacy branch has exactly one caller and
+ * can be deleted along with `src/legacy-snapshot.ts` once every file has been re-saved.
+ */
+function parseAnySnapshot(parsed: unknown): SerializedFixedChild | undefined {
+  if (isVideoSnapshot(parsed)) return parsed.tree;
+  return parseLegacySnapshot(parsed, selectableKey(toShow), toShow.description);
+}
 
 /** Fetch and parse `./saved_state/<toShowKey>.json`. */
 async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
@@ -6462,11 +6363,22 @@ async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
   }
   if (!response.ok) return { ok: false, reason: "not-found" };
   try {
-    const data = (await response.json()) as Record<string, JsonFileEntry>;
-    return { ok: true, data };
+    const tree = parseAnySnapshot(await response.json());
+    if (!tree) return { ok: false, reason: "parse-error" };
+    return { ok: true, data: tree };
   } catch {
     return { ok: false, reason: "parse-error" };
   }
+}
+
+/** Rebuild the component and schedule editors after a load has replaced the tree's state. */
+function refreshEditorsAfterLoad(): void {
+  const current = currentSaveTarget();
+  if (!current) return;
+  selectedSlideChild = null;
+  activeRootComponentEditor?.resetAll();
+  updateComponentEditor(current);
+  updateScheduleEditor(current);
 }
 
 /**
@@ -6478,41 +6390,21 @@ async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
  *   (used during startup so the DB remains the highest-priority source)
  */
 function applyJsonSnapshot(
-  snapshot: Record<string, JsonFileEntry>,
+  tree: SerializedFixedChild,
   onlyIfNoDb = false,
   persist = false,
 ): void {
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  const key = selectableKey(toShow);
+  if (onlyIfNoDb && loadSources.get(key)?.kind === "db") return;
 
-    const entry = snapshot[key];
-    if (!entry) continue;
+  applyJsonEntry(toShow, tree);
+  loadSources.set(key, { kind: "json", filename: `${toShowKey}.json` });
+  loadedSnapshots.set(key, currentSnapshotJson(toShow));
 
-    if (onlyIfNoDb) {
-      const src = loadSources.get(key);
-      if (src?.kind === "db") continue;
-    }
+  // Write to IndexedDB so this state survives a Vite hot-reload.
+  if (persist) void saveScheduleState(toShow, true);
 
-    applyJsonEntry(sel, entry);
-    loadSources.set(key, { kind: "json", filename: `${toShowKey}.json` });
-    loadedSnapshots.set(key, currentSnapshotJson(sel));
-
-    // Write to IndexedDB so this state survives a Vite hot-reload.
-    if (persist) void saveScheduleState(sel, true);
-  }
-
-  // Refresh the schedule editor to reflect the newly loaded state.
-  const current = currentSaveTarget();
-  if (current) {
-    selectedSlideChild = null;
-    activeRootComponentEditor?.resetAll();
-    updateComponentEditor(current);
-    updateScheduleEditor(current);
-  }
+  refreshEditorsAfterLoad();
 }
 
 /**
@@ -6521,39 +6413,20 @@ function applyJsonSnapshot(
  * `initFromDB` has already restored the most recent DB state.
  */
 function applyJsonSnapshotFromFile(
-  snapshot: Record<string, JsonFileEntry>,
+  tree: SerializedFixedChild,
   fileSavedAt: number,
 ): void {
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  const key = selectableKey(toShow);
+  // Only apply when the file is strictly newer than the IndexedDB entry.
+  const src = loadSources.get(key);
+  const dbTimestamp = src?.kind === "db" ? src.timestamp : 0;
+  if (fileSavedAt <= dbTimestamp) return;
 
-    const entry = snapshot[key];
-    if (!entry) continue;
+  applyJsonEntry(toShow, tree);
+  loadSources.set(key, { kind: "json", filename: _activeFileRecord!.filename });
+  loadedSnapshots.set(key, currentSnapshotJson(toShow));
 
-    // Only apply where the file is strictly newer than the IndexedDB entry.
-    const src = loadSources.get(key);
-    const dbTimestamp = src?.kind === "db" ? src.timestamp : 0;
-    if (fileSavedAt <= dbTimestamp) continue;
-
-    applyJsonEntry(sel, entry);
-    loadSources.set(key, {
-      kind: "json",
-      filename: _activeFileRecord!.filename,
-    });
-    loadedSnapshots.set(key, currentSnapshotJson(sel));
-  }
-
-  const current = currentSaveTarget();
-  if (current) {
-    selectedSlideChild = null;
-    activeRootComponentEditor?.resetAll();
-    updateComponentEditor(current);
-    updateScheduleEditor(current);
-  }
+  refreshEditorsAfterLoad();
 }
 
 /**
@@ -6582,9 +6455,10 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
 
     const file = await activeHandle.getFile();
     const fileContent = await file.text();
-    const snapshot = JSON.parse(fileContent) as Record<string, JsonFileEntry>;
+    const tree = parseAnySnapshot(JSON.parse(fileContent));
+    if (!tree) return false;
 
-    applyJsonSnapshotFromFile(snapshot, fileRecord.savedAt);
+    applyJsonSnapshotFromFile(tree, fileRecord.savedAt);
     // Record what the file currently looks like on disk so the dirty flag works.
     _lastKnownJsonBody = fileContent;
     return true;
@@ -6626,28 +6500,24 @@ async function loadFromJsonFile(): Promise<void> {
     return;
   }
 
-  let snapshot: Record<string, JsonFileEntry>;
+  let tree: SerializedFixedChild | undefined;
   try {
-    snapshot = JSON.parse(fileContent) as Record<string, JsonFileEntry>;
+    tree = parseAnySnapshot(JSON.parse(fileContent));
   } catch {
     alert(`"${handle.name}" is not valid JSON.`);
     return;
   }
-
-  // Apply all entries from the file (no timestamp arbitration — user explicitly opened).
-  applyJsonSnapshot(snapshot, false, false);
-
-  // Fix up loadSources with the real filename, then commit the active file.
-  const filename = handle.name;
-  const seen2 = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen2.has(key)) continue;
-    seen2.add(key);
-    if (!snapshot[key]) continue;
-    loadSources.set(key, { kind: "json", filename });
+  if (!tree) {
+    alert(`"${handle.name}" does not contain state for "${toShowKey}".`);
+    return;
   }
+
+  // Apply the whole tree (no timestamp arbitration — user explicitly opened).
+  applyJsonSnapshot(tree, false, false);
+
+  // Fix up loadSource with the real filename, then commit the active file.
+  const filename = handle.name;
+  loadSources.set(selectableKey(toShow), { kind: "json", filename });
   _activeFileRecord = { filename, handle };
   _lastKnownJsonBody = fileContent;
   void writeActiveFileRecord(filename, handle, toShowKey);

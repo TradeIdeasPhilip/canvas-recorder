@@ -26,17 +26,17 @@ checks the folder's name and refuses anything not called `properties`, so a wron
 error instead of being silently remembered. After one correct answer there are no more dialogs,
 and that single grant covers every video.
 
-- [ ] [showcase](http://localhost:5173/canvas-recorder.html?toShow=showcase)
-- [ ] [sierpiński](http://localhost:5173/canvas-recorder.html?toShow=sierpi%C5%84ski)
-- [ ] [peano-fourier](http://localhost:5173/canvas-recorder.html?toShow=peano-fourier)
-- [ ] [peano-arithmetic](http://localhost:5173/canvas-recorder.html?toShow=peano-arithmetic)
-- [ ] [morph-test](http://localhost:5173/canvas-recorder.html?toShow=morph-test)
-- [ ] [stroke-colors-test](http://localhost:5173/canvas-recorder.html?toShow=stroke-colors-test)
-- [ ] [some5](http://localhost:5173/canvas-recorder.html?toShow=some5)
-- [ ] [some5-reference](http://localhost:5173/canvas-recorder.html?toShow=some5-reference)
-- [ ] [shadow-test](http://localhost:5173/canvas-recorder.html?toShow=shadow-test)
-- [ ] [lissajous](http://localhost:5173/canvas-recorder.html?toShow=lissajous)
-- [ ] [galaga](http://localhost:5173/canvas-recorder.html?toShow=galaga)
-- [ ] [alpha-test](http://localhost:5173/canvas-recorder.html?toShow=alpha-test)
+- ✅ [showcase](http://localhost:5173/canvas-recorder.html?toShow=showcase)
+- ✅ [sierpiński](http://localhost:5173/canvas-recorder.html?toShow=sierpi%C5%84ski)
+- ✅ [peano-fourier](http://localhost:5173/canvas-recorder.html?toShow=peano-fourier)
+- ✅ [peano-arithmetic](http://localhost:5173/canvas-recorder.html?toShow=peano-arithmetic)
+- ✅ [morph-test](http://localhost:5173/canvas-recorder.html?toShow=morph-test)
+- ✅ [stroke-colors-test](http://localhost:5173/canvas-recorder.html?toShow=stroke-colors-test)
+- ✅ [some5](http://localhost:5173/canvas-recorder.html?toShow=some5)
+- ✅ [some5-reference](http://localhost:5173/canvas-recorder.html?toShow=some5-reference)
+- ✅ [shadow-test](http://localhost:5173/canvas-recorder.html?toShow=shadow-test)
+- ✅ [lissajous](http://localhost:5173/canvas-recorder.html?toShow=lissajous)
+- ✅ [galaga](http://localhost:5173/canvas-recorder.html?toShow=galaga)
+- ✅ [alpha-test](http://localhost:5173/canvas-recorder.html?toShow=alpha-test)
 
 Then `git add properties/ && git commit`.
