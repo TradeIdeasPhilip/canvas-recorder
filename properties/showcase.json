@@ -1,11 +1,13 @@
 {
   "showcase|Showcase": {
+    "components": [],
     "fixedComponents": [
       {
         "description": "background"
       },
       {
         "description": "Scene List",
+        "components": [],
         "fixedComponents": [
           {
             "description": "Simple Text & Layout",
@@ -973,7 +975,7 @@
                   },
                   {
                     "time": 30000,
-                    "value": 60
+                    "value": 160
                   }
                 ]
               },
@@ -1039,6 +1041,25 @@
               }
             ],
             "duration": 30000
+          },
+          {
+            "description": "Lattice Property",
+            "schedules": [
+              {
+                "description": "Lattice",
+                "type": "lattice",
+                "value": {
+                  "x": 1,
+                  "y": 2,
+                  "width": 10.711569432826877,
+                  "height": 5.705089222301137,
+                  "cellWidth": 1.5612304772843606,
+                  "cellHeight": 1.721868341619318
+                }
+              }
+            ],
+            "components": [],
+            "duration": 10000
           }
         ]
       }

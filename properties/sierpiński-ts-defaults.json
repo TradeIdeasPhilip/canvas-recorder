@@ -1,0 +1,318 @@
+{
+  "sierpiński|Sierpiński": {
+    "fixedComponents": [
+      {
+        "description": "halftone background"
+      },
+      {
+        "description": "Scene List",
+        "fixedComponents": [
+          {
+            "description": "Title",
+            "fixedComponents": [
+              {
+                "description": "morph",
+                "soundClips": [
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 1000,
+                    "startMsIntoClip": 0,
+                    "lengthMs": 3157.1600000000003
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 6781.506666666666,
+                    "startMsIntoClip": 4013.34,
+                    "lengthMs": 6528.37
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 15934.223333333333,
+                    "startMsIntoClip": 12093.529999999999,
+                    "lengthMs": 2193.96
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 20752.53,
+                    "startMsIntoClip": 15571.76,
+                    "lengthMs": 2247.47
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 25500,
+                    "startMsIntoClip": 18900,
+                    "lengthMs": 32354.739999999998
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 59000,
+                    "startMsIntoClip": 55412.09,
+                    "lengthMs": 2303.09
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 64000,
+                    "startMsIntoClip": 58484.6,
+                    "lengthMs": 2412.4900000000002
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 69000,
+                    "startMsIntoClip": 61993.67,
+                    "lengthMs": 6213.99
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 76134,
+                    "startMsIntoClip": 69312.11,
+                    "lengthMs": 4138.5
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 83000,
+                    "startMsIntoClip": 75115.71,
+                    "lengthMs": 3684.82
+                  }
+                ]
+              },
+              {
+                "description": "fill in"
+              }
+            ]
+          },
+          {
+            "description": "RTriangle.standard(5)"
+          },
+          {
+            "description": "Slide left » RTriangle.standard(5) » Permutations"
+          },
+          {
+            "description": "Permutations"
+          },
+          {
+            "description": "Make rounded corners"
+          },
+          {
+            "description": "Move to correct position"
+          },
+          {
+            "description": "move and hide small triangles",
+            "soundClips": [
+              {
+                "startMsIntoScene": 0,
+                "startMsIntoClip": 80201,
+                "source": "./Sierpinski part 1.m4a",
+                "lengthMs": 5076
+              }
+            ]
+          },
+          {
+            "description": "fourier of 5 2nd generation triangles",
+            "soundClips": [
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 973.2800000000001,
+                "startMsIntoClip": 87507.24,
+                "lengthMs": 2178.65
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 5098.49,
+                "startMsIntoClip": 90174.98,
+                "lengthMs": 2617.59
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 9662.64,
+                "startMsIntoClip": 93109.49,
+                "lengthMs": 1734.03
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 14316.51,
+                "startMsIntoClip": 96642.99,
+                "lengthMs": 2955.49
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 22000,
+                "startMsIntoClip": 100735.01,
+                "lengthMs": 2787.64
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 27000,
+                "startMsIntoClip": 104544.78,
+                "lengthMs": 2090.73
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 31000,
+                "startMsIntoClip": 107936.4,
+                "lengthMs": 2555.33
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 34000,
+                "startMsIntoClip": 112954.15,
+                "lengthMs": 2834.1
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 40000,
+                "startMsIntoClip": 117507.28,
+                "lengthMs": 2137.19
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 45000,
+                "startMsIntoClip": 120689.84,
+                "lengthMs": 6145.030000000001
+              }
+            ]
+          },
+          {
+            "description": "fourier again more artistically » margins",
+            "fixedComponents": [
+              {
+                "description": "fourier again more artistically » frozen before"
+              },
+              {
+                "description": "fourier again more artistically",
+                "soundClips": [
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": -780,
+                    "startMsIntoClip": 128459.49,
+                    "lengthMs": 5307.5
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 9740.720000000008,
+                    "startMsIntoClip": 134723.91,
+                    "lengthMs": 2562.83
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 17516.77000000002,
+                    "startMsIntoClip": 137876.57,
+                    "lengthMs": 2512.53
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 24389.040000000008,
+                    "startMsIntoClip": 141790.32,
+                    "lengthMs": 3382.25
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 28813.230000000003,
+                    "startMsIntoClip": 145403.81,
+                    "lengthMs": 2244.47
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 32099.64,
+                    "startMsIntoClip": 148355.79,
+                    "lengthMs": 3317.92
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 36459.49999999999,
+                    "startMsIntoClip": 152527.58,
+                    "lengthMs": 902.67
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 39620.7,
+                    "startMsIntoClip": 159236.61,
+                    "lengthMs": 5269.64
+                  },
+                  {
+                    "source": "./Sierpinski part 1.m4a",
+                    "startMsIntoScene": 49040.49,
+                    "startMsIntoClip": 155040.42,
+                    "lengthMs": 2659.21
+                  }
+                ]
+              },
+              {
+                "description": "fourier again more artistically » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "fourier again more artistically » fadeOut",
+            "soundClips": [
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 0,
+                "startMsIntoClip": 177115.83,
+                "lengthMs": 1651.05
+              }
+            ]
+          },
+          {
+            "description": "6 levels at once",
+            "soundClips": [
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 2000,
+                "startMsIntoClip": 179689.26,
+                "lengthMs": 2032.7
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 7000,
+                "startMsIntoClip": 182493.12,
+                "lengthMs": 2847.31
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 11500,
+                "startMsIntoClip": 185710.86,
+                "lengthMs": 30872.54
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 48000,
+                "startMsIntoClip": 218229.94,
+                "lengthMs": 1749.44
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 51986.62,
+                "startMsIntoClip": 237515.34,
+                "lengthMs": 3013.38
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 57808.715000000004,
+                "startMsIntoClip": 243092.27,
+                "lengthMs": 5382.57
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 66000,
+                "startMsIntoClip": 253828.63,
+                "lengthMs": 1122.57
+              },
+              {
+                "source": "./Sierpinski part 1.m4a",
+                "startMsIntoScene": 69972.32,
+                "startMsIntoClip": 256534.31,
+                "lengthMs": 1640.68
+              },
+              {
+                "source": "./Sierpinski part 2.m4a",
+                "startMsIntoScene": 77029.20999999996,
+                "startMsIntoClip": 16149.93,
+                "lengthMs": 158059.33
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

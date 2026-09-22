@@ -1939,13 +1939,35 @@ function openScheduleDB(): Promise<IDBDatabase> {
 
 type FileRecord = {
   filename: string;
-  /** null for the sentinel entry written by "Load Defaults". */
-  handle: FileSystemFileHandle | null;
+  /**
+   * null for the "no active file" sentinel.
+   * A `FileSystemDirectoryHandle` only for the {@link PROPERTIES_DIR_KEY} record.
+   */
+  handle: FileSystemFileHandle | FileSystemDirectoryHandle | null;
   savedAt: number;
   isActive: boolean;
-  /** Scopes this record to a specific video tab (toShowKey). Added for per-video isolation. */
+  /**
+   * Scopes this record to a specific video tab (toShowKey). Added for per-video isolation.
+   * Deliberately absent on the {@link PROPERTIES_DIR_KEY} record, which is shared by every
+   * video — that also hides it from `readAllFileRecords` and `readActiveFileRecord`, both of
+   * which require `videoKey` to match.
+   */
   videoKey?: string;
 };
+
+/**
+ * The *file* handle on a record, or null.
+ *
+ * Every record holds a file handle except {@link PROPERTIES_DIR_KEY}, whose handle is a
+ * directory.  No file-reading path should ever encounter that one, so rather than assert,
+ * narrow and let the caller treat it as "no handle".
+ */
+function fileHandleOf(
+  record: FileRecord | undefined,
+): FileSystemFileHandle | null {
+  const handle = record?.handle;
+  return handle && handle.kind === "file" ? handle : null;
+}
 
 async function readActiveFileRecord(
   videoKey: string,
@@ -1993,32 +2015,11 @@ async function writeActiveFileRecord(
   });
 }
 
-/** Write a per-video sentinel "no active file" record so startup skips file-handle loading. */
-async function writeNoFileRecord(videoKey: string): Promise<void> {
-  const db = await openScheduleDB();
-  const sentinelFilename = `__no-file__|${videoKey}`;
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readwrite");
-    const store = tx.objectStore("files");
-    const getAllReq = store.getAll();
-    getAllReq.onsuccess = () => {
-      // Clear isActive only on records belonging to the same video.
-      for (const r of getAllReq.result as FileRecord[]) {
-        if (r.videoKey === videoKey && r.isActive)
-          store.put({ ...r, isActive: false });
-      }
-      store.put({
-        filename: sentinelFilename,
-        handle: null,
-        savedAt: Date.now(),
-        isActive: true,
-        videoKey,
-      } satisfies FileRecord);
-    };
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
+// The `__no-file__|<video>` sentinel record used to be written here, by "Restore Defaults", to
+// detach from the active file so startup would skip it.  Nothing writes one any more: picking
+// "TypeScript defaults" in the Load dialog auto-saves, and `applyJsonSnapshotFromFile` only lets
+// a file win when it is newer than the database, so the defaults stick without a sentinel.
+// Databases created before this change may still contain one; the readers below still handle it.
 
 /** Read all records from the `files` table scoped to the given video. */
 async function readAllFileRecords(videoKey: string): Promise<FileRecord[]> {
@@ -2092,7 +2093,7 @@ async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").get(DEFAULTS_AUTO_SAVE_KEY);
     req.onsuccess = () =>
-      resolve((req.result as FileRecord | undefined)?.handle ?? null);
+      resolve(fileHandleOf(req.result as FileRecord | undefined));
     req.onerror = () => reject(req.error);
   });
 }
@@ -2112,6 +2113,126 @@ async function writeDefaultsAutoSaveHandle(
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
+}
+
+// MARK: Properties folder
+
+/**
+ * Key in the "files" IDB store holding the `properties/` directory handle.
+ *
+ * Deliberately *not* suffixed with `toShowKey`: one folder serves every video, so the user
+ * grants access once rather than once per video.  The record also carries no `videoKey`, which
+ * keeps it invisible to `readAllFileRecords` and `readActiveFileRecord` — both require a
+ * `videoKey` match, so this can never show up in the Load dialog or be mistaken for the
+ * active file.
+ */
+const PROPERTIES_DIR_KEY = "__properties-dir__";
+
+async function readPropertiesDirHandle(): Promise<FileSystemDirectoryHandle | null> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readonly");
+    const req = tx.objectStore("files").get(PROPERTIES_DIR_KEY);
+    req.onsuccess = () => {
+      const handle = (req.result as FileRecord | undefined)?.handle;
+      resolve(
+        handle && handle.kind === "directory"
+          ? (handle as FileSystemDirectoryHandle)
+          : null,
+      );
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writePropertiesDirHandle(
+  handle: FileSystemDirectoryHandle,
+): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("files", "readwrite");
+    tx.objectStore("files").put({
+      filename: PROPERTIES_DIR_KEY,
+      handle,
+      savedAt: Date.now(),
+      isActive: false,
+    } satisfies FileRecord);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/**
+ * The folder name this feature insists on.
+ *
+ * A directory handle carries no path, only its own name, so this is the one check available —
+ * and it is worth making.  Accepting whatever folder the picker happened to open once wrote a
+ * full set of files into `public/saved_state/`, which is read at startup by
+ * {@link fetchJsonSnapshot}; a silently wrong folder is not a harmless mistake.
+ */
+const PROPERTIES_DIR_NAME = "properties";
+
+type PropertiesDirResult =
+  | { ok: true; dir: FileSystemDirectoryHandle }
+  | { ok: false; reason: "cancelled" }
+  | { ok: false; reason: "wrong-folder"; picked: string };
+
+/**
+ * The `properties/` directory, ready to write to.
+ *
+ * Reuses the stored handle when it names the right folder and the browser still grants it,
+ * re-asks when the grant lapsed (Chrome commonly drops it across restarts), and otherwise
+ * prompts.  A stored handle pointing somewhere else is discarded rather than reused, so one
+ * bad answer to the picker repairs itself on the next click instead of persisting forever.
+ */
+async function ensurePropertiesDir(): Promise<PropertiesDirResult> {
+  const stored = await readPropertiesDirHandle();
+  if (stored) {
+    if (stored.name === PROPERTIES_DIR_NAME) {
+      const opts = { mode: "readwrite" } as const;
+      if (
+        (await stored.queryPermission(opts)) === "granted" ||
+        (await stored.requestPermission(opts)) === "granted"
+      ) {
+        return { ok: true, dir: stored };
+      }
+    } else {
+      console.warn(
+        `Stored properties folder was "${stored.name}", not "${PROPERTIES_DIR_NAME}" — discarding it and asking again.`,
+      );
+      await deleteFileRecord(PROPERTIES_DIR_KEY);
+    }
+  }
+  let picked: FileSystemDirectoryHandle;
+  try {
+    picked = await window.showDirectoryPicker({
+      id: "properties-dir",
+      mode: "readwrite",
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      return { ok: false, reason: "cancelled" };
+    }
+    throw e;
+  }
+  if (picked.name !== PROPERTIES_DIR_NAME) {
+    // Deliberately not stored: remembering it is what made the original mistake sticky.
+    return { ok: false, reason: "wrong-folder", picked: picked.name };
+  }
+  await writePropertiesDirHandle(picked);
+  return { ok: true, dir: picked };
+}
+
+/** Create or overwrite one file inside `dir`. */
+async function writeFileInDir(
+  dir: FileSystemDirectoryHandle,
+  name: string,
+  body: string,
+): Promise<void> {
+  const handle = await dir.getFileHandle(name, { create: true });
+  const writable = await handle.createWritable();
+  await writable.write(body);
+  await writable.close();
 }
 
 const defaultsAutoSaveCheckbox = getById(
@@ -2542,6 +2663,66 @@ async function saveDiffs(): Promise<void> {
   const writable = await handle.createWritable();
   await writable.write(body);
   await writable.close();
+}
+
+// MARK: Save All
+
+const savePropertiesBtn = getById("savePropertiesBtn", HTMLButtonElement);
+const savePropertiesStatus = getById("savePropertiesStatus", HTMLSpanElement);
+
+/**
+ * Write all three of this video's properties files into `properties/`.
+ *
+ * Unlike the individual Save buttons this never opens a save dialog (after the one-time
+ * directory grant) and never repoints the active file — it is a snapshot, so it behaves like
+ * "Save Copy As".  It also writes the defaults file directly rather than toggling the
+ * "Save defaults" checkbox, which would delete that checkbox's stored handle.
+ */
+async function saveAllToProperties(): Promise<void> {
+  const setStatus = (text: string, color: string) => {
+    savePropertiesStatus.textContent = text;
+    savePropertiesStatus.style.color = color;
+  };
+  const video = toShowKey || "untitled";
+  savePropertiesBtn.disabled = true;
+  try {
+    setStatus("saving…", "gray");
+    const result = await ensurePropertiesDir();
+    if (!result.ok) {
+      if (result.reason === "cancelled") {
+        setStatus("cancelled", "gray");
+      } else {
+        setStatus(
+          `✗ that was "${result.picked}" — pick the ${PROPERTIES_DIR_NAME}/ folder and try again`,
+          "red",
+        );
+      }
+      return;
+    }
+    const dir = result.dir;
+    // Keep IndexedDB consistent with memory first, exactly as Save As does.
+    await _flushDirtyToDb();
+    await writeFileInDir(
+      dir,
+      `${video}.json`,
+      JSON.stringify(buildJsonSnapshot(), null, 2),
+    );
+    await writeFileInDir(
+      dir,
+      `${video}-ts-defaults.json`,
+      JSON.stringify(buildDefaultsSnapshot(), null, 2),
+    );
+    await writeFileInDir(dir, `${video}.txt`, buildDiffText());
+    setStatus(
+      `✓ ${video}: state, defaults, diff → ${PROPERTIES_DIR_NAME}/`,
+      "green",
+    );
+  } catch (e) {
+    console.error("Save Properties failed:", e);
+    setStatus(`✗ ${e instanceof Error ? e.message : String(e)}`, "red");
+  } finally {
+    savePropertiesBtn.disabled = false;
+  }
 }
 
 // MARK: Load-source helpers
@@ -3417,9 +3598,11 @@ async function _loadFileEntry(
 ): Promise<void> {
   const filename = fileRecord.filename;
   try {
-    const perm = await fileRecord.handle!.queryPermission({ mode: "read" });
+    const handle = fileHandleOf(fileRecord);
+    if (!handle) throw new Error("no file handle");
+    const perm = await handle.queryPermission({ mode: "read" });
     if (perm !== "granted") throw new Error("permission denied");
-    const file = await fileRecord.handle!.getFile();
+    const file = await handle.getFile();
     const content = await file.text();
     const fullSnapshot = JSON.parse(content) as Record<string, JsonFileEntry>;
     _dialogFileStates.set(filename, { status: "loaded", fullSnapshot });
@@ -6260,6 +6443,7 @@ getById("saveDiffsBtn", HTMLButtonElement).addEventListener(
   "click",
   () => void saveDiffs(),
 );
+savePropertiesBtn.addEventListener("click", () => void saveAllToProperties());
 
 // MARK: Load JSON file
 
@@ -6380,22 +6564,23 @@ function applyJsonSnapshotFromFile(
  */
 async function tryLoadFromActiveFile(): Promise<boolean> {
   const fileRecord = await readActiveFileRecord(toShowKey);
-  // A null handle (filename === "") is the sentinel written by "Load Defaults".
-  if (!fileRecord || !fileRecord.handle) return false;
+  // A null handle (filename === "") is the "no active file" sentinel.
+  const activeHandle = fileHandleOf(fileRecord);
+  if (!fileRecord || !activeHandle) return false;
 
   // Always populate `_activeFileRecord` so the Save button is available.
   _activeFileRecord = {
     filename: fileRecord.filename,
-    handle: fileRecord.handle,
+    handle: activeHandle,
   };
 
   try {
     // `requestPermission` requires a user gesture at startup — only proceed if
     // the browser already holds a "granted" permission for this handle.
-    const perm = await fileRecord.handle.queryPermission({ mode: "read" });
+    const perm = await activeHandle.queryPermission({ mode: "read" });
     if (perm !== "granted") return false;
 
-    const file = await fileRecord.handle.getFile();
+    const file = await activeHandle.getFile();
     const fileContent = await file.text();
     const snapshot = JSON.parse(fileContent) as Record<string, JsonFileEntry>;
 
@@ -6471,39 +6656,9 @@ async function loadFromJsonFile(): Promise<void> {
 
 loadJsonBtn.addEventListener("click", () => void loadFromJsonFile());
 
-/** Apply TypeScript defaults to every selectable, clear the active file, and mark everything dirty. */
-async function loadDefaultsAction(): Promise<void> {
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    // Don't update loadedSnapshots — leaves isDirty() true so auto-save fires.
-    applyTsDefaults(sel);
-    loadSources.set(key, { kind: "ts-defaults" });
-  }
-  // Clear the active file so the display shows "never saved", matching a fresh install.
-  _activeFileRecord = null;
-  _lastKnownJsonBody = undefined;
-  // Update display immediately (synchronous), before the async sentinel write below.
-  markDirty();
-  const current = currentSaveTarget();
-  if (current) {
-    selectedSlideChild = null;
-    activeRootComponentEditor?.resetAll();
-    updateComponentEditor(current);
-    updateScheduleEditor(current);
-  }
-  // Await so the sentinel is written before any possible page reload.
-  // saveOnUnload also writes noActiveFile to sessionStorage as a faster backstop.
-  await writeNoFileRecord(toShowKey);
-}
-
-getById("loadDefaultsBtn", HTMLButtonElement).addEventListener(
-  "click",
-  () => void loadDefaultsAction(),
-);
+// The "Restore Defaults" button used to live here.  It is gone: selecting the root in the
+// chapter list and picking "TypeScript defaults" in the Load dialog does the same job, so
+// restoring everything at once no longer needs to be a special case.
 
 // MARK: Resizable pane dividers
 

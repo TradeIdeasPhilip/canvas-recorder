@@ -36,6 +36,128 @@
           {
             "description": "Spacer",
             "components": [],
+            "fixedComponents": [
+              {
+                "description": "Title",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "rgb(255, 0, 255)"
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 16,
+                      "height": 4
+                    }
+                  },
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "Spacer"
+                  },
+                  {
+                    "description": "Size",
+                    "type": "number",
+                    "value": 0.7
+                  },
+                  {
+                    "description": "Boldness",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Obliqueness",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "userEditableDescription": "Title"
+              },
+              {
+                "description": "Body",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "rgb(128, 0, 255)"
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": {
+                          "x": 0.75,
+                          "y": 5,
+                          "width": 12.1,
+                          "height": 4
+                        }
+                      },
+                      {
+                        "time": 9999.9,
+                        "value": {
+                          "x": 3.214258982035928,
+                          "y": 2.1085329341317367,
+                          "width": 12.1,
+                          "height": 4
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Text",
+                    "type": "string",
+                    "value": "I don’t want the next screen to appear in the preview.  I want the cache to be clean until I hit “record.”"
+                  },
+                  {
+                    "description": "Size",
+                    "type": "number",
+                    "value": 0.5
+                  },
+                  {
+                    "description": "Boldness",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Obliqueness",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "left"
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "userEditableDescription": "Body"
+              }
+            ],
             "duration": 10000
           },
           {
@@ -4807,7 +4929,7 @@
                 "startMsIntoScene": 1000,
                 "startMsIntoClip": 2152.48,
                 "lengthMs": 3332.88,
-                "id": "b0364e7b-17b5-453a-98eb-ea3caccb2373"
+                "id": "6dfbe86f-d6ca-46ed-bac0-d6b94675f84e"
               },
               {
                 "notes": "These examples ... matrix multiplication.",
@@ -4815,7 +4937,7 @@
                 "startMsIntoScene": 5332.88,
                 "startMsIntoClip": 6100.35,
                 "lengthMs": 9497.02,
-                "id": "23b909ea-42ce-40f5-b243-533297f1bcfb"
+                "id": "916e281d-9deb-4e4a-aa08-429759b1b5c7"
               },
               {
                 "notes": "This is an explainer... an easy one.",
@@ -4823,7 +4945,7 @@
                 "startMsIntoScene": 15829.900000000001,
                 "startMsIntoClip": 18100.33,
                 "lengthMs": 3146.46,
-                "id": "55bc1286-eaa2-48ca-a001-321015bc18f1"
+                "id": "626e07c7-c92b-46ed-8014-e508508be513"
               },
               {
                 "notes": "The good news: the computer will help you create the matrices.\n",
@@ -4831,7 +4953,7 @@
                 "startMsIntoScene": 19976.36,
                 "startMsIntoClip": 21659.03,
                 "lengthMs": 3964.26,
-                "id": "814a7a52-fb09-4179-944a-5690d03baec7"
+                "id": "c2d21c65-f72b-46d1-bf8d-c2aa360bad71"
               },
               {
                 "notes": "And the computer will multiply the matrices for you.",
@@ -4839,7 +4961,7 @@
                 "startMsIntoScene": 24940.620000000003,
                 "startMsIntoClip": 26308.06,
                 "lengthMs": 2798.21,
-                "id": "1030e756-e3ff-4632-bbc4-973b3ba3a918"
+                "id": "db2cc183-4ba4-4db0-81bd-d56ee0fe4155"
               },
               {
                 "notes": "All you have to do is put them in the right order.",
@@ -4847,7 +4969,7 @@
                 "startMsIntoScene": 28738.83,
                 "startMsIntoClip": 29656.19,
                 "lengthMs": 2488.9,
-                "id": "5393dd59-a265-4003-b1dd-1edf2d44295d"
+                "id": "74faa591-05aa-479e-846b-51903f3b6d3b"
               },
               {
                 "notes": "Am I the only one who gets these things backwards",
@@ -4855,7 +4977,7 @@
                 "startMsIntoScene": 32227.730000000003,
                 "startMsIntoClip": 33409.17,
                 "lengthMs": 2792.56,
-                "id": "e4112cd7-0619-4a54-a80a-1d66f1059e4a"
+                "id": "1123783a-c2f5-479b-9f7d-83688e144103"
               },
               {
                 "notes": "There are only two possibilities. ... wrong every time?",
@@ -4863,7 +4985,7 @@
                 "startMsIntoScene": 36020.29,
                 "startMsIntoClip": 37355.25,
                 "lengthMs": 4913.68,
-                "id": "ebaa8ab5-9fde-445e-97f0-da04a2b2bab4"
+                "id": "82276ca9-0913-46e7-9d80-95fae69069ae"
               },
               {
                 "notes": "How I stopped guessing ... what's really going on.",
@@ -4871,7 +4993,7 @@
                 "startMsIntoScene": 41933.97,
                 "startMsIntoClip": 43156.5,
                 "lengthMs": 3852.06,
-                "id": "5cc50984-b7ea-44d9-a3cb-4d219f37e40b"
+                "id": "263d7b6b-cf94-48cf-b978-97dfbe44ec30"
               },
               {
                 "notes": "Affine transform overview",
@@ -4879,7 +5001,7 @@
                 "startMsIntoScene": 46786.03,
                 "startMsIntoClip": 52174.38,
                 "lengthMs": 19280.38,
-                "id": "1402b9f8-d893-4879-8557-65e3ddbb6b56"
+                "id": "72e393a4-2954-48de-9ed7-067dbce8f414"
               },
               {
                 "notes": "Point = column vector = matrix.",
@@ -4887,7 +5009,7 @@
                 "startMsIntoScene": 67066.41,
                 "startMsIntoClip": 72176.1,
                 "lengthMs": 6636.04,
-                "id": "f6d43362-a862-4a21-8451-f4fb4c379bf3"
+                "id": "a85c70e7-e9fe-43fa-951b-da42faa5920a"
               },
               {
                 "notes": "Shapes are just a collection of points.",
@@ -4895,7 +5017,7 @@
                 "startMsIntoScene": 74702.45,
                 "startMsIntoClip": 79339.19,
                 "lengthMs": 3877.48,
-                "id": "5de01e2a-3ef7-4e48-b61a-d53b9e4b8571"
+                "id": "7697debd-0a45-440f-b056-bca701430bee"
               },
               {
                 "notes": "Top left corner of square",
@@ -4903,7 +5025,7 @@
                 "startMsIntoScene": 79579.93,
                 "startMsIntoClip": 83676.98,
                 "lengthMs": 5009.33,
-                "id": "375813fb-5a81-47c6-a3c2-40e4117adac5"
+                "id": "8336d003-ef6d-4296-bed1-68ed243990e7"
               },
               {
                 "notes": "Each operation is a square matrix ... computer creates it for you.",
@@ -4911,7 +5033,7 @@
                 "startMsIntoScene": 85589.26,
                 "startMsIntoClip": 89969.63,
                 "lengthMs": 12498.48,
-                "id": "1532e3d0-039a-46b3-b5dc-e258b77a4aea"
+                "id": "f0145c94-5b29-4bd1-a2b1-061d33024391"
               },
               {
                 "notes": "Apply transform to point ... each point in image.",
@@ -4919,7 +5041,7 @@
                 "startMsIntoScene": 99087.73999999999,
                 "startMsIntoClip": 106089.79,
                 "lengthMs": 11654.98,
-                "id": "cc0cf3fc-681f-4584-9eea-b71e214cad6e"
+                "id": "0032dad0-a26d-4ccb-92e7-acfed139ada6"
               },
               {
                 "notes": "More details... affine matrices are bigger.\n",
@@ -4927,7 +5049,7 @@
                 "startMsIntoScene": 111742.71999999999,
                 "startMsIntoClip": 119657.4,
                 "lengthMs": 10484.96,
-                "id": "3bbfd3a0-592f-4e72-9023-f9574a76910c"
+                "id": "cd56348b-e9bc-4eee-8cee-19cb1a54aa2c"
               },
               {
                 "notes": "And sometimes people don't bother to list out all the terms.",
@@ -4935,7 +5057,7 @@
                 "startMsIntoScene": 123227.68,
                 "startMsIntoClip": 130630.46,
                 "lengthMs": 3829.13,
-                "id": "491178c0-f9b5-4f35-a2ab-4478c68daad4"
+                "id": "02e342cb-9561-4555-a889-47beb83fa72c"
               },
               {
                 "notes": "Worthy of further study... 3x1 ... 3x3 ... The computer will take care of the rest for you.",
@@ -4943,7 +5065,7 @@
                 "startMsIntoScene": 128056.81,
                 "startMsIntoClip": 135655.83,
                 "lengthMs": 17360.6,
-                "id": "cae9f277-54e6-4d62-8974-0fcf239984fe"
+                "id": "1f84600a-426f-4812-b134-439744b718fc"
               }
             ]
           }

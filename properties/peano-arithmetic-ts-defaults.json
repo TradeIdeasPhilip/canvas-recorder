@@ -1,0 +1,35 @@
+{
+  "peano-arithmetic|Peano arithmetic": {
+    "fixedComponents": [
+      {
+        "description": "background"
+      },
+      {
+        "description": "Scene List",
+        "fixedComponents": [
+          {
+            "description": "Title Screen"
+          },
+          {
+            "description": "ℕ by Induction"
+          },
+          {
+            "description": "Definition of = for ℕ"
+          },
+          {
+            "description": "Definition of + for ℕ"
+          },
+          {
+            "description": "Recap"
+          },
+          {
+            "description": "Does 2 + 2 = 4?"
+          },
+          {
+            "description": "Going Further"
+          }
+        ]
+      }
+    ]
+  }
+}

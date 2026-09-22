@@ -22,7 +22,6 @@
               <option value="2.00">200%</option>
             </select>
           </label>
-          <button type="button" id="loadDefaultsBtn">⟳ Restore Defaults</button>
           <button type="button" id="loadJsonTestBtn">📂 Open</button>
           <span
             id="jsonSaveStatus"
@@ -37,6 +36,17 @@
             Save defaults: <span id="defaultsAutoSaveStatus">…</span></label
           >
           <button type="button" id="saveDiffsBtn">Save Diffs</button>
+          <button
+            type="button"
+            id="savePropertiesBtn"
+            title="Write this video's state, TypeScript defaults, and diff into the properties/ folder. No dialogs after the first use."
+          >
+            📦 Save All 3
+          </button>
+          <span
+            id="savePropertiesStatus"
+            style="font-size: 0.85em; font-style: italic; color: gray"
+          ></span>
           <label hidden
             ><input
               type="radio"

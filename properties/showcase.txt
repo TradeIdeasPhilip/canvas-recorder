@@ -1,0 +1,7 @@
+Generated: Tue Sep 22 2026 10:07:18 GMT-0700 (Pacific Daylight Time)
+Showcase
+→ Scene List
+→ → Lattice Property
+→ → → Lattice
+TypeScript: {"x":1,"y":2,"width":14,"height":6.5,"cellWidth":2.2,"cellHeight":1.5}
+Current:    {"x":1,"y":2,"width":10.711569432826877,"height":5.705089222301137,"cellWidth":1.5612304772843606,"cellHeight":1.721868341619318}

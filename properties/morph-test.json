@@ -1,0 +1,87 @@
+{
+  "morph-test|Morph Test": {
+    "fixedComponents": [
+      {
+        "description": "background"
+      },
+      {
+        "description": "Hilbert all",
+        "fixedComponents": [
+          {
+            "description": "Hilbert 0 » margins",
+            "fixedComponents": [
+              {
+                "description": "Hilbert 0 » frozen before"
+              },
+              {
+                "description": "Hilbert 0"
+              },
+              {
+                "description": "Hilbert 0 » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "Hilbert 1 » margins",
+            "fixedComponents": [
+              {
+                "description": "Hilbert 1 » frozen before"
+              },
+              {
+                "description": "Hilbert 1"
+              },
+              {
+                "description": "Hilbert 1 » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "Hilbert 2 » margins",
+            "fixedComponents": [
+              {
+                "description": "Hilbert 2 » frozen before"
+              },
+              {
+                "description": "Hilbert 2"
+              },
+              {
+                "description": "Hilbert 2 » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "Hilbert 3 » margins",
+            "fixedComponents": [
+              {
+                "description": "Hilbert 3 » frozen before"
+              },
+              {
+                "description": "Hilbert 3"
+              },
+              {
+                "description": "Hilbert 3 » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "Hilbert 4 » margins",
+            "fixedComponents": [
+              {
+                "description": "Hilbert 4 » frozen before"
+              },
+              {
+                "description": "Hilbert 4"
+              },
+              {
+                "description": "Hilbert 4 » frozen after"
+              }
+            ]
+          },
+          {
+            "description": "Hilbert rotating colors"
+          }
+        ]
+      }
+    ]
+  }
+}

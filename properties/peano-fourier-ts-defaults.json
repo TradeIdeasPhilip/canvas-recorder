@@ -1,0 +1,78 @@
+{
+  "peano-fourier|Peano Fourier": {
+    "fixedComponents": [
+      {
+        "description": "background"
+      },
+      {
+        "description": "live path #1 » margins",
+        "fixedComponents": [
+          {
+            "description": "live path #1"
+          },
+          {
+            "description": "live path #1 » frozen after"
+          }
+        ]
+      },
+      {
+        "description": "reference path #1 » margins",
+        "fixedComponents": [
+          {
+            "description": "reference path #1"
+          },
+          {
+            "description": "reference path #1 » frozen after"
+          }
+        ]
+      },
+      {
+        "description": "⭐️ spin and translate"
+      },
+      {
+        "description": "live path #2 » margins",
+        "fixedComponents": [
+          {
+            "description": "live path #2"
+          },
+          {
+            "description": "live path #2 » frozen after"
+          }
+        ]
+      },
+      {
+        "description": "reference path #2 » margins",
+        "fixedComponents": [
+          {
+            "description": "reference path #2"
+          },
+          {
+            "description": "reference path #2 » frozen after"
+          }
+        ]
+      },
+      {
+        "description": "live path #3 » margins",
+        "fixedComponents": [
+          {
+            "description": "live path #3"
+          },
+          {
+            "description": "live path #3 » frozen after"
+          }
+        ]
+      },
+      {
+        "description": "reference path #3 » margins",
+        "fixedComponents": [
+          {
+            "description": "reference path #3"
+          },
+          {
+            "description": "reference path #3 » frozen after"
+          }
+        ]
+      }
+    ]
+  }
+}
