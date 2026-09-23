@@ -43,6 +43,7 @@ import { Lattice, LatticeValue } from "../src/lattice.ts";
 import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
+  applyTree,
   findCoverageProblems,
   findSerializedNode,
   isVideoSnapshot,
@@ -1360,7 +1361,7 @@ const visualEditorAPI: VisualEditorAPI = {
       selectedSlideChild = null;
       updateComponentEditor(selectable);
       updateScheduleEditor(selectable);
-      void saveScheduleState(selectable);
+      void saveVideoState();
     }
   },
   seek(ms) {
@@ -1895,12 +1896,27 @@ type MarkerHistoryEntry = {
   filename?: string;
 };
 type HistoryEntry = DataHistoryEntry | MarkerHistoryEntry;
-function isMarker(e: HistoryEntry): e is MarkerHistoryEntry {
+function isMarker(
+  e: HistoryEntry | VideoHistoryEntry,
+): e is MarkerHistoryEntry {
   return "kind" in e;
 }
 type HistoryRecord = {
   selectableKey: string;
   entries: HistoryEntry[];
+};
+
+/**
+ * One saved state of the whole video — the unit of undo.
+ *
+ * Replaces the per-chapter {@link DataHistoryEntry}.  A video is one tree, so one entry holds
+ * all of it; see development-plans/single-tree-per-video.md.
+ */
+type VideoDataEntry = { timestamp: number; tree: SerializedFixedChild };
+type VideoHistoryEntry = VideoDataEntry | MarkerHistoryEntry;
+type VideoHistoryRecord = {
+  videoKey: string;
+  entries: VideoHistoryEntry[];
 };
 
 /** Where the current in-memory state came from. */
@@ -1931,7 +1947,7 @@ const loadedSnapshots = new Map<string, string>();
 
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("canvas-recorder-schedules", 2);
+    const req = indexedDB.open("canvas-recorder-schedules", 3);
     req.onupgradeneeded = (event) => {
       const db = req.result;
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
@@ -1939,9 +1955,20 @@ function openScheduleDB(): Promise<IDBDatabase> {
         db.createObjectStore("history", { keyPath: "selectableKey" });
       if (oldVersion < 2)
         db.createObjectStore("files", { keyPath: "filename" });
+      // v3 adds whole-video records.  The old per-chapter "history" store is deliberately
+      // left in place and is no longer written -- it is the rollback if v3 goes wrong.
+      if (oldVersion < 3)
+        db.createObjectStore("videos", { keyPath: "videoKey" });
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+    // A second tab still holding the old version blocks the upgrade, and without this the
+    // page would just hang with no explanation.
+    req.onblocked = () =>
+      console.error(
+        "IndexedDB upgrade to v3 is blocked — another tab has this database open at an " +
+          "older version. Close other canvas-recorder tabs and reload.",
+      );
   });
 }
 
@@ -2076,17 +2103,28 @@ async function readAllHistory(): Promise<HistoryRecord[]> {
   });
 }
 
-async function writeHistory(
-  key: string,
-  entries: HistoryEntry[],
-): Promise<void> {
+// Nothing writes the per-chapter "history" store any more; `readHistory`/`readAllHistory`
+// remain so the Dump DB button can still show what is in there, and so the data survives as
+// a rollback until the refactor has proven itself.
+
+async function readVideoHistory(): Promise<VideoHistoryRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("history", "readwrite");
-    tx.objectStore("history").put({
-      selectableKey: key,
+    const tx = db.transaction("videos", "readonly");
+    const req = tx.objectStore("videos").get(toShowKey);
+    req.onsuccess = () => resolve(req.result as VideoHistoryRecord | undefined);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function writeVideoHistory(entries: VideoHistoryEntry[]): Promise<void> {
+  const db = await openScheduleDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("videos", "readwrite");
+    tx.objectStore("videos").put({
+      videoKey: toShowKey,
       entries,
-    } satisfies HistoryRecord);
+    } satisfies VideoHistoryRecord);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
@@ -2731,34 +2769,21 @@ function getFixedComponents(showable: Showable): Showable[] {
   );
 }
 
-/** Serializes the current in-memory state of a selectable to a JSON string. */
-function currentSnapshotJson(selectable: Showable): string {
-  return JSON.stringify({
-    schedules: selectable.schedules?.length
-      ? serializeSchedules(selectable.schedules)
-      : [],
-    scalars: selectable.scalars?.length
-      ? serializeScalars(selectable.scalars)
-      : undefined,
-    components: selectable.replaceableComponents
-      ? serializeComponents(selectable.replaceableComponents.get())
-      : undefined,
-    fixedComponents: (() => {
-      const fc = getFixedComponents(selectable);
-      return fc.length ? serializeFixedComponents(fc) : undefined;
-    })(),
-    userEditableDescription: selectable.userEditableDescription,
-    duration:
-      selectable.setDuration !== undefined ? selectable.duration : undefined,
-    soundClips: selectable.soundClips,
-  });
+/**
+ * The canonical serialization of the video's current state.
+ *
+ * One function so the dirty check and the history dedup can never disagree.  They used to:
+ * `currentSnapshotJson` included `userEditableDescription` while the dedup string did not, so
+ * a renamed component read as dirty forever and re-saved on every autosave tick.
+ */
+function currentTreeJson(): string {
+  return JSON.stringify(serializeTree(toShow));
 }
 
-/** True if the selectable's in-memory state differs from what was last loaded or saved. */
-function isDirty(selectable: Showable): boolean {
-  const key = selectableKey(selectable);
-  const snapshot = loadedSnapshots.get(key);
-  return snapshot !== undefined && currentSnapshotJson(selectable) !== snapshot;
+/** True if the video's in-memory state differs from what was last loaded or saved. */
+function isVideoDirty(): boolean {
+  const snapshot = loadedSnapshots.get(selectableKey(toShow));
+  return snapshot !== undefined && currentTreeJson() !== snapshot;
 }
 
 function formatLoadSource(source: LoadSource | undefined): string {
@@ -2828,41 +2853,19 @@ function applyTsDefaults(selectable: Showable): void {
 }
 
 /**
- * Write a ts-defaults marker to IndexedDB for the given key,
- * but only if the latest entry is not already such a marker.
- * Fire-and-forget.
+ * Write a ts-defaults marker for this video, but only if the latest entry is not already
+ * such a marker.  Fire-and-forget.
  */
-function writeMarkerIfNeeded(key: string): void {
+function writeMarkerIfNeeded(): void {
   void (async () => {
-    const record = await readHistory(key);
+    const record = await readVideoHistory();
     const entries = record?.entries ?? [];
     const last = entries.at(-1);
     if (last && isMarker(last) && last.kind === "ts-defaults") return;
     entries.push({ timestamp: Date.now(), kind: "ts-defaults" });
     while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-    await writeHistory(key, entries);
+    await writeVideoHistory(entries);
   })();
-}
-
-/**
- * Returns every {@link Showable} that is a transitive `fixedComponents`
- * descendant of any chapter-list selectable.  These objects are already
- * serialized recursively inside their ancestor's entry, so they must NOT
- * also be written as independent top-level JSON keys.
- */
-function buildFixedDescendantSet(): Set<Showable> {
-  const result = new Set<Showable>();
-  function collect(s: Showable) {
-    for (const child of getFixedComponents(s)) {
-      result.add(child);
-      collect(child);
-    }
-  }
-  const chapterSelectables = new Set(
-    chapterList.map((item) => item.selectable),
-  );
-  for (const sel of chapterSelectables) collect(sel);
-  return result;
 }
 
 /**
@@ -2876,25 +2879,22 @@ function captureDefaults(): void {
 }
 
 /**
- * Restores the most recent DB entry for every chapter that has one.
+ * Restores the video's most recent DB entry.
  * Runs once at page load (after {@link captureDefaults}) so that Vite
  * hot-reloads don't wipe out in-progress edits.
  * Refreshes the schedule editor for the currently visible chapter when done.
  */
 async function initFromDB(unloadBackup?: string | null): Promise<void> {
-  // Parse the backup map synchronously before any async work, so each per-item
-  // promise can apply the backup in the same async round as the DB read.
-  type BackupItem = { entry: DataHistoryEntry; selectedTimestamp?: number };
+  // Parse the backup synchronously, before any async work.
+  type BackupItem = { entry: VideoDataEntry; selectedTimestamp?: number };
   const backupMap = new Map<string, BackupItem>();
   if (unloadBackup) {
     try {
-      const parsed = JSON.parse(unloadBackup) as
-        | { key: string; entry: DataHistoryEntry; selectedTimestamp?: number }
-        | {
-            key: string;
-            entry: DataHistoryEntry;
-            selectedTimestamp?: number;
-          }[];
+      const parsed = JSON.parse(unloadBackup) as {
+        key: string;
+        entry: VideoHistoryEntry;
+        selectedTimestamp?: number;
+      }[];
       for (const { key, entry, selectedTimestamp } of Array.isArray(parsed)
         ? parsed
         : [parsed]) {
@@ -2905,93 +2905,56 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
     }
   }
 
-  const seen = new Set<string>();
-  const restores: Promise<void>[] = [];
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (
-      !sel.schedules?.length &&
-      !sel.scalars?.length &&
-      sel.replaceableComponents === undefined &&
-      getFixedComponents(sel).length === 0 &&
-      sel.soundClips === undefined
-    )
-      continue;
-    restores.push(
-      readHistory(key).then(async (record) => {
-        const entries = record?.entries ?? [];
-        const last = entries.at(-1);
-        const backupItem = backupMap.get(key);
-        const backup = backupItem?.entry;
-        const useBackup =
-          backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
-        const effective = useBackup ? backup : last;
+  const record = await readVideoHistory();
+  const entries = record?.entries ?? [];
+  const last = entries.at(-1);
+  const backupItem = backupMap.get(toShowKey);
+  const backup = backupItem?.entry;
+  const useBackup =
+    backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
+  const effective = useBackup ? backup : last;
+  const key = selectableKey(toShow);
 
-        let source: LoadSource;
+  let source: LoadSource;
 
-        // If the previous session deliberately selected a specific DB entry
-        // (not dirty, not ts-defaults), restore exactly that entry by timestamp.
-        const selectedTimestamp = backupItem?.selectedTimestamp;
-        if (selectedTimestamp !== undefined) {
-          const specificEntry = entries.find(
-            (e): e is DataHistoryEntry =>
-              !isMarker(e) && e.timestamp === selectedTimestamp,
-          );
-          if (specificEntry) {
-            applyJsonEntry(sel, specificEntry);
-            source = { kind: "db", timestamp: selectedTimestamp };
-            loadSources.set(key, source);
-            loadedSnapshots.set(key, currentSnapshotJson(sel));
-            return;
-          }
-          // Entry not in DB (pruned?) — fall through to normal backup logic
-        }
+  // If the previous session deliberately selected a specific entry (not dirty, not
+  // ts-defaults), restore exactly that one by timestamp.
+  const selectedTimestamp = backupItem?.selectedTimestamp;
+  const specificEntry =
+    selectedTimestamp === undefined
+      ? undefined
+      : entries.find(
+          (e): e is VideoDataEntry =>
+            !isMarker(e) && e.timestamp === selectedTimestamp,
+        );
 
-        if (!effective || isMarker(effective)) {
-          // No data entry in DB — file handle loading or URL fetch will apply state.
-          source = { kind: "ts-defaults" };
-        } else {
-          // Full data entry: apply it
-          applyJsonEntry(sel, effective);
-          source = { kind: "db", timestamp: effective.timestamp };
+  if (specificEntry) {
+    applyTree(toShow, specificEntry.tree);
+    source = { kind: "db", timestamp: selectedTimestamp! };
+  } else if (!effective || isMarker(effective)) {
+    // No data entry -- the active file or the URL fetch will supply the state.
+    source = { kind: "ts-defaults" };
+  } else {
+    applyTree(toShow, effective.tree);
+    source = { kind: "db", timestamp: effective.timestamp };
 
-          if (useBackup) {
-            // The backup is newer than what's in DB — write it back
-            const backupJson = JSON.stringify({
-              schedules: backup!.schedules,
-              scalars: backup!.scalars,
-              components: backup!.components,
-              fixedComponents: backup!.fixedComponents,
-            });
-            const lastJson =
-              last && !isMarker(last)
-                ? JSON.stringify({
-                    schedules: last.schedules,
-                    scalars: last.scalars,
-                    components: last.components,
-                    fixedComponents: last.fixedComponents,
-                  })
-                : null;
-            if (backupJson !== lastJson) {
-              entries.push(backup!);
-              while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
-              await writeHistory(key, entries);
-            } else if (last && !isMarker(last)) {
-              // Same content as the last DB entry — use its timestamp so the
-              // history dialog can find it by timestamp.
-              source = { kind: "db", timestamp: last.timestamp };
-            }
-          }
-        }
-        loadSources.set(key, source);
-        loadedSnapshots.set(key, currentSnapshotJson(sel));
-      }),
-    );
+    if (useBackup) {
+      // The unload backup is newer than the database -- write it back.
+      const lastJson =
+        last && !isMarker(last) ? JSON.stringify(last.tree) : null;
+      if (JSON.stringify(backup!.tree) !== lastJson) {
+        entries.push(backup!);
+        while (entries.length > MAX_HISTORY_ENTRIES) entries.shift();
+        await writeVideoHistory(entries);
+      } else if (last && !isMarker(last)) {
+        // Same content as the newest entry -- reuse its timestamp so the history
+        // dialog can still find it.
+        source = { kind: "db", timestamp: last.timestamp };
+      }
+    }
   }
-  await Promise.all(restores);
+  loadSources.set(key, source);
+  loadedSnapshots.set(key, currentTreeJson());
 
   initFromDBComplete = true;
   canvas.style.visibility = "";
@@ -3009,101 +2972,40 @@ function selectableKey(selectable: Showable): string {
 
 /** Saves current schedule state to IndexedDB as a full data entry.
  *  Pass force=true (💾 Save button) to bypass the ts-defaults-no-auto-save guard. */
-async function saveScheduleState(selectable: Showable, force = false) {
-  const hasSchedules = !!selectable.schedules?.length;
-  const hasScalars = !!selectable.scalars?.length;
-  const hasChildren = selectable.replaceableComponents !== undefined;
-  const fixedComponents = getFixedComponents(selectable);
-  const hasFixed = fixedComponents.length > 0;
-  const hasDuration = selectable.setDuration !== undefined;
-  const hasSoundClips = selectable.soundClips !== undefined;
-  if (
-    !hasSchedules &&
-    !hasScalars &&
-    !hasChildren &&
-    !hasFixed &&
-    !hasDuration &&
-    !hasSoundClips
-  )
-    return;
-  const key = selectableKey(selectable);
+/**
+ * Append the video's current state to its undo history in IndexedDB.
+ *
+ * @param force Write even when the state looks clean.  Used for explicit user saves.
+ */
+async function saveVideoState(force = false): Promise<void> {
+  if (!force && !isVideoDirty()) return;
 
-  // Skip auto-saving when state is clean — content matches what was loaded,
-  // so there is nothing new to persist.  (Force=true bypasses this for explicit
-  // user saves, which should always write regardless.)
-  if (!force && !isDirty(selectable)) return;
+  const tree = serializeTree(toShow);
+  const newJson = JSON.stringify(tree);
 
-  const record = await readHistory(key);
+  const record = await readVideoHistory();
   const entries = record?.entries ?? [];
-  const newSchedules = hasSchedules
-    ? serializeSchedules(selectable.schedules!)
-    : [];
-  const newScalars = hasScalars
-    ? serializeScalars(selectable.scalars!)
-    : undefined;
-  const newComponents = hasChildren
-    ? serializeComponents(selectable.replaceableComponents!.get())
-    : undefined;
-  const newFixed = hasFixed
-    ? serializeFixedComponents(fixedComponents)
-    : undefined;
-  const newDuration = hasDuration ? selectable.duration : undefined;
-  const newSoundClips = hasSoundClips ? selectable.soundClips : undefined;
-  const newJson = JSON.stringify({
-    schedules: newSchedules,
-    scalars: newScalars,
-    components: newComponents,
-    fixedComponents: newFixed,
-    duration: newDuration,
-    soundClips: newSoundClips,
-  });
-  // Skip saving if nothing changed since the last data entry.
+
+  // Nothing changed since the last data entry -- don't add a duplicate.
   const last = entries.findLast((e) => !isMarker(e)) as
-    | DataHistoryEntry
+    | VideoDataEntry
     | undefined;
-  if (last) {
-    const prevJson = JSON.stringify({
-      schedules: last.schedules,
-      scalars: last.scalars,
-      components: last.components,
-      fixedComponents: last.fixedComponents,
-      duration: last.duration,
-      soundClips: last.soundClips,
-    });
-    if (prevJson === newJson) return;
-  }
-  const entry: DataHistoryEntry = {
-    timestamp: Date.now(),
-    schedules: newSchedules,
-  };
-  if (newScalars !== undefined) entry.scalars = newScalars;
-  if (newComponents !== undefined) entry.components = newComponents;
-  if (newFixed !== undefined) entry.fixedComponents = newFixed;
-  if (newDuration !== undefined) entry.duration = newDuration;
-  if (newSoundClips !== undefined)
-    entry.soundClips = newSoundClips.map((c) => ({ ...c }));
-  if (selectable.userEditableDescription !== undefined)
-    entry.userEditableDescription = selectable.userEditableDescription;
+  if (last && JSON.stringify(last.tree) === newJson) return;
+
+  const entry: VideoDataEntry = { timestamp: Date.now(), tree };
   entries.push(entry);
-  // Deduplicate: remove older data entries whose content matches the new one,
-  // keeping only the latest copy of each unique state.
+  // Drop older entries with identical content, keeping only the newest copy.
   const lastIdx = entries.length - 1;
   const deduped = entries.filter(
     (e, i) =>
       i === lastIdx ||
       isMarker(e) ||
-      JSON.stringify({
-        schedules: (e as DataHistoryEntry).schedules,
-        scalars: (e as DataHistoryEntry).scalars,
-        components: (e as DataHistoryEntry).components,
-        fixedComponents: (e as DataHistoryEntry).fixedComponents,
-        soundClips: (e as DataHistoryEntry).soundClips,
-      }) !== newJson,
+      JSON.stringify((e as VideoDataEntry).tree) !== newJson,
   );
   while (deduped.length > MAX_HISTORY_ENTRIES) deduped.shift();
-  await writeHistory(key, deduped);
+  await writeVideoHistory(deduped);
 
-  // Update source tracking and snapshot
+  const key = selectableKey(toShow);
   loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
   loadedSnapshots.set(key, newJson);
 }
@@ -3114,20 +3016,13 @@ async function saveScheduleState(selectable: Showable, force = false) {
 let _autosaveTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
- * Save all currently dirty selectables to IndexedDB.
+ * Save the video to IndexedDB if it has changed.
  * Called by the auto-save timer; never needs to update the status display
  * because the status is computed lazily when the display is next rebuilt.
  */
 function _autosaveAllDirty(): void {
   _autosaveTimer = null;
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (isDirty(sel)) void saveScheduleState(sel);
-  }
+  if (isVideoDirty()) void saveVideoState();
 }
 
 /**
@@ -3156,145 +3051,50 @@ function currentSaveTarget(): Showable | null {
 }
 
 function saveOnUnload() {
-  // Save every slide that has editable state, not just the currently-visible one.
-  const seen = new Set<string>();
-  const backups: {
-    key: string;
-    entry: DataHistoryEntry;
-    selectedTimestamp?: number;
-  }[] = [];
+  const key = selectableKey(toShow);
 
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  // When the history dialog is open the live tree may hold a transient preview from
+  // _dialogSelectItem.  Back up the pre-dialog state instead, so a preview is never
+  // persisted as if the user had accepted it.
+  const previewing = historyDialog.open && _historyTarget !== null;
+  const tree = previewing
+    ? (JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild)
+    : serializeTree(toShow);
+  const source = previewing ? _preDialogSource : loadSources.get(key);
+  const dirty = previewing ? _wasInitiallyDirty : isVideoDirty();
 
-    const hasSchedules = !!sel.schedules?.length;
-    const hasScalars = !!sel.scalars?.length;
-    const hasChildren = sel.replaceableComponents !== undefined;
-    const fixedComponents = getFixedComponents(sel);
-    const hasFixed = fixedComponents.length > 0;
-    const hasSoundClips = sel.soundClips !== undefined;
-    if (
-      !hasSchedules &&
-      !hasScalars &&
-      !hasChildren &&
-      !hasFixed &&
-      !hasSoundClips
-    )
-      continue;
-
-    // When the history dialog is open, `sel` may contain a transient preview
-    // state from `_dialogSelectItem`.  Use the pre-dialog snapshot instead so
-    // we never accidentally persist a preview to the DB or sessionStorage.
-    if (
-      historyDialog.open &&
-      _historyTarget !== null &&
-      selectableKey(_historyTarget) === key
-    ) {
-      const preSnap = JSON.parse(_preDialogSnapshotJson) as {
-        schedules: SerializedSchedule[];
-        scalars?: SerializedScalar[];
-        components?: SerializedChild[];
-        fixedComponents?: SerializedFixedChild[];
-        userEditableDescription?: string;
-        soundClips?: SoundClip[];
-      };
-      const source = _preDialogSource;
-      const dirty = _wasInitiallyDirty;
-
-      if (source?.kind === "ts-defaults" && !dirty) {
-        writeMarkerIfNeeded(key);
-        continue;
-      }
-      const selectedTimestamp =
-        source?.kind === "db" && !dirty ? source.timestamp : undefined;
-      backups.push({
-        key,
-        entry: {
-          timestamp: Date.now(),
-          schedules: preSnap.schedules,
-          ...(preSnap.scalars !== undefined && { scalars: preSnap.scalars }),
-          ...(preSnap.components !== undefined && {
-            components: preSnap.components,
-          }),
-          ...(preSnap.fixedComponents !== undefined && {
-            fixedComponents: preSnap.fixedComponents,
-          }),
-          ...(preSnap.userEditableDescription !== undefined && {
-            userEditableDescription: preSnap.userEditableDescription,
-          }),
-          ...(preSnap.soundClips !== undefined && {
-            soundClips: preSnap.soundClips,
-          }),
-        },
-        ...(selectedTimestamp !== undefined && { selectedTimestamp }),
-      });
-      // For a dirty pre-dialog state, the backup carries the correct content;
-      // initFromDB will write it to DB on the next startup.  Do NOT call
-      // saveScheduleState here — sel has preview data, not the dirty pre-dialog data.
-      continue;
-    }
-
-    const source = loadSources.get(key);
-    const dirty = isDirty(sel);
-
-    if (source?.kind === "ts-defaults" && !dirty) {
-      // Remember that the user is on TypeScript defaults, not the last DB save.
-      writeMarkerIfNeeded(key);
-      continue;
-    }
-
-    // Dirty or loaded from DB/file — do the normal data save.
-    const schedules = hasSchedules ? serializeSchedules(sel.schedules!) : [];
-    const scalars = hasScalars ? serializeScalars(sel.scalars!) : undefined;
-    const components = hasChildren
-      ? serializeComponents(sel.replaceableComponents!.get())
-      : undefined;
-    const fixed = hasFixed
-      ? serializeFixedComponents(fixedComponents)
-      : undefined;
-    // For a clean DB selection (!dirty), remember the specific timestamp the user
-    // chose so the next startup can restore that exact entry without creating a
-    // spurious new DB record.
+  if (source?.kind === "ts-defaults" && !dirty) {
+    // Remember that the user is sitting on TypeScript defaults, not the last DB save.
+    writeMarkerIfNeeded();
+  } else {
+    // For a clean DB selection, remember which entry the user chose so the next startup
+    // restores exactly that one instead of creating a spurious new record.
     const selectedTimestamp =
       source?.kind === "db" && !dirty ? source.timestamp : undefined;
-    backups.push({
+    const backup = {
       key,
-      entry: {
-        timestamp: Date.now(),
-        schedules,
-        ...(scalars !== undefined && { scalars }),
-        ...(components !== undefined && { components }),
-        ...(fixed !== undefined && { fixedComponents: fixed }),
-        ...(sel.userEditableDescription !== undefined && {
-          userEditableDescription: sel.userEditableDescription,
-        }),
-        ...(hasSoundClips && {
-          soundClips: sel.soundClips!.map((c) => ({ ...c })),
-        }),
-      },
+      entry: { timestamp: Date.now(), tree } satisfies VideoDataEntry,
       ...(selectedTimestamp !== undefined && { selectedTimestamp }),
-    });
-    // Only write to DB when there are actual uncommitted changes.
-    // Clean selections (dirty=false) don't need a new DB entry — the selected
-    // entry already exists in the history.
-    if (dirty) {
-      void saveScheduleState(sel);
+    };
+    // A dirty preview's content lives only in the backup; initFromDB writes it to the DB
+    // on the next startup.  Don't call saveVideoState() here -- the live tree is the
+    // preview, not the state being backed up.
+    if (dirty && !previewing) void saveVideoState();
+    try {
+      sessionStorage.setItem("pendingScheduleSave", JSON.stringify([backup]));
+    } catch (e) {
+      // One whole tree can exceed the ~5MB sessionStorage quota on a big video.  The
+      // IndexedDB write above already happened, so losing this backstop is survivable.
+      console.warn("Could not write the unload backup to sessionStorage.", e);
     }
   }
 
-  // Persist the "no active file" state so a quick refresh (before the async
-  // IndexedDB sentinel write completes) still shows "never saved" on reload.
+  // Persist the "no active file" state so a quick refresh (before the async IndexedDB
+  // sentinel write completes) still shows "never saved" on reload.
   if (!_activeFileRecord) {
     sessionStorage.setItem("noActiveFile", "true");
   } else {
     sessionStorage.removeItem("noActiveFile");
-  }
-
-  if (backups.length > 0) {
-    sessionStorage.setItem("pendingScheduleSave", JSON.stringify(backups));
   }
 }
 window.addEventListener("beforeunload", saveOnUnload);
@@ -3312,7 +3112,7 @@ type FileEntryState =
 /** Describes a single item in the history dialog's list. */
 type DialogListItem =
   | { kind: "ts-defaults" }
-  | { kind: "db-entry"; entry: DataHistoryEntry; entryIndex: number }
+  | { kind: "db-entry"; entry: VideoDataEntry; entryIndex: number }
   | {
       kind: "file-entry";
       fileRecord: FileRecord;
@@ -3327,7 +3127,7 @@ let _preDialogSource: LoadSource | undefined;
 let _wasInitiallyDirty = false;
 let _dialogItems: DialogListItem[] = [];
 let _selectedDialogIndex = -1;
-let _allHistoryEntries: HistoryEntry[] = [];
+let _allHistoryEntries: VideoHistoryEntry[] = [];
 /** File records from the `files` IndexedDB table, populated when the dialog opens. */
 let _dialogFileRecords: FileRecord[] = [];
 /** Async load state for each filename; populated after the dialog opens. */
@@ -3349,7 +3149,7 @@ function _dialogSelectItem(index: number, target: Showable) {
   if (item.kind === "ts-defaults") {
     applyTsDefaults(target);
   } else if (item.kind === "db-entry") {
-    applyJsonEntry(target, item.entry);
+    applyScopedToTarget(target, item.entry.tree);
   } else if (item.kind === "file-entry" && item.jsonEntry !== undefined) {
     applyJsonEntry(target, item.jsonEntry);
     // If still loading or has no entry for this key, leave the current preview.
@@ -3539,18 +3339,18 @@ async function _loadFileEntry(
 async function openHistoryDialog(target: Showable) {
   _historyTarget = target;
   const key = selectableKey(target);
-  _preDialogSnapshotJson = currentSnapshotJson(target);
+  _preDialogSnapshotJson = currentTreeJson();
   _preDialogSource = loadSources.get(key);
-  _wasInitiallyDirty = isDirty(target);
+  _wasInitiallyDirty = isVideoDirty();
 
   // Save dirty state immediately so it appears at the top of the history list.
   if (_wasInitiallyDirty) {
-    await saveScheduleState(target, true);
+    await saveVideoState(true);
   }
 
   // Read DB history and file records simultaneously (both are fast local reads).
   const [record, fileRecords] = await Promise.all([
-    readHistory(key),
+    readVideoHistory(),
     readAllFileRecords(toShowKey),
   ]);
   _allHistoryEntries = record?.entries ?? [];
@@ -3588,14 +3388,14 @@ async function _applyDialogSelection() {
   if (item.kind === "ts-defaults") {
     applyTsDefaults(target);
   } else if (item.kind === "db-entry") {
-    applyJsonEntry(target, item.entry);
+    applyScopedToTarget(target, item.entry.tree);
   } else if (item.kind === "file-entry" && item.jsonEntry !== undefined) {
     applyJsonEntry(target, item.jsonEntry);
   }
 
   // Save the chosen state to IndexedDB so refreshes restore it.
-  await saveScheduleState(target, true);
-  // saveScheduleState already updates loadSources → { kind: "db", timestamp }.
+  await saveVideoState(true);
+  // saveVideoState already updates loadSources → { kind: "db", timestamp }.
 
   selectedSlideChild = null;
   activeRootComponentEditor?.resetAll();
@@ -3616,10 +3416,12 @@ historySaveBtn.addEventListener("click", () => {
   historyDialog.close();
 });
 historyCancelBtn.addEventListener("click", () => {
-  // Revert to the state before the dialog opened.
+  // Revert to the state before the dialog opened.  The snapshot covers the whole video, so
+  // restore the whole video -- a preview may have been scoped to one chapter, but undoing it
+  // against `target` alone would apply the root's state to that chapter.
   const target = _historyTarget;
   if (target) {
-    applyJsonEntry(target, JSON.parse(_preDialogSnapshotJson) as JsonFileEntry);
+    applyTree(toShow, JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild);
     selectedSlideChild = null;
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(target);
@@ -3635,10 +3437,9 @@ historyDeleteBtn.addEventListener("click", async () => {
   if (!item || item.kind === "ts-defaults") return;
 
   if (item.kind === "db-entry") {
-    const key = selectableKey(target);
     sendToRecycleBin("deleted", item.entry);
     _allHistoryEntries.splice(item.entryIndex, 1);
-    await writeHistory(key, _allHistoryEntries);
+    await writeVideoHistory(_allHistoryEntries);
   } else if (item.kind === "file-entry") {
     await deleteFileRecord(item.fileRecord.filename);
     _dialogFileRecords = _dialogFileRecords.filter(
@@ -5872,16 +5673,12 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
         );
       }
     }
-    for (const item of chapterList) {
-      const key = selectableKey(item.selectable);
-      const record = await readHistory(key);
-      if (!record) continue;
-      for (const entry of record.entries) {
-        if (entry.timestamp > now) {
-          console.error(
-            `[sanity] History entry for "${key}" has a future timestamp: ${new Date(entry.timestamp).toISOString()} (now=${new Date(now).toISOString()})`,
-          );
-        }
+    const record = await readVideoHistory();
+    for (const entry of record?.entries ?? []) {
+      if (entry.timestamp > now) {
+        console.error(
+          `[sanity] History entry for "${toShowKey}" has a future timestamp: ${new Date(entry.timestamp).toISOString()} (now=${new Date(now).toISOString()})`,
+        );
       }
     }
   })();
@@ -6188,20 +5985,25 @@ getById("debugLogClearBtn", HTMLButtonElement).addEventListener(
 );
 
 getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
-  const records = await readAllHistory();
+  const [videoRecord, legacyRecords] = await Promise.all([
+    readVideoHistory(),
+    readAllHistory(),
+  ]);
   const pre = getById("dbDump", HTMLPreElement);
-  if (records.length === 0) {
-    pre.textContent = "(database is empty)";
-    return;
-  }
   const lines: string[] = [];
-  for (const record of records) {
-    lines.push(`=== ${record.selectableKey} ===`);
-    const latest = record.entries.at(-1);
-    if (latest) {
-      lines.push(JSON.stringify(latest, null, 2));
-    }
-    lines.push("");
+
+  lines.push(`=== videos["${toShowKey}"] — ${videoRecord?.entries.length ?? 0} entr(ies) ===`);
+  const latest = videoRecord?.entries.at(-1);
+  lines.push(latest ? JSON.stringify(latest, null, 2) : "(none)");
+  lines.push("");
+
+  // The old per-chapter store is no longer written. It is shown here only so its contents
+  // stay visible while it serves as the rollback for the single-tree change.
+  lines.push(
+    `=== legacy history store (read-only, ${legacyRecords.length} record(s)) ===`,
+  );
+  for (const record of legacyRecords) {
+    lines.push(`  ${record.selectableKey}: ${record.entries.length} entr(ies)`);
   }
   pre.textContent = lines.join("\n");
 });
@@ -6235,21 +6037,14 @@ async function _commitActiveFile(
   const filename = handle.name;
   const key = selectableKey(toShow);
   loadSources.set(key, { kind: "json", filename });
-  loadedSnapshots.set(key, currentSnapshotJson(toShow));
+  loadedSnapshots.set(key, currentTreeJson());
   void writeActiveFileRecord(filename, handle, toShowKey);
   updateJsonSaveStatus();
 }
 
-/** Flush every dirty selectable to IndexedDB so the DB is consistent with memory. */
+/** Flush pending changes to IndexedDB so the database is consistent with memory. */
 async function _flushDirtyToDb(): Promise<void> {
-  const seen = new Set<string>();
-  for (const item of chapterList) {
-    const sel = item.selectable;
-    const key = selectableKey(sel);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (isDirty(sel)) await saveScheduleState(sel);
-  }
+  if (isVideoDirty()) await saveVideoState();
 }
 
 /** Save button: overwrite the active file without a dialog. */
@@ -6371,6 +6166,22 @@ async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
   }
 }
 
+/**
+ * Apply a whole-video snapshot to just the chapter the user has selected.
+ *
+ * A stored entry now covers the entire video, but the Load dialog has always acted on
+ * whatever the chapter selector points at.  Locating `target` inside the snapshot keeps that
+ * behaviour: picking an older entry while a single slide is selected reverts that slide and
+ * leaves its siblings alone.  Selecting the root applies everything.
+ */
+function applyScopedToTarget(
+  target: Showable,
+  tree: SerializedFixedChild,
+): void {
+  const node = findSerializedNode(toShow, tree, target);
+  if (node) applyJsonEntry(target, node);
+}
+
 /** Rebuild the component and schedule editors after a load has replaced the tree's state. */
 function refreshEditorsAfterLoad(): void {
   const current = currentSaveTarget();
@@ -6399,10 +6210,10 @@ function applyJsonSnapshot(
 
   applyJsonEntry(toShow, tree);
   loadSources.set(key, { kind: "json", filename: `${toShowKey}.json` });
-  loadedSnapshots.set(key, currentSnapshotJson(toShow));
+  loadedSnapshots.set(key, currentTreeJson());
 
   // Write to IndexedDB so this state survives a Vite hot-reload.
-  if (persist) void saveScheduleState(toShow, true);
+  if (persist) void saveVideoState(true);
 
   refreshEditorsAfterLoad();
 }
@@ -6424,7 +6235,7 @@ function applyJsonSnapshotFromFile(
 
   applyJsonEntry(toShow, tree);
   loadSources.set(key, { kind: "json", filename: _activeFileRecord!.filename });
-  loadedSnapshots.set(key, currentSnapshotJson(toShow));
+  loadedSnapshots.set(key, currentTreeJson());
 
   refreshEditorsAfterLoad();
 }

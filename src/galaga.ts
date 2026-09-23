@@ -184,6 +184,7 @@ root.addFixed({
     color: "black",
     rect: { x: 0, y: 0, width: 16, height: 9 },
   }),
+  zIndex: -100,
 });
 
 root.addFixed({ child: letterboxLabel("Letterbox (Left)", 0) });
