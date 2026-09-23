@@ -1,5 +1,8 @@
 {
-  "lissajous|Lissajous": {
+  "formatVersion": 2,
+  "videoKey": "lissajous",
+  "tree": {
+    "description": "Lissajous",
     "fixedComponents": [
       {
         "description": "Lissajous — side strips"

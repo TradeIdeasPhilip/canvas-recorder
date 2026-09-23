@@ -27,7 +27,6 @@ import {
   SerializedSchedule,
   Showable,
   ShowableParent,
-  SoundClip,
   VisualEditorAPI,
 } from "../src/showable.ts";
 import {
@@ -44,12 +43,10 @@ import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
   applyTree,
-  findCoverageProblems,
   findSerializedNode,
   isVideoSnapshot,
   JsonFileEntry,
   serializeComponents,
-  serializeFixedComponents,
   serializeScalars,
   serializeSchedules,
   serializeTree,
@@ -57,7 +54,6 @@ import {
   SNAPSHOT_FORMAT_VERSION,
   VideoSnapshot,
 } from "../src/snapshot.ts";
-import { parseLegacySnapshot } from "../src/legacy-snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
 import { getNewDebugLogEntries } from "../src/debug-log.ts";
 import { AudioBuilder } from "./audio-builder.ts";
@@ -1877,40 +1873,20 @@ type ScheduleInfo = NonNullable<Showable["schedules"]>[number];
 
 const toShowKey = new URLSearchParams(location.search).get("toShow") ?? "";
 
-/** Full serialized state saved to IndexedDB. */
-type DataHistoryEntry = {
-  timestamp: number;
-  schedules: SerializedSchedule[];
-  scalars?: SerializedScalar[];
-  components?: SerializedChild[];
-  fixedComponents?: SerializedFixedChild[];
-  userEditableDescription?: string;
-  duration?: number;
-  soundClips?: SoundClip[];
-};
 /** Marker written when the user deliberately chooses TypeScript defaults. */
 type MarkerHistoryEntry = {
   timestamp: number;
-  kind: "ts-defaults" | "json";
-  /** Only set when kind === "json". */
-  filename?: string;
+  kind: "ts-defaults";
 };
-type HistoryEntry = DataHistoryEntry | MarkerHistoryEntry;
-function isMarker(
-  e: HistoryEntry | VideoHistoryEntry,
-): e is MarkerHistoryEntry {
+function isMarker(e: VideoHistoryEntry): e is MarkerHistoryEntry {
   return "kind" in e;
 }
-type HistoryRecord = {
-  selectableKey: string;
-  entries: HistoryEntry[];
-};
 
 /**
  * One saved state of the whole video — the unit of undo.
  *
- * Replaces the per-chapter {@link DataHistoryEntry}.  A video is one tree, so one entry holds
- * all of it; see development-plans/single-tree-per-video.md.
+ * A video is one tree, so one entry holds all of it; see
+ * development-plans/single-tree-per-video.md.
  */
 type VideoDataEntry = { timestamp: number; tree: SerializedFixedChild };
 type VideoHistoryEntry = VideoDataEntry | MarkerHistoryEntry;
@@ -1937,28 +1913,30 @@ const MAX_HISTORY_ENTRIES = 20;
  * Undefined only before {@link captureDefaults}() has run.
  */
 let tsDefaultsTree: SerializedFixedChild | undefined;
-/** Set to true once initFromDB has finished. */
-let initFromDBComplete = false;
-/** Where each selectable's current in-memory state was loaded from. */
-const loadSources = new Map<string, LoadSource>();
-/** JSON snapshot of each selectable's state at load time (or last save).
- *  Compared against current state to determine dirty status. */
-const loadedSnapshots = new Map<string, string>();
+/** Where the video's current in-memory state was loaded from. */
+let _loadSource: LoadSource | undefined;
+/**
+ * {@link currentTreeJson} as of the last load from, or save to, IndexedDB or a file.
+ * {@link isVideoDirty} compares against this to decide whether an autosave is needed.
+ */
+let _baselineTreeJson: string | undefined;
 
 function openScheduleDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("canvas-recorder-schedules", 3);
+    const req = indexedDB.open("canvas-recorder-schedules", 4);
     req.onupgradeneeded = (event) => {
       const db = req.result;
       const oldVersion = (event as IDBVersionChangeEvent).oldVersion;
-      if (oldVersion < 1)
-        db.createObjectStore("history", { keyPath: "selectableKey" });
       if (oldVersion < 2)
         db.createObjectStore("files", { keyPath: "filename" });
-      // v3 adds whole-video records.  The old per-chapter "history" store is deliberately
-      // left in place and is no longer written -- it is the rollback if v3 goes wrong.
       if (oldVersion < 3)
         db.createObjectStore("videos", { keyPath: "videoKey" });
+      // Versions 1–3 had a per-chapter "history" store.  "videos" replaced it in v3, and v4
+      // removes it.  Also drop the directory handle left behind by the temporary
+      // "Save All 3" button.  See development-plans/single-tree-per-video.md.
+      if (db.objectStoreNames.contains("history")) db.deleteObjectStore("history");
+      if (oldVersion < 4)
+        req.transaction!.objectStore("files").delete("__properties-dir__");
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -1966,7 +1944,7 @@ function openScheduleDB(): Promise<IDBDatabase> {
     // page would just hang with no explanation.
     req.onblocked = () =>
       console.error(
-        "IndexedDB upgrade to v3 is blocked — another tab has this database open at an " +
+        "IndexedDB upgrade is blocked — another tab has this database open at an " +
           "older version. Close other canvas-recorder tabs and reload.",
       );
   });
@@ -1976,35 +1954,13 @@ function openScheduleDB(): Promise<IDBDatabase> {
 
 type FileRecord = {
   filename: string;
-  /**
-   * null for the "no active file" sentinel.
-   * A `FileSystemDirectoryHandle` only for the {@link PROPERTIES_DIR_KEY} record.
-   */
-  handle: FileSystemFileHandle | FileSystemDirectoryHandle | null;
+  /** null for the "no active file" sentinel. */
+  handle: FileSystemFileHandle | null;
   savedAt: number;
   isActive: boolean;
-  /**
-   * Scopes this record to a specific video tab (toShowKey). Added for per-video isolation.
-   * Deliberately absent on the {@link PROPERTIES_DIR_KEY} record, which is shared by every
-   * video — that also hides it from `readAllFileRecords` and `readActiveFileRecord`, both of
-   * which require `videoKey` to match.
-   */
+  /** Scopes this record to a specific video tab (toShowKey). Added for per-video isolation. */
   videoKey?: string;
 };
-
-/**
- * The *file* handle on a record, or null.
- *
- * Every record holds a file handle except {@link PROPERTIES_DIR_KEY}, whose handle is a
- * directory.  No file-reading path should ever encounter that one, so rather than assert,
- * narrow and let the caller treat it as "no handle".
- */
-function fileHandleOf(
-  record: FileRecord | undefined,
-): FileSystemFileHandle | null {
-  const handle = record?.handle;
-  return handle && handle.kind === "file" ? handle : null;
-}
 
 async function readActiveFileRecord(
   videoKey: string,
@@ -2083,30 +2039,6 @@ async function deleteFileRecord(filename: string): Promise<void> {
   });
 }
 
-async function readHistory(key: string): Promise<HistoryRecord | undefined> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("history", "readonly");
-    const req = tx.objectStore("history").get(key);
-    req.onsuccess = () => resolve(req.result as HistoryRecord | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function readAllHistory(): Promise<HistoryRecord[]> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("history", "readonly");
-    const req = tx.objectStore("history").getAll();
-    req.onsuccess = () => resolve(req.result as HistoryRecord[]);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-// Nothing writes the per-chapter "history" store any more; `readHistory`/`readAllHistory`
-// remain so the Dump DB button can still show what is in there, and so the data survives as
-// a rollback until the refactor has proven itself.
-
 async function readVideoHistory(): Promise<VideoHistoryRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
@@ -2141,7 +2073,7 @@ async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null
     const tx = db.transaction("files", "readonly");
     const req = tx.objectStore("files").get(DEFAULTS_AUTO_SAVE_KEY);
     req.onsuccess = () =>
-      resolve(fileHandleOf(req.result as FileRecord | undefined));
+      resolve((req.result as FileRecord | undefined)?.handle ?? null);
     req.onerror = () => reject(req.error);
   });
 }
@@ -2161,126 +2093,6 @@ async function writeDefaultsAutoSaveHandle(
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-}
-
-// MARK: Properties folder
-
-/**
- * Key in the "files" IDB store holding the `properties/` directory handle.
- *
- * Deliberately *not* suffixed with `toShowKey`: one folder serves every video, so the user
- * grants access once rather than once per video.  The record also carries no `videoKey`, which
- * keeps it invisible to `readAllFileRecords` and `readActiveFileRecord` — both require a
- * `videoKey` match, so this can never show up in the Load dialog or be mistaken for the
- * active file.
- */
-const PROPERTIES_DIR_KEY = "__properties-dir__";
-
-async function readPropertiesDirHandle(): Promise<FileSystemDirectoryHandle | null> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readonly");
-    const req = tx.objectStore("files").get(PROPERTIES_DIR_KEY);
-    req.onsuccess = () => {
-      const handle = (req.result as FileRecord | undefined)?.handle;
-      resolve(
-        handle && handle.kind === "directory"
-          ? (handle as FileSystemDirectoryHandle)
-          : null,
-      );
-    };
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function writePropertiesDirHandle(
-  handle: FileSystemDirectoryHandle,
-): Promise<void> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readwrite");
-    tx.objectStore("files").put({
-      filename: PROPERTIES_DIR_KEY,
-      handle,
-      savedAt: Date.now(),
-      isActive: false,
-    } satisfies FileRecord);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-/**
- * The folder name this feature insists on.
- *
- * A directory handle carries no path, only its own name, so this is the one check available —
- * and it is worth making.  Accepting whatever folder the picker happened to open once wrote a
- * full set of files into `public/saved_state/`, which is read at startup by
- * {@link fetchJsonSnapshot}; a silently wrong folder is not a harmless mistake.
- */
-const PROPERTIES_DIR_NAME = "properties";
-
-type PropertiesDirResult =
-  | { ok: true; dir: FileSystemDirectoryHandle }
-  | { ok: false; reason: "cancelled" }
-  | { ok: false; reason: "wrong-folder"; picked: string };
-
-/**
- * The `properties/` directory, ready to write to.
- *
- * Reuses the stored handle when it names the right folder and the browser still grants it,
- * re-asks when the grant lapsed (Chrome commonly drops it across restarts), and otherwise
- * prompts.  A stored handle pointing somewhere else is discarded rather than reused, so one
- * bad answer to the picker repairs itself on the next click instead of persisting forever.
- */
-async function ensurePropertiesDir(): Promise<PropertiesDirResult> {
-  const stored = await readPropertiesDirHandle();
-  if (stored) {
-    if (stored.name === PROPERTIES_DIR_NAME) {
-      const opts = { mode: "readwrite" } as const;
-      if (
-        (await stored.queryPermission(opts)) === "granted" ||
-        (await stored.requestPermission(opts)) === "granted"
-      ) {
-        return { ok: true, dir: stored };
-      }
-    } else {
-      console.warn(
-        `Stored properties folder was "${stored.name}", not "${PROPERTIES_DIR_NAME}" — discarding it and asking again.`,
-      );
-      await deleteFileRecord(PROPERTIES_DIR_KEY);
-    }
-  }
-  let picked: FileSystemDirectoryHandle;
-  try {
-    picked = await window.showDirectoryPicker({
-      id: "properties-dir",
-      mode: "readwrite",
-    });
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") {
-      return { ok: false, reason: "cancelled" };
-    }
-    throw e;
-  }
-  if (picked.name !== PROPERTIES_DIR_NAME) {
-    // Deliberately not stored: remembering it is what made the original mistake sticky.
-    return { ok: false, reason: "wrong-folder", picked: picked.name };
-  }
-  await writePropertiesDirHandle(picked);
-  return { ok: true, dir: picked };
-}
-
-/** Create or overwrite one file inside `dir`. */
-async function writeFileInDir(
-  dir: FileSystemDirectoryHandle,
-  name: string,
-  body: string,
-): Promise<void> {
-  const handle = await dir.getFileHandle(name, { create: true });
-  const writable = await handle.createWritable();
-  await writable.write(body);
-  await writable.close();
 }
 
 const defaultsAutoSaveCheckbox = getById(
@@ -2552,7 +2364,7 @@ function buildDiffText(): string {
   }
 
   function diffNode(
-    defaultEntry: DataHistoryEntry | SerializedFixedChild,
+    defaultEntry: SerializedFixedChild,
     sel: Showable,
     path: string[],
   ): void {
@@ -2694,66 +2506,6 @@ async function saveDiffs(): Promise<void> {
   await writable.close();
 }
 
-// MARK: Save All
-
-const savePropertiesBtn = getById("savePropertiesBtn", HTMLButtonElement);
-const savePropertiesStatus = getById("savePropertiesStatus", HTMLSpanElement);
-
-/**
- * Write all three of this video's properties files into `properties/`.
- *
- * Unlike the individual Save buttons this never opens a save dialog (after the one-time
- * directory grant) and never repoints the active file — it is a snapshot, so it behaves like
- * "Save Copy As".  It also writes the defaults file directly rather than toggling the
- * "Save defaults" checkbox, which would delete that checkbox's stored handle.
- */
-async function saveAllToProperties(): Promise<void> {
-  const setStatus = (text: string, color: string) => {
-    savePropertiesStatus.textContent = text;
-    savePropertiesStatus.style.color = color;
-  };
-  const video = toShowKey || "untitled";
-  savePropertiesBtn.disabled = true;
-  try {
-    setStatus("saving…", "gray");
-    const result = await ensurePropertiesDir();
-    if (!result.ok) {
-      if (result.reason === "cancelled") {
-        setStatus("cancelled", "gray");
-      } else {
-        setStatus(
-          `✗ that was "${result.picked}" — pick the ${PROPERTIES_DIR_NAME}/ folder and try again`,
-          "red",
-        );
-      }
-      return;
-    }
-    const dir = result.dir;
-    // Keep IndexedDB consistent with memory first, exactly as Save As does.
-    await _flushDirtyToDb();
-    await writeFileInDir(
-      dir,
-      `${video}.json`,
-      JSON.stringify(buildJsonSnapshot(), null, 2),
-    );
-    await writeFileInDir(
-      dir,
-      `${video}-ts-defaults.json`,
-      JSON.stringify(buildDefaultsSnapshot(), null, 2),
-    );
-    await writeFileInDir(dir, `${video}.txt`, buildDiffText());
-    setStatus(
-      `✓ ${video}: state, defaults, diff → ${PROPERTIES_DIR_NAME}/`,
-      "green",
-    );
-  } catch (e) {
-    console.error("Save Properties failed:", e);
-    setStatus(`✗ ${e instanceof Error ? e.message : String(e)}`, "red");
-  } finally {
-    savePropertiesBtn.disabled = false;
-  }
-}
-
 // MARK: Load-source helpers
 
 /** Logs abandoned or deleted items; replace console.info with persistent storage if needed. */
@@ -2782,8 +2534,9 @@ function currentTreeJson(): string {
 
 /** True if the video's in-memory state differs from what was last loaded or saved. */
 function isVideoDirty(): boolean {
-  const snapshot = loadedSnapshots.get(selectableKey(toShow));
-  return snapshot !== undefined && currentTreeJson() !== snapshot;
+  return (
+    _baselineTreeJson !== undefined && currentTreeJson() !== _baselineTreeJson
+  );
 }
 
 function formatLoadSource(source: LoadSource | undefined): string {
@@ -2819,9 +2572,16 @@ let _lastKnownJsonBody: string | undefined;
 /** Updates the active-file display: shows filename + asterisk when dirty, or "never saved". */
 function updateJsonSaveStatus(): void {
   if (!_activeFileRecord) {
-    jsonSaveStatusElement.textContent = "never saved";
-    jsonSaveStatusElement.style.color = "gray";
-    jsonSaveStatusElement.title = "No file yet — use Save As to create one";
+    // Like an untitled document: it is dirty as soon as it differs from where it started,
+    // which for a never-saved video is the TypeScript defaults.
+    const dirty =
+      tsDefaultsTree !== undefined &&
+      currentTreeJson() !== JSON.stringify(tsDefaultsTree);
+    jsonSaveStatusElement.textContent = "never saved" + (dirty ? " *" : "");
+    jsonSaveStatusElement.style.color = dirty ? "darkorange" : "gray";
+    jsonSaveStatusElement.title = dirty
+      ? "Unsaved changes — use Save As to create a file"
+      : "No file yet — use Save As to create one";
     saveJsonBtn.disabled = true;
     return;
   }
@@ -2913,7 +2673,6 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   const useBackup =
     backup !== undefined && backup.timestamp > (last?.timestamp ?? 0);
   const effective = useBackup ? backup : last;
-  const key = selectableKey(toShow);
 
   let source: LoadSource;
 
@@ -2953,10 +2712,9 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
       }
     }
   }
-  loadSources.set(key, source);
-  loadedSnapshots.set(key, currentTreeJson());
+  _loadSource = source;
+  _baselineTreeJson = currentTreeJson();
 
-  initFromDBComplete = true;
   canvas.style.visibility = "";
   canvasLoading.style.display = "none";
   const currentSel = chapterList[select.selectedIndex]?.selectable;
@@ -2966,9 +2724,6 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
   }
 }
 
-function selectableKey(selectable: Showable): string {
-  return `${toShowKey}|${selectable.description}`;
-}
 
 /** Saves current schedule state to IndexedDB as a full data entry.
  *  Pass force=true (💾 Save button) to bypass the ts-defaults-no-auto-save guard. */
@@ -3005,9 +2760,8 @@ async function saveVideoState(force = false): Promise<void> {
   while (deduped.length > MAX_HISTORY_ENTRIES) deduped.shift();
   await writeVideoHistory(deduped);
 
-  const key = selectableKey(toShow);
-  loadSources.set(key, { kind: "db", timestamp: entry.timestamp });
-  loadedSnapshots.set(key, newJson);
+  _loadSource = { kind: "db", timestamp: entry.timestamp };
+  _baselineTreeJson = newJson;
 }
 
 // MARK: Auto-save timer
@@ -3051,7 +2805,6 @@ function currentSaveTarget(): Showable | null {
 }
 
 function saveOnUnload() {
-  const key = selectableKey(toShow);
 
   // When the history dialog is open the live tree may hold a transient preview from
   // _dialogSelectItem.  Back up the pre-dialog state instead, so a preview is never
@@ -3060,7 +2813,7 @@ function saveOnUnload() {
   const tree = previewing
     ? (JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild)
     : serializeTree(toShow);
-  const source = previewing ? _preDialogSource : loadSources.get(key);
+  const source = previewing ? _preDialogSource : _loadSource;
   const dirty = previewing ? _wasInitiallyDirty : isVideoDirty();
 
   if (source?.kind === "ts-defaults" && !dirty) {
@@ -3072,7 +2825,7 @@ function saveOnUnload() {
     const selectedTimestamp =
       source?.kind === "db" && !dirty ? source.timestamp : undefined;
     const backup = {
-      key,
+      key: toShowKey,
       entry: { timestamp: Date.now(), tree } satisfies VideoDataEntry,
       ...(selectedTimestamp !== undefined && { selectedTimestamp }),
     };
@@ -3310,13 +3063,13 @@ async function _loadFileEntry(
 ): Promise<void> {
   const filename = fileRecord.filename;
   try {
-    const handle = fileHandleOf(fileRecord);
+    const handle = fileRecord.handle;
     if (!handle) throw new Error("no file handle");
     const perm = await handle.queryPermission({ mode: "read" });
     if (perm !== "granted") throw new Error("permission denied");
     const file = await handle.getFile();
     const content = await file.text();
-    const tree = parseAnySnapshot(JSON.parse(content));
+    const tree = parseSnapshotFile(JSON.parse(content));
     if (!tree) throw new Error("no usable state in file");
     _dialogFileStates.set(filename, { status: "loaded", tree });
   } catch {
@@ -3338,9 +3091,8 @@ async function _loadFileEntry(
 
 async function openHistoryDialog(target: Showable) {
   _historyTarget = target;
-  const key = selectableKey(target);
   _preDialogSnapshotJson = currentTreeJson();
-  _preDialogSource = loadSources.get(key);
+  _preDialogSource = _loadSource;
   _wasInitiallyDirty = isVideoDirty();
 
   // Save dirty state immediately so it appears at the top of the history list.
@@ -3395,7 +3147,7 @@ async function _applyDialogSelection() {
 
   // Save the chosen state to IndexedDB so refreshes restore it.
   await saveVideoState(true);
-  // saveVideoState already updates loadSources → { kind: "db", timestamp }.
+  // saveVideoState already updates _loadSource → { kind: "db", timestamp }.
 
   selectedSlideChild = null;
   activeRootComponentEditor?.resetAll();
@@ -5611,7 +5363,7 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   captureDefaults();
   // Fetch the JSON file in parallel with DB init so startup latency stays low.
   const startupJsonFetch = fetchJsonSnapshot();
-  // Restore the most recent DB entry for every chapter — keeps edits alive
+  // Restore the video's most recent DB entry — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
   void initFromDB(unloadBackup).then(async () => {
     // Try to auto-load from the most recently saved file handle.
@@ -5627,28 +5379,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     }
     updateJsonSaveStatus();
   });
-
-  // Temporary gate for the single-tree refactor: prove that one whole-tree save really does
-  // cover every chapter, before anything starts relying on that.  Delete once the refactor
-  // is finished -- see development-plans/single-tree-per-video.md.
-  {
-    const problems = findCoverageProblems(
-      toShow,
-      chapterList.map((item) => item.selectable),
-    );
-    if (problems.length) {
-      console.error(
-        `serializeTree() would not fully cover ${problems.length} selectable(s) of "${toShowKey}":`,
-      );
-      for (const p of problems) {
-        console.error(`  [${p.reason}] "${p.description}" — ${p.detail}`);
-      }
-    } else {
-      console.info(
-        `✓ serializeTree() covers all ${chapterList.length} selectable(s) of "${toShowKey}".`,
-      );
-    }
-  }
 
   // Initialize defaults auto-save: read the stored handle, enable the checkbox.
   void readDefaultsAutoSaveHandle().then((handle) => {
@@ -5985,26 +5715,13 @@ getById("debugLogClearBtn", HTMLButtonElement).addEventListener(
 );
 
 getById("dumpDbBtn", HTMLButtonElement).addEventListener("click", async () => {
-  const [videoRecord, legacyRecords] = await Promise.all([
-    readVideoHistory(),
-    readAllHistory(),
-  ]);
+  const videoRecord = await readVideoHistory();
   const pre = getById("dbDump", HTMLPreElement);
   const lines: string[] = [];
 
   lines.push(`=== videos["${toShowKey}"] — ${videoRecord?.entries.length ?? 0} entr(ies) ===`);
   const latest = videoRecord?.entries.at(-1);
   lines.push(latest ? JSON.stringify(latest, null, 2) : "(none)");
-  lines.push("");
-
-  // The old per-chapter store is no longer written. It is shown here only so its contents
-  // stay visible while it serves as the rollback for the single-tree change.
-  lines.push(
-    `=== legacy history store (read-only, ${legacyRecords.length} record(s)) ===`,
-  );
-  for (const record of legacyRecords) {
-    lines.push(`  ${record.selectableKey}: ${record.entries.length} entr(ies)`);
-  }
   pre.textContent = lines.join("\n");
 });
 
@@ -6035,9 +5752,8 @@ async function _commitActiveFile(
   _lastKnownJsonBody = body;
 
   const filename = handle.name;
-  const key = selectableKey(toShow);
-  loadSources.set(key, { kind: "json", filename });
-  loadedSnapshots.set(key, currentTreeJson());
+  _loadSource = { kind: "json", filename };
+  _baselineTreeJson = currentTreeJson();
   void writeActiveFileRecord(filename, handle, toShowKey);
   updateJsonSaveStatus();
 }
@@ -6128,7 +5844,6 @@ getById("saveDiffsBtn", HTMLButtonElement).addEventListener(
   "click",
   () => void saveDiffs(),
 );
-savePropertiesBtn.addEventListener("click", () => void saveAllToProperties());
 
 // MARK: Load JSON file
 
@@ -6137,14 +5852,13 @@ type FetchJsonResult =
   | { ok: false; reason: "not-found" | "parse-error" | "network-error" };
 
 /**
- * Turn parsed JSON from any saved-file version into one tree.
+ * The tree from a parsed save file, or undefined if it isn't one.
  *
- * The single choke point for reading files, so the legacy branch has exactly one caller and
- * can be deleted along with `src/legacy-snapshot.ts` once every file has been re-saved.
+ * Version 1 files (a flat map keyed by `"<videoKey>|<description>"`) are no longer read.  To
+ * open one, check out a commit from before the reader was removed and re-save the file there.
  */
-function parseAnySnapshot(parsed: unknown): SerializedFixedChild | undefined {
-  if (isVideoSnapshot(parsed)) return parsed.tree;
-  return parseLegacySnapshot(parsed, selectableKey(toShow), toShow.description);
+function parseSnapshotFile(parsed: unknown): SerializedFixedChild | undefined {
+  return isVideoSnapshot(parsed) ? parsed.tree : undefined;
 }
 
 /** Fetch and parse `./saved_state/<toShowKey>.json`. */
@@ -6158,7 +5872,7 @@ async function fetchJsonSnapshot(): Promise<FetchJsonResult> {
   }
   if (!response.ok) return { ok: false, reason: "not-found" };
   try {
-    const tree = parseAnySnapshot(await response.json());
+    const tree = parseSnapshotFile(await response.json());
     if (!tree) return { ok: false, reason: "parse-error" };
     return { ok: true, data: tree };
   } catch {
@@ -6205,12 +5919,11 @@ function applyJsonSnapshot(
   onlyIfNoDb = false,
   persist = false,
 ): void {
-  const key = selectableKey(toShow);
-  if (onlyIfNoDb && loadSources.get(key)?.kind === "db") return;
+  if (onlyIfNoDb && _loadSource?.kind === "db") return;
 
   applyJsonEntry(toShow, tree);
-  loadSources.set(key, { kind: "json", filename: `${toShowKey}.json` });
-  loadedSnapshots.set(key, currentTreeJson());
+  _loadSource = { kind: "json", filename: `${toShowKey}.json` };
+  _baselineTreeJson = currentTreeJson();
 
   // Write to IndexedDB so this state survives a Vite hot-reload.
   if (persist) void saveVideoState(true);
@@ -6227,15 +5940,13 @@ function applyJsonSnapshotFromFile(
   tree: SerializedFixedChild,
   fileSavedAt: number,
 ): void {
-  const key = selectableKey(toShow);
   // Only apply when the file is strictly newer than the IndexedDB entry.
-  const src = loadSources.get(key);
-  const dbTimestamp = src?.kind === "db" ? src.timestamp : 0;
+  const dbTimestamp = _loadSource?.kind === "db" ? _loadSource.timestamp : 0;
   if (fileSavedAt <= dbTimestamp) return;
 
   applyJsonEntry(toShow, tree);
-  loadSources.set(key, { kind: "json", filename: _activeFileRecord!.filename });
-  loadedSnapshots.set(key, currentTreeJson());
+  _loadSource = { kind: "json", filename: _activeFileRecord!.filename };
+  _baselineTreeJson = currentTreeJson();
 
   refreshEditorsAfterLoad();
 }
@@ -6249,7 +5960,7 @@ function applyJsonSnapshotFromFile(
 async function tryLoadFromActiveFile(): Promise<boolean> {
   const fileRecord = await readActiveFileRecord(toShowKey);
   // A null handle (filename === "") is the "no active file" sentinel.
-  const activeHandle = fileHandleOf(fileRecord);
+  const activeHandle = fileRecord?.handle;
   if (!fileRecord || !activeHandle) return false;
 
   // Always populate `_activeFileRecord` so the Save button is available.
@@ -6266,7 +5977,7 @@ async function tryLoadFromActiveFile(): Promise<boolean> {
 
     const file = await activeHandle.getFile();
     const fileContent = await file.text();
-    const tree = parseAnySnapshot(JSON.parse(fileContent));
+    const tree = parseSnapshotFile(JSON.parse(fileContent));
     if (!tree) return false;
 
     applyJsonSnapshotFromFile(tree, fileRecord.savedAt);
@@ -6313,13 +6024,15 @@ async function loadFromJsonFile(): Promise<void> {
 
   let tree: SerializedFixedChild | undefined;
   try {
-    tree = parseAnySnapshot(JSON.parse(fileContent));
+    tree = parseSnapshotFile(JSON.parse(fileContent));
   } catch {
     alert(`"${handle.name}" is not valid JSON.`);
     return;
   }
   if (!tree) {
-    alert(`"${handle.name}" does not contain state for "${toShowKey}".`);
+    alert(
+      `"${handle.name}" is not a canvas-recorder save file (format version ${SNAPSHOT_FORMAT_VERSION}).`,
+    );
     return;
   }
 
@@ -6328,7 +6041,7 @@ async function loadFromJsonFile(): Promise<void> {
 
   // Fix up loadSource with the real filename, then commit the active file.
   const filename = handle.name;
-  loadSources.set(selectableKey(toShow), { kind: "json", filename });
+  _loadSource = { kind: "json", filename };
   _activeFileRecord = { filename, handle };
   _lastKnownJsonBody = fileContent;
   void writeActiveFileRecord(filename, handle, toShowKey);

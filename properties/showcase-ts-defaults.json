@@ -1,5 +1,8 @@
 {
-  "showcase|Showcase": {
+  "formatVersion": 2,
+  "videoKey": "showcase",
+  "tree": {
+    "description": "Showcase",
     "components": [],
     "fixedComponents": [
       {

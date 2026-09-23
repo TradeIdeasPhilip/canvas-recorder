@@ -36,7 +36,7 @@ Open the app at:
 2. Link it from `index.html`.
 3. Register it in `vite.config.js`'s `rollupOptions.input`. Without this, the page works fine under `npm run dev` but is silently excluded from `npm run build`'s output — no error, it just won't be there.
 
-(`canvas-recorder.html`, `sound-explorer.html`, `random-tests.html`, `media-browser.html` are all examples of this pattern.)
+(`canvas-recorder.html`, `sound-explorer.html`, `random-tests.html`, `media-browser.html`, `test-rig.html` are all examples of this pattern.)
 
 ## Coordinate System
 

@@ -1,5 +1,8 @@
 {
-  "shadow-test|Shadow Test » shadow": {
+  "formatVersion": 2,
+  "videoKey": "shadow-test",
+  "tree": {
+    "description": "Shadow Test » shadow",
     "schedules": [
       {
         "description": "Dot Color",

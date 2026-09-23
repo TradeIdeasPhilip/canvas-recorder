@@ -28,7 +28,13 @@ export type SerializedFixedChild = {
   userEditableDescription?: string;
 };
 
-/** File format: one entry per selectable that has editable state. No timestamps. */
+/**
+ * The editable state of one selectable, as accepted by {@link applyJsonEntry}.
+ *
+ * This used to be the file format (a map of these, one per chapter).  Files are now a single
+ * {@link VideoSnapshot}; a {@link SerializedFixedChild} is structurally a superset of this, so
+ * any node of a saved tree can be passed straight to {@link applyJsonEntry}.
+ */
 export type JsonFileEntry = {
   schedules?: SerializedSchedule[];
   scalars?: SerializedScalar[];
@@ -289,77 +295,6 @@ export function findSerializedNode(
     if (found) return found;
   }
   return undefined;
-}
-
-// MARK: Coverage check
-
-/**
- * Why a selectable would not survive a round trip through {@link serializeTree}.
- *
- * - `unreachable` — nothing about it is written at all.
- * - `lossy` — it is reached through {@link serializeComponents}, which omits `fixedComponents`
- *   and `soundClips`, so those parts of it are dropped.
- */
-export type CoverageProblem = {
-  description: string;
-  reason: "unreachable" | "lossy";
-  detail: string;
-};
-
-/**
- * Check that every selectable really is covered by a single whole-tree save.
- *
- * Today each chapter also gets its own flat IndexedDB record, which serializes it in full and
- * so hides the gap in {@link serializeComponents}.  Collapsing to one record removes that
- * cover, so this must come back empty before the switch is safe.
- */
-export function findCoverageProblems(
-  root: Showable,
-  selectables: readonly Showable[],
-): CoverageProblem[] {
-  /** "full" = serialized with fidelity; "partial" = reached via serializeComponents. */
-  const coverage = new Map<Showable, "full" | "partial">();
-  const walk = (node: Showable, level: "full" | "partial") => {
-    const existing = coverage.get(node);
-    // "full" wins if a node is reachable both ways.
-    if (existing === "full" || (existing === "partial" && level === "partial")) {
-      return;
-    }
-    coverage.set(node, level);
-    // serializeFixedComponents recurses into fixed children; serializeComponents does not
-    // emit them at all, so under a "partial" node they are simply not written.
-    if (level === "full") {
-      for (const child of getFixedComponents(node)) walk(child, "full");
-    }
-    for (const child of node.replaceableComponents?.get() ?? []) {
-      walk(child, "partial");
-    }
-  };
-  walk(root, "full");
-
-  const problems: CoverageProblem[] = [];
-  for (const selectable of selectables) {
-    const level = coverage.get(selectable);
-    if (level === undefined) {
-      problems.push({
-        description: selectable.description,
-        reason: "unreachable",
-        detail: "not reached from the root by serializeTree()",
-      });
-    } else if (level === "partial") {
-      const lost: string[] = [];
-      if (getFixedComponents(selectable).length) lost.push("fixedComponents");
-      if (selectable.soundClips?.length) lost.push("soundClips");
-      if (lost.length) {
-        problems.push({
-          description: selectable.description,
-          reason: "lossy",
-          detail: `reached via serializeComponents(), which drops ${lost.join(" and ")}`,
-        });
-      }
-    }
-  }
-  return problems;
 }
 
 /** Apply a {@link JsonFileEntry} to a selectable in-place. */

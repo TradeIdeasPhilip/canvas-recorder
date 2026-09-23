@@ -1,5 +1,8 @@
 {
-  "galaga|Galaga": {
+  "formatVersion": 2,
+  "videoKey": "galaga",
+  "tree": {
+    "description": "Galaga",
     "components": [],
     "fixedComponents": [
       {

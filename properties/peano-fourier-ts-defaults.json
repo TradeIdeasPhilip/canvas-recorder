@@ -1,5 +1,8 @@
 {
-  "peano-fourier|Peano Fourier": {
+  "formatVersion": 2,
+  "videoKey": "peano-fourier",
+  "tree": {
+    "description": "Peano Fourier",
     "fixedComponents": [
       {
         "description": "background"

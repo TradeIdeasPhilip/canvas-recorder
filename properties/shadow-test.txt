@@ -1,7 +1,9 @@
-Generated: Tue Sep 22 2026 12:20:08 GMT-0700 (Pacific Daylight Time)
+Generated: Wed Sep 23 2026 11:14:05 GMT-0700 (Pacific Daylight Time)
 Shadow Test » shadow
 → Shadow Test
 → → Slide 1: Shape Gallery
+  // [WARNING: no howToGenerate for "Nine Shapes (Shadow Test)" — manual conversion needed]
+→ → Slide 1a: Generic Container
   // [WARNING: no howToGenerate for "Nine Shapes (Shadow Test)" — manual conversion needed]
   const text = new TextComponent({ description: "Text" });
   text.rectSchedule.set({"x":0.5,"y":0.5,"width":8,"height":4});
@@ -16,75 +18,16 @@ Shadow Test » shadow
   this.addFixed({ child: slide });
   const traditionalText = new TraditionalTextComponent({ description: "Traditional Text" });
   traditionalText.textSchedule.set("Traditional Text");
-  traditionalText.positionSchedule.set({"x":6.841521062021537,"y":6.7561945054266515});
+  traditionalText.positionSchedule.set({"x":8.963942307692308,"y":8.43719951923077});
+  traditionalText.fillColorSchedule.set([{"time":0,"value":"#00ffcc"},{"time":5000,"value":"#00ffcc"},{"time":7000,"value":"#ff0040"},{"time":9013.3,"value":"#0008ff"}]);
+  traditionalText.outlineColorSchedule.set("#001eff");
   traditionalText.outlineWidthSchedule.set(0.05);
   traditionalText.fontSizeSchedule.set(1);
   traditionalText.textAlignSchedule.set("start");
   traditionalText.textBaselineSchedule.set("bottom");
   this.addFixed({ child: traditionalText });
-→ → Slide 1a: Generic Container
-  const slide = new SlideComponent({ description: "Slide" });
-  slide.placeA.set([{"time":0,"value":2.2},{"time":5000,"value":9},{"time":10000,"value":2.2}]);
-  slide.placeB.set([{"time":0,"value":0,"easeAfter":"easeOut"},{"time":2500,"value":2,"easeAfter":"ease"},{"time":7500,"value":-2,"easeAfter":"easeIn"},{"time":10000,"value":0,"easeAfter":"easeIn"}]);
-  slide.transformTemplate.value = "translate(𝓑px, 𝓐px)";
-  this.addFixed({ child: slide });
-  const slide = new SlideComponent({ description: "Slide" });
-  this.addFixed({ child: slide });
-  const slide = new SlideComponent({ description: "Slide" });
-  this.addFixed({ child: slide });
-  const slide = new SlideComponent({ description: "Slide" });
-  this.addFixed({ child: slide });
-  const newTest = new TraditionalTextComponent({ description: "New Test" });
-  newTest.textSchedule.set("Hello, hello!");
-  newTest.positionSchedule.set({"x":7.195974576271187,"y":7.652277542372881});
-  newTest.userEditableDescription = "New Test";
-  this.addFixed({ child: newTest });
-→ → Slide 1b: Generic Container
-  const multiText = new MultiTextComponent({ description: "Multi Text" });
-  multiText.positionSchedule.set({"x":8,"y":8.9});
-  multiText.textBaselineSchedule.set("bottom");
-  multiText.additionalLineHeightSchedule.set(-0.4);
-  this.addFixed({ child: multiText });
-  const slide = new SlideComponent({ description: "Slide" });
-  this.addFixed({ child: slide });
 → → Slide 2: Growing Rectangle
   const rectangle = new RectangleComponent({ description: "Rectangle" });
+  rectangle.colorSchedule.set([{"time":0,"value":"rgb(255, 0, 0)"},{"time":10000,"value":"#d8d800"}]);
   rectangle.rectSchedule.set([{"time":0,"value":{"x":1,"y":1,"width":1,"height":2}},{"time":10000,"value":{"x":1,"y":1,"width":14,"height":2}}]);
   this.addFixed({ child: rectangle });
-→ → Slide 5: Vertical Lines
-→ → → Starting Position
-TypeScript: {"x":1,"y":1}
-Current:    [{"time":0,"value":{"x":1,"y":1}},{"time":8400,"value":{"x":1,"y":3}}]
-→ → Video Clip: Fit + Lissajous Letterbox
-→ → → Video Clip
-→ → → → End Ms Into Clip
-TypeScript: 4900
-Current:    4800
-→ → → → Duration
-TypeScript: 4900
-Current:    4800
-→ → Video Clip: Pixel Perfect
-→ → → Video Clip
-→ → → → End Ms Into Clip
-TypeScript: 4900
-Current:    4800
-→ → → → Duration
-TypeScript: 4900
-Current:    4800
-→ → Video Clip: Padding Hold (before/after)
-→ → → Padding
-→ → → → Video Clip
-→ → → → → End Ms Into Clip
-TypeScript: 4900
-Current:    4800
-→ → → → → Duration
-TypeScript: 4900
-Current:    4800
-  const videoClip = new VideoClipComponent({ description: "Video Clip" });
-  videoClip.urlScalar.value = "frame counter.mp4";
-  videoClip.endMsIntoClipScalar.value = 90000;
-  this.addFixed({ child: videoClip });
-→ → → Frame Counter
-→ → → → Min Duration
-TypeScript: 10900
-Current:    10800

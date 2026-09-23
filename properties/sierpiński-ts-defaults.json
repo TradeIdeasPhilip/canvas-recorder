@@ -1,5 +1,8 @@
 {
-  "sierpiński|Sierpiński": {
+  "formatVersion": 2,
+  "videoKey": "sierpiński",
+  "tree": {
+    "description": "Sierpiński",
     "fixedComponents": [
       {
         "description": "halftone background"

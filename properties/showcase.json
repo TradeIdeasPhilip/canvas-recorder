@@ -1,5 +1,8 @@
 {
-  "showcase|Showcase": {
+  "formatVersion": 2,
+  "videoKey": "showcase",
+  "tree": {
+    "description": "Showcase",
     "components": [],
     "fixedComponents": [
       {
@@ -1051,10 +1054,10 @@
                 "value": {
                   "x": 1,
                   "y": 2,
-                  "width": 10.711569432826877,
-                  "height": 5.705089222301137,
-                  "cellWidth": 1.5612304772843606,
-                  "cellHeight": 1.721868341619318
+                  "width": 14,
+                  "height": 6.5,
+                  "cellWidth": 2.2,
+                  "cellHeight": 1.5
                 }
               }
             ],

@@ -35,6 +35,7 @@ export default defineConfig({
         "sound-explorer": resolve(__dirname, "sound-explorer.html"),
         "random-tests": resolve(__dirname, "random-tests.html"),
         "media-browser": resolve(__dirname, "media-browser.html"),
+        "test-rig": resolve(__dirname, "test-rig.html"),
       },
       output: {
         // Extract shared library modules into a separate sync chunk so that

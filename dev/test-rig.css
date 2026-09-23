@@ -1,0 +1,11 @@
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+iframe {
+  /* Note: The page we are testing does not scroll.
+     It is designed like an application, not a document.
+     It fills the space it is given and no more. */
+  height: 40em;
+}

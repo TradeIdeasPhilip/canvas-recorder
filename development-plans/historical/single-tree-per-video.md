@@ -1,5 +1,7 @@
 # Save one tree per video
 
+**Status: Complete**
+
 ## Context
 
 A video is one root `Showable` tree. Every entry in `src/dynamic-exports.ts` exports a single
@@ -306,3 +308,55 @@ No test runner; verify by hand in the browser at
 7. Dirty status: change something → asterisk appears; change it back → asterisk clears.
 8. Check `some5` as well as `showcase` — it is the largest real project (166 KB, uses replaceable
    `components` with `registryKey`).
+
+## Status 9/23/2026
+
+Steps 0–7 are done. `dev/canvas-recorder.ts` lost roughly 500 lines, and all 13
+`for (const item of chapterList)` loops are gone. Baseline, format switch, and IndexedDB change
+are in commits 56c37df, 1b7b76f and 34bd300.
+
+**Correction to step 6.** The plan said to collapse the two dirty flags into one. That was
+wrong: they compare against different baselines, and both are needed.
+
+- `isVideoDirty()` compares against the last load from, or save to, IndexedDB. It drives
+  autosave.
+- The asterisk in `updateJsonSaveStatus()` compares against the last body written to the active
+  file.
+
+After an autosave the first is clean and the second is still dirty, which is correct. What did
+collapse was the bookkeeping: `loadSources` and `loadedSnapshots` were maps that only ever held
+the root's key, and are now the single variables `_loadSource` and `_baselineTreeJson`. Both
+flags now use the same serialization.
+
+**The coverage gate passed for all 12 videos** (208 selectables), so `serializeComponents` was
+left unchanged. The gate was temporary and has been removed.
+
+**Bugs found along the way:**
+
+- The Load dialog read files on its own path and would have shown "(not in file)" for every
+  version-2 file.
+- Cancel/Revert applied a whole-video snapshot to whichever chapter was selected.
+- The dirty check and the history dedup serialized differently (only one included
+  `userEditableDescription`), so a renamed component read as dirty forever.
+- `_preDialogSource` was looked up by the selected chapter's key, which after step 4 was never
+  set for anything but the root.
+- `initFromDBComplete` was written but never read, even before this refactor.
+
+### Step 8 — done 9/23/2026
+
+- Removed the version-1 file reader (`src/legacy-snapshot.ts`). Every tracked state file had
+  already been re-saved as version 2. To open a version-1 file, check out an earlier commit
+  and re-save it there.
+- IndexedDB is now v4. The per-chapter `history` store is deleted, and so are
+  `HistoryRecord`, `DataHistoryEntry`, and `readAllHistory`.
+- Removed the temporary **📦 Save All 3** button, about 180 lines. The v4 upgrade also deletes
+  the `__properties-dir__` record it left in the `files` store. `test-rig.html` is kept for
+  future bulk jobs.
+- "never saved" now shows `*` when the state differs from the TypeScript defaults, like an
+  untitled document.
+
+**Not done, deliberately:** migrating the per-chapter records into the `videos` store. Step 4
+created `videos` empty. Any video whose edits lived only in IndexedDB, with no active file,
+therefore fell back to its defaults on first load after the upgrade. The only affected browser
+was the author's, and those videos were scratch work backed up in git, so the migration was
+skipped rather than written after the fact.

@@ -1,1 +1,7 @@
-{}
+{
+  "formatVersion": 2,
+  "videoKey": "stroke-colors-test",
+  "tree": {
+    "description": "test"
+  }
+}

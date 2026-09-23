@@ -1,5 +1,8 @@
 {
-  "peano-arithmetic|Peano arithmetic": {
+  "formatVersion": 2,
+  "videoKey": "peano-arithmetic",
+  "tree": {
+    "description": "Peano arithmetic",
     "fixedComponents": [
       {
         "description": "background"

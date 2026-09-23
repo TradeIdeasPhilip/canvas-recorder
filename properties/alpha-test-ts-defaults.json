@@ -1,5 +1,8 @@
 {
-  "alpha-test|Alpha test": {
+  "formatVersion": 2,
+  "videoKey": "alpha-test",
+  "tree": {
+    "description": "Alpha test",
     "fixedComponents": [
       {
         "description": "Alpha test — 4 circles"

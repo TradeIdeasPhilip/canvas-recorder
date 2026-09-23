@@ -1,5 +1,8 @@
 {
-  "morph-test|Morph Test": {
+  "formatVersion": 2,
+  "videoKey": "morph-test",
+  "tree": {
+    "description": "Morph Test",
     "fixedComponents": [
       {
         "description": "background"
