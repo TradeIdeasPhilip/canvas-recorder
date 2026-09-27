@@ -76,7 +76,11 @@ import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
 import { DurationAgnosticComponent } from "../src/slide-components/duration-agnostic.ts";
-import { componentRegistry } from "../src/slide-components/registry.ts";
+import {
+  componentChoices,
+  componentRegistry,
+} from "../src/slide-components/registry.ts";
+import { pickComponent } from "./component-picker.ts";
 import {
   SerializedChild,
   buildComponents,
@@ -2513,6 +2517,23 @@ function sendToRecycleBin(...args: unknown[]): void {
   console.info("🗑️ Recycle bin:", ...args);
 }
 
+/**
+ * The component, at or under `root`, whose replaceable children include `child`.
+ * Undefined when `child` is not a replaceable child of anything in the tree -- for example
+ * the root itself, or a component built in TypeScript.
+ */
+function findReplaceableParent(
+  root: Showable,
+  child: Showable,
+): Showable | undefined {
+  if (root.replaceableComponents?.get().includes(child)) return root;
+  for (const { child: next } of root.children ?? []) {
+    const found = findReplaceableParent(next, child);
+    if (found) return found;
+  }
+  return undefined;
+}
+
 function getFixedComponents(showable: Showable): Showable[] {
   return (
     showable.children?.flatMap(({ replaceable, child }) =>
@@ -4009,13 +4030,6 @@ function updateComponentEditor(selectable: Showable) {
     ? oldList.scrollTop + oldList.clientHeight >= oldList.scrollHeight - 2
     : false;
 
-  const oldToolbar = componentsEditorFieldset.querySelector(
-    ".components-toolbar",
-  );
-  const savedAddSelectValue =
-    (oldToolbar?.querySelector("select") as HTMLSelectElement | null)?.value ??
-    "";
-
   componentsEditorFieldset.replaceChildren();
 
   const list = document.createElement("div");
@@ -4217,8 +4231,8 @@ function updateComponentEditor(selectable: Showable) {
   _buildSoundClipEditor(selectable as Showable, list);
   componentsEditorFieldset.append(list);
 
-  // Toolbar: add select + add button.
-  // addTarget: where the new component goes (null = add button disabled).
+  // Toolbar: "Insert New Child" and "Wrap Component".
+  // addTarget: where a new child goes (null = Insert disabled).
   const addTarget: Showable | null =
     selectedSlideChild === null
       ? rootReplaceable !== undefined
@@ -4227,44 +4241,97 @@ function updateComponentEditor(selectable: Showable) {
       : selectedSlideChild.replaceableComponents !== undefined
         ? selectedSlideChild
         : null;
+  const displayName = (s: Showable) => s.userEditableDescription ?? s.description;
 
   const toolbar = document.createElement("div");
   toolbar.className = "components-toolbar";
   toolbar.style.cssText =
     "display:flex;align-items:center;gap:0.4em;flex-wrap:wrap";
 
-  const addSelect = addName(document.createElement("select"));
-  for (const [key] of componentRegistry) {
-    const opt = document.createElement("option");
-    opt.value = key;
-    opt.textContent = key;
-    addSelect.append(opt);
-  }
-  if (
-    savedAddSelectValue &&
-    [...addSelect.options].some((o) => o.value === savedAddSelectValue)
-  ) {
-    addSelect.value = savedAddSelectValue;
-  }
+  /** Make `newSelection` the selected component and rebuild both editors. */
+  const afterStructureEdit = (newSelection: Showable) => {
+    selectedSlideChild = newSelection;
+    activeRootComponentEditor?.resetAll();
+    updateComponentEditor(selectable);
+    updateScheduleEditor(newSelection);
+  };
 
-  const addBtn = document.createElement("button");
-  addBtn.type = "button";
-  addBtn.textContent =
-    addTarget !== null ? `+ Add to "${addTarget.description}"` : "+ Add";
-  addBtn.disabled = addTarget === null;
-  addBtn.addEventListener("click", () => {
+  const insertBtn = document.createElement("button");
+  insertBtn.type = "button";
+  insertBtn.textContent = "Insert New Child";
+  insertBtn.disabled = addTarget === null;
+  insertBtn.title =
+    addTarget !== null
+      ? `Add a new component inside "${displayName(addTarget)}".`
+      : "The selected component can't hold children added in the Visual Editor.";
+  insertBtn.addEventListener("click", async () => {
     if (!addTarget) return;
-    const entry = componentRegistry.get(addSelect.value);
+    const key = await pickComponent({
+      title: "Insert New Child",
+      subtitle: `Inside "${displayName(addTarget)}"`,
+      purpose: "insert",
+      choices: componentChoices(addTarget, "insert"),
+    });
+    const entry = key === undefined ? undefined : componentRegistry.get(key);
     if (!entry) return;
     const newChild = entry.create();
     addTarget.replaceableComponents!.push(newChild);
-    selectedSlideChild = newChild;
-    activeRootComponentEditor?.resetAll();
-    updateComponentEditor(selectable);
-    updateScheduleEditor(newChild);
+    afterStructureEdit(newChild);
   });
 
-  toolbar.append(addSelect, addBtn);
+  // Wrap: the selected component must be a replaceable child of some parent -- which also
+  // rules out the root -- and must not be a type that has to stay directly under its current
+  // parent (a transition, or a Text Format).
+  const wrapChild = selectedSlideChild;
+  const wrapParent = wrapChild
+    ? findReplaceableParent(selectable as Showable, wrapChild)
+    : undefined;
+  const wrapChildEntry =
+    wrapChild?.registryKey === undefined
+      ? undefined
+      : componentRegistry.get(wrapChild.registryKey);
+  const wrapBtn = document.createElement("button");
+  wrapBtn.type = "button";
+  wrapBtn.textContent = "Wrap Component";
+  if (!wrapChild) {
+    wrapBtn.disabled = true;
+    wrapBtn.title = "Select a component in the list to wrap it.";
+  } else if (!wrapParent) {
+    wrapBtn.disabled = true;
+    wrapBtn.title = `"${displayName(wrapChild)}" is built in TypeScript, so the Visual Editor can't move it into a wrapper.`;
+  } else if (wrapChildEntry?.hiddenByDefault) {
+    wrapBtn.disabled = true;
+    wrapBtn.title = `A ${wrapChild.registryKey} only works directly inside its current parent, so it can't be wrapped.`;
+  } else {
+    wrapBtn.title = `Put "${displayName(wrapChild)}" inside a new component, in its current place.`;
+  }
+  wrapBtn.addEventListener("click", async () => {
+    if (!wrapChild || !wrapParent) return;
+    const key = await pickComponent({
+      title: "Wrap Component",
+      subtitle: `Around "${displayName(wrapChild)}"`,
+      purpose: "wrap",
+      choices: componentChoices(wrapParent, "wrap"),
+    });
+    const entry = key === undefined ? undefined : componentRegistry.get(key);
+    if (!entry) return;
+    const wrapper = entry.create();
+    if (!wrapper.replaceableComponents) {
+      console.error(
+        `"${key}" is marked isGoodForWrapping but can't hold replaceable children.`,
+      );
+      return;
+    }
+    // Swap the wrapper into the child's slot first: replace() requires every item to be a
+    // current child or parentless, and this releases the child so the wrapper can adopt it.
+    const siblings = wrapParent.replaceableComponents!.get();
+    siblings[siblings.indexOf(wrapChild)] = wrapper;
+    wrapParent.replaceableComponents!.replace(siblings);
+    wrapper.replaceableComponents.push(wrapChild);
+    afterStructureEdit(wrapper);
+  });
+
+  toolbar.append(insertBtn, wrapBtn);
   componentsEditorFieldset.append(toolbar);
   // Restore scroll now that both list and toolbar are in the DOM, so
   // list.clientHeight reflects its final height and browser clamping is correct.

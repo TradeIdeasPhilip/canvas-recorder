@@ -2,6 +2,8 @@ import { positiveModulo, ReadOnlyRect } from "phil-lib/misc";
 import { ease, easeIn, easeOut, Keyframe } from "./interpolate";
 import { Point } from "./glib/path-shape";
 import { LatticeValue } from "./lattice";
+// Type-only, so it is erased at runtime: registry.ts imports this module.
+import type { ComponentRegistryEntry } from "./slide-components/registry";
 
 /**
  * The content shouldn't know much about the Visual Editor.
@@ -329,6 +331,31 @@ export type Showable = {
      * @param newItems Add each of these as subcomponents.
      */
     push(...newItems: Showable[]): void;
+    /**
+     * Adjust the list of components the Visual Editor offers for this parent.
+     *
+     * Called each time the "Insert New Child" or "Wrap Component" dialog opens for this parent.
+     * `choices` arrives as `componentRegistry` keys in registry order, without the entries
+     * marked `hiddenByDefault`, and, for "wrap", with only the entries marked
+     * `isGoodForWrapping`.  Change it in place: add, remove or reorder.  Earlier items are
+     * listed first.
+     *
+     * Most parents change nothing.  In Series adds its transitions at the top when
+     * inserting.  Multi Text moves Text Span to the top and adds Text Format.
+     *
+     * @param choices Registry keys, mutable.  Keys not in the registry are ignored, and
+     * duplicates are dropped.
+     * @param purpose "insert" when the new component will become a child of this object.
+     * "wrap" when it will take the place of one of this object's children and adopt it.
+     * @param registry The whole component registry, including hidden entries.  Passed in
+     * rather than imported because the registry imports the component classes, so a
+     * component importing it back would be a circular import.
+     */
+    customizeComponentChoices?(
+      choices: string[],
+      purpose: "insert" | "wrap",
+      registry: ReadonlyMap<string, ComponentRegistryEntry>,
+    ): void;
   };
 
   /**

@@ -32,23 +32,39 @@ export type ComponentRegistryEntry = {
    */
   description?: string;
   /**
-   * Should the Visual Editor offer the option creating one of these objects,
-   * inserting the selected object into the new object,
-   * and inserting this new object into the original parent of the selected object, in the same place in the list?
+   * Offer this in the Visual Editor's "Wrap Component" dialog.
    *
-   * This is a proposed feature.
-   * It would exist next to the current "Add to..." button.
+   * Wrapping replaces the selected component, in the same position in its parent, with a new
+   * one of these, then makes the selected component its child.  So `create()` must return a
+   * component with `replaceableComponents`, and its duration should follow its children, or
+   * wrapping would change the timeline.
    *
-   * The default value is false.
+   * The default is false.
    */
   isGoodForWrapping?: boolean;
   /**
-   * This is aimed at the Visual Editor.
-   * It should only recommend adding one of these if the parent knows how to handle a {@link Transition}.
-   * This is a proposed feature.
-   * This defaults to false.
+   * This component is a {@link Transition}: it draws the end of the previous sibling and the
+   * start of the next one, so it only works as a direct child of an In Series.
+   *
+   * In Series uses this to find the transitions to offer.  Transitions should also set
+   * {@link hiddenByDefault}, so they aren't offered anywhere else.
+   *
+   * The default is false.
    */
   isTransition?: boolean;
+  /**
+   * Leave this out of the Visual Editor's "Insert New Child" and "Wrap Component" lists
+   * unless the parent puts it back; see `replaceableComponents.customizeComponentChoices`.
+   *
+   * For components that only work under one kind of parent: the transitions (direct children
+   * of an In Series) and Text Format (a direct child of a Multi Text).  Because such a component
+   * depends on its parent, the Visual Editor also won't offer to wrap one.
+   *
+   * Hidden entries are still in the registry, so saved files containing them load normally.
+   *
+   * The default is false.
+   */
+  hiddenByDefault?: boolean;
   /**
    * This is aimed at the code generator.
    *
@@ -120,6 +136,7 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
         "At the same time the next component slides left onto the screen.",
       isGoodForWrapping: false,
       isTransition: true,
+      hiddenByDefault: true,
       howToGenerate: { type: "class", class: SlideLeftTransition },
     },
   ],
@@ -133,6 +150,7 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
         "The previous component fades away while the next component appears.  ",
       isGoodForWrapping: false,
       isTransition: true,
+      hiddenByDefault: true,
       howToGenerate: { type: "class", class: CrossFadeTransition },
     },
   ],
@@ -145,6 +163,7 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       description: "Show the last frame of the previous component.",
       isGoodForWrapping: false,
       isTransition: true,
+      hiddenByDefault: true,
       howToGenerate: { type: "class", class: HoldPreviousTransition },
     },
   ],
@@ -157,6 +176,7 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       description: "Show the first frame of the next component.",
       isGoodForWrapping: false,
       isTransition: true,
+      hiddenByDefault: true,
       howToGenerate: { type: "class", class: HoldNextTransition },
     },
   ],
@@ -281,6 +301,7 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
         "How to format text.  " +
         "This should be a child of a MultiText component.",
       isGoodForWrapping: false,
+      hiddenByDefault: true,
       howToGenerate: { type: "class", class: TextFormatComponent },
     },
   ],
@@ -324,4 +345,35 @@ if (false) {
   new TextSpanComponent({ description: "test" });
   new TextFormatComponent({ description: "test" });
   new HalftoneShadowComponent({ description: "test" });
+}
+
+/**
+ * The registry keys the Visual Editor should offer, in display order.
+ *
+ * Starts from every registry entry that isn't {@link ComponentRegistryEntry.hiddenByDefault};
+ * for "wrap", only those that are {@link ComponentRegistryEntry.isGoodForWrapping}.  Then the
+ * parent adjusts the list through `replaceableComponents.customizeComponentChoices`.
+ *
+ * Read the registry each time: videos may add entries at runtime.
+ *
+ * @param parent For "insert", the component that will receive the new child.  For "wrap", the
+ * current parent of the component being wrapped.
+ */
+export function componentChoices(
+  parent: Showable,
+  purpose: "insert" | "wrap",
+): string[] {
+  const choices = [...componentRegistry]
+    .filter(
+      ([, entry]) =>
+        !entry.hiddenByDefault &&
+        (purpose === "insert" || entry.isGoodForWrapping),
+    )
+    .map(([key]) => key);
+  parent.replaceableComponents?.customizeComponentChoices?.(
+    choices,
+    purpose,
+    componentRegistry,
+  );
+  return [...new Set(choices)].filter((key) => componentRegistry.has(key));
 }

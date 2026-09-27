@@ -22,6 +22,8 @@ import {
   ShowChildInfo,
   PaddingComponent,
 } from "./in-parallel";
+// Type-only: registry.ts imports this module, so a runtime import would be circular.
+import type { ComponentRegistryEntry } from "./registry";
 
 /**
  * Each of the children is displayed one after the next.
@@ -59,6 +61,21 @@ export class InSeriesComponent extends InParallelComponent {
       start += childInfo.child.duration;
     });
     return start;
+  }
+  /**
+   * Transitions only work as direct children of an In Series, so they are hidden everywhere
+   * else.  Offer them first here, since they are the reason to insert into a series.
+   */
+  protected override customizeComponentChoices(
+    choices: string[],
+    purpose: "insert" | "wrap",
+    registry: ReadonlyMap<string, ComponentRegistryEntry>,
+  ): void {
+    if (purpose !== "insert") return;
+    const transitions = [...registry]
+      .filter(([, entry]) => entry.isTransition)
+      .map(([key]) => key);
+    choices.unshift(...transitions);
   }
   #allowExtendedTimes(child: Showable) {
     // The padding component is specifically designed to handle times before 0 and after duration.

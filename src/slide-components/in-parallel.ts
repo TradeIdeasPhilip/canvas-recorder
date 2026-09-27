@@ -8,6 +8,8 @@ import {
   ShowOptions,
 } from "../showable";
 import { Mutable, removeIf } from "../utility";
+// Type-only: registry.ts imports this module, so a runtime import would be circular.
+import type { ComponentRegistryEntry } from "./registry";
 
 // MARK:  In Parallel
 
@@ -169,8 +171,24 @@ export class InParallelComponent implements Showable, ShowableParent {
       items.push(...newItems);
       replace(items);
     };
-    this.replaceableComponents = { get, replace, push };
+    this.replaceableComponents = {
+      get,
+      replace,
+      push,
+      customizeComponentChoices: (choices, purpose, registry) =>
+        this.customizeComponentChoices(choices, purpose, registry),
+    };
   }
+  /**
+   * Override to change which components the Visual Editor offers when inserting a child into
+   * this object, or wrapping one of its children.  See
+   * `Showable.replaceableComponents.customizeComponentChoices`.  The default changes nothing.
+   */
+  protected customizeComponentChoices(
+    _choices: string[],
+    _purpose: "insert" | "wrap",
+    _registry: ReadonlyMap<string, ComponentRegistryEntry>,
+  ): void {}
   readonly #replaceableChildren = new Array<Showable>();
   #cached:
     | { duration: number; children: readonly ParallelChildInfo[] }

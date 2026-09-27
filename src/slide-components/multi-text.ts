@@ -18,6 +18,8 @@ import { DurationAgnosticComponent } from "./duration-agnostic";
 import { ShowChildInfo } from "./in-parallel";
 import { showError } from "./show-error";
 import { Keyframe } from "../interpolate";
+// Type-only: registry.ts imports this module, so a runtime import would be circular.
+import type { ComponentRegistryEntry } from "./registry";
 
 /**
  * This is needed as a default in some places but should never actually be used.
@@ -116,6 +118,19 @@ export type PlacedText = {
  */
 export class MultiTextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Multi Text";
+  /**
+   * Text Span and Text Format are what a Multi Text is made of, so offer them first.
+   * Text Format only works as a direct child of a Multi Text, so it is hidden everywhere
+   * else and has to be added back here.
+   */
+  protected override customizeComponentChoices(
+    choices: string[],
+    purpose: "insert" | "wrap",
+    _registry: ReadonlyMap<string, ComponentRegistryEntry>,
+  ): void {
+    if (purpose !== "insert") return;
+    choices.unshift("Text Span", "Text Format");
+  }
   readonly #temporaryText = new Array<TextSpanComponent>();
   /**
    * Create, initialize, and add a TextSpanComponent to this MultiTextComponent.

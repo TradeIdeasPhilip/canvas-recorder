@@ -220,3 +220,11 @@ body {
   color: #333;
 }
 
+
+/* ── Component picker dialog ─────────────────────────────────────────── */
+
+.component-picker li.selected {
+  background: #d0e8ff;
+  outline: 2px solid #4a90d9;
+  outline-offset: -2px;
+}
