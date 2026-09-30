@@ -73,6 +73,14 @@ It should be easy to go back and forth between those two.
 Maybe a button on each Showable in the Visual Editor that says "show this", setting both of the limits, jumping to the start, and hitting play.
 Maybe each item in the chapter selector's visual timeline includes buttons like "Load in visual Editor", "Play this", "Start playing here" and "stop playing here".
 
+## How I _currently_ Use the Chapter Selector
+
+In practice I typically have a presentation full of top level items presented in series.
+I sometimes call these "slides" or "chapters."
+I often switch to one slide when I'm working on that.
+Or I switch to the top level element for the video if I want to watch the entire thing or anything beyond a single chapter.
+I almost never select anything else in the chapter selector.
+
 ## Filtering and Grouping
 
 Originally there was some trash in the chapter selectors, so I wrote some rules trying to filter it out.

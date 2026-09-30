@@ -89,6 +89,14 @@ import { SingleImageComponent } from "./slide-components/image";
 import { InParallelComponent } from "./slide-components/in-parallel";
 import { InSeriesComponent } from "./slide-components/in-series";
 import { ComponentWithLiveDuration } from "./slide-components/live-duration";
+import { ComponentWithFixedDuration } from "./slide-components/fixed-duration";
+import {
+  HEIGHT_MODES,
+  MultiTextComponent,
+  TextFormatComponent,
+  TextSpanComponent,
+  WIDTH_MODES,
+} from "./slide-components/multi-text";
 import { TextComponent } from "./slide-components/simple-text";
 
 // Some of my examples constantly change as I try new things.
@@ -4820,6 +4828,802 @@ What the hand, dare sieze the fire?`);
     }
   }
   sceneList.add(new LatticeSlide());
+}
+
+// MARK: Multi Text Manual
+//
+// The slides from here to the end are a user manual for the Multi Text
+// component's frame and auto sizing properties.  Everything they describe is a
+// real property you can find in the Visual Editor, so you can open any of
+// these slides, poke at the numbers, and watch what changes.
+{
+  /**
+   * Static explanatory text, stroked directly.  Deliberately *not* a Multi
+   * Text component:  these slides are about looking at Multi Text components,
+   * so the prose around them should be visibly something else.
+   *
+   * Returns the measured height as well, which is the whole point — see
+   * {@link Stack}.
+   */
+  function makeNote(options: {
+    text: string;
+    x: number;
+    y: number;
+    width?: number;
+    size?: number;
+    color?: string;
+    alignment?: "left" | "center" | "right" | "justify";
+  }): { showable: Showable; height: number } {
+    const {
+      text,
+      x,
+      y,
+      width = 15,
+      size = 0.28,
+      color = "#9a9a9a",
+      alignment = "left",
+    } = options;
+    const font = makeLineFont(size);
+    const layout = new ParagraphLayout(font);
+    layout.addText(text, font);
+    const laidOut = layout.align(width, alignment);
+    const path = laidOut.singlePathShape().translate(x, y).canvasPath;
+    return {
+      height: laidOut.height,
+      showable: {
+        description: "note",
+        duration: 0,
+        show({ context }) {
+          context.lineCap = "round";
+          context.lineJoin = "round";
+          context.lineWidth = font.strokeWidth;
+          context.strokeStyle = color;
+          context.stroke(path);
+        },
+      },
+    };
+  }
+
+  /**
+   * Vertical flow for the explanatory text.
+   *
+   * Each note is placed below the one before it using its **measured** height.
+   * Guessing those heights by hand is exactly how the first draft of these
+   * slides ended up printing paragraphs on top of each other, so nothing here
+   * hard codes a line count.
+   */
+  class Stack {
+    #y: number;
+    readonly parts = new Array<Showable>();
+    constructor(
+      top: number,
+      private readonly defaults: { x: number; width: number },
+    ) {
+      this.#y = top;
+    }
+    /** The first free y coordinate below everything added so far. */
+    get y(): number {
+      return this.#y;
+    }
+    skip(amount: number): this {
+      this.#y += amount;
+      return this;
+    }
+    note(
+      text: string,
+      options: {
+        x?: number;
+        width?: number;
+        size?: number;
+        color?: string;
+        alignment?: "left" | "center" | "right" | "justify";
+        gap?: number;
+      } = {},
+    ): this {
+      const { showable, height } = makeNote({
+        text,
+        x: options.x ?? this.defaults.x,
+        y: this.#y,
+        width: options.width ?? this.defaults.width,
+        size: options.size,
+        color: options.color,
+        alignment: options.alignment,
+      });
+      this.parts.push(showable);
+      this.#y += height + (options.gap ?? 0.3);
+      return this;
+    }
+  }
+
+  /**
+   * A note positioned so its *bottom* lands at `bottom`, which is how these
+   * slides keep their closing remarks on the slide no matter how long the
+   * words get.
+   */
+  function bottomNote(
+    text: string,
+    options: {
+      x?: number;
+      width?: number;
+      size?: number;
+      color?: string;
+      bottom?: number;
+    } = {},
+  ): Showable {
+    const shared = {
+      text,
+      x: options.x ?? 0.5,
+      width: options.width ?? 15,
+      size: options.size ?? 0.27,
+      color: options.color,
+    };
+    const { height } = makeNote({ ...shared, y: 0 });
+    return makeNote({ ...shared, y: (options.bottom ?? 8.75) - height })
+      .showable;
+  }
+
+  /** The slide title, in the style the rest of the showcase uses. */
+  function title(text: string): Showable {
+    const path = ParagraphLayout.singlePathShape({
+      text,
+      font: titleFont,
+      alignment: "center",
+      width: 16,
+    }).canvasPath;
+    return {
+      description: text,
+      duration: 0,
+      show({ context }) {
+        context.lineCap = "round";
+        context.lineJoin = "round";
+        context.lineWidth = titleFont.strokeWidth;
+        context.strokeStyle = myRainbow.myBlue;
+        context.stroke(path);
+      },
+    };
+  }
+
+  /**
+   * Draws the frame and the Position dot belonging to a real Multi Text
+   * component, by asking that component where its text actually went.
+   * Nothing is copied, so this picture cannot drift away from the settings it
+   * is illustrating.
+   *
+   * A dimension whose Mode is `unbounded` has no frame in that direction, so
+   * instead of inventing one, the dashed edges are drawn just past the text.
+   */
+  function frameOverlay(text: MultiTextComponent): Showable {
+    const ANCHOR_X = { left: 0, center: 0.5, right: 1 } as const;
+    const ANCHOR_Y = { top: 0, middle: 0.5, bottom: 1 } as const;
+    return {
+      description: "frame overlay",
+      duration: 0,
+      show(options) {
+        const { context, timeInMs } = options;
+        const position = text.positionSchedule.at(timeInMs);
+        const width = text.widthSchedule.at(timeInMs);
+        const height = text.heightSchedule.at(timeInMs);
+        const boundedWidth = text.widthModeScalar.value !== "unbounded";
+        const boundedHeight = text.heightModeScalar.value !== "unbounded";
+        const { laidOut, offset, scale } = text.layoutAt(options);
+        const textWidth = laidOut.width * scale;
+        const textHeight = laidOut.height * scale;
+        const left =
+          position.x - ANCHOR_X[text.anchorXSchedule.at(timeInMs)] * width;
+        const top =
+          position.y - ANCHOR_Y[text.textBaselineSchedule.at(timeInMs)] * height;
+        // Where to stop the dashes in a direction that has no frame.
+        const OVERHANG = 0.14;
+        const x0 = boundedWidth ? left : offset.x - OVERHANG;
+        const x1 = boundedWidth ? left + width : offset.x + textWidth + OVERHANG;
+        const y0 = boundedHeight ? top : offset.y - OVERHANG;
+        const y1 = boundedHeight
+          ? top + height
+          : offset.y + textHeight + OVERHANG;
+        context.save();
+        context.setLineDash([0.07, 0.07]);
+        context.lineWidth = 0.02;
+        context.strokeStyle = "#4a6ea8";
+        context.beginPath();
+        if (boundedWidth) {
+          context.moveTo(x0, y0);
+          context.lineTo(x0, y1);
+          context.moveTo(x1, y0);
+          context.lineTo(x1, y1);
+        }
+        if (boundedHeight) {
+          context.moveTo(x0, y0);
+          context.lineTo(x1, y0);
+          context.moveTo(x0, y1);
+          context.lineTo(x1, y1);
+        }
+        context.stroke();
+        context.setLineDash([]);
+        // The Position dot.  This is the one point that never moves, whatever
+        // auto sizing decides to do.
+        context.fillStyle = "#e08a3c";
+        context.beginPath();
+        context.arc(position.x, position.y, 0.07, 0, FULL_CIRCLE);
+        context.fill();
+        context.restore();
+      },
+    };
+  }
+
+  /** Builds a Multi Text with a single format, for use in these demos. */
+  function demo(options: {
+    text: string;
+    x: number;
+    y: number;
+    width?: number;
+    height?: number;
+    size?: number;
+    color?: string;
+    widthMode?: (typeof WIDTH_MODES)[number];
+    heightMode?: (typeof HEIGHT_MODES)[number];
+    mayGrow?: "shrink or grow" | "shrink only";
+    alignment?: "left" | "center" | "right" | "justify";
+    anchorX?: "left" | "center" | "right";
+    textBaseline?: "top" | "middle" | "bottom";
+  }): MultiTextComponent {
+    const { text, x, y, size = 0.3, color = "white", ...rest } = options;
+    const component = new MultiTextComponent({ ...rest, position: { x, y } });
+    component.addFixed({
+      child: new TextFormatComponent({ name: "", color, size }),
+    });
+    component.addText("", text);
+    return component;
+  }
+
+  /** A demo and the picture of its frame, as one unit. */
+  function withFrame(text: MultiTextComponent): readonly Showable[] {
+    return [frameOverlay(text), text];
+  }
+
+  /**
+   * A captioned demo.  The caption is measured, so the demo always lands just
+   * below it however long the caption is.
+   */
+  function panel(options: {
+    label: string;
+    labelX: number;
+    labelWidth: number;
+    top: number;
+    make: (y: number) => MultiTextComponent;
+  }): readonly Showable[] {
+    const caption = makeNote({
+      text: options.label,
+      x: options.labelX,
+      y: options.top,
+      width: options.labelWidth,
+      size: 0.26,
+      color: "#c8c8c8",
+    });
+    const text = options.make(options.top + caption.height + 0.28);
+    return [caption.showable, ...withFrame(text)];
+  }
+
+  function slide(
+    description: string,
+    parts: readonly (Showable | readonly Showable[])[],
+  ): void {
+    const result = new ComponentWithFixedDuration(
+      description,
+      DEFAULT_SLIDE_DURATION_MS,
+    );
+    parts.flat().forEach((child) => result.addFixed({ child }));
+    sceneList.add(result);
+  }
+
+  const SHORT = "Word wrap is one way to fit text.";
+  const PARAGRAPH =
+    "Shrinking the font moves the line breaks, so more words fit on each line, " +
+    "and the paragraph comes out a different shape. That is the only way to " +
+    "chase a width and a height at the same time.";
+
+  // MARK: Multi Text — The Frame
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Every Multi Text is anchored to one point — the orange dot, which is the Position schedule. " +
+        "Anchor X and Baseline choose which part of the text lands on that dot; here it is the center of the top edge. " +
+        "Width and Height describe a frame (dashed). They never move the text. They only say how much room it is allowed.",
+    );
+    stack.note(
+      "What that frame MEANS is decided by two scalars, Width Mode and Height Mode. Those are the next two slides.",
+    );
+    slide("Multi Text: The Frame", [
+      title("Multi Text: The Frame"),
+      stack.parts,
+      withFrame(
+        demo({ text: SHORT, x: 8, y: stack.y + 0.7, width: 7, size: 0.45 }),
+      ),
+      bottomNote(
+        "Width Mode: wrap   ·   Height Mode: unbounded   ·   both are the defaults, and this is exactly how Multi Text has always behaved.",
+        { color: "#6f6f6f" },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Width Mode
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Four answers to “the text is wider than the frame.” The first three use the same words and the same frame.",
+    );
+    const top = stack.y + 0.2;
+    const ROW = 2.9;
+    const columns = [0.8, 8.4];
+    slide("Multi Text: Width Mode", [
+      title("Multi Text: Width Mode"),
+      stack.parts,
+      panel({
+        label: "unbounded — Width is ignored. No wrapping, so only a “\\n” starts a new line.",
+        labelX: columns[0],
+        labelWidth: 6.9,
+        top,
+        make: (y) =>
+          demo({
+            text: SHORT,
+            x: columns[0],
+            y,
+            width: 4.5,
+            anchorX: "left",
+            widthMode: "unbounded",
+          }),
+      }),
+      panel({
+        label: "wrap — the default. Width is a limit.",
+        labelX: columns[1],
+        labelWidth: 6.9,
+        top,
+        make: (y) =>
+          demo({
+            text: SHORT,
+            x: columns[1],
+            y,
+            width: 4.5,
+            anchorX: "left",
+            widthMode: "wrap",
+          }),
+      }),
+      panel({
+        label: "scale — Width is a target. The finished block is scaled to hit it exactly.",
+        labelX: columns[0],
+        labelWidth: 6.9,
+        top: top + ROW,
+        make: (y) =>
+          demo({
+            text: SHORT,
+            x: columns[0],
+            y,
+            width: 4.5,
+            anchorX: "left",
+            widthMode: "scale",
+          }),
+      }),
+      panel({
+        label: "wrap, then scale — wraps, and shrinks only if one word still won’t fit:",
+        labelX: columns[1],
+        labelWidth: 6.9,
+        top: top + ROW,
+        make: (y) =>
+          demo({
+            text: "Supercalifragilisticexpialidocious",
+            x: columns[1],
+            y,
+            width: 4.5,
+            anchorX: "left",
+            widthMode: "wrap, then scale",
+          }),
+      }),
+      bottomNote(
+        "Read the bottom left carefully: “scale” does not wrap at all. It lays the text out unbounded, then shrinks that one long line until it is exactly Width wide. " +
+          "Scaling never moves a line break — that is the difference between this and Height Mode’s “shrink font”.",
+        { color: "#6f6f6f", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Height Mode
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Height is not the mirror image of Width. ParagraphLayout TAKES a width and RETURNS a height, so a width can be satisfied " +
+        "before layout runs, while a height can only be checked afterwards. Same paragraph, same frame, three answers:",
+    );
+    const top = stack.y + 0.15;
+    const columns = [0.6, 5.8, 11.0];
+    const makeDemo =
+      (x: number, heightMode: (typeof HEIGHT_MODES)[number]) => (y: number) =>
+        demo({
+          text: PARAGRAPH,
+          x,
+          y,
+          width: 4.4,
+          height: 1.4,
+          size: 0.2,
+          anchorX: "left",
+          heightMode,
+        });
+    slide("Multi Text: Height Mode", [
+      title("Multi Text: Height Mode"),
+      stack.parts,
+      panel({
+        label: "unbounded",
+        labelX: columns[0],
+        labelWidth: 4.4,
+        top,
+        make: makeDemo(columns[0], "unbounded"),
+      }),
+      panel({
+        label: "scale",
+        labelX: columns[1],
+        labelWidth: 4.4,
+        top,
+        make: makeDemo(columns[1], "scale"),
+      }),
+      panel({
+        label: "shrink font",
+        labelX: columns[2],
+        labelWidth: 4.4,
+        top,
+        make: makeDemo(columns[2], "shrink font"),
+      }),
+      bottomNote(
+        "scale keeps the line breaks, so the block stays the same SHAPE and ends up far smaller than it needed to be, with slack left and right. " +
+          "shrink font is the only one that fills the frame: a smaller font fits more words per line, so the paragraph gets wider and shorter. " +
+          "Changing shape is the whole trick — and it is the expensive one, searching at about ten layouts per frame.",
+        { color: "#6f6f6f", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Alignment is not Anchor
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Alignment used to do two unrelated jobs. It now does exactly one: how ragged the lines are INSIDE the paragraph. " +
+        "WHERE the paragraph sits is Anchor X and Baseline. Watch the orange dots — each column shares a single x.",
+    );
+    const top = stack.y + 0.1;
+    slide("Multi Text: Alignment is not Anchor", [
+      title("Multi Text: Alignment is not Anchor"),
+      stack.parts,
+      makeNote({
+        text: "Anchor X moves the text. (Alignment: left in all three.)",
+        x: 0.5,
+        y: top,
+        width: 7,
+        size: 0.26,
+        color: "#c8c8c8",
+      }).showable,
+      ...(["left", "center", "right"] as const).map((anchorX, index) =>
+        withFrame(
+          demo({
+            text: `Anchor X: ${anchorX}`,
+            x: 4,
+            y: top + 0.75 + index * 0.85,
+            width: 3.4,
+            size: 0.28,
+            alignment: "left",
+            anchorX,
+          }),
+        ),
+      ),
+      makeNote({
+        text: "Alignment does not. (Anchor X: center in all three.)",
+        x: 8.5,
+        y: top,
+        width: 7,
+        size: 0.26,
+        color: "#c8c8c8",
+      }).showable,
+      // A forced line break keeps every one of these exactly two lines tall, so
+      // the only thing that varies is the raggedness.
+      ...(["left", "center", "right"] as const).map((alignment, index) =>
+        withFrame(
+          demo({
+            text: `Alignment: ${alignment}\nragged edge demo`,
+            x: 12,
+            y: top + 0.75 + index * 1.25,
+            width: 3.6,
+            size: 0.26,
+            alignment,
+            anchorX: "center",
+          }),
+        ),
+      ),
+      bottomNote(
+        "Splitting these is what finally lets you ask for left-ragged lines in a box centered on a point. You could always fake that by " +
+          "subtracting half the width from Position yourself, but it broke the moment the width animated. " +
+          "Old videos are unaffected: Anchor X defaults to center, which is what Alignment’s default used to do.",
+        { color: "#6f6f6f", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — May Grow
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "A constraint can mean two different things, and this scalar is where you say which. “shrink or grow” makes the frame a target: " +
+        "short text is scaled UP to fill it. “shrink only” makes it a limit: short text is left alone. Same word, same frame, both modes on scale.",
+    );
+    const top = stack.y + 0.2;
+    const makeHi =
+      (x: number, mayGrow: "shrink or grow" | "shrink only") => (y: number) =>
+        demo({
+          text: "Hi",
+          x,
+          y,
+          width: 5.5,
+          height: 1.8,
+          size: 0.35,
+          anchorX: "left",
+          widthMode: "scale",
+          heightMode: "scale",
+          mayGrow,
+        });
+    slide("Multi Text: May Grow", [
+      title("Multi Text: May Grow"),
+      stack.parts,
+      panel({
+        label: "shrink or grow (the default)",
+        labelX: 0.6,
+        labelWidth: 6.9,
+        top,
+        make: makeHi(0.6, "shrink or grow"),
+      }),
+      panel({
+        label: "shrink only",
+        labelX: 8.6,
+        labelWidth: 6.9,
+        top,
+        make: makeHi(8.6, "shrink only"),
+      }),
+      bottomNote(
+        "Both of these also set Height Mode, and that is not decoration. Scaling is uniform, so hitting a width target multiplies the HEIGHT by the same factor. " +
+          "A short word in a wide frame, with only the width constrained, grows absurdly tall — doing exactly what it was asked, right off the bottom of the slide.\n\n" +
+          "Wrapping overrules this scalar entirely: when Width Mode wraps, growing would push the text back past the width it was just wrapped to, so scaling may only shrink.",
+        { color: "#a88b4a", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Fit a Box
+  {
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Set BOTH modes to scale and you get the familiar “fit inside this rectangle, keep the aspect ratio” behavior — the same thing " +
+        "panAndZoom() does with “meet”. The smaller of the two factors wins, since it is the only one that satisfies both constraints at once.",
+    );
+    const top = stack.y + 0.15;
+    const BOX_HEIGHT = 2.4;
+    const FRACTION = { top: 0, middle: 0.5, bottom: 1 } as const;
+    slide("Multi Text: Fit a Box", [
+      title("Multi Text: Fit a Box"),
+      stack.parts,
+      ...(["top", "middle", "bottom"] as const).map((textBaseline, index) => {
+        const x = 0.7 + index * 5.2;
+        return panel({
+          label: `Baseline: ${textBaseline}`,
+          labelX: x,
+          labelWidth: 4.6,
+          top,
+          // Position moves with the anchor, which is what holds the FRAME
+          // still while the text slides around inside it.  Note that the
+          // orange dot moves too:  the dot is a property of the text, not of
+          // the frame.
+          make: (frameTop) =>
+            demo({
+              text: "Fit me",
+              x,
+              y: frameTop + FRACTION[textBaseline] * BOX_HEIGHT,
+              width: 4.6,
+              height: BOX_HEIGHT,
+              size: 0.5,
+              anchorX: "left",
+              textBaseline,
+              widthMode: "scale",
+              heightMode: "scale",
+            }),
+        });
+      }),
+      bottomNote(
+        "The text is wide and short compared to its frame, so the WIDTH binds and all the slack is vertical. Baseline decides where that slack goes — " +
+          "and notice the dot moves with it, because the dot belongs to the text, not to the frame. " +
+          "This is the mode galaga.ts hand-rolled: a letterbox strip is just a very tall, very narrow frame.",
+        { color: "#6f6f6f", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Auto Size
+  {
+    // Content that grows over time, so the auto sizer has a moving target.
+    const GROWING = [
+      "Auto",
+      "Auto sizing",
+      "Auto sizing that runs",
+      "Auto sizing that runs on every",
+      "Auto sizing that runs on every single frame",
+      "Auto sizing that runs on every single frame makes text breathe",
+    ];
+    const contentKeyframes: Keyframe<string>[] = GROWING.map((value, index) => ({
+      time: index * 1_500,
+      value,
+    }));
+    /**
+     * What the live version settles on once the text reaches its longest.
+     * Measured, not guessed:  run the component live at its worst case and
+     * read Frozen Size back out of the editor.
+     */
+    const FROZEN_SIZE = 0.6857;
+    function growingText(options: {
+      x: number;
+      y: number;
+      autoSize: "live" | "frozen";
+      frozenSize?: number;
+    }): MultiTextComponent {
+      const component = new MultiTextComponent({
+        position: { x: options.x, y: options.y },
+        width: 6.4,
+        height: 2.2,
+        heightMode: "scale",
+        anchorX: "left",
+        autoSize: options.autoSize,
+        frozenSize: options.frozenSize,
+      });
+      component.addFixed({
+        child: new TextFormatComponent({ name: "", color: "white", size: 0.5 }),
+      });
+      component.addFixed({
+        child: new TextSpanComponent({ content: contentKeyframes, style: "" }),
+      });
+      return component;
+    }
+    const stack = new Stack(1.05, { x: 0.5, width: 15 });
+    stack.note(
+      "Freezing is not only about speed. If the CONTENT animates, a live size animates with it, and the text visibly breathes as words appear. " +
+        "Both of these are Height Mode: scale, in the same frame, with the same growing text. Let it run.",
+    );
+    const top = stack.y + 0.2;
+    slide("Multi Text: Auto Size", [
+      title("Multi Text: Auto Size"),
+      stack.parts,
+      panel({
+        label: "Auto Size: live — resized on every frame",
+        labelX: 0.7,
+        labelWidth: 6.8,
+        top,
+        make: (y) => growingText({ x: 0.7, y, autoSize: "live" }),
+      }),
+      panel({
+        label: "Auto Size: frozen — one size, chosen once",
+        labelX: 8.5,
+        labelWidth: 6.8,
+        top,
+        make: (y) =>
+          growingText({ x: 8.5, y, autoSize: "frozen", frozenSize: FROZEN_SIZE }),
+      }),
+      bottomNote(
+        "The frozen one is sized for the LONGEST line, so it starts a little small and is exactly right at the end. That is the trade: " +
+          "a size that holds still, against a size that is always optimal.\n\n" +
+          "Frozen Size is an ordinary number in the editor. Set it to 0 to bake it again from whatever is on screen at that moment. " +
+          "That is what makes auto sizing a design-time tool — use it to find the size, then keep the number.",
+        { color: "#6f6f6f", size: 0.25 },
+      ),
+    ]);
+  }
+
+  // MARK: Multi Text — Please Check
+  //
+  // These are here to be looked at rather than to explain anything.  Keep them
+  // as a regression check, or delete the slide once it has served its purpose.
+  // Item 1 is the one that would catch a Multi Text change quietly altering
+  // every video that already exists.
+  {
+    const LEFT = 0.5;
+    const RIGHT = 8.4;
+    const COLUMN = 7.1;
+    const CHECK = { size: 0.25, color: "#c8c8c8", gap: 0.2 } as const;
+
+    // Each column flows its own notes, and reserves room for the demo that
+    // follows each one.  The reserved amounts are the only hand-measured
+    // numbers on the slide; everything else stacks itself.
+    const left = new Stack(1.0, { x: LEFT, width: COLUMN });
+    left.note(
+      "1. REGRESSION. Nothing set but Position and the words. Must look the way it always did: wrapped at Width 7.5, centered on the dot, nothing scaled.",
+      CHECK,
+    );
+    const regressionY = left.y;
+    left.skip(0.9);
+    left.note(
+      "2. STROKE WEIGHT. One word, scaled three ways. The pen scales with the letters, so the small one should look thin — not like a heavy font shrunk down.",
+      CHECK,
+    );
+    const weightY = left.y;
+    left.skip(1.35);
+    left.note(
+      "4. EMPTY TEXT. A Multi Text holding no words, set to scale both ways. Draws nothing, divides by nothing.",
+      CHECK,
+    );
+    const emptyY = left.y;
+
+    const right = new Stack(1.0, { x: RIGHT, width: COLUMN });
+    right.note(
+      "3. PER-SPAN SIZES. shrink font multiplies every format’s Font Size, so a big word stays bigger than a small one. All one size here would mean the multiplier is in the wrong place.",
+      CHECK,
+    );
+    const perSpanY = right.y;
+    right.skip(1.6);
+    right.note(
+      "5. JUSTIFY + UNBOUNDED does nothing whatsoever. Justify only stretches lines that were WRAPPED, and unbounded never wraps — a line you broke yourself with “\\n” is exempt by design. So this is identical to left, character for character. Worth disabling in the GUI rather than explaining.",
+      CHECK,
+    );
+    const justifyY = right.y;
+
+    const perSpan = new MultiTextComponent({
+      position: { x: RIGHT, y: perSpanY },
+      width: COLUMN,
+      height: 1.4,
+      anchorX: "left",
+      heightMode: "shrink font",
+    });
+    perSpan.addFixed({
+      child: new TextFormatComponent({ name: "big", color: "#ff9a3c", size: 0.7 }),
+    });
+    perSpan.addFixed({
+      child: new TextFormatComponent({ name: "small", color: "#7fd1ff", size: 0.25 }),
+    });
+    perSpan.addText1(
+      "⸨big⸩BIG ⸨small⸩and small, still in proportion after the whole paragraph was shrunk to fit its frame.",
+    );
+
+    slide("Multi Text: Please Check", [
+      title("Multi Text: Please Check"),
+      left.parts,
+      right.parts,
+      withFrame(demo({ text: SHORT, x: 4.1, y: regressionY, size: 0.3 })),
+      ...[2.0, 1.0, 0.45].map((width, index) =>
+        withFrame(
+          demo({
+            text: "Weight",
+            x: LEFT + index * 2.4,
+            y: weightY,
+            width,
+            size: 0.5,
+            anchorX: "left",
+            widthMode: "scale",
+          }),
+        ),
+      ),
+      withFrame(
+        demo({
+          text: "",
+          x: LEFT + 1,
+          y: emptyY + 0.1,
+          width: 3,
+          height: 0.55,
+          widthMode: "scale",
+          heightMode: "scale",
+        }),
+      ),
+      withFrame(perSpan),
+      withFrame(
+        demo({
+          text: "Justify with\nno width at all",
+          x: RIGHT,
+          y: justifyY,
+          size: 0.3,
+          anchorX: "left",
+          alignment: "justify",
+          widthMode: "unbounded",
+        }),
+      ),
+    ]);
+  }
 }
 
 export const showcase = new InParallelComponent("Showcase");
