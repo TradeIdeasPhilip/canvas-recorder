@@ -1220,8 +1220,18 @@ function dump(
 }
 const select = getById("chapterSelector", HTMLSelectElement);
 
-function initChapters(): void {
-  const savedDescription = chapterList[select.selectedIndex]?.description;
+/**
+ * Rebuild {@link chapterList} and the chapter `<select>` from the current tree, keeping the
+ * same chapter selected if it still exists.
+ *
+ * The previous selection is found by its Showable first and its description second.  A
+ * description alone isn't stable: when `dump()` collapses a single-child chain, a newly added
+ * child can turn "Galaga" into "Galaga ⏵ Timeline".
+ *
+ * @returns true if the selected chapter is still the same Showable as before.
+ */
+function initChapters(): boolean {
+  const previous = chapterList[select.selectedIndex];
   chapterList.length = 0;
   dump(toShow);
   select.replaceChildren();
@@ -1231,11 +1241,19 @@ function initChapters(): void {
     option.value = value.description;
     select.append(option);
   });
-  const restoredIndex =
-    savedDescription !== undefined
-      ? chapterList.findIndex((d) => d.description === savedDescription)
-      : -1;
+  let restoredIndex = previous
+    ? chapterList.findIndex((d) => d.selectable === previous.selectable)
+    : -1;
+  if (restoredIndex < 0 && previous) {
+    restoredIndex = chapterList.findIndex(
+      (d) => d.description === previous.description,
+    );
+  }
   select.selectedIndex = restoredIndex >= 0 ? restoredIndex : 0;
+  return (
+    previous !== undefined &&
+    chapterList[select.selectedIndex].selectable === previous.selectable
+  );
 }
 
 initChapters();
@@ -1539,6 +1557,7 @@ const veRootParent: ShowableParent = {
       timelineDisplay.setChapterDuration(_veRootSelectable.duration);
       timelineDisplay.setBlocks(_buildTimelineBlocks(_veRootSelectable));
     }
+    scheduleChapterRefresh();
   },
 };
 
@@ -1562,6 +1581,7 @@ const toShowParent: ShowableParent = {
       timelineDisplay.setChapterDuration(_veRootSelectable.duration);
       timelineDisplay.setBlocks(_buildTimelineBlocks(_veRootSelectable));
     }
+    scheduleChapterRefresh();
   },
 };
 toShow.parent = toShowParent;
@@ -1595,9 +1615,13 @@ const componentTransforms = new WeakMap<Showable, DOMMatrix>();
  * Change the GUI to match the current section.
  * Read the current section out of the <select> (drop down) element.
  */
-function updateFromSelect() {
-  stopAudio();
-  const info = chapterList[select.selectedIndex];
+/**
+ * Point the table, the Previous/Next buttons and the playback bounds at `info`.
+ *
+ * This is the light half of {@link updateFromSelect}: it leaves the audio, the selected
+ * component and both editors alone, so it is safe to run while the user is editing.
+ */
+function applyChapterBounds(info: ShowableTree): void {
   previousButton.disabled = info.absolutePosition == 0;
   nextButton.disabled = info.absolutePosition == chapterList.length - 1;
   updateRow(parentCells, info.parent);
@@ -1623,6 +1647,13 @@ function updateFromSelect() {
   }
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
+}
+
+/** Switch to the chapter selected in the `<select>`. */
+function updateFromSelect() {
+  stopAudio();
+  const info = chapterList[select.selectedIndex];
+  applyChapterBounds(info);
   // playPositionRange automatically clamps to [min, max].  Make the number match.
   const rawPositionMs = playPositionRange.valueAsNumber;
   const safePositionMs = Math.max(rawPositionMs, sectionStartTime);
@@ -1641,6 +1672,38 @@ function updateFromSelect() {
   _updateTimeline(info.selectable);
 }
 select.addEventListener("input", updateFromSelect);
+
+/**
+ * Bring the chapter list and the playback bounds up to date after durations change.
+ *
+ * The chapter list stores each chapter's start and end, so it goes stale whenever a duration
+ * changes: typing one, dragging on the timeline, adding or removing a child, or restoring
+ * saved state.  When the selected chapter survives, only the bounds are refreshed, leaving
+ * playback and the editors alone.  When it's gone, this switches chapters properly.
+ */
+function refreshChapters(): void {
+  if (initChapters()) {
+    applyChapterBounds(chapterList[select.selectedIndex]);
+    // The range clamped itself to the new bounds; show the real position again.  The
+    // number input stays the source of truth, so a playhead past a shortened end is left
+    // for playback to wrap rather than moved here.
+    loadPlayPositionRange();
+  } else {
+    updateFromSelect();
+  }
+}
+
+let _chapterRefreshPending = false;
+
+/** Run {@link refreshChapters} at most once per animation frame; a drag fires many changes. */
+function scheduleChapterRefresh(): void {
+  if (_chapterRefreshPending) return;
+  _chapterRefreshPending = true;
+  requestAnimationFrame(() => {
+    _chapterRefreshPending = false;
+    refreshChapters();
+  });
+}
 updateFromSelect();
 
 timelineDisplay.onSeek = (localMs) => {

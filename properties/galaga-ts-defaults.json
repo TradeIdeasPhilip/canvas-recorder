@@ -52,9 +52,19 @@
                 "value": "center"
               },
               {
+                "description": "Anchor X",
+                "type": "select",
+                "value": "center"
+              },
+              {
                 "description": "Width",
                 "type": "number",
                 "value": 7.5
+              },
+              {
+                "description": "Height",
+                "type": "number",
+                "value": 4
               },
               {
                 "description": "Additional Line Height",
@@ -65,6 +75,31 @@
             "scalars": [
               {
                 "description": "Min Duration",
+                "type": "number",
+                "value": 0
+              },
+              {
+                "description": "Width Mode",
+                "type": "select",
+                "value": "wrap"
+              },
+              {
+                "description": "Height Mode",
+                "type": "select",
+                "value": "unbounded"
+              },
+              {
+                "description": "May Grow",
+                "type": "select",
+                "value": "shrink or grow"
+              },
+              {
+                "description": "Auto Size",
+                "type": "select",
+                "value": "live"
+              },
+              {
+                "description": "Frozen Size",
                 "type": "number",
                 "value": 0
               }
@@ -139,9 +174,19 @@
                 "value": "center"
               },
               {
+                "description": "Anchor X",
+                "type": "select",
+                "value": "center"
+              },
+              {
                 "description": "Width",
                 "type": "number",
                 "value": 7.5
+              },
+              {
+                "description": "Height",
+                "type": "number",
+                "value": 4
               },
               {
                 "description": "Additional Line Height",
@@ -152,6 +197,31 @@
             "scalars": [
               {
                 "description": "Min Duration",
+                "type": "number",
+                "value": 0
+              },
+              {
+                "description": "Width Mode",
+                "type": "select",
+                "value": "wrap"
+              },
+              {
+                "description": "Height Mode",
+                "type": "select",
+                "value": "unbounded"
+              },
+              {
+                "description": "May Grow",
+                "type": "select",
+                "value": "shrink or grow"
+              },
+              {
+                "description": "Auto Size",
+                "type": "select",
+                "value": "live"
+              },
+              {
+                "description": "Frozen Size",
                 "type": "number",
                 "value": 0
               }

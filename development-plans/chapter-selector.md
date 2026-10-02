@@ -1,6 +1,6 @@
 # Chapter Selector
 
-The current `<select id="chapter">` needs a complete overhaul.
+The current `<select id="chapter">` needs a **complete** overhaul.
 Almost nothing about the existing version is worth saving.
 The original design was based on guesses from before most of this project existed.
 
@@ -11,7 +11,7 @@ The original design was based on guesses from before most of this project existe
 This selects the root element in the Visual Editor.
 
 This is a place where the current implementation is flawed.
-Currently I cannot select "removable" component.
+Currently I cannot select a "removable" component.
 Which means I cannot apply an "undo" or "load" to a removable component, only to fixed components.
 I should be able to select a removable component as the root component.
 
@@ -86,3 +86,20 @@ I almost never select anything else in the chapter selector.
 Originally there was some trash in the chapter selectors, so I wrote some rules trying to filter it out.
 So much has changed and I don't remember the original complaints very well.
 Initially lets do no filtering, and we can add things back if and when I see a problem.
+
+## Limits Must Follow Duration Changes
+
+Durations now change all the time: typed into the Visual Editor, dragged on the timeline, or
+changed by adding and removing children.
+Saved state is also restored *after* the page first builds its lists, so even a fresh load
+changes durations.
+
+- Limits taken from a Showable should follow that Showable as its duration changes.
+- Limits the user typed in should stay put.
+- Updating the limits must not disturb editing: no stopping playback, no losing the selected
+  component, no rebuilding the editors.
+
+The old selector got this wrong at first: it computed every chapter's start and end once, at
+load, so `galaga` showed a 0 ms chapter after its saved clip was restored.
+The interim fix is `refreshChapters()` in `dev/canvas-recorder.ts`, called from both root
+listeners' `scheduleHasChanged()`.
