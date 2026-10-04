@@ -2,10 +2,11 @@ import { ALL_FORMATS, CanvasSink, Input, UrlSource, WrappedCanvas } from "mediab
 import { ComponentWithLiveDuration } from "./live-duration";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { RectangleScheduleInfo } from "../schedule-helper";
-import { Scalar, ShowOptions } from "../showable";
+import { Scalar, ShowOptions, SoundClip } from "../showable";
 import { SlowImage } from "../slow-image-sources";
 import { Keyframe } from "../interpolate";
 import { debugLog } from "../debug-log";
+import { readVideoInfo, VideoInfo } from "./video-info";
 
 // MARK: Streaming Frame Sources
 
@@ -332,6 +333,12 @@ type OpenVideo = {
   readonly frameSource: FrameSource;
   readonly naturalWidth: number;
   readonly naturalHeight: number;
+  /**
+   * The statistics the Visual Editor shows.  A separate promise, deliberately
+   * not awaited by {@link openVideo}:  sampling the frame rate reads packets,
+   * and that should never delay the first frame appearing on screen.
+   */
+  readonly info: Promise<VideoInfo>;
 };
 
 async function openVideo(url: string): Promise<OpenVideo> {
@@ -347,7 +354,10 @@ async function openVideo(url: string): Promise<OpenVideo> {
   // silently overwrite a frame we're still displaying.  Revisit only if
   // per-frame allocation turns out to matter in practice.
   const frameSource = new FrameSource(new CanvasSink(track), url);
-  return { frameSource, naturalWidth, naturalHeight };
+  const info = readVideoInfo(input, track);
+  // Nobody may ever ask for the info; don't let that become an unhandled rejection.
+  info.catch(() => {});
+  return { frameSource, naturalWidth, naturalHeight, info };
 }
 
 export class VideoClipComponent extends ComponentWithLiveDuration {
@@ -380,6 +390,13 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
     width: 16,
     height: 9,
   });
+  /**
+   * Usually this file's own audio, added by the Visual Editor's Import audio
+   * button.  It lives here rather than on the scene so it stays lined up with
+   * the picture when the clip moves on the timeline:  each sound clip's start
+   * is measured from the start of *this* component.
+   */
+  soundClips?: SoundClip[];
 
   #url = "";
   #videoPromise: Promise<OpenVideo> | undefined;
@@ -412,6 +429,20 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
       this.#videoPromise?.then((v) => (this.#video = v)).catch(() => {});
     }
     return this.#videoPromise;
+  }
+
+  /**
+   * Cheap facts about the file at the current URL, for the Visual Editor.
+   *
+   * This shares the one open this component already uses to draw frames, so
+   * asking costs nothing extra, and it (re)opens the file if the URL changed —
+   * even when this clip isn't on screen at the current playhead.
+   *
+   * `undefined` when there is no URL.  Rejects when the file can't be opened,
+   * which is routine while someone is still typing the name.
+   */
+  videoInfo(): Promise<VideoInfo> | undefined {
+    return this.#getVideoPromise()?.then((video) => video.info);
   }
 
   constructor(

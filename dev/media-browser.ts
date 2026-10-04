@@ -13,20 +13,14 @@
 
 import { ALL_FORMATS, Input, UrlSource } from "mediabunny";
 import { getById } from "phil-lib/client-misc";
-
-// MARK: Constants
-
-/** The canvas is always 16×9 units -- see CLAUDE.md's "Coordinate System". */
-const CANVAS_WIDTH_UNITS = 16;
-const CANVAS_HEIGHT_UNITS = 9;
-
-/**
- * Recordings render at 3840×2160 (see dev/canvas-recorder.ts), so
- * 3840 / 16 = 2160 / 9 = 240 pixels per canvas unit.  "Preserve Pixels"
- * uses this to size a destination rect that shows the media at its native
- * resolution with no scaling in the final output.
- */
-const PIXELS_PER_UNIT = 240;
+import {
+  CANVAS_HEIGHT_UNITS,
+  CANVAS_WIDTH_UNITS,
+  maxFit,
+  minCover,
+  preservePixels,
+  readVideoInfo,
+} from "../src/slide-components/video-info.ts";
 
 // MARK: Data model
 
@@ -76,29 +70,6 @@ const fitPreservePixelsButton = getById("fitPreservePixels", HTMLButtonElement);
 
 // MARK: Fit math
 
-/** "max fit" / "maxpect" / "meet" / "contain": the whole media fits inside 16×9. */
-function computeMaxFit(mediaWidth: number, mediaHeight: number) {
-  const mediaAspect = mediaWidth / mediaHeight;
-  const canvasAspect = CANVAS_WIDTH_UNITS / CANVAS_HEIGHT_UNITS;
-  return mediaAspect > canvasAspect
-    ? { width: CANVAS_WIDTH_UNITS, height: CANVAS_WIDTH_UNITS / mediaAspect }
-    : { width: CANVAS_HEIGHT_UNITS * mediaAspect, height: CANVAS_HEIGHT_UNITS };
-}
-
-/** "min to cover" / "slice" / "fill": 16×9 is fully covered, media may overflow it. */
-function computeMinToCover(mediaWidth: number, mediaHeight: number) {
-  const mediaAspect = mediaWidth / mediaHeight;
-  const canvasAspect = CANVAS_WIDTH_UNITS / CANVAS_HEIGHT_UNITS;
-  return mediaAspect > canvasAspect
-    ? { width: CANVAS_HEIGHT_UNITS * mediaAspect, height: CANVAS_HEIGHT_UNITS }
-    : { width: CANVAS_WIDTH_UNITS, height: CANVAS_WIDTH_UNITS / mediaAspect };
-}
-
-/** "preserve pixels": native resolution, no resampling, once rendered at 240px/unit. */
-function computePreservePixels(mediaWidth: number, mediaHeight: number) {
-  return { width: mediaWidth / PIXELS_PER_UNIT, height: mediaHeight / PIXELS_PER_UNIT };
-}
-
 // MARK: Loading the URL list
 
 loadButton.addEventListener("click", () => {
@@ -144,28 +115,15 @@ loadButton.addEventListener("click", () => {
 async function probe(entry: MediaEntry): Promise<void> {
   const input = new Input({ source: new UrlSource(entry.url), formats: ALL_FORMATS });
   try {
-    const track = await input.getPrimaryVideoTrack();
-    if (!track) {
-      throw new Error("No video track found.");
-    }
-    entry.naturalWidth = await track.getDisplayWidth();
-    entry.naturalHeight = await track.getDisplayHeight();
-    // Metadata-based duration first (cheap); fall back to a full scan only
-    // if the file doesn't declare one.
-    const metaDuration = await track.getDurationFromMetadata();
-    entry.durationMs = (metaDuration ?? (await track.computeDuration())) * 1_000;
-
-    // Default sample size (not a full scan) -- this tool is meant to be
-    // quick to browse many URLs, not to be exact.
-    const metrics = await track.computeFrameRateMetrics();
-    entry.fpsLabel =
-      metrics.minFrameRate === metrics.maxFrameRate
-        ? formatNumber(metrics.minFrameRate)
-        : `${formatNumber(metrics.minFrameRate)}–${formatNumber(metrics.maxFrameRate)}`;
+    const info = await readVideoInfo(input);
+    entry.naturalWidth = info.video.width;
+    entry.naturalHeight = info.video.height;
+    entry.durationMs = info.durationMs;
+    entry.fpsLabel = info.video.fpsLabel;
 
     entry.startMs = 0;
     entry.endMs = entry.durationMs;
-    const fit = computeMaxFit(entry.naturalWidth, entry.naturalHeight);
+    const fit = maxFit(entry.naturalWidth, entry.naturalHeight);
     entry.destWidthUnits = fit.width;
     entry.destHeightUnits = fit.height;
 
@@ -178,10 +136,6 @@ async function probe(entry: MediaEntry): Promise<void> {
   }
   renderRows();
   if (selectedUrl === entry.url) renderEditor();
-}
-
-function formatNumber(n: number): string {
-  return Number.isInteger(n) ? n.toFixed(0) : n.toFixed(2);
 }
 
 function formatDuration(ms: number): string {
@@ -391,6 +345,6 @@ function applyFit(compute: (w: number, h: number) => { width: number; height: nu
   destHeightInput.valueAsNumber = height;
   sizePreview(entry);
 }
-fitMaxFitButton.addEventListener("click", () => applyFit(computeMaxFit));
-fitMinCoverButton.addEventListener("click", () => applyFit(computeMinToCover));
-fitPreservePixelsButton.addEventListener("click", () => applyFit(computePreservePixels));
+fitMaxFitButton.addEventListener("click", () => applyFit(maxFit));
+fitMinCoverButton.addEventListener("click", () => applyFit(minCover));
+fitPreservePixelsButton.addEventListener("click", () => applyFit(preservePixels));

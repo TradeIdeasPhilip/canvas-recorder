@@ -1,5 +1,9 @@
 # Import Audio from Video
 
+**Built 10/2/2026**, as part of [video-clip-panel.md](video-clip-panel.md), with two deliberate changes described there:
+the sound clip is attached to the Video Clip itself rather than the scene, so it stays in sync when the timeline changes,
+and a *positive* audio offset (which a QuickTime-edited recording turned out to have) delays the clip instead of being dropped.
+
 ## Background
 
 When a `VideoClipComponent` plays a video, its audio track is currently ignored.

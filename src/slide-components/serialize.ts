@@ -4,6 +4,7 @@ import {
   SerializedScalar,
   SerializedSchedule,
   Showable,
+  SoundClip,
 } from "../showable";
 import { ComponentRegistryEntry, componentRegistry } from "./registry";
 
@@ -14,6 +15,12 @@ export type SerializedChild = {
   components?: SerializedChild[];
   userEditableDescription?: string;
   duration?: number;
+  /**
+   * Same meaning as on the fixed-child format in snapshot.ts.  A component the
+   * Visual Editor added can own sound clips too — e.g. a Video Clip's imported
+   * audio, which lives on the clip so it moves with the clip.
+   */
+  soundClips?: SoundClip[];
 };
 
 /**
@@ -37,6 +44,8 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
       applyScalarSnapshot(child.scalars, sc.scalars);
     }
     if (sc.duration !== undefined) child.setDuration?.(sc.duration);
+    if (sc.soundClips !== undefined)
+      child.soundClips = sc.soundClips.map((c) => ({ ...c }));
     if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
     if (child.replaceableComponents !== undefined && sc.components?.length) {
       child.replaceableComponents.push(...buildComponents(sc.components));

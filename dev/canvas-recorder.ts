@@ -72,6 +72,7 @@ import {
   openFontPickerDialog,
 } from "./font-widgets.ts";
 import { buildSlideComponentPanel } from "./slide-panel.ts";
+import { buildVideoClipPanel } from "./video-clip-panel.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
@@ -86,6 +87,7 @@ import {
   buildComponents,
 } from "../src/slide-components/serialize.ts";
 import { SlideComponent } from "../src/slide-components/slide-component.ts";
+import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
@@ -1435,6 +1437,14 @@ const viewingRectKfs = new Set<RectKf>();
 /** Maps each rect keyframe to a callback that syncs the editor number inputs when a drag changes the value. */
 const markerSyncCallbacks = new Map<RectKf, (rect: ReadOnlyRect) => void>();
 
+/**
+ * When set, Shift-dragging a rect keyframe for which this returns a number
+ * locks to that aspect ratio instead of the rectangle's own starting shape.
+ * The Video File panel uses this so a Video Clip's Dest Rect snaps to the
+ * shape of the video.  Cleared whenever {@link updateScheduleEditor} rebuilds.
+ */
+let rectAspectLock: ((kf: RectKf) => number | undefined) | null = null;
+
 let draggingMarker: {
   kf: RectKf;
   handle: RectHandle;
@@ -1533,6 +1543,13 @@ const goToButtonUpdaters: Array<() => void> = [];
  */
 const durationSyncCallbacks: Array<() => void> = [];
 const soundClipSyncCallbacks: Array<() => void> = [];
+/**
+ * Callbacks that refresh custom panels in the schedule editor (bottom right)
+ * when a duration changes anywhere — e.g. the Video File panel's speed
+ * readout, after the Duration field in the component tree is edited.
+ * Cleared whenever {@link updateScheduleEditor} rebuilds.
+ */
+const scheduleEditorRefreshers: Array<() => void> = [];
 
 /** The selectable whose `.parent` is currently set to {@link veRootParent}. */
 let _veRootSelectable: Showable | undefined;
@@ -1549,6 +1566,7 @@ let _durationAudioTimer: ReturnType<typeof setTimeout> | undefined;
 const veRootParent: ShowableParent = {
   scheduleHasChanged() {
     for (const cb of durationSyncCallbacks) cb();
+    for (const cb of scheduleEditorRefreshers) cb();
     markDirty();
     clearTimeout(_durationAudioTimer);
     _durationAudioTimer = setTimeout(() => void initAudio(), 300);
@@ -1574,6 +1592,7 @@ const veRootParent: ShowableParent = {
 const toShowParent: ShowableParent = {
   scheduleHasChanged() {
     for (const cb of durationSyncCallbacks) cb();
+    for (const cb of scheduleEditorRefreshers) cb();
     markDirty();
     clearTimeout(_durationAudioTimer);
     _durationAudioTimer = setTimeout(() => void initAudio(), 300);
@@ -4634,6 +4653,8 @@ function updateScheduleEditor(selectable: Showable) {
   draggingArrowMouseLocal = null;
   draggingArrowConstraint = "none";
   goToButtonUpdaters.length = 0;
+  scheduleEditorRefreshers.length = 0;
+  rectAspectLock = null;
   // History is always saved/loaded at the slide level, even when the schedule
   // editor is open on an individual child component.
   const saveTarget = currentSaveTarget();
@@ -4643,6 +4664,8 @@ function updateScheduleEditor(selectable: Showable) {
   const isTraditionalText = selectable instanceof TraditionalTextComponent;
   const slideComponent =
     selectable instanceof SlideComponent ? selectable : null;
+  const videoClip =
+    selectable instanceof VideoClipComponent ? selectable : null;
 
   if (
     !scalars?.length &&
@@ -4665,6 +4688,42 @@ function updateScheduleEditor(selectable: Showable) {
     scheduleEditorFieldset.append(customPanel);
   }
 
+  const videoPanel = videoClip
+    ? buildVideoClipPanel(videoClip, {
+        scalarsChanged() {
+          activeRootComponentEditor?.update(
+            videoClip,
+            videoClip.startMsIntoClipScalar,
+          );
+          activeRootComponentEditor?.update(
+            videoClip,
+            videoClip.endMsIntoClipScalar,
+          );
+          markDirty();
+          // Rebuild so the Start / End fields show their new values.
+          updateScheduleEditor(videoClip);
+        },
+        rectKeyframeChanged(kf) {
+          // The same sync a drag on the canvas uses, so ✎ edit mode survives.
+          markerSyncCallbacks.get(kf)?.(kf.value);
+          activeRootComponentEditor?.update(
+            videoClip,
+            videoClip.destinationRectSchedule,
+          );
+          markDirty();
+        },
+        editingRectKeyframe: () => editingRectKf,
+      })
+    : null;
+  if (videoClip && videoPanel) {
+    scheduleEditorFieldset.append(videoPanel.element);
+    scheduleEditorRefreshers.push(videoPanel.refreshDerived);
+    rectAspectLock = (kf) =>
+      videoClip.destinationRectSchedule.schedule.includes(kf)
+        ? videoPanel.aspect()
+        : undefined;
+  }
+
   for (const info of scalars ?? []) {
     const section = buildScalarSection(info, selectable, (s, i) =>
       activeRootComponentEditor?.update(s, i),
@@ -4681,10 +4740,25 @@ function updateScheduleEditor(selectable: Showable) {
         customPanel = newPanel;
       });
     }
+    if (videoClip && videoPanel) {
+      if (info === videoClip.urlScalar) {
+        // The file may have changed:  re-read it.  This shares the open the
+        // canvas is already doing for the live preview, so it costs nothing.
+        section.addEventListener("input", videoPanel.refresh);
+      } else if (
+        info === videoClip.startMsIntoClipScalar ||
+        info === videoClip.endMsIntoClipScalar
+      ) {
+        section.addEventListener("input", videoPanel.refreshDerived);
+      }
+    }
     scheduleEditorFieldset.append(section);
   }
   for (const info of schedules ?? []) {
     const section = buildScheduleSection(info, selectable);
+    if (videoPanel && info === videoClip?.destinationRectSchedule) {
+      section.addEventListener("input", videoPanel.refreshDerived);
+    }
     // Rebuild the Font Info panel when the font family or weight changes.
     if (
       isTraditionalText &&
@@ -5370,15 +5444,22 @@ function applyRectDrag(
   localX: number,
   localY: number,
   shiftKey: boolean,
+  lockAspect?: number,
 ): ReadOnlyRect {
   const dx = localX - startLocalX;
   const dy = localY - startLocalY;
   let newRect: ReadOnlyRect;
 
-  if (shiftKey && handle !== "center" && startRect.height !== 0) {
+  if (
+    shiftKey &&
+    handle !== "center" &&
+    (lockAspect !== undefined || startRect.height !== 0)
+  ) {
     // Aspect-ratio lock: keep the opposite (anchor) corner fixed and constrain
-    // the drag vector so width/height = startRect.width/startRect.height.
-    const ar = startRect.width / startRect.height;
+    // the drag vector so width/height = ar.  That is the rectangle's own
+    // starting shape, unless the caller knows better -- e.g. a Video Clip's
+    // Dest Rect locks to the shape of the video.
+    const ar = lockAspect ?? startRect.width / startRect.height;
     // tl/br: vx and vy have the same sign relative to anchor.
     // tr/bl: they have opposite signs (one goes up while the other goes right).
     const sameSign = handle === "tl" || handle === "br";
@@ -5474,8 +5555,11 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
     localX,
     localY,
     shiftKey,
+    rectAspectLock?.(kf),
   );
   markerSyncCallbacks.get(kf)?.(kf.value);
+  // The fields were set directly, which fires no input event.
+  for (const cb of scheduleEditorRefreshers) cb();
 }
 
 // MARK: Load previous state.

@@ -112,6 +112,8 @@ export function serializeComponents(components: Showable[]): SerializedChild[] {
     if (child.userEditableDescription !== undefined)
       entry.userEditableDescription = child.userEditableDescription;
     if (child.setDuration !== undefined) entry.duration = child.duration;
+    if (child.soundClips !== undefined)
+      entry.soundClips = child.soundClips.map((c) => ({ ...c }));
     return [entry];
   });
 }
