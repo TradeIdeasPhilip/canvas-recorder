@@ -22,7 +22,7 @@
     "vite": "^7.3.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=26"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.100",

@@ -128,6 +128,22 @@ class AsyncFrameSource {
 }
 
 /**
+ * How far `frame` is from `seconds`, in milliseconds.  0 when `seconds` falls
+ * inside the frame; positive when the frame is ahead of the request, negative
+ * when it's behind, measured to the frame's nearest edge.
+ */
+function frameError(frame: WrappedCanvas, seconds: number): number {
+  if (seconds < frame.timestamp) {
+    return Math.round((frame.timestamp - seconds) * 1_000);
+  }
+  const end = frame.timestamp + frame.duration;
+  if (seconds >= end) {
+    return -Math.round((seconds - end) * 1_000);
+  }
+  return 0;
+}
+
+/**
  * Request frames immediately, doing the best it can.
  */
 class RafFrameSource {
@@ -150,13 +166,31 @@ class RafFrameSource {
     private readonly label: string,
   ) {}
 
+  /** Frames from the current stream, oldest first. */
   #localCache: WrappedCanvas[] = [];
+  /**
+   * Frames from the stream before the last reseek, still shown until the new
+   * stream produces its first frame.  Empty except during that gap.
+   *
+   * A reseek used to empty the cache on the spot, leaving nothing at all to
+   * draw until the decoder caught up — that was the red X.  An old frame with
+   * the "close enough" mark is better than nothing, which is the point of
+   * this class.
+   */
+  #staleFrames: WrappedCanvas[] = [];
   #iter: AsyncGenerator<WrappedCanvas, void, unknown> | undefined;
+  /** A fetch for the *current* stream is in flight.  One for an abandoned stream doesn't count. */
   #fetchInProgress = false;
   #atEnd = false;
   #canceled = false;
-  /** Bumped every time get() decides to throw away #localCache and reseek. Purely for correlating debugLog() lines. */
+  /**
+   * Which stream is current.  Bumped by every reseek.  A fetch started on an
+   * older stream can still finish afterwards; this is how it knows to throw
+   * its frame away instead of mixing it into the new stream's cache.
+   */
   #generation = 0;
+  /** performance.now() when the current stream was opened.  For the debug log. */
+  #streamOpenedAt = 0;
 
   get(timeInMs: number): { frame: Frame; error: number } | undefined {
     // AsyncFrameSource only returned a canvas.
@@ -176,25 +210,20 @@ class RafFrameSource {
 
     const seconds = timeInMs / 1_000;
 
-    // The request jumped (scrub, chapter change, ...) far enough that
-    // catching up frame by frame isn't worth it.  Reseek instead.
+    // The request jumped (scrub, chapter change, falling behind, ...) far
+    // enough that catching up frame by frame isn't worth it.  Reseek instead.
+    //
+    // While a reseek is still waiting for its first frame, #localCache is
+    // empty, so this can't fire again:  at most one reseek is in flight at a
+    // time.  If the request moves on in the meantime, it gets a reseek of its
+    // own as soon as that first frame lands.
     const newest = this.#localCache.at(-1)?.timestamp;
     const tooFarAhead =
       newest !== undefined && seconds - newest > RafFrameSource.MAX_SKIP_SECONDS;
     const tooFarBehind =
       this.#localCache[0] !== undefined && seconds < this.#localCache[0].timestamp;
     if (tooFarAhead || tooFarBehind) {
-      this.#generation++;
-      debugLog(
-        "RafFrameSource",
-        `${this.label}: reseek #${this.#generation} (${tooFarAhead ? "too far ahead" : "too far behind"}) -- ` +
-          `requested=${seconds.toFixed(3)}s, cache was [${this.#localCache[0]?.timestamp.toFixed(3)}..${newest?.toFixed(3)}] ` +
-          `(${this.#localCache.length} frame(s)); clearing cache now, next get() will MISS until a new frame arrives`,
-      );
-      void this.#iter?.return().catch(() => {});
-      this.#iter = undefined;
-      this.#localCache.length = 0;
-      this.#atEnd = false;
+      this.#reseek(seconds, tooFarAhead ? "too far ahead" : "too far behind");
     }
 
     // Consume (discard) everything strictly before the requested time,
@@ -212,25 +241,57 @@ class RafFrameSource {
     this.#maybeRequestMore(seconds);
 
     const first = this.#localCache[0];
-    if (!first) {
-      debugLog(
-        "RafFrameSource",
-        `${this.label}: get(${seconds.toFixed(3)}s) MISS -- cache empty (gen #${this.#generation}), returning undefined`,
-      );
-      return undefined;
+    if (first) {
+      return { frame: first.canvas, error: frameError(first, seconds) };
     }
 
-    let error: number;
-    if (seconds < first.timestamp) {
-      // The frame is ahead of the request.
-      error = Math.round((first.timestamp - seconds) * 1_000);
-    } else if (seconds >= first.timestamp + first.duration) {
-      // The frame is behind the request.
-      error = -Math.round((seconds - (first.timestamp + first.duration)) * 1_000);
-    } else {
-      error = 0;
+    // Between a reseek and its first frame:  the closest of the old frames.
+    // Its error is usually large, so show() will mark it.
+    let closest: WrappedCanvas | undefined;
+    for (const frame of this.#staleFrames) {
+      if (
+        !closest ||
+        Math.abs(frameError(frame, seconds)) <
+          Math.abs(frameError(closest, seconds))
+      ) {
+        closest = frame;
+      }
     }
-    return { frame: first.canvas, error };
+    if (closest) {
+      return { frame: closest.canvas, error: frameError(closest, seconds) };
+    }
+
+    // Genuinely nothing:  the very first request, before any frame has ever arrived.
+    debugLog(
+      "RafFrameSource",
+      `${this.label}: get(${seconds.toFixed(3)}s) MISS -- nothing decoded yet (stream #${this.#generation}), returning undefined`,
+    );
+    return undefined;
+  }
+
+  /**
+   * Abandon the current stream and start a new one at `seconds`.
+   *
+   * The frames we already have stay on screen (see {@link #staleFrames}) until
+   * the new stream's first frame replaces them.
+   */
+  #reseek(seconds: number, reason: string): void {
+    this.#generation++;
+    debugLog(
+      "RafFrameSource",
+      `${this.label}: reseek to stream #${this.#generation} (${reason}) -- ` +
+        `requested=${seconds.toFixed(3)}s, had [${this.#localCache[0]?.timestamp.toFixed(3)}..${this.#localCache.at(-1)?.timestamp.toFixed(3)}]; ` +
+        `keeping those ${this.#localCache.length} frame(s) on screen until the new stream's first frame`,
+    );
+    void this.#iter?.return().catch(() => {});
+    this.#iter = undefined;
+    // #localCache is never empty here (that's what triggered the reseek), and
+    // an earlier reseek's stale frames were dropped when its first frame came.
+    this.#staleFrames = this.#localCache;
+    this.#localCache = [];
+    this.#atEnd = false;
+    // Any fetch in flight belongs to the old stream now.  Don't wait for it.
+    this.#fetchInProgress = false;
   }
 
   #maybeRequestMore(seconds: number): void {
@@ -239,33 +300,43 @@ class RafFrameSource {
 
     if (!this.#iter) {
       this.#iter = this.sink.canvases(seconds);
+      this.#streamOpenedAt = performance.now();
     }
     this.#fetchInProgress = true;
-    const wasEmpty = this.#localCache.length === 0;
-    const requestedAt = performance.now();
+    const generation = this.#generation;
     this.#iter.next().then(
       (result) => {
+        // Started before a reseek.  The frame belongs to a stream nobody wants
+        // any more, and the flags belong to the new stream.  Touch nothing.
+        if (generation !== this.#generation) return;
         this.#fetchInProgress = false;
         if (this.#canceled) return;
         if (result.done) {
           this.#atEnd = true;
-          debugLog("RafFrameSource", `${this.label}: stream ended (gen #${this.#generation})`);
+          debugLog("RafFrameSource", `${this.label}: stream #${generation} ended`);
           return;
         }
         this.#localCache.push(result.value);
-        if (wasEmpty) {
+        if (this.#localCache.length === 1) {
+          // The first frame of this stream.  (Consuming always leaves one
+          // frame behind, so the cache can only be this short once per stream.)
+          const elapsed = (performance.now() - this.#streamOpenedAt).toFixed(1);
           debugLog(
             "RafFrameSource",
-            `${this.label}: first frame after gap (gen #${this.#generation}) -- ` +
-              `timestamp=${result.value.timestamp.toFixed(3)}s, took ${(performance.now() - requestedAt).toFixed(1)}ms to decode`,
+            `${this.label}: first frame of stream #${generation} -- timestamp=${result.value.timestamp.toFixed(3)}s, ` +
+              (this.#staleFrames.length > 0
+                ? `replacing ${this.#staleFrames.length} stale frame(s) that filled the gap for ${elapsed}ms`
+                : `took ${elapsed}ms to decode`),
           );
+          this.#staleFrames = [];
         }
       },
       (error) => {
+        if (generation !== this.#generation) return;
         // A failed decode just means we stay at whatever we already have;
         // the next get() will try again.
         this.#fetchInProgress = false;
-        debugLog("RafFrameSource", `${this.label}: decode failed (gen #${this.#generation}): ${error}`);
+        debugLog("RafFrameSource", `${this.label}: decode failed (stream #${generation}): ${error}`);
       },
     );
   }
