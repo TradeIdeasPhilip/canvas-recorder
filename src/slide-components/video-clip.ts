@@ -302,9 +302,22 @@ class RafFrameSource {
       this.#iter = this.sink.canvases(seconds);
       this.#streamOpenedAt = performance.now();
     }
+    this.#fetchNext(this.#iter);
+  }
+
+  /**
+   * Fetch one frame from `iter`, then keep going until the read-ahead is full.
+   *
+   * The chaining matters.  Fetching only when get() asks would tie the read
+   * rate to the screen's refresh rate:  one frame per refresh.  A 60 fps
+   * video on a 30 Hz screen (a laptop on battery) needs two per refresh, so it
+   * fell further behind every second, until a reseek.  Now the decoder runs
+   * as fast as it can, up to {@link RafFrameSource.MAX_FRAMES} ahead.
+   */
+  #fetchNext(iter: AsyncGenerator<WrappedCanvas, void, unknown>): void {
     this.#fetchInProgress = true;
     const generation = this.#generation;
-    this.#iter.next().then(
+    iter.next().then(
       (result) => {
         // Started before a reseek.  The frame belongs to a stream nobody wants
         // any more, and the flags belong to the new stream.  Touch nothing.
@@ -329,6 +342,9 @@ class RafFrameSource {
                 : `took ${elapsed}ms to decode`),
           );
           this.#staleFrames = [];
+        }
+        if (this.#localCache.length < RafFrameSource.MAX_FRAMES) {
+          this.#fetchNext(iter);
         }
       },
       (error) => {

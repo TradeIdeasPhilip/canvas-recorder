@@ -103,7 +103,17 @@ In `RafFrameSource` (src/slide-components/video-clip.ts):
    The Galaga recording averages ~53 fps:  at 60 Hz that barely keeps up, at 30 Hz it falls behind ~0.4 s every second, which trips the 0.5 s reseek threshold, which shows bug 1's X.
    Fix:  keep requesting from inside the `.then` until the cache is full.
 
-Fixing bug 1 first, deliberately:  bug 2 makes bug 1 happen constantly, which makes it easy to test.
+Bug 1 was fixed first, deliberately, because bug 2 made it happen constantly and so easy to test.
+Both are now fixed (10/4/2026).
+In a simulation of a 30 Hz screen and a 60 fps file, frames on time went from 0 of 115 to 115 of 115, with no reseeks.
+When the decoder is genuinely too slow, frames are marked late and it still reseeks, but there is never an X.
+
+Still open, small:  the "too far ahead" test compares the request with the newest frame's *start*.
+Screen recordings have variable frame rates, with single frames lasting up to 3.3 s while the screen is still.
+Mid-file the read-ahead hides this, but at the end of a stream it can reseek over and over while already showing the right frame.
+Invisible, but wasted work.  Compare with the frame's end (`timestamp + duration`) instead.
+
+(Not a bug:  in shadow-test every clip's `get()` runs twice per frame because the halftone shadow draws its content twice, once for the shadow mask.)
 
 ### Measured, not assumed
 
