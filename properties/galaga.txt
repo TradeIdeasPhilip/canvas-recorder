@@ -1,6 +1,7 @@
-Generated: Thu Oct 01 2026 12:58:26 GMT-0700 (Pacific Daylight Time)
+Generated: Sat Oct 03 2026 18:27:19 GMT-0700 (Pacific Daylight Time)
 Galaga
 → Timeline
   const videoClip = new VideoClipComponent({ description: "Video Clip" });
   videoClip.urlScalar.value = "Galaga Screen Recording.mov";
+  videoClip.endMsIntoClipScalar.value = 454468.3333333333;
   this.addFixed({ child: videoClip });

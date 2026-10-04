@@ -86,7 +86,65 @@ Rules:
 5. **Import audio**, listen, then insert a clip *before* it and listen again.  Reload the page; the audio should still be there.  Change Start to see "out of date".
 6. `media-browser.html` still probes and sizes clips the way it did.
 
+## Playback (10/3/2026)
+
+Not the panel itself, but the same component, and too much was found to leave it in a conversation.
+Both power modes matter:  the power cord comes and goes all day, and unplugging halves the display rate (60 Hz → 30 Hz) as well as slowing the CPU.
+
+### Two bugs behind the red X
+
+In `RafFrameSource` (src/slide-components/video-clip.ts):
+
+1. **A reseek empties the cache immediately**, before the new stream has produced a frame.
+   The X means "the cache is empty", so every reseek shows one.
+   Fix:  keep showing the old frames (they'll get the orange "behind" mark) until the new stream's first frame lands, then switch.
+2. **At most one frame is fetched per call to `get()`**, i.e. per screen refresh.
+   Nothing asks for the next frame when one arrives, so the read rate is tied to the display rate, not to what the video needs.
+   The Galaga recording averages ~53 fps:  at 60 Hz that barely keeps up, at 30 Hz it falls behind ~0.4 s every second, which trips the 0.5 s reseek threshold, which shows bug 1's X.
+   Fix:  keep requesting from inside the `.then` until the cache is full.
+
+Fixing bug 1 first, deliberately:  bug 2 makes bug 1 happen constantly, which makes it easy to test.
+
+### Measured, not assumed
+
+| | Galaga Screen Recording.mov | QuickTime-cut recording | frame counter.mp4 |
+|---|---|---|---|
+| Codec | H.264 | H.264 | HEVC |
+| Keyframes | every ~1 s (median 0.98, max 5.0) | 1–3.75 s | every 5 s |
+| Keyframe vs other frame | 69 KB vs 6.3 KB | 536 KB vs 11.9 KB | 97 KB vs 10.7 KB |
+| B-frames | ~half the frames | yes | none |
+| Frame rate | variable: 60 fps while things change, up to 3.3 s per frame when still | variable | constant 60 |
+
+- The linear cost of seeking holds for Mac screen recordings:  every frame decodes from the keyframe before it, and B-frames depend on later frames too.
+- But their keyframes are ~5× denser than the HEVC export the original seek tests used, so a random seek costs at most ~1 s of decoding, ~0.5 s on average.
+- So the 0.5 s reseek threshold is often a loss:  it restarts from a keyframe *behind* where we already are.
+- ProRes (and MJPEG) make every frame a keyframe.  Phone and camera footage varies by device — measure rather than assume.
+
+### Cheap performance ideas, to try before anything clever
+
+Every frame in the file is decoded no matter what the display rate is.
+On top of that, each decoded frame is copied into a brand new full-resolution canvas (2880×1800, ~20 MB) whether or not it is ever shown.
+
+- **`poolSize`** on the `CanvasSink`, so canvases are reused instead of allocated.
+  It's disabled today because `RafFrameSource` holds up to `MAX_FRAMES` canvases at once and a smaller pool would overwrite one still on screen.
+  Any pool comfortably larger than `MAX_FRAMES` is safe.
+- **`width` / `height` on the `CanvasSink` in live mode**, close to the size of the preview, instead of full resolution.
+  The canvas typically gets about a third of the screen's width:  ~960 device pixels on the MacBook Air, so the video is drawn ~860 px wide against 2880 in the file.
+  That's roughly 3× too wide, or about 10× the pixels needed.
+  Recording still needs full resolution, which is fine:  live mode and recording already use separate frame sources.
+- `CanvasSink.canvasesAtTimestamps()` would skip the canvas copy for frames that are never shown, but not the decoding, and it's awkward.
+  Only if the two ideas above aren't enough.
+
 ## Deferred
+
+- **Fast seek, then refine** — after more exploration, not before.
+  `canvases(t)` already decodes forward from the keyframe before `t`, but discards every frame before `t`.
+  Starting the stream at that keyframe's own timestamp instead shows the keyframe immediately (approximate), then each closer frame as it decodes, ending at the exact one:  one stream, no second seek.
+  With ~1 s between keyframes that's at most about a second of refinement.
+  Pair it with a smarter reseek rule:  only reseek when the target's keyframe is *ahead* of where we already are; otherwise keep reading.
+  Building blocks:  `EncodedPacketSink.getKeyPacket(t)` and `getNextKeyPacket(packet)`.
+  (The "fast seek" remembered from the docs was the browser's `HTMLMediaElement.fastSeek()`, which is allowed to land near the target instead of on it, and only applies to `<video>`.  Chrome may never have implemented it:  check `"fastSeek" in HTMLMediaElement.prototype`.)
+- Keyframe spacing as a line in the panel's statistics.
 
 - **Set Start / End = playhead.**
   The media browser had these and they are the next most valuable thing.

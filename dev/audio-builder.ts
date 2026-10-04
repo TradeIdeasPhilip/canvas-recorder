@@ -1,6 +1,12 @@
 /**
  * This creates a complete audio clip by joining multiple clips.
  * It starts with all silence and you can add the clips wherever you need them.
+ *
+ * The result is always **mono**.  Every source is mixed down to one channel as
+ * it is added.  Nothing recorded for these videos is really stereo:  a Mac
+ * screen recording, for example, writes its one microphone signal into both
+ * channels, and CapCut's exports have done the same.  One channel is less to
+ * test and can't put a sound in only one ear by accident.
  */
 export class AudioBuilder {
   /**
@@ -31,8 +37,7 @@ export class AudioBuilder {
       Math.ceil((totalDurationMs / 1000) * sampleRate),
     );
 
-    // Create buffer with 1 or 2 channels — we'll decide later based on first file
-    this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate); // Start with mono
+    this.buffer = this.audioContext.createBuffer(1, totalSamples, sampleRate);
   }
 
   async #createNewAudioBuffer(url: string) {
@@ -148,68 +153,48 @@ export class AudioBuilder {
 
     const sourceBuffer = await this.#findAudioBuffer(url);
 
-    // If this is the first file and it's stereo, upgrade our buffer to stereo
-    if (
-      this.buffer.numberOfChannels === 1 &&
-      sourceBuffer.numberOfChannels === 2
-    ) {
-      const newBuffer = this.audioContext.createBuffer(
-        2,
-        this.buffer.length,
-        this.buffer.sampleRate,
-      );
-      // Copy existing mono data to both channels
-      for (let ch = 0; ch < 2; ch++) {
-        // I see this in /public/Showcase.FLAC.
-        // That file also has an odd sample rate.
-        // It was created by CapCut.
-        // Both channels are identical, so we could have thrown one out.
-        console.log(
-          `Not expected! ${url} contain ${sourceBuffer.numberOfChannels} channels`,
-        );
-        newBuffer.getChannelData(ch).set(this.buffer.getChannelData(0));
-      }
-      this.buffer = newBuffer;
-    }
-
     const samplesPerMs = this.buffer.sampleRate / 1000;
-    const destinationStartIndex = Math.floor(
-      startMsInDestination * samplesPerMs,
+    const destinationStart = Math.floor(startMsInDestination * samplesPerMs);
+    const sourceStart = Math.floor(trimFromStartMs * samplesPerMs);
+    // Stop at whichever runs out first:  the requested length, the source, or
+    // the destination.  (decodeAudioData() already resampled the source to
+    // our sample rate, so one count works for both.)
+    const count = Math.max(
+      0,
+      Math.min(
+        Math.floor(length * samplesPerMs),
+        sourceBuffer.length - sourceStart,
+        this.buffer.length - destinationStart,
+      ),
     );
-    const maxSamplesToCopy = Math.floor(length * samplesPerMs);
-    const sourceStartIndex = Math.floor(trimFromStartMs * samplesPerMs);
-
-    const numChannels = Math.min(
-      this.buffer.numberOfChannels,
-      sourceBuffer.numberOfChannels,
+    if (count === 0) {
+      return;
+    }
+    const destination = this.buffer
+      .getChannelData(0)
+      .subarray(destinationStart, destinationStart + count);
+    const channels = Array.from(
+      { length: sourceBuffer.numberOfChannels },
+      (_, channel) =>
+        sourceBuffer
+          .getChannelData(channel)
+          .subarray(sourceStart, sourceStart + count),
     );
-
-    let samplesCopied = 0;
-    const time5 = performance.now();
-    for (let ch = 0; ch < numChannels; ch++) {
-      const sourceData = sourceBuffer.getChannelData(ch);
-      const destinationData = this.buffer.getChannelData(ch);
-
-      for (let i = 0; i < maxSamplesToCopy; i++) {
-        const destinationIndex = destinationStartIndex + i;
-        if (destinationIndex >= this.buffer.length) {
-          break;
+    if (channels.length === 1) {
+      // The common case, and a plain block copy.
+      destination.set(channels[0]);
+    } else {
+      // Average, don't sum:  identical channels (the usual "stereo") come out
+      // exactly as they went in, where a sum would double the level and clip.
+      const scale = 1 / channels.length;
+      for (let i = 0; i < count; i++) {
+        let sum = 0;
+        for (const channel of channels) {
+          sum += channel[i];
         }
-        const sourceIndex = sourceStartIndex + i;
-        if (sourceIndex >= sourceData.length) {
-          break;
-        }
-        destinationData[destinationIndex] = sourceData[sourceStartIndex + i];
-        samplesCopied++;
+        destination[i] = sum * scale;
       }
     }
-    // const time6 = performance.now();
-
-    // const copyMs = time6 - time5;
-    // const copyRate = copyMs > 0 ? (samplesCopied / copyMs / 1000).toFixed(0) : "∞";
-    // console.log(
-    //   `[audio] copy: ${copyMs.toFixed(1)} ms (${samplesCopied.toLocaleString()} samples, ${copyRate}K samples/ms)`,
-    // );
   }
 
   async toBlob(): Promise<Blob> {

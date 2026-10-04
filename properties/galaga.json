@@ -300,11 +300,20 @@
               {
                 "description": "End Ms Into Clip",
                 "type": "number",
-                "value": 1000
+                "value": 454468.3333333333
               }
             ],
             "components": [],
-            "duration": 1000
+            "duration": 454468.3333333333,
+            "soundClips": [
+              {
+                "source": "Galaga Screen Recording.mov",
+                "startMsIntoScene": 0,
+                "startMsIntoClip": 22.166666666666668,
+                "lengthMs": 454468.3333333333,
+                "notes": "imported from video"
+              }
+            ]
           }
         ]
       }
