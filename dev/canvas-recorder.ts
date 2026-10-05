@@ -73,6 +73,7 @@ import {
 } from "./font-widgets.ts";
 import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { buildVideoClipPanel } from "./video-clip-panel.ts";
+import { SyncedFile, type SyncedFileOptions } from "./synced-file.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
@@ -1938,15 +1939,6 @@ function saveState() {
     );
 }
 
-if (import.meta.hot) {
-  // Changing a typescript file invokes this.
-  // Changing a css file would cause vite:beforeUpdate, instead.
-  import.meta.hot.on("vite:beforeFullReload", (_data) => {
-    saveState();
-    saveOnUnload();
-  });
-}
-
 addEventListener("pagehide", (_event) => {
   saveState();
 });
@@ -2046,59 +2038,17 @@ type FileRecord = {
   isActive: boolean;
   /** Scopes this record to a specific video tab (toShowKey). Added for per-video isolation. */
   videoKey?: string;
+  /** "Sync to file" is checked for this file.  See dev/synced-file.ts. */
+  syncEnabled?: boolean;
+  /** Exactly what the last sync wrote.  How a sync notices someone else changed the file. */
+  lastWrittenBody?: string;
 };
 
-async function readActiveFileRecord(
-  videoKey: string,
-): Promise<FileRecord | undefined> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readonly");
-    const req = tx.objectStore("files").getAll();
-    req.onsuccess = () =>
-      resolve(
-        (req.result as FileRecord[]).find(
-          (r) => r.videoKey === videoKey && r.isActive,
-        ),
-      );
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function writeActiveFileRecord(
-  filename: string,
-  handle: FileSystemFileHandle,
-  videoKey: string,
-): Promise<void> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readwrite");
-    const store = tx.objectStore("files");
-    const getAllReq = store.getAll();
-    getAllReq.onsuccess = () => {
-      // Clear isActive only on records belonging to the same video.
-      for (const r of getAllReq.result as FileRecord[]) {
-        if (r.videoKey === videoKey && r.filename !== filename && r.isActive)
-          store.put({ ...r, isActive: false });
-      }
-      store.put({
-        filename,
-        handle,
-        savedAt: Date.now(),
-        isActive: true,
-        videoKey,
-      });
-    };
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
-
-// The `__no-file__|<video>` sentinel record used to be written here, by "Restore Defaults", to
-// detach from the active file so startup would skip it.  Nothing writes one any more: picking
-// "TypeScript defaults" in the Load dialog auto-saves, and `applyJsonSnapshotFromFile` only lets
-// a file win when it is newer than the database, so the defaults stick without a sentinel.
-// Databases created before this change may still contain one; the readers below still handle it.
+// The `__no-file__|<video>` sentinel record was once written by "Restore Defaults" to detach from
+// the active file, so that startup wouldn't load it.  Startup no longer loads from files at all
+// (IndexedDB is the only source; synced files are exports), so nothing needs the sentinel.
+// Databases created before then may still contain one; the readers below skip records without a
+// handle.
 
 /** Read all records from the `files` table scoped to the given video. */
 async function readAllFileRecords(videoKey: string): Promise<FileRecord[]> {
@@ -2148,65 +2098,166 @@ async function writeVideoHistory(entries: VideoHistoryEntry[]): Promise<void> {
   });
 }
 
-// MARK: Defaults auto-save
+// MARK: Sync to file
 
-/** Per-video key in the "files" IDB store for the auto-save-defaults file handle. */
-const DEFAULTS_AUTO_SAVE_KEY = `__defaults-auto-save__|${toShowKey}`;
-
-async function readDefaultsAutoSaveHandle(): Promise<FileSystemFileHandle | null> {
+async function getFileRecord(key: string): Promise<FileRecord | undefined> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readonly");
-    const req = tx.objectStore("files").get(DEFAULTS_AUTO_SAVE_KEY);
-    req.onsuccess = () =>
-      resolve((req.result as FileRecord | undefined)?.handle ?? null);
+    const req = tx.objectStore("files").get(key);
+    req.onsuccess = () => resolve(req.result as FileRecord | undefined);
     req.onerror = () => reject(req.error);
   });
 }
 
-async function writeDefaultsAutoSaveHandle(
-  handle: FileSystemFileHandle,
-): Promise<void> {
+async function putFileRecord(record: FileRecord): Promise<void> {
   const db = await openScheduleDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("files", "readwrite");
-    tx.objectStore("files").put({
-      filename: DEFAULTS_AUTO_SAVE_KEY,
-      handle,
-      savedAt: Date.now(),
-      isActive: false,
-    } satisfies FileRecord);
+    tx.objectStore("files").put(record);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
 }
 
-const defaultsAutoSaveCheckbox = getById(
-  "defaultsAutoSaveCheckbox",
-  HTMLInputElement,
-);
-const defaultsAutoSaveStatusEl = getById(
-  "defaultsAutoSaveStatus",
-  HTMLSpanElement,
-);
-
-/** Current file handle for the defaults auto-save file, or null if the feature is off. */
-let _defaultsAutoSaveHandle: FileSystemFileHandle | null = null;
-let _defaultsAutoSaveTimer: ReturnType<typeof setTimeout> | undefined;
-
-type DefaultsAutoSaveStatus = "Off" | "Pending" | "Saved" | "Error";
-
-function _setDefaultsAutoSaveStatus(status: DefaultsAutoSaveStatus): void {
-  defaultsAutoSaveStatusEl.textContent = status;
-  defaultsAutoSaveStatusEl.style.color =
-    status === "Error"
-      ? "red"
-      : status === "Pending"
-        ? "orange"
-        : status === "Saved"
-          ? "green"
-          : "gray";
+/**
+ * Storage for a synced file whose record lives under one fixed key (the
+ * defaults and diff files).  These records have no `videoKey`, which is what
+ * keeps them out of the Load dialog.
+ *
+ * @param enabledIfUnknown How to read a record written before syncing existed.
+ * The old "Save defaults" checkbox deleted its record when unchecked, so any
+ * old defaults record means it was on.
+ */
+function keyedSyncStorage(
+  key: string,
+  enabledIfUnknown: boolean,
+): Pick<SyncedFileOptions, "load" | "store"> {
+  return {
+    async load() {
+      const record = await getFileRecord(key);
+      if (!record?.handle) return undefined;
+      return {
+        filename: record.handle.name,
+        handle: record.handle,
+        enabled: record.syncEnabled ?? enabledIfUnknown,
+        lastWrittenBody: record.lastWrittenBody,
+      };
+    },
+    async store({ handle, enabled, lastWrittenBody }) {
+      await putFileRecord({
+        filename: key,
+        handle,
+        savedAt: Date.now(),
+        isActive: false,
+        syncEnabled: enabled,
+        lastWrittenBody,
+      });
+    },
+  };
 }
+
+const JSON_FILE_TYPES: FilePickerAcceptType[] = [
+  { description: "JSON", accept: { "application/json": [".json"] } },
+];
+
+/**
+ * The video's state, mirrored to a JSON file on every save to IndexedDB.
+ *
+ * Its records are the per-video ones the Load dialog lists, so every file it
+ * has synced to stays available there.  The synced one is the "active" one.
+ * A file made active by the old Save As button isn't sync consent, so it starts
+ * unchecked, suggesting that same file.
+ */
+const jsonSync = new SyncedFile({
+  checkbox: getById("jsonSyncCheckbox", HTMLInputElement),
+  status: getById("jsonSyncStatus", HTMLSpanElement),
+  picker: {
+    id: "json-state",
+    types: JSON_FILE_TYPES,
+    defaultName: () => `${toShowKey}.json`,
+  },
+  render: () => JSON.stringify(buildJsonSnapshot(), null, 2),
+  showPending: true,
+  open: (content) => {
+    const tree = parseSnapshotFile(JSON.parse(content));
+    if (!tree) throw new Error("This file has no usable saved state.");
+    // persist:  the opened state goes into IndexedDB, so it survives a reload
+    // and the previous state stays in Load.
+    applyJsonSnapshot(tree, false, true);
+  },
+  async load() {
+    const records = (await readAllFileRecords(toShowKey)).filter(
+      (r) => r.handle,
+    );
+    const synced = records.find((r) => r.isActive && r.syncEnabled);
+    // When nothing is being synced, suggest the file used most recently.
+    const record =
+      synced ?? records.toSorted((a, b) => b.savedAt - a.savedAt)[0];
+    if (!record) return undefined;
+    return {
+      filename: record.filename,
+      handle: record.handle!,
+      enabled: record === synced,
+      lastWrittenBody: record.lastWrittenBody,
+    };
+  },
+  async store({ filename, handle, enabled, lastWrittenBody }) {
+    const db = await openScheduleDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction("files", "readwrite");
+      const store = tx.objectStore("files");
+      const getAllReq = store.getAll();
+      getAllReq.onsuccess = () => {
+        if (enabled) {
+          // Only one file per video is synced (and so "active") at a time.
+          for (const r of getAllReq.result as FileRecord[]) {
+            if (r.videoKey === toShowKey && r.filename !== filename && r.isActive)
+              store.put({ ...r, isActive: false, syncEnabled: false });
+          }
+        }
+        store.put({
+          filename,
+          handle,
+          savedAt: Date.now(),
+          isActive: enabled,
+          syncEnabled: enabled,
+          videoKey: toShowKey,
+          lastWrittenBody,
+        } satisfies FileRecord);
+      };
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  },
+});
+
+/** The TypeScript defaults, mirrored to a JSON file.  These only change when the code does. */
+const defaultsSync = new SyncedFile({
+  checkbox: getById("defaultsSyncCheckbox", HTMLInputElement),
+  status: getById("defaultsSyncStatus", HTMLSpanElement),
+  picker: {
+    id: "defaults-auto-save",
+    types: JSON_FILE_TYPES,
+    defaultName: () => `${toShowKey || "defaults"}-ts-defaults.json`,
+  },
+  render: () => JSON.stringify(buildDefaultsSnapshot(), null, 2),
+  ...keyedSyncStorage(`__defaults-auto-save__|${toShowKey}`, true),
+});
+
+/** Every difference from the TypeScript defaults, as text, mirrored alongside the JSON. */
+const diffSync = new SyncedFile({
+  checkbox: getById("diffSyncCheckbox", HTMLInputElement),
+  status: getById("diffSyncStatus", HTMLSpanElement),
+  picker: {
+    id: "diff-save",
+    types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
+    defaultName: () => `${toShowKey || "diff"}.txt`,
+  },
+  render: () => buildDiffText(),
+  // The old Save Diffs button asked every time; its record is only a suggestion.
+  ...keyedSyncStorage(`__diff-save__|${toShowKey}`, false),
+});
 
 /** The code-defined starting point, in the same format as {@link buildJsonSnapshot}. */
 function buildDefaultsSnapshot(): VideoSnapshot {
@@ -2218,95 +2269,7 @@ function buildDefaultsSnapshot(): VideoSnapshot {
   };
 }
 
-async function _doDefaultsAutoSave(): Promise<void> {
-  if (!_defaultsAutoSaveHandle) return;
-  try {
-    const body = JSON.stringify(buildDefaultsSnapshot(), null, 2);
-    const writable = await _defaultsAutoSaveHandle.createWritable();
-    await writable.write(body);
-    await writable.close();
-    _setDefaultsAutoSaveStatus("Saved");
-  } catch (e) {
-    console.error("Defaults auto-save failed:", e);
-    _setDefaultsAutoSaveStatus("Error");
-  }
-}
-
-function scheduleDefaultsAutoSave(immediate = false): void {
-  clearTimeout(_defaultsAutoSaveTimer);
-  _setDefaultsAutoSaveStatus("Pending");
-  if (immediate) {
-    void _doDefaultsAutoSave();
-  } else {
-    _defaultsAutoSaveTimer = setTimeout(
-      () => void _doDefaultsAutoSave(),
-      5_000,
-    );
-  }
-}
-
-defaultsAutoSaveCheckbox.addEventListener("change", () => {
-  if (!defaultsAutoSaveCheckbox.checked) {
-    _defaultsAutoSaveHandle = null;
-    clearTimeout(_defaultsAutoSaveTimer);
-    void deleteFileRecord(DEFAULTS_AUTO_SAVE_KEY);
-    _setDefaultsAutoSaveStatus("Off");
-  } else {
-    void (async () => {
-      let handle: FileSystemFileHandle;
-      try {
-        handle = await window.showSaveFilePicker({
-          id: "defaults-auto-save",
-          suggestedName: `${toShowKey || "defaults"}-ts-defaults.json`,
-          types: [
-            { description: "JSON", accept: { "application/json": [".json"] } },
-          ],
-        });
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") {
-          defaultsAutoSaveCheckbox.checked = false;
-          return;
-        }
-        throw e;
-      }
-      _defaultsAutoSaveHandle = handle;
-      await writeDefaultsAutoSaveHandle(handle);
-      scheduleDefaultsAutoSave(true);
-    })();
-  }
-});
-
-// MARK: Save Diffs
-
-/** Per-video key in the "files" IDB store for the diff save file handle. */
-const DIFF_SAVE_KEY = `__diff-save__|${toShowKey}`;
-
-async function readDiffSaveRecord(): Promise<FileRecord | undefined> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readonly");
-    const req = tx.objectStore("files").get(DIFF_SAVE_KEY);
-    req.onsuccess = () => resolve(req.result as FileRecord | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
-async function writeDiffSaveHandle(
-  handle: FileSystemFileHandle,
-): Promise<void> {
-  const db = await openScheduleDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction("files", "readwrite");
-    tx.objectStore("files").put({
-      filename: DIFF_SAVE_KEY,
-      handle,
-      savedAt: Date.now(),
-      isActive: false,
-    } satisfies FileRecord);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-}
+// MARK: Diffs
 
 /**
  * Builds a human-readable text diff of the current live state vs the
@@ -2559,7 +2522,6 @@ function buildDiffText(): string {
     }
   }
 
-  lines.push(`Generated: ${new Date().toString()}`);
 
   // One tree, so one walk: diffNode() recurses through fixedComponents on its own.
   if (tsDefaultsTree) {
@@ -2569,27 +2531,6 @@ function buildDiffText(): string {
   if (lines.length === 1) lines.push("(no differences found)");
 
   return lines.join("\n");
-}
-
-async function saveDiffs(): Promise<void> {
-  const stored = await readDiffSaveRecord();
-  const suggestedName = stored?.handle?.name ?? `${toShowKey || "diff"}.txt`;
-  let handle: FileSystemFileHandle;
-  try {
-    handle = await window.showSaveFilePicker({
-      id: "diff-save",
-      suggestedName,
-      types: [{ description: "Text file", accept: { "text/plain": [".txt"] } }],
-    });
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") return;
-    throw e;
-  }
-  await writeDiffSaveHandle(handle);
-  const body = buildDiffText();
-  const writable = await handle.createWritable();
-  await writable.write(body);
-  await writable.close();
 }
 
 // MARK: Load-source helpers
@@ -2656,52 +2597,7 @@ function formatLoadSource(source: LoadSource | undefined): string {
 
 // MARK: Active file display
 
-const jsonSaveStatusElement = getById("jsonSaveStatus", HTMLSpanElement);
-const saveJsonBtn = getById("saveJsonBtn", HTMLButtonElement);
 const loadJsonBtn = getById("loadJsonTestBtn", HTMLButtonElement);
-
-/** In-memory reference to the currently active file (the last saved-to or saved-as file). */
-let _activeFileRecord: {
-  filename: string;
-  handle: FileSystemFileHandle;
-} | null = null;
-
-/**
- * The serialized JSON body last written to (or read from) the active file.
- * Used to compute the dirty flag. `undefined` = no active file yet this session.
- */
-let _lastKnownJsonBody: string | undefined;
-
-/** Updates the active-file display: shows filename + asterisk when dirty, or "never saved". */
-function updateJsonSaveStatus(): void {
-  if (!_activeFileRecord) {
-    // Like an untitled document: it is dirty as soon as it differs from where it started,
-    // which for a never-saved video is the TypeScript defaults.
-    const dirty =
-      tsDefaultsTree !== undefined &&
-      currentTreeJson() !== JSON.stringify(tsDefaultsTree);
-    jsonSaveStatusElement.textContent = "never saved" + (dirty ? " *" : "");
-    jsonSaveStatusElement.style.color = dirty ? "darkorange" : "gray";
-    jsonSaveStatusElement.title = dirty
-      ? "Unsaved changes — use Save As to create a file"
-      : "No file yet — use Save As to create one";
-    saveJsonBtn.disabled = true;
-    return;
-  }
-  saveJsonBtn.disabled = false;
-  if (_lastKnownJsonBody === undefined) {
-    jsonSaveStatusElement.textContent = _activeFileRecord.filename;
-    jsonSaveStatusElement.style.color = "";
-    jsonSaveStatusElement.title = "";
-    return;
-  }
-  const dirty =
-    JSON.stringify(buildJsonSnapshot(), null, 2) !== _lastKnownJsonBody;
-  jsonSaveStatusElement.textContent =
-    _activeFileRecord.filename + (dirty ? " *" : "");
-  jsonSaveStatusElement.style.color = dirty ? "darkorange" : "";
-  jsonSaveStatusElement.title = dirty ? "Unsaved changes" : "";
-}
 
 /**
  * Apply TypeScript defaults to a selectable in-place.
@@ -2835,7 +2731,23 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
  *
  * @param force Write even when the state looks clean.  Used for explicit user saves.
  */
+/**
+ * Save the video to IndexedDB, then bring the synced files up to date.
+ *
+ * Every save goes through here, and the syncs are in a `finally`, so there is
+ * no way to save one without the other.  A sync whose file already matches is
+ * a cheap no-op, which covers the early returns in {@link saveVideoStateToDb}.
+ */
 async function saveVideoState(force = false): Promise<void> {
+  try {
+    await saveVideoStateToDb(force);
+  } finally {
+    jsonSync.request();
+    diffSync.request();
+  }
+}
+
+async function saveVideoStateToDb(force: boolean): Promise<void> {
   if (!force && !isVideoDirty()) return;
 
   const tree = serializeTree(toShow);
@@ -2892,7 +2804,7 @@ function _autosaveAllDirty(): void {
 function markDirty(): void {
   if (_autosaveTimer !== null) clearTimeout(_autosaveTimer);
   _autosaveTimer = setTimeout(_autosaveAllDirty, 5000);
-  updateJsonSaveStatus();
+  jsonSync.refreshStatus();
 }
 
 /**
@@ -2944,19 +2856,7 @@ function saveOnUnload() {
       console.warn("Could not write the unload backup to sessionStorage.", e);
     }
   }
-
-  // Persist the "no active file" state so a quick refresh (before the async IndexedDB
-  // sentinel write completes) still shows "never saved" on reload.
-  if (!_activeFileRecord) {
-    sessionStorage.setItem("noActiveFile", "true");
-  } else {
-    sessionStorage.removeItem("noActiveFile");
-  }
 }
-window.addEventListener("beforeunload", saveOnUnload);
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") saveOnUnload();
-});
 
 // MARK: History dialog
 
@@ -3087,7 +2987,7 @@ function _rebuildDialogList(target: Showable, selectIndex?: number): void {
       const fr = item.fileRecord;
       const state = _dialogFileStates.get(fr.filename);
       const ts = new Date(fr.savedAt).toLocaleString();
-      const isActive = _activeFileRecord?.filename === fr.filename;
+      const isActive = jsonSync.filename === fr.filename;
       if (!state || state.status === "loading") {
         li.textContent = `📄 ${fr.filename}  …`;
         li.style.color = "gray";
@@ -3176,7 +3076,7 @@ async function _loadFileEntry(
     if (!tree) throw new Error("no usable state in file");
     _dialogFileStates.set(filename, { status: "loaded", tree });
   } catch {
-    if (_activeFileRecord?.filename !== filename) {
+    if (jsonSync.filename !== filename) {
       // Stale handle for a non-active file — remove it silently from the DB and list.
       void deleteFileRecord(filename);
       _dialogFileRecords = _dialogFileRecords.filter(
@@ -5566,9 +5466,6 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
 {
   // Read the unload backups BEFORE sessionStorage.clear() wipes them below.
   const unloadBackup = sessionStorage.getItem("pendingScheduleSave");
-  // Read before sessionStorage.clear() fires in the layout-restore block below.
-  const noActiveFileAtStartup =
-    sessionStorage.getItem("noActiveFile") === "true";
   // Hide the canvas until DB restoration is complete to prevent the TypeScript-
   // default state from flashing briefly before the saved state is applied.
   canvas.style.visibility = "hidden";
@@ -5579,31 +5476,21 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
   const startupJsonFetch = fetchJsonSnapshot();
   // Restore the video's most recent DB entry — keeps edits alive
   // across Vite hot-reloads without the user having to manually click Load.
+  // IndexedDB is the only source.  The synced files are exports, never read
+  // back here; Open is the explicit way to load one.
   void initFromDB(unloadBackup).then(async () => {
-    // Try to auto-load from the most recently saved file handle.
-    const loadedFromFile =
-      !noActiveFileAtStartup && (await tryLoadFromActiveFile());
-
-    if (!loadedFromFile) {
-      // Fallback: URL-based JSON for any key that still has ts-defaults.
-      const jsonResult = await startupJsonFetch;
-      if (jsonResult.ok) {
-        applyJsonSnapshot(jsonResult.data, true, false);
-      }
+    // Fallback: URL-based JSON for any key that still has ts-defaults.
+    const jsonResult = await startupJsonFetch;
+    if (jsonResult.ok) {
+      applyJsonSnapshot(jsonResult.data, true, false);
     }
-    updateJsonSaveStatus();
-  });
-
-  // Initialize defaults auto-save: read the stored handle, enable the checkbox.
-  void readDefaultsAutoSaveHandle().then((handle) => {
-    defaultsAutoSaveCheckbox.disabled = false;
-    if (handle) {
-      _defaultsAutoSaveHandle = handle;
-      defaultsAutoSaveCheckbox.checked = true;
-      scheduleDefaultsAutoSave();
-    } else {
-      _setDefaultsAutoSaveStatus("Off");
-    }
+    // Catch the synced files up with whatever was restored, rather than
+    // trusting the last session's final write:  a write started as the page
+    // unloads usually never finishes.  (It can't leave a corrupt file, only a
+    // stale one.)
+    jsonSync.request();
+    diffSync.request();
+    defaultsSync.request();
   });
 
   // Sanity-check DB for timestamps in the future (clock skew, corrupted data).
@@ -5950,113 +5837,53 @@ function buildJsonSnapshot(): VideoSnapshot {
   };
 }
 
-/**
- * Write `body` to `handle`, then set it as the active file.
- * Updates `_activeFileRecord`, `_lastKnownJsonBody`, source pointers, and the DB.
- */
-async function _commitActiveFile(
-  handle: FileSystemFileHandle,
-  body: string,
-): Promise<void> {
-  const writable = await handle.createWritable();
-  await writable.write(body);
-  await writable.close();
-
-  _activeFileRecord = { filename: handle.name, handle };
-  _lastKnownJsonBody = body;
-
-  const filename = handle.name;
-  _loadSource = { kind: "json", filename };
-  _baselineTreeJson = currentTreeJson();
-  void writeActiveFileRecord(filename, handle, toShowKey);
-  updateJsonSaveStatus();
-}
-
 /** Flush pending changes to IndexedDB so the database is consistent with memory. */
 async function _flushDirtyToDb(): Promise<void> {
   if (isVideoDirty()) await saveVideoState();
 }
 
-/** Save button: overwrite the active file without a dialog. */
-async function saveJsonToActiveFile(): Promise<void> {
-  if (!_activeFileRecord) return;
-  await _flushDirtyToDb();
-  const snapshot = buildJsonSnapshot();
-  const body = JSON.stringify(snapshot, null, 2);
-  try {
-    await _commitActiveFile(_activeFileRecord.handle, body);
-  } catch {
-    alert(
-      `Could not write to "${_activeFileRecord.filename}".\n\n` +
-        `The file may have been moved or deleted. Use Save As to choose a new location.`,
-    );
-  }
-}
-
 /**
- * Save As / Save Copy As: prompt for a file, then write.
- * @param setActive - true for Save As (updates active file), false for Save Copy As (does not).
+ * Save Copy As:  write the current state, once, to a file the user picks.
+ * The one export with precise control over when it happens; it never changes
+ * which file is synced.
  */
-async function saveJsonAs(setActive: boolean): Promise<void> {
+async function saveJsonCopyAs(): Promise<void> {
   await _flushDirtyToDb();
-  const snapshot = buildJsonSnapshot();
-  const body = JSON.stringify(snapshot, null, 2);
+  const body = JSON.stringify(buildJsonSnapshot(), null, 2);
 
   let handle: FileSystemFileHandle;
   try {
     handle = await window.showSaveFilePicker({
       id: "json-state",
-      suggestedName: _activeFileRecord?.filename ?? `${toShowKey}.json`,
-      types: [
-        { description: "JSON", accept: { "application/json": [".json"] } },
-      ],
+      suggestedName: `${toShowKey} copy.json`,
+      types: JSON_FILE_TYPES,
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") return;
     throw e;
   }
 
-  if (
-    !setActive &&
-    _activeFileRecord &&
-    handle.name === _activeFileRecord.filename
-  ) {
+  const synced = jsonSync.handle;
+  if (synced && (await handle.isSameEntry(synced))) {
     alert(
-      `Cannot save a copy over the active file "${_activeFileRecord.filename}".\n\n` +
-        `Use Save or Save As instead.`,
+      `"${handle.name}" is the file Sync to file keeps up to date.\n\n` +
+        `Choose a different name, or uncheck Sync to file first.`,
     );
     return;
   }
 
   try {
-    if (setActive) {
-      await _commitActiveFile(handle, body);
-    } else {
-      // Save Copy As: write only, leave the active file unchanged.
-      const writable = await handle.createWritable();
-      await writable.write(body);
-      await writable.close();
-    }
+    const writable = await handle.createWritable();
+    await writable.write(body);
+    await writable.close();
   } catch {
     alert(`Could not write to "${handle.name}".`);
   }
 }
 
-getById("saveJsonBtn", HTMLButtonElement).addEventListener(
-  "click",
-  () => void saveJsonToActiveFile(),
-);
-getById("saveAsJsonBtn", HTMLButtonElement).addEventListener(
-  "click",
-  () => void saveJsonAs(true),
-);
 getById("saveCopyAsJsonBtn", HTMLButtonElement).addEventListener(
   "click",
-  () => void saveJsonAs(false),
-);
-getById("saveDiffsBtn", HTMLButtonElement).addEventListener(
-  "click",
-  () => void saveDiffs(),
+  () => void saveJsonCopyAs(),
 );
 
 // MARK: Load JSON file
@@ -6145,68 +5972,6 @@ function applyJsonSnapshot(
   refreshEditorsAfterLoad();
 }
 
-/**
- * Apply file entries to all selectables where the file is newer than the last
- * IndexedDB save (`fileSavedAt > dbTimestamp`).  Called during startup after
- * `initFromDB` has already restored the most recent DB state.
- */
-function applyJsonSnapshotFromFile(
-  tree: SerializedFixedChild,
-  fileSavedAt: number,
-): void {
-  // Only apply when the file is strictly newer than the IndexedDB entry.
-  const dbTimestamp = _loadSource?.kind === "db" ? _loadSource.timestamp : 0;
-  if (fileSavedAt <= dbTimestamp) return;
-
-  applyJsonEntry(toShow, tree);
-  _loadSource = { kind: "json", filename: _activeFileRecord!.filename };
-  _baselineTreeJson = currentTreeJson();
-
-  refreshEditorsAfterLoad();
-}
-
-/**
- * On startup: read the stored active file handle, check browser permission,
- * and apply its content where it is newer than the IndexedDB state.
- * Sets `_activeFileRecord` and `_lastKnownJsonBody` on success.
- * @returns true if the file was successfully read and applied.
- */
-async function tryLoadFromActiveFile(): Promise<boolean> {
-  const fileRecord = await readActiveFileRecord(toShowKey);
-  // A null handle (filename === "") is the "no active file" sentinel.
-  const activeHandle = fileRecord?.handle;
-  if (!fileRecord || !activeHandle) return false;
-
-  // Always populate `_activeFileRecord` so the Save button is available.
-  _activeFileRecord = {
-    filename: fileRecord.filename,
-    handle: activeHandle,
-  };
-
-  try {
-    // `requestPermission` requires a user gesture at startup — only proceed if
-    // the browser already holds a "granted" permission for this handle.
-    const perm = await activeHandle.queryPermission({ mode: "read" });
-    if (perm !== "granted") return false;
-
-    const file = await activeHandle.getFile();
-    const fileContent = await file.text();
-    const tree = parseSnapshotFile(JSON.parse(fileContent));
-    if (!tree) return false;
-
-    applyJsonSnapshotFromFile(tree, fileRecord.savedAt);
-    // Record what the file currently looks like on disk so the dirty flag works.
-    _lastKnownJsonBody = fileContent;
-    return true;
-  } catch (e) {
-    console.warn(
-      `Unable to load "${fileRecord.filename}". Using internal backups.`,
-      e,
-    );
-    return false;
-  }
-}
-
 async function loadFromJsonFile(): Promise<void> {
   // Flush dirty state so the load can be undone from the history dialog.
   await _flushDirtyToDb();
@@ -6219,7 +5984,7 @@ async function loadFromJsonFile(): Promise<void> {
       types: [
         { description: "JSON", accept: { "application/json": [".json"] } },
       ],
-      startIn: _activeFileRecord?.handle ?? "documents",
+      startIn: jsonSync.handle ?? "documents",
     });
     handle = picked;
   } catch (e) {
@@ -6250,16 +6015,24 @@ async function loadFromJsonFile(): Promise<void> {
     return;
   }
 
-  // Apply the whole tree (no timestamp arbitration — user explicitly opened).
-  applyJsonSnapshot(tree, false, false);
+  // Apply the whole tree, and save it to IndexedDB:  that's what makes it
+  // survive a reload, keeps the previous state in Load, and (through the
+  // save) brings the synced file up to date.  Opening a file doesn't change
+  // which file is synced.
+  applyJsonSnapshot(tree, false, true);
 
-  // Fix up loadSource with the real filename, then commit the active file.
-  const filename = handle.name;
-  _loadSource = { kind: "json", filename };
-  _activeFileRecord = { filename, handle };
-  _lastKnownJsonBody = fileContent;
-  void writeActiveFileRecord(filename, handle, toShowKey);
-  updateJsonSaveStatus();
+  // List it in the Load dialog, as before.  Not if it *is* the synced file:
+  // that record already exists, and this would switch syncing off.
+  const synced = jsonSync.handle;
+  if (!synced || !(await handle.isSameEntry(synced))) {
+    void putFileRecord({
+      filename: handle.name,
+      handle,
+      savedAt: Date.now(),
+      isActive: false,
+      videoKey: toShowKey,
+    });
+  }
 }
 
 loadJsonBtn.addEventListener("click", () => void loadFromJsonFile());
@@ -6366,3 +6139,26 @@ initResizeHandle(
 // TODO Reenable other buttons after recording.
 //  * Probably, but no rush.
 //  * It is so easy to hit refresh!
+
+// MARK: Save on leaving
+
+// These are registered last on purpose.  saveOnUnload() reads variables declared all over this
+// file.  If this module throws while it is starting up, anything registered before the throw
+// stays registered, but the variables declared after it never get initialized, so every later
+// call fails with "Cannot access ... before initialization".  With an HMR hook, that is one
+// error per file save until the page is reloaded.  Registered here, a module that fails to
+// start never registers them at all.
+
+if (import.meta.hot) {
+  // Changing a typescript file invokes this.
+  // Changing a css file would cause vite:beforeUpdate, instead.
+  import.meta.hot.on("vite:beforeFullReload", (_data) => {
+    saveState();
+    saveOnUnload();
+  });
+}
+
+window.addEventListener("beforeunload", saveOnUnload);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") saveOnUnload();
+});

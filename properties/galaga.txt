@@ -1,4 +1,3 @@
-Generated: Sat Oct 03 2026 18:27:19 GMT-0700 (Pacific Daylight Time)
 Galaga
 → Timeline
   const videoClip = new VideoClipComponent({ description: "Video Clip" });

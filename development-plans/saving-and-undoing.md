@@ -10,6 +10,41 @@ Saving to and loading from disk are a little bit tricky and/or painful in the br
 
 I recently did some tests showing that we can save file handles in IndexedDB in random-tests.html.
 That means that the user doesn't have to be involved every time we save or load a file.
+
+## Sync to File (10/4/2026)
+
+_This replaces "Save" and "Save As" in [Requesting a Save](#requesting-a-save) and the file part of [Automatic Load on Start](#automatic-load-on-start), below._
+
+**IndexedDB is where the program keeps its work.**
+Everything is saved there automatically, with history in the Load dialog, and it's the only thing read at startup.
+A file on disk is an *export*, read by git, diff and VS Code, not by this program.
+More like "Export" in GIMP than "Save" in Word.
+
+So "Save" and "Save As" became a checkbox:  **Sync to file**.
+When it's checked, every save to IndexedDB is also written to the file, so the file is never stale.
+The same pattern covers **Sync defaults to file** (the TypeScript defaults) and **Sync diffs to file** (the `.txt` of differences, which no longer starts with a date, so git only sees real changes).
+**Save Copy As** is unchanged:  the one-off export, for when you want precise control.
+**Open** is unchanged as the explicit way to load a file, and it now saves what it loads to IndexedDB.
+
+How it stays safe (all in [dev/synced-file.ts](../dev/synced-file.ts)):
+
+- **No corrupt files.**
+  `createWritable()` writes into a swap file (`<name>.crswap` in Chrome) that replaces the real file only when `close()` finishes.
+  A write that never finishes — one started as the page unloads, say — leaves the old file intact.
+- **No stale files.**
+  Every sync means "make the file match memory", and does nothing if they already match.
+  The syncs run from inside `saveVideoState()`, so nothing can save to IndexedDB without syncing, and once more after every startup, rather than trusting the last session's final write.
+- **Never clobber.**
+  Each record remembers exactly what we last wrote.
+  If the file on disk is something else, someone changed it (git checkout, VS Code), so we don't write.
+  The status says ⚠ *changed on disk* and offers Overwrite, or Open for the JSON.
+- **No message boxes.**
+  Problems show in the status next to the checkbox:  ⚠ *click to allow* when the browser wants permission again after a restart (choosing "Allow on every visit" stops that), and ⚠ *couldn't write* with click to retry.
+  Nothing is remembered across a refresh; the startup sync works the status out again.
+
+Migration:  a file made active by the old Save As starts unchecked, because Save As wasn't consent to automatic writes.
+Check the box and the picker suggests the same file.
+"Save defaults" was already automatic, so it stays on.
 It starts with a normal dialog box where the user selects a file.
 Then Chrome will ask additional questions, and the user can give full permanent permissions to the file, or some other options.
 

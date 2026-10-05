@@ -22,20 +22,40 @@
               <option value="2.00">200%</option>
             </select>
           </label>
-          <button type="button" id="loadJsonTestBtn">📂 Open</button>
-          <span
-            id="jsonSaveStatus"
-            style="font-size: 0.85em; font-style: italic; color: gray"
-            >never saved</span
+          <button type="button" id="loadJsonTestBtn">📂 Import</button>
+          <!-- Each status is outside its label:  clicking inside a label
+               toggles the checkbox, and a status can hold buttons. -->
+          <span style="white-space: nowrap">
+            <label
+              title="Your work is always saved inside the browser (see Load). When this is checked, every one of those saves is also written to a JSON file on disk, for git and your editor. Checking it asks where."
+              ><input type="checkbox" id="jsonSyncCheckbox" disabled /> Sync to
+              file:</label
+            >
+            <span id="jsonSyncStatus" style="font-size: 0.85em">…</span>
+          </span>
+          <button
+            type="button"
+            id="saveCopyAsJsonBtn"
+            title="Write the current state to a file of your choosing, once. Doesn't change which file is synced."
           >
-          <button type="button" id="saveJsonBtn" disabled>💾 Save</button>
-          <button type="button" id="saveAsJsonBtn">💾 Save As</button>
-          <button type="button" id="saveCopyAsJsonBtn">📋 Save Copy As</button>
-          <label style="white-space: nowrap"
-            ><input type="checkbox" id="defaultsAutoSaveCheckbox" disabled />
-            Save defaults: <span id="defaultsAutoSaveStatus">…</span></label
-          >
-          <button type="button" id="saveDiffsBtn">Save Diffs</button>
+            📋 Save Copy As…
+          </button>
+          <span style="white-space: nowrap">
+            <label
+              title="The TypeScript defaults, written to a JSON file whenever they change. Compare with the synced file to see what the Visual Editor changed."
+              ><input type="checkbox" id="defaultsSyncCheckbox" disabled /> Sync
+              defaults to file:</label
+            >
+            <span id="defaultsSyncStatus" style="font-size: 0.85em">…</span>
+          </span>
+          <span style="white-space: nowrap">
+            <label
+              title="A readable list of every difference from the TypeScript defaults, with code you can paste, rewritten whenever the synced file is."
+              ><input type="checkbox" id="diffSyncCheckbox" disabled /> Sync diffs
+              to file:</label
+            >
+            <span id="diffSyncStatus" style="font-size: 0.85em">…</span>
+          </span>
           <label hidden
             ><input
               type="radio"

@@ -1223,8 +1223,8 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 0.8,
-                      "y": 3.7200000000000006
+                      "x": 8.4,
+                      "y": 6.62
                     }
                   },
                   {
@@ -1267,7 +1267,7 @@
                   {
                     "description": "Width Mode",
                     "type": "select",
-                    "value": "unbounded"
+                    "value": "wrap, then scale"
                   },
                   {
                     "description": "Height Mode",
@@ -1722,7 +1722,7 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 0.6,
+                      "x": 11,
                       "y": 3.705
                     }
                   },
@@ -1771,7 +1771,7 @@
                   {
                     "description": "Height Mode",
                     "type": "select",
-                    "value": "unbounded"
+                    "value": "shrink font"
                   },
                   {
                     "description": "May Grow",
@@ -2100,19 +2100,19 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 4,
-                      "y": 3.6700000000000004
+                      "x": 12,
+                      "y": 6.17
                     }
                   },
                   {
                     "description": "Alignment",
                     "type": "select",
-                    "value": "left"
+                    "value": "right"
                   },
                   {
                     "description": "Anchor X",
                     "type": "select",
-                    "value": "left"
+                    "value": "center"
                   },
                   {
                     "description": "Baseline",
@@ -2122,7 +2122,7 @@
                   {
                     "description": "Width",
                     "type": "number",
-                    "value": 3.4
+                    "value": 3.6
                   },
                   {
                     "description": "Height",
@@ -2180,7 +2180,7 @@
                       {
                         "description": "Font Size",
                         "type": "number",
-                        "value": 0.28
+                        "value": 0.26
                       },
                       {
                         "description": "Boldness",
@@ -2829,7 +2829,7 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 0.6,
+                      "x": 8.6,
                       "y": 4.245000000000001
                     }
                   },
@@ -2883,7 +2883,7 @@
                   {
                     "description": "May Grow",
                     "type": "select",
-                    "value": "shrink or grow"
+                    "value": "shrink only"
                   },
                   {
                     "description": "Auto Size",
@@ -3086,8 +3086,8 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 0.7,
-                      "y": 3.705
+                      "x": 11.1,
+                      "y": 6.105
                     }
                   },
                   {
@@ -3103,7 +3103,7 @@
                   {
                     "description": "Baseline",
                     "type": "select",
-                    "value": "top"
+                    "value": "bottom"
                   },
                   {
                     "description": "Width",
@@ -3464,7 +3464,7 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 0.7,
+                      "x": 8.5,
                       "y": 3.755000000000001
                     }
                   },
@@ -3523,12 +3523,12 @@
                   {
                     "description": "Auto Size",
                     "type": "select",
-                    "value": "live"
+                    "value": "frozen"
                   },
                   {
                     "description": "Frozen Size",
                     "type": "number",
-                    "value": 0
+                    "value": 0.6857
                   }
                 ],
                 "components": [],
@@ -3810,19 +3810,19 @@
                     "description": "Position",
                     "type": "point",
                     "value": {
-                      "x": 4.1,
-                      "y": 2.95
+                      "x": 8.4,
+                      "y": 7.812500000000001
                     }
                   },
                   {
                     "description": "Alignment",
                     "type": "select",
-                    "value": "center"
+                    "value": "justify"
                   },
                   {
                     "description": "Anchor X",
                     "type": "select",
-                    "value": "center"
+                    "value": "left"
                   },
                   {
                     "description": "Baseline",
@@ -3854,7 +3854,7 @@
                   {
                     "description": "Width Mode",
                     "type": "select",
-                    "value": "wrap"
+                    "value": "unbounded"
                   },
                   {
                     "description": "Height Mode",
