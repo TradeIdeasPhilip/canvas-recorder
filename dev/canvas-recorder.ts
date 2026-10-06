@@ -2328,7 +2328,26 @@ function buildDiffText(): string {
    * Generate TypeScript constructor + .set() lines for a removable component,
    * omitting any property whose value matches the class default.
    */
-  function generateComponentCode(comp: Showable, indent: string): string[] {
+  /** Variable names already used in this diff, so generated code never declares one twice. */
+  const usedVarNames = new Set<string>();
+  function uniqueVarName(base: string): string {
+    let name = base;
+    for (let i = 2; usedVarNames.has(name); i++) name = `${base}${i}`;
+    usedVarNames.add(name);
+    return name;
+  }
+
+  /**
+   * TypeScript that recreates `comp`, a component added in the Visual Editor, and adds it to
+   * `parentExpr`.  Covers everything the save file stores for such a component:  schedules
+   * and scalars that differ from the class's defaults, the user's name for it, its own
+   * replaceable children (recursively), its duration, and its sound clips.
+   */
+  function generateComponentCode(
+    comp: Showable,
+    indent: string,
+    parentExpr = "this",
+  ): string[] {
     const out: string[] = [];
     const rk = comp.registryKey ?? "unknown";
     const regEntry = componentRegistry.get(rk);
@@ -2370,7 +2389,7 @@ function buildDiffText(): string {
     const curScalars = serializeScalars(comp.scalars ?? []);
 
     const displayName = comp.userEditableDescription ?? comp.description ?? rk;
-    const varName = toVarName(displayName) || "comp";
+    const varName = uniqueVarName(toVarName(displayName) || "comp");
     const ctorDesc = comp.userEditableDescription ?? comp.description ?? rk;
 
     out.push(
@@ -2407,7 +2426,22 @@ function buildDiffText(): string {
       );
     }
 
-    out.push(`${indent}this.addFixed({ child: ${varName} });`);
+    // Children first, so a duration that depends on them is set last.
+    for (const child of comp.replaceableComponents?.get() ?? []) {
+      out.push(...generateComponentCode(child, indent, varName));
+    }
+
+    if (comp.setDuration !== undefined && comp.duration !== def.duration) {
+      out.push(`${indent}${varName}.setDuration(${comp.duration});`);
+    }
+
+    if (comp.soundClips?.length) {
+      out.push(
+        `${indent}${varName}.soundClips = ${JSON.stringify(comp.soundClips)};`,
+      );
+    }
+
+    out.push(`${indent}${parentExpr}.addFixed({ child: ${varName} });`);
 
     return out;
   }

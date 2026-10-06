@@ -115,6 +115,34 @@ Invisible, but wasted work.  Compare with the frame's end (`timestamp + duration
 
 (Not a bug:  in shadow-test every clip's `get()` runs twice per frame because the halftone shadow draws its content twice, once for the shadow mask.)
 
+### Verdict:  fast enough, nothing more needed (10/4/2026)
+
+With the two bug fixes above, playback with standard APIs is good, which was the bet when the
+clip was first planned.  Jumping around shows a small, unobtrusive delay.  Plugged in, the Galaga
+recording plays at **3×** with no orange marks.  At **9–10×** the mark is orange constantly, but
+playback is still smooth and glitch free, and the rest of the GUI stays completely live.
+
+**Nothing else is required, now or in the foreseeable future.**  The ideas below — cheap ones
+and clever ones — are kept only as a record, in case a much larger file, a slower machine, or a
+need for fast-forward previews ever changes that.
+
+Why 3× is clean and 10× is orange, using the constants in `video-clip.ts`:
+
+- Every frame in the file is decoded at any speed; frames are never skipped.  The recording
+  averages ~53 fps, so 3× needs ~160 decoded frames a second and 10× needs ~530, each copied
+  into a new 2880×1800 canvas.
+- The orange mark means more than `CLOSE_ENOUGH_MARK_THRESHOLD_MS` (100 ms) off, measured in
+  *clip* time.  At 3× that is 33 ms of real time, about two screen refreshes of slack.  At 10× it
+  is 10 ms, less than one 60 Hz refresh (16.7 ms), so any frame arriving a single refresh late is
+  orange.
+- The read-ahead holds `MAX_FRAMES` = 5 frames, ~83 ms of 60 fps clip time.  At 10× that is
+  8 ms of real time, not even one refresh of buffer.  And `MAX_SKIP_SECONDS` = 0.5 s of clip time
+  is 50 ms at 10×, so falling three refreshes behind triggers a reseek.
+
+So constant orange at 10× is expected from both the threshold and the queue length.  It costs
+nothing that matters:  the mark only describes live preview.  Recording reads every frame
+exactly and waits for it, so a 10× clip records perfectly.
+
 ### Measured, not assumed
 
 | | Galaga Screen Recording.mov | QuickTime-cut recording | frame counter.mp4 |
@@ -130,7 +158,7 @@ Invisible, but wasted work.  Compare with the frame's end (`timestamp + duration
 - So the 0.5 s reseek threshold is often a loss:  it restarts from a keyframe *behind* where we already are.
 - ProRes (and MJPEG) make every frame a keyframe.  Phone and camera footage varies by device — measure rather than assume.
 
-### Cheap performance ideas, to try before anything clever
+### Cheap performance ideas, to try before anything clever — not needed (see Verdict)
 
 Every frame in the file is decoded no matter what the display rate is.
 On top of that, each decoded frame is copied into a brand new full-resolution canvas (2880×1800, ~20 MB) whether or not it is ever shown.
@@ -147,7 +175,7 @@ On top of that, each decoded frame is copied into a brand new full-resolution ca
 
 ## Deferred
 
-- **Fast seek, then refine** — after more exploration, not before.
+- **Fast seek, then refine** — not needed (see Verdict).  Kept for the record.
   `canvases(t)` already decodes forward from the keyframe before `t`, but discards every frame before `t`.
   Starting the stream at that keyframe's own timestamp instead shows the keyframe immediately (approximate), then each closer frame as it decodes, ending at the exact one:  one stream, no second seek.
   With ~1 s between keyframes that's at most about a second of refinement.
