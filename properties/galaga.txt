@@ -1,15 +1,18 @@
 Galaga
-  const slide = new SlideComponent({ description: "Slide" });
-  slide.transformTemplate.value = "rotate(-45deg)";
   const multiText = new MultiTextComponent({ description: "Multi Text" });
+  multiText.positionSchedule.set({"x":-0.134189952,"y":4.448821547});
+  multiText.widthSchedule.set(9.053452402721351);
+  multiText.heightSchedule.set(1.7056706622896816);
+  multiText.rotationScalar.value = "90° counterclockwise";
+  multiText.widthModeScalar.value = "scale";
+  multiText.heightModeScalar.value = "scale";
   const textFormat = new TextFormatComponent({ description: "Text Format" });
   textFormat.colorSchedule.set("rgb(0% 87.06% 0%)");
   multiText.addFixed({ child: textFormat });
   const textSpan = new TextSpanComponent({ description: "Text Span" });
   textSpan.contentSchedule.set("Galaga");
   multiText.addFixed({ child: textSpan });
-  slide.addFixed({ child: multiText });
-  this.addFixed({ child: slide });
+  this.addFixed({ child: multiText });
 → Timeline
   const videoClip = new VideoClipComponent({ description: "Video Clip" });
   videoClip.destinationRectSchedule.set({"x":1.6,"y":0,"width":14.4,"height":9});

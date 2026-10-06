@@ -130,6 +130,50 @@ Current:    "frozen"
 → → → → Frozen Size
 TypeScript: 0
 Current:    0.6857
+→ → Multi Text: Rotation
+→ → → Multi Text
+→ → → → Position
+TypeScript: {"x":5.75,"y":5.737500000000001}
+Current:    {"x":2.4000000000000004,"y":5.737500000000001}
+→ → → → Rotation
+TypeScript: "90° clockwise"
+Current:    "none"
+→ → → → Position
+TypeScript: {"x":9.1,"y":5.737500000000001}
+Current:    {"x":2.4000000000000004,"y":5.737500000000001}
+→ → → → Rotation
+TypeScript: "180°"
+Current:    "none"
+→ → → → Position
+TypeScript: {"x":12.450000000000001,"y":5.737500000000001}
+Current:    {"x":2.4000000000000004,"y":5.737500000000001}
+→ → → → Rotation
+TypeScript: "90° counterclockwise"
+Current:    "none"
+→ → → → Position
+TypeScript: {"x":0.4,"y":4.5}
+Current:    {"x":2.4000000000000004,"y":5.737500000000001}
+→ → → → Width
+TypeScript: 8.84
+Current:    2.2
+→ → → → Height
+TypeScript: 0.64
+Current:    0.8
+→ → → → Rotation
+TypeScript: "90° counterclockwise"
+Current:    "none"
+→ → → → Position
+TypeScript: {"x":15.6,"y":4.5}
+Current:    {"x":2.4000000000000004,"y":5.737500000000001}
+→ → → → Width
+TypeScript: 8.84
+Current:    2.2
+→ → → → Height
+TypeScript: 0.64
+Current:    0.8
+→ → → → Rotation
+TypeScript: "90° clockwise"
+Current:    "none"
 → → Multi Text: Please Check
 → → → Multi Text
 → → → → Position

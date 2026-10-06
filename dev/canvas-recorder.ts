@@ -73,6 +73,7 @@ import {
 } from "./font-widgets.ts";
 import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { buildVideoClipPanel } from "./video-clip-panel.ts";
+import { buildTextFramePanel, CanvasState } from "./multi-text-panel.ts";
 import { SyncedFile, type SyncedFileOptions } from "./synced-file.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
@@ -89,6 +90,7 @@ import {
 } from "../src/slide-components/serialize.ts";
 import { SlideComponent } from "../src/slide-components/slide-component.ts";
 import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
+import { MultiTextComponent } from "../src/slide-components/multi-text.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
@@ -1503,6 +1505,20 @@ const pointSyncCallbacks = new Map<
 
 /** The point keyframe currently being dragged. */
 let draggingPoint: PointKf | null = null;
+
+/**
+ * Maps each number keyframe to a callback that syncs its editor input when
+ * something other than that input changes the value -- e.g. dragging a
+ * Multi Text's frame changes its Width and Height.
+ */
+const numberSyncCallbacks = new Map<Keyframe<number>, (n: number) => void>();
+
+/**
+ * 👁 / ✎ for each Multi Text's frame, remembered across rebuilds of the
+ * schedule editor.  Starts with the handles showing, like selecting a text
+ * box in PowerPoint.
+ */
+const textFrameCanvasStates = new WeakMap<MultiTextComponent, CanvasState>();
 
 // MARK: Arrow marker drag state
 type ArrowKf = Keyframe<ArrowValue>;
@@ -3245,12 +3261,16 @@ openHistoryDialogBtn.addEventListener("click", () => {
   if (target) void openHistoryDialog(target);
 });
 
-// Any edit in the schedule editor kicks the auto-save timer.
+// Any edit in the schedule editor kicks the auto-save timer, and refreshes
+// the panels at the top, which summarize the fields below them.  (Listening
+// here rather than on each section survives a section being rebuilt.)
 scheduleEditorFieldset.addEventListener("input", () => {
   markDirty();
+  for (const cb of scheduleEditorRefreshers) cb();
 });
 scheduleEditorFieldset.addEventListener("change", () => {
   markDirty();
+  for (const cb of scheduleEditorRefreshers) cb();
 });
 
 // MARK: Font info panel (TraditionalTextComponent)
@@ -3307,6 +3327,9 @@ function buildScheduleSection(
     }
     activeRootComponentEditor?.resetAll();
     section.replaceWith(buildScheduleSection(info, selectable));
+    // Panels care how many keyframes there are, e.g. whether the Text Frame
+    // panel has one frame to edit.
+    for (const cb of scheduleEditorRefreshers) cb();
   }
 
   function currentTimeMs() {
@@ -3561,11 +3584,13 @@ function buildScheduleSection(
       cell.append(swatchBtn);
     } else if (info.type === "number") {
       const numKf = kf as Keyframe<number>;
-      row.insertCell().append(
-        buildNumericInput(numKf.value, (n) => {
-          numKf.value = n;
-        }),
-      );
+      const input = buildNumericInput(numKf.value, (n) => {
+        numKf.value = n;
+      });
+      numberSyncCallbacks.set(numKf, (n) => {
+        input.valueAsNumber = n;
+      });
+      row.insertCell().append(input);
     } else if (info.type === "string") {
       const strKf = kf as Keyframe<string>;
       const cell = row.insertCell();
@@ -4581,6 +4606,7 @@ function updateScheduleEditor(selectable: Showable) {
   editingPointKf = null;
   viewingPointKfs.clear();
   pointSyncCallbacks.clear();
+  numberSyncCallbacks.clear();
   draggingPoint = null;
   editingArrowKf = null;
   viewingArrowKfs.clear();
@@ -4602,6 +4628,8 @@ function updateScheduleEditor(selectable: Showable) {
     selectable instanceof SlideComponent ? selectable : null;
   const videoClip =
     selectable instanceof VideoClipComponent ? selectable : null;
+  const multiText =
+    selectable instanceof MultiTextComponent ? selectable : null;
 
   if (
     !scalars?.length &&
@@ -4660,6 +4688,10 @@ function updateScheduleEditor(selectable: Showable) {
         : undefined;
   }
 
+  if (multiText) {
+    scheduleEditorFieldset.append(buildMultiTextFrame(multiText));
+  }
+
   for (const info of scalars ?? []) {
     const section = buildScalarSection(info, selectable, (s, i) =>
       activeRootComponentEditor?.update(s, i),
@@ -4710,6 +4742,88 @@ function updateScheduleEditor(selectable: Showable) {
     }
     scheduleEditorFieldset.append(section);
   }
+}
+
+// MARK: Text Frame
+
+/**
+ * The Text Frame panel for a Multi Text, plus its frame on the canvas.
+ * Part of {@link updateScheduleEditor}; returns the panel.
+ *
+ * The canvas side reuses the rectangle machinery (👁 / ✎, the handles,
+ * Shift-drag) through a stand-in keyframe whose value *is* the frame:  reading
+ * it asks {@link MultiTextComponent.frameAt}, and a drag writing it goes
+ * through {@link MultiTextComponent.setFrame}.  Nothing is stored in it.
+ */
+function buildMultiTextFrame(text: MultiTextComponent): HTMLElement {
+  const frameKf: RectKf = {
+    time: 0,
+    get value() {
+      return text.frameAt(0);
+    },
+    set value(rect) {
+      text.setFrame(rect);
+    },
+  };
+
+  /** The Position, Width and Height fields below, after setFrame() changed them. */
+  function syncFields(): void {
+    const [position] = text.positionSchedule.schedule;
+    pointSyncCallbacks.get(position)?.(position.value);
+    for (const { schedule } of [text.widthSchedule, text.heightSchedule]) {
+      numberSyncCallbacks.get(schedule[0])?.(schedule[0].value);
+    }
+  }
+  // After a drag on the canvas.  applyMarkerDrag() then refreshes the panel.
+  markerSyncCallbacks.set(frameKf, syncFields);
+
+  const state = () =>
+    textFrameCanvasStates.get(text) ?? { viewing: false, editing: true };
+
+  /** Show the frame on the canvas, or not.  Only when there's one frame to show. */
+  function applyCanvasState(): void {
+    const { viewing, editing } = state();
+    const editable = text.frameIsEditable;
+    if (viewing && editable) {
+      viewingRectKfs.add(frameKf);
+    } else {
+      viewingRectKfs.delete(frameKf);
+    }
+    if (editing && editable) {
+      editingRectKf = frameKf;
+    } else if (editingRectKf === frameKf) {
+      editingRectKf = null;
+    }
+  }
+
+  const panel = buildTextFramePanel(text, {
+    frameChanged() {
+      syncFields();
+      for (const schedule of [
+        text.positionSchedule,
+        text.widthSchedule,
+        text.heightSchedule,
+      ]) {
+        activeRootComponentEditor?.update(text, schedule);
+      }
+      markDirty();
+    },
+    rotationChanged() {
+      activeRootComponentEditor?.update(text, text.rotationScalar);
+      markDirty();
+      // Rebuild so the Rotation menu shows the new value.
+      updateScheduleEditor(text);
+    },
+    canvasState: state,
+    setCanvasState(newState) {
+      textFrameCanvasStates.set(text, newState);
+      applyCanvasState();
+    },
+  });
+  // Adding a keyframe to Position, say, means there's no longer one frame.
+  scheduleEditorRefreshers.push(applyCanvasState, panel.refresh);
+  applyCanvasState();
+  return panel.element;
 }
 
 // MARK: Rect marker helpers
@@ -5269,6 +5383,8 @@ function applyPointDrag(localX: number, localY: number) {
   if (!draggingPoint) return;
   draggingPoint.value = { x: localX, y: localY };
   pointSyncCallbacks.get(draggingPoint)?.(draggingPoint.value);
+  // E.g. the Text Frame panel, when this point is a Multi Text's Position.
+  for (const cb of scheduleEditorRefreshers) cb();
 }
 
 function hitTestArrowMarker(

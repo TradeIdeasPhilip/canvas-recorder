@@ -1129,6 +1129,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -1265,6 +1270,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap, then scale"
@@ -1384,6 +1394,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -1507,6 +1522,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -1626,6 +1646,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -1764,6 +1789,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -1885,6 +1915,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -2004,6 +2039,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -2142,6 +2182,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -2260,6 +2305,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -2376,6 +2426,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -2499,6 +2554,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -2617,6 +2677,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -2733,6 +2798,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -2871,6 +2941,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -2990,6 +3065,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -3128,6 +3208,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -3249,6 +3334,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -3368,6 +3458,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -3506,6 +3601,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -3667,6 +3767,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "wrap"
@@ -3779,6 +3884,774 @@
             ]
           },
           {
+            "description": "Multi Text: Rotation",
+            "components": [],
+            "fixedComponents": [
+              {
+                "description": "Multi Text: Rotation"
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 2.4000000000000004,
+                      "y": 5.737500000000001
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 2.2
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.8
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 5.75,
+                      "y": 5.737500000000001
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 2.2
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.8
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "90° clockwise"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 9.1,
+                      "y": 5.737500000000001
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 2.2
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.8
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "180°"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "note"
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 12.450000000000001,
+                      "y": 5.737500000000001
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 2.2
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.8
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "90° counterclockwise"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 0.4,
+                      "y": 4.5
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 8.84
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.64
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "90° counterclockwise"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "frame overlay"
+              },
+              {
+                "description": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 15.6,
+                      "y": 4.5
+                    }
+                  },
+                  {
+                    "description": "Alignment",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Anchor X",
+                    "type": "select",
+                    "value": "center"
+                  },
+                  {
+                    "description": "Baseline",
+                    "type": "select",
+                    "value": "middle"
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 8.84
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 0.64
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "90° clockwise"
+                  },
+                  {
+                    "description": "Width Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "Height Mode",
+                    "type": "select",
+                    "value": "scale"
+                  },
+                  {
+                    "description": "May Grow",
+                    "type": "select",
+                    "value": "shrink or grow"
+                  },
+                  {
+                    "description": "Auto Size",
+                    "type": "select",
+                    "value": "live"
+                  },
+                  {
+                    "description": "Frozen Size",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": [],
+                "fixedComponents": [
+                  {
+                    "description": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "white"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 0
+                      },
+                      {
+                        "description": "Alpha",
+                        "type": "number",
+                        "value": 1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": ""
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "description": "note"
+              }
+            ]
+          },
+          {
             "description": "Multi Text: Please Check",
             "components": [],
             "fixedComponents": [
@@ -3850,6 +4723,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -3970,6 +4848,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -4086,6 +4969,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -4206,6 +5094,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -4324,6 +5217,11 @@
                     "value": 0
                   },
                   {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
+                  },
+                  {
                     "description": "Width Mode",
                     "type": "select",
                     "value": "scale"
@@ -4440,6 +5338,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",
@@ -4595,6 +5498,11 @@
                     "description": "Min Duration",
                     "type": "number",
                     "value": 0
+                  },
+                  {
+                    "description": "Rotation",
+                    "type": "select",
+                    "value": "none"
                   },
                   {
                     "description": "Width Mode",

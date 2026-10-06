@@ -220,6 +220,16 @@ body {
   color: #333;
 }
 
+/* ── Schedule editor toggles ─────────────────────────────────────────── */
+
+/* The 👁 / ✎ "show on canvas" and "edit on canvas" buttons stay pressed
+   while they're on. */
+#scheduleEditor button.active {
+  background: #d0e8ff;
+  outline: 2px solid #4a90d9;
+  outline-offset: -2px;
+}
+
 
 /* ── Component picker dialog ─────────────────────────────────────────── */
 

@@ -1,6 +1,7 @@
 // MARK: Multi Text
 
 import { Point } from "bezier-js";
+import { ReadOnlyRect } from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
 import { makeLineFontRatio } from "../glib/line-font";
 import { LaidOut, ParagraphLayout } from "../glib/paragraph-layout";
@@ -116,9 +117,9 @@ export const HEIGHT_MODES = ["unbounded", "scale", "shrink font"] as const;
  * What {@link MultiTextComponent.layoutAt}() returns:  everything you need to
  * know about what show() is about to draw, without drawing it.
  *
- * To reproduce what show() draws:  translate by {@link offset}, scale by
- * {@link scale}, then draw {@link laidOut} in its own coordinates.  In that
- * order.
+ * To reproduce what show() draws:  turn by {@link quarterTurns} about
+ * {@link pivot}, translate by {@link offset}, scale by {@link scale}, then draw
+ * {@link laidOut} in its own coordinates.  In that order.
  */
 export type PlacedText = {
   /**
@@ -148,7 +149,64 @@ export type PlacedText = {
    * mode.  Reported mostly so you can see what the search decided.
    */
   readonly sizeMultiplier: number;
+  /** Quarter turns clockwise, from {@link MultiTextComponent.rotationScalar}.  0 for none. */
+  readonly quarterTurns: QuarterTurns;
+  /** What the text turns about:  Position, the one point that never moves. */
+  readonly pivot: Point;
+  /**
+   * Where the finished text actually is, in this component's coordinates:
+   * after scaling and turning.  What an overlay should outline.
+   */
+  readonly box: ReadOnlyRect;
 };
+
+// MARK: Rotation
+
+/**
+ * How the text is turned, as it looks on screen.  The index is the number of
+ * quarter turns clockwise.
+ *
+ * Only quarter turns, deliberately.  At 90° the word wrap width is simply the
+ * frame's other side; at 30° there's no sensible one.  Any other angle, and
+ * any animated spin, is what a Slide is for.
+ */
+export const ROTATIONS = [
+  "none",
+  "90° clockwise",
+  "180°",
+  "90° counterclockwise",
+] as const;
+
+export type QuarterTurns = 0 | 1 | 2 | 3;
+
+/** Turn a point about the origin.  Clockwise as seen on screen, where y points down. */
+function turn({ x, y }: Point, quarterTurns: QuarterTurns): Point {
+  switch (quarterTurns) {
+    case 1:
+      return { x: -y, y: x };
+    case 2:
+      return { x: -x, y: -y };
+    case 3:
+      return { x: y, y: -x };
+    default:
+      return { x, y };
+  }
+}
+
+/** The rectangle `rect` covers after turning it about the origin.  Exact, since a quarter turn keeps it axis-aligned. */
+function turnRect(rect: ReadOnlyRect, quarterTurns: QuarterTurns): ReadOnlyRect {
+  const a = turn({ x: rect.x, y: rect.y }, quarterTurns);
+  const b = turn(
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+    quarterTurns,
+  );
+  return {
+    x: Math.min(a.x, b.x),
+    y: Math.min(a.y, b.y),
+    width: Math.abs(b.x - a.x),
+    height: Math.abs(b.y - a.y),
+  };
+}
 
 /** Where an anchor puts the text relative to {@link MultiTextComponent.positionSchedule}. */
 const ANCHOR_FRACTION = {
@@ -303,6 +361,22 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     "Additional Line Height",
     0,
   );
+  /**
+   * See {@link ROTATIONS}.  The text and its whole frame turn together, about
+   * Position, like a PowerPoint text box.
+   *
+   * Width, Height and the two modes keep meaning the text's *own* directions:
+   * Width runs along the lines, Height across them.  So a frame turned 90°
+   * with Width 9 is 9 units *tall* on screen.  To work in screen terms instead,
+   * use the Visual Editor's Text Frame panel, or {@link frameAt} and
+   * {@link setFrame}.
+   */
+  readonly rotationScalar: Scalar<"select"> = {
+    description: "Rotation",
+    type: "select",
+    choices: ROTATIONS,
+    value: "none",
+  };
   /** See {@link WIDTH_MODES}. */
   readonly widthModeScalar: Scalar<"select"> = {
     description: "Width Mode",
@@ -381,6 +455,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       mayGrow?: "shrink or grow" | "shrink only";
       autoSize?: "live" | "frozen";
       frozenSize?: number;
+      rotation?: (typeof ROTATIONS)[number];
     } = {},
   ) {
     super(initialValues.description ?? "Multi Text");
@@ -394,6 +469,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       this.additionalLineHeightSchedule,
     );
     this.scalars.push(
+      this.rotationScalar,
       this.widthModeScalar,
       this.heightModeScalar,
       this.mayGrowScalar,
@@ -424,6 +500,8 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       this.autoSizeScalar.value = initialValues.autoSize;
     if (initialValues.frozenSize !== undefined)
       this.frozenSizeScalar.value = initialValues.frozenSize;
+    if (initialValues.rotation !== undefined)
+      this.rotationScalar.value = initialValues.rotation;
   }
   protected override showChild(info: ShowChildInfo): void {
     // We are not currently using this method.
@@ -675,20 +753,126 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     const blockLeft = inkLeft * scale;
     const blockWidth = (inkRight - inkLeft) * scale;
     const blockHeight = laidOut.height * scale;
+    const anchorX = ANCHOR_FRACTION[this.anchorXSchedule.at(timeInMs)];
+    const anchorY = ANCHOR_FRACTION[this.textBaselineSchedule.at(timeInMs)];
+    // Everything above is in the text's own directions.  The turn happens
+    // last, about Position, so none of the sizing logic knows the angle.
+    const quarterTurns = this.quarterTurns;
+    const turned = turnRect(
+      {
+        x: -anchorX * blockWidth,
+        y: -anchorY * blockHeight,
+        width: blockWidth,
+        height: blockHeight,
+      },
+      quarterTurns,
+    );
     return {
       laidOut,
       scale,
       sizeMultiplier,
+      quarterTurns,
+      pivot: position,
+      box: {
+        x: position.x + turned.x,
+        y: position.y + turned.y,
+        width: turned.width,
+        height: turned.height,
+      },
       offset: {
-        x:
-          position.x -
-          ANCHOR_FRACTION[this.anchorXSchedule.at(timeInMs)] * blockWidth -
-          blockLeft,
-        y:
-          position.y -
-          ANCHOR_FRACTION[this.textBaselineSchedule.at(timeInMs)] * blockHeight,
+        x: position.x - anchorX * blockWidth - blockLeft,
+        y: position.y - anchorY * blockHeight,
       },
     };
+  }
+
+  /** {@link rotationScalar} as a number of quarter turns clockwise. */
+  get quarterTurns(): QuarterTurns {
+    const index = ROTATIONS.indexOf(
+      this.rotationScalar.value as (typeof ROTATIONS)[number],
+    );
+    return (index < 0 ? 0 : index) as QuarterTurns;
+  }
+
+  // MARK: The frame in screen terms
+
+  /**
+   * The frame as it appears on screen, in this component's coordinates:
+   * Width × Height, anchored on Position, turned by Rotation about Position.
+   *
+   * Width and Height themselves are in the text's own directions (see
+   * {@link rotationScalar}); this is the same rectangle after the turn.  It's
+   * what the Visual Editor draws and lets you drag.
+   */
+  frameAt(timeInMs: number): ReadOnlyRect {
+    const position = this.positionSchedule.at(timeInMs);
+    const width = this.widthSchedule.at(timeInMs);
+    const height = this.heightSchedule.at(timeInMs);
+    const turned = turnRect(
+      {
+        x: -ANCHOR_FRACTION[this.anchorXSchedule.at(timeInMs)] * width,
+        y: -ANCHOR_FRACTION[this.textBaselineSchedule.at(timeInMs)] * height,
+        width,
+        height,
+      },
+      this.quarterTurns,
+    );
+    return {
+      x: position.x + turned.x,
+      y: position.y + turned.y,
+      width: turned.width,
+      height: turned.height,
+    };
+  }
+
+  /**
+   * True when everything {@link frameAt} reads holds a single value, which is
+   * when {@link setFrame} can work.  An animated frame has no one rectangle
+   * to set.
+   */
+  get frameIsEditable(): boolean {
+    return [
+      this.positionSchedule,
+      this.widthSchedule,
+      this.heightSchedule,
+      this.anchorXSchedule,
+      this.textBaselineSchedule,
+    ].every(({ schedule }) => schedule.length === 1);
+  }
+
+  /**
+   * The inverse of {@link frameAt}:  set Position, Width and Height so the
+   * frame covers `rect` on screen.  The anchors and Rotation are kept, so the
+   * text sits in the frame the same way it did before.
+   *
+   * Only for a frame that isn't animated (see {@link frameIsEditable}); does
+   * nothing otherwise.  It changes the existing keyframes in place, so editor
+   * fields bound to them stay bound.
+   */
+  setFrame(rect: ReadOnlyRect): void {
+    if (!this.frameIsEditable) return;
+    const quarterTurns = this.quarterTurns;
+    // A quarter turn swaps which screen direction each of the text's own runs along.
+    const [width, height] =
+      quarterTurns % 2 ? [rect.height, rect.width] : [rect.width, rect.height];
+    const turned = turnRect(
+      {
+        x: -ANCHOR_FRACTION[this.anchorXSchedule.at(0)] * width,
+        y: -ANCHOR_FRACTION[this.textBaselineSchedule.at(0)] * height,
+        width,
+        height,
+      },
+      quarterTurns,
+    );
+    // Rounded so 14.4 + 0.8 is stored, and shown in the editor, as 15.2
+    // rather than 15.200000000000001.
+    const tidy = (n: number) => Math.round(n * 1e9) / 1e9;
+    this.positionSchedule.schedule[0].value = {
+      x: tidy(rect.x - turned.x),
+      y: tidy(rect.y - turned.y),
+    };
+    this.widthSchedule.schedule[0].value = width;
+    this.heightSchedule.schedule[0].value = height;
   }
   override show(options: ShowOptions): void {
     const { context } = options;
@@ -706,11 +890,18 @@ export class MultiTextComponent extends DurationAgnosticComponent {
         child.show(childOptions);
       }
     });
-    const { laidOut, offset, scale } = this.layoutAt(options);
+    const { laidOut, offset, scale, quarterTurns, pivot } =
+      this.layoutAt(options);
     // The scale goes on the context rather than the path, so the stroke width
     // scales with the letters.  Scaling the PathShape alone would leave the
     // pen the same size, and small text would come out looking too heavy.
     context.save();
+    if (quarterTurns) {
+      // Turn about Position, the one point that never moves.
+      context.translate(pivot.x, pivot.y);
+      context.rotate((quarterTurns * Math.PI) / 2);
+      context.translate(-pivot.x, -pivot.y);
+    }
     context.translate(offset.x, offset.y);
     context.scale(scale, scale);
     laidOut.pathShapeByTag().forEach((pathShape, callback) => {

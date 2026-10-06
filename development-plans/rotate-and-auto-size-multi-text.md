@@ -1,5 +1,10 @@
 # Rotate and Auto Size the Multi Text Component
 
+**Status (10/6/2026): Done.**
+Auto sizing and quarter-turn rotations are both built, and both are in use for the Galaga letterbox.
+What's left is polish, collected in [If we come back](#if-we-come-back).
+Everything from here down to [How the open questions were settled](#how-the-open-questions-were-settled) is the original plan and discussion, kept as history.
+
 Proposal:
 
 Add the abilities to rotate the text and and to do various auto sizing operations.
@@ -18,6 +23,12 @@ See the [proposed Wrap button](./add-component-dialog.md#add-wrap-button), which
 Are rotations intertwined with auto sizing?
 At first I thought about them together.
 Now I'm thinking these are two seperate projects.
+
+**Update 10/6/2026**: The multi sizing now works, as does the Wrap button, but we skipped the rotations.
+I tried doing a simple rotation with a seperate Slide component.
+It was painful and I gave up.
+Although the capability is 100% there, and the Wrap button works perfectly, we do not currently have a useable solution.
+I am now certain that the Multi Text should do rotations (at least 90° rotations) directly and the Visual Editor should make it easy and obvious.
 
 ## Auto Sizing
 
@@ -278,3 +289,133 @@ That wants an optional `measure()` on `Showable`, which `layoutAt()` already all
 3. Does the Visual Editor support the property list *changing* when a scalar changes?
    Everything above assumes switching `Frame` re-draws the panel.
    If that's hard today, it's the first thing to build.
+
+## How the open questions were settled
+
+1. **One rectangle, or separate schedules?**
+   Separate Position / Width / Height, as before.
+   Existing videos didn't have to migrate, and nothing changed for them.
+   The "one rectangle" view arrived later, on top, as the Visual Editor's Text Frame panel (below).
+2. **Is `May Grow` a real knob?**
+   Yes, defaulting to `shrink or grow`.
+   But wrapping overrides it, which bit us in practice.
+   See [What we learned using it](#what-we-learned-using-it-1062026).
+3. **Does the property list change when a scalar changes?**
+   No.
+   Every property is always shown, and the Text Frame panel adds a note when one is being ignored.
+4. **The alignment conflation** was fixed as proposed:
+   `Alignment` is now only how ragged the lines are, and `Anchor X` / `Baseline` decide where the text attaches to Position.
+
+## Rotations, as built
+
+Multi Text now does quarter turns itself, and the Visual Editor has a panel for placing the frame the way PowerPoint does.
+
+### Why it's in Multi Text
+
+The plan above said rotations could wait, and could be done with a Slide wrapped around anything.
+In practice that was painful enough that we gave up (see the 10/21 update at the top).
+Part of the pain: a Slide turns about the canvas origin, so the text swings off screen, and nothing in the editor shows where the turned frame ended up.
+Building quarter turns into Multi Text fixes both, and quarter turns keep the sizing simple:
+at 90° the wrap width is just the frame's other side, while at 30° there is no sensible one.
+
+### The model
+
+* **`Rotation`** is a scalar: `none`, `90° clockwise`, `180°`, `90° counterclockwise`.
+  Quarter turns only, on purpose.
+  Any other angle, and any animated spin, is still a job for a Slide.
+* **It turns about Position**, the orange dot, which never moves.
+  The text and its whole frame turn together.
+* **Width, Height and the two modes stay in the text's own directions.**
+  Width runs along the lines, Height across them.
+  So a frame turned 90° with Width 9 is 9 units *tall* on screen.
+  None of the sizing pipeline knows the angle; the turn is applied last.
+  This differs from the order proposed above (lay out → rotate → fit the turned box).
+  Turning the frame along with the text is what PowerPoint does,
+  and it lets Width keep meaning "the length of a line" at every angle.
+  The Text Frame panel provides the screen-terms view instead.
+* For code that needs screen terms:
+  `frameAt(time)` returns the frame as drawn on screen,
+  `setFrame(rect)` is its inverse (it sets Position, Width and Height and keeps the anchors and Rotation),
+  and `frameIsEditable` says whether there is one frame to set, which means Position, Width, Height, Anchor X and Baseline each have a single keyframe.
+  `layoutAt()` also reports `quarterTurns`, `pivot` and `box`, the text's actual on-screen rectangle.
+
+Checked headlessly for all four turns × all nine anchor combinations:
+`setFrame()` then `frameAt()` round-trips, the text stays inside its frame,
+and the turned drawing matches the unturned one turned about Position, to within 2.5 px.
+
+### The Text Frame panel
+
+Shown at the top of the schedule editor whenever a Multi Text is selected.
+Everything in it is in screen terms, after Rotation.
+The goal was "PowerPoint easy": adjust the rectangle by hand until it looks right, no looking up numbers and doing math.
+
+* **👁 ✎**: show the frame on the canvas, and drag it.
+  Corners resize, the middle moves, and Shift on a corner keeps the shape.
+  ✎ starts on, like selecting a text box in PowerPoint; the choice is remembered per component.
+* **⟲ 90° / ⟳ 90°**: turn in place, keeping the frame's center.
+  (The Rotation menu below turns about Position instead.)
+* **x, y, width, height**: the frame as you'd measure it on the canvas.
+* **⇤ ⇆ ⇥ ⤒ ⇵ ⤓ ↔ ↕**: snap an edge to the canvas, center it, or stretch it across the canvas.
+  The first six are the Video File panel's buttons; both panels now share `dev/rect-snap.ts`.
+* Notes explain when the frame can't be edited (it's animated), or when one side doesn't matter (that dimension's Mode is `unbounded`).
+
+With both modes set to `scale`, the letterbox from galaga.ts is ⟲, ⇤, ↕, then type the strip's width.
+The **Multi Text: Rotation** slide in the showcase shows all four turns and both letterbox strips.
+
+Fixed along the way:
+
+* The existing 👁 / ✎ buttons on every keyframe row set an `active` class that had no CSS, so they never looked pressed.
+  They do now.
+* Panels at the top of the schedule editor listened for edits on individual sections, and lost those listeners whenever a section was rebuilt (e.g. after adding a keyframe).
+  They now listen on the whole schedule editor, and refresh when keyframes are added or removed.
+
+## What we learned using it (10/6/2026)
+
+Placing "Galaga" in the left letterbox strip by hand turned up three things.
+
+* **`May Grow` was silently ignored.**
+  Width Mode was `wrap` (the default), and wrapping forces shrink-only whatever May Grow says.
+  Growing after wrapping would push the lines past the width they were just wrapped to.
+  That's right for a paragraph and pointless for one word, and nothing in the GUI said so.
+  The fix was Width Mode `scale`: both modes `scale` plus `shrink or grow` is "fit the box".
+  Tempting workaround to avoid: a huge Font Size so the text only ever has to shrink.
+* **Height fits the line box, not the letters.**
+  The line box includes the font's room above the capitals and below the descenders.
+  For "Galaga" the letters come out about 75% of the frame's height,
+  so when the letters look right the dashed frame is a bit wider than the gap.
+  Fine when adjusting by eye, surprising when typing numbers.
+* **The text looked crooked, by exactly 1°.**
+  The cause wasn't the quarter-turn math (`Math.PI / 2` and phil-lib's `FULL_CIRCLE / 4` are the same number).
+  The Multi Text sat inside a Slide left over from the earlier attempt, with Transform Template `rotate(1deg)`.
+  That turns about the canvas's top-left corner, so it moved the bottom of the canvas about 0.157 units left, which matched the screenshot to the pixel.
+  It was found in seconds by reading the synced `properties/galaga.txt`, which lists every difference from the TypeScript defaults as code.
+
+## If we come back
+
+Suggestions that came up and weren't built, roughly most useful first.
+
+* **Show when `May Grow` is overridden.**
+  Grey out the May Grow menu, or add a note to the Text Frame panel, whenever Width Mode wraps.
+  The panel already has a notes area for exactly this kind of thing.
+* **Warn about a transformed parent.**
+  The Text Frame panel could say when a parent (a Slide, say) tilts or scales the text.
+  It would have explained the crooked text immediately.
+  Related: the snap buttons work in the component's own coordinates, which are the canvas only when no parent is transformed.
+  They could map through the parent's transform instead.
+* **Fit the letters, not the line box.**
+  An option to fit the ink, so "fill this gap" means the letters touch both edges.
+  Or, cheaper: draw the ink box on the canvas next to the frame while ✎ is on.
+* **Snapping while dragging**: guides and snapping to the canvas edges and to other components' edges.
+  We don't have a "snap to anything" architecture yet; hand adjustment has been good enough so far.
+* **Animated frames.**
+  The panel and the canvas handles stand aside when Position, Width or Height has more than one keyframe.
+  They could edit the keyframe at the playhead instead, and draw the frame at the current time rather than at time 0.
+* **A snap row on every rectangle schedule.**
+  `dev/rect-snap.ts` makes this a few lines.
+* **Justify plus an unbounded width** still does nothing; disable it in the GUI rather than explaining it.
+  (Item 5 on the showcase's "Multi Text: Please Check" slide.)
+* **Cleanup.**
+  `FittedText` and `letterboxLabel()` in galaga.ts are superseded by built-in rotation plus the `scale` modes; their calls are already commented out.
+  The "Please Check" slide can go once it has served its purpose as a regression check.
+* **A generic fitting wrapper** (from "Should this live in MultiTextComponent at all?" above) is still open:
+  "measure it, scale it, anchor it" would work for images, video clips and groups too.
