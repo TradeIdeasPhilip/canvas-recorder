@@ -3,6 +3,8 @@ import { Keyframe } from "../src/interpolate.ts";
 import { SoundClip } from "../src/showable.ts";
 import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
 import {
+  CANVAS_HEIGHT_UNITS,
+  CANVAS_WIDTH_UNITS,
   centeredOnCanvas,
   maxFit,
   minCover,
@@ -204,6 +206,54 @@ export function buildVideoClipPanel(
         shrinkToAspect(rect, info.video.width / info.video.height),
     },
   ].map(({ text, title, make }) => ({ btn: button(rectRow, text, title), make }));
+
+  /**
+   * Snap one edge of the Dest Rect to the canvas, or center it, keeping its
+   * size.  These need nothing from the file, so unlike the row above they
+   * work before it has loaded.  Each is disabled when it would change nothing.
+   *
+   * The canvas is taken to be the 16×9 the clip draws into, which is true
+   * unless the clip sits inside a transformed parent like a Slide.
+   */
+  const alignRow = line(panel, "margin-top:0.3em");
+  const alignButtons = [
+    {
+      text: "⇤",
+      title: "Move the left edge to the left of the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, x: 0 }),
+    },
+    {
+      text: "⇆",
+      title: "Center horizontally on the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, x: (CANVAS_WIDTH_UNITS - r.width) / 2 }),
+    },
+    {
+      text: "⇥",
+      title: "Move the right edge to the right of the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, x: CANVAS_WIDTH_UNITS - r.width }),
+    },
+    {
+      text: "⤒",
+      title: "Move the top edge to the top of the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, y: 0 }),
+    },
+    {
+      text: "⇵",
+      title: "Center vertically on the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, y: (CANVAS_HEIGHT_UNITS - r.height) / 2 }),
+    },
+    {
+      text: "⤓",
+      title: "Move the bottom edge to the bottom of the canvas",
+      place: (r: ReadOnlyRect) => ({ ...r, y: CANVAS_HEIGHT_UNITS - r.height }),
+    },
+  ].map(({ text, title, place }, index) => {
+    const btn = button(alignRow, text, title);
+    // A little space between the horizontal three and the vertical three.
+    if (index === 3) btn.style.marginLeft = "0.8em";
+    return { btn, title, place };
+  });
+
   const rectHint = line(panel, "font-size:0.85em;color:#a06000;min-height:0");
 
   const audioRow = line(panel, "margin-top:0.5em");
@@ -323,6 +373,7 @@ export function buildVideoClipPanel(
     realTimeBtn.hidden = Number.isNaN(speed) || isRealTime(speed);
     realTimeBtn.disabled = !(end > start);
     for (const { btn } of rectButtons) btn.disabled = !ready;
+    drawAlignButtons();
     drawAudio(speed);
   }
 
@@ -420,6 +471,40 @@ export function buildVideoClipPanel(
     if (end > start) clip.setDuration(end - start);
     drawDerived();
   });
+
+  /**
+   * Enable each alignment button only if it would actually move the rectangle.
+   * Typed values like 0.8 rarely equal the computed ones exactly, hence the tolerance.
+   */
+  function drawAlignButtons(): void {
+    const target = targetKeyframe();
+    for (const { btn, title, place } of alignButtons) {
+      if (typeof target === "string") {
+        btn.disabled = true;
+        btn.title = `${title}.\n\n${target}`;
+        continue;
+      }
+      btn.title = title;
+      const now = target.value;
+      const next = place(now);
+      btn.disabled =
+        Math.abs(next.x - now.x) < 1e-6 && Math.abs(next.y - now.y) < 1e-6;
+    }
+  }
+
+  for (const { btn, place } of alignButtons) {
+    btn.addEventListener("click", () => {
+      const target = targetKeyframe();
+      if (typeof target === "string") return;
+      const { x, y, width, height } = place(target.value);
+      // 16 − 14.4 is 1.5999999999999996 in floating point.  Round that away,
+      // so the number fields and the synced JSON show 1.6.
+      const tidy = (n: number) => Math.round(n * 1e9) / 1e9;
+      target.value = { x: tidy(x), y: tidy(y), width, height };
+      hooks.rectKeyframeChanged(target);
+      drawDerived();
+    });
+  }
 
   /** Which Dest Rect keyframe a button should change, or why it can't decide. */
   function targetKeyframe(): Keyframe<ReadOnlyRect> | string {

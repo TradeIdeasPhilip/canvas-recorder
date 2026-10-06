@@ -187,8 +187,8 @@ root.addFixed({
   zIndex: -100,
 });
 
-root.addFixed({ child: letterboxLabel("Letterbox (Left)", 0) });
-root.addFixed({ child: letterboxLabel("Letterbox (Right)", 16 - SIDE_WIDTH) });
+//root.addFixed({ child: letterboxLabel("Letterbox (Left)", 0) });
+//root.addFixed({ child: letterboxLabel("Letterbox (Right)", 16 - SIDE_WIDTH) });
 
 /**
  * The main timeline -- like CapCut's primary track.  Deposit each video

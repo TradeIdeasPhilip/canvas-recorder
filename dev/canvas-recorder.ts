@@ -3726,6 +3726,8 @@ function buildScheduleSection(
           .forEach((b) => b.classList.remove("active"));
         editingRectKf = wasEditing ? null : rectKf;
         if (editingRectKf) editBtn.classList.add("active");
+        // Which keyframe is in ✎ mode decides what some panel buttons act on.
+        for (const cb of scheduleEditorRefreshers) cb();
       });
 
       canvasCell.append(viewBtn, "\u00a0", editBtn);

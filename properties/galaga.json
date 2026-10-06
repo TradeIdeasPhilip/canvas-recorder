@@ -3,7 +3,211 @@
   "videoKey": "galaga",
   "tree": {
     "description": "Galaga",
-    "components": [],
+    "components": [
+      {
+        "registryKey": "Slide",
+        "schedules": [
+          {
+            "description": "Alpha",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓐",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓑",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓒",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓓",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓔",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓕",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓖",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓗",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓘",
+            "type": "number",
+            "value": 1
+          },
+          {
+            "description": "𝓙",
+            "type": "number",
+            "value": 1
+          }
+        ],
+        "scalars": [
+          {
+            "description": "Min Duration",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "description": "Transform Template",
+            "type": "string",
+            "value": "rotate(-45deg)"
+          }
+        ],
+        "components": [
+          {
+            "registryKey": "Multi Text",
+            "schedules": [
+              {
+                "description": "Position",
+                "type": "point",
+                "value": {
+                  "x": 8,
+                  "y": 0.25
+                }
+              },
+              {
+                "description": "Alignment",
+                "type": "select",
+                "value": "center"
+              },
+              {
+                "description": "Anchor X",
+                "type": "select",
+                "value": "center"
+              },
+              {
+                "description": "Baseline",
+                "type": "select",
+                "value": "top"
+              },
+              {
+                "description": "Width",
+                "type": "number",
+                "value": 7.5
+              },
+              {
+                "description": "Height",
+                "type": "number",
+                "value": 4
+              },
+              {
+                "description": "Additional Line Height",
+                "type": "number",
+                "value": 0
+              }
+            ],
+            "scalars": [
+              {
+                "description": "Min Duration",
+                "type": "number",
+                "value": 0
+              },
+              {
+                "description": "Width Mode",
+                "type": "select",
+                "value": "wrap"
+              },
+              {
+                "description": "Height Mode",
+                "type": "select",
+                "value": "unbounded"
+              },
+              {
+                "description": "May Grow",
+                "type": "select",
+                "value": "shrink or grow"
+              },
+              {
+                "description": "Auto Size",
+                "type": "select",
+                "value": "live"
+              },
+              {
+                "description": "Frozen Size",
+                "type": "number",
+                "value": 0
+              }
+            ],
+            "components": [
+              {
+                "registryKey": "Text Format",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "value": "rgb(0% 87.06% 0%)"
+                  },
+                  {
+                    "description": "Font Size",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Boldness",
+                    "type": "number",
+                    "value": 1
+                  },
+                  {
+                    "description": "Obliqueness",
+                    "type": "number",
+                    "value": 0
+                  },
+                  {
+                    "description": "Alpha",
+                    "type": "number",
+                    "value": 1
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Name",
+                    "type": "string",
+                    "value": ""
+                  }
+                ]
+              },
+              {
+                "registryKey": "Text Span",
+                "schedules": [
+                  {
+                    "description": "Content",
+                    "type": "string",
+                    "value": "Galaga"
+                  },
+                  {
+                    "description": "Style",
+                    "type": "string",
+                    "value": ""
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ],
     "fixedComponents": [
       {
         "description": "Background",
@@ -26,250 +230,6 @@
         ]
       },
       {
-        "description": "Letterbox (Left)",
-        "schedules": [
-          {
-            "description": "Alpha",
-            "type": "number",
-            "value": 1
-          }
-        ],
-        "scalars": [
-          {
-            "description": "Min Duration",
-            "type": "number",
-            "value": 0
-          }
-        ],
-        "components": [],
-        "fixedComponents": [
-          {
-            "description": "Multi Text",
-            "schedules": [
-              {
-                "description": "Alignment",
-                "type": "select",
-                "value": "center"
-              },
-              {
-                "description": "Anchor X",
-                "type": "select",
-                "value": "center"
-              },
-              {
-                "description": "Width",
-                "type": "number",
-                "value": 7.5
-              },
-              {
-                "description": "Height",
-                "type": "number",
-                "value": 4
-              },
-              {
-                "description": "Additional Line Height",
-                "type": "number",
-                "value": 0
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Min Duration",
-                "type": "number",
-                "value": 0
-              },
-              {
-                "description": "Width Mode",
-                "type": "select",
-                "value": "wrap"
-              },
-              {
-                "description": "Height Mode",
-                "type": "select",
-                "value": "unbounded"
-              },
-              {
-                "description": "May Grow",
-                "type": "select",
-                "value": "shrink or grow"
-              },
-              {
-                "description": "Auto Size",
-                "type": "select",
-                "value": "live"
-              },
-              {
-                "description": "Frozen Size",
-                "type": "number",
-                "value": 0
-              }
-            ],
-            "components": [],
-            "fixedComponents": [
-              {
-                "description": "Text Format",
-                "schedules": [
-                  {
-                    "description": "Color",
-                    "type": "color",
-                    "value": "white"
-                  },
-                  {
-                    "description": "Font Size",
-                    "type": "number",
-                    "value": 1
-                  },
-                  {
-                    "description": "Boldness",
-                    "type": "number",
-                    "value": 1
-                  },
-                  {
-                    "description": "Obliqueness",
-                    "type": "number",
-                    "value": 0
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "value": 1
-                  }
-                ],
-                "scalars": [
-                  {
-                    "description": "Name",
-                    "type": "string",
-                    "value": ""
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        "description": "Letterbox (Right)",
-        "schedules": [
-          {
-            "description": "Alpha",
-            "type": "number",
-            "value": 1
-          }
-        ],
-        "scalars": [
-          {
-            "description": "Min Duration",
-            "type": "number",
-            "value": 0
-          }
-        ],
-        "components": [],
-        "fixedComponents": [
-          {
-            "description": "Multi Text",
-            "schedules": [
-              {
-                "description": "Alignment",
-                "type": "select",
-                "value": "center"
-              },
-              {
-                "description": "Anchor X",
-                "type": "select",
-                "value": "center"
-              },
-              {
-                "description": "Width",
-                "type": "number",
-                "value": 7.5
-              },
-              {
-                "description": "Height",
-                "type": "number",
-                "value": 4
-              },
-              {
-                "description": "Additional Line Height",
-                "type": "number",
-                "value": 0
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Min Duration",
-                "type": "number",
-                "value": 0
-              },
-              {
-                "description": "Width Mode",
-                "type": "select",
-                "value": "wrap"
-              },
-              {
-                "description": "Height Mode",
-                "type": "select",
-                "value": "unbounded"
-              },
-              {
-                "description": "May Grow",
-                "type": "select",
-                "value": "shrink or grow"
-              },
-              {
-                "description": "Auto Size",
-                "type": "select",
-                "value": "live"
-              },
-              {
-                "description": "Frozen Size",
-                "type": "number",
-                "value": 0
-              }
-            ],
-            "components": [],
-            "fixedComponents": [
-              {
-                "description": "Text Format",
-                "schedules": [
-                  {
-                    "description": "Color",
-                    "type": "color",
-                    "value": "white"
-                  },
-                  {
-                    "description": "Font Size",
-                    "type": "number",
-                    "value": 1
-                  },
-                  {
-                    "description": "Boldness",
-                    "type": "number",
-                    "value": 1
-                  },
-                  {
-                    "description": "Obliqueness",
-                    "type": "number",
-                    "value": 0
-                  },
-                  {
-                    "description": "Alpha",
-                    "type": "number",
-                    "value": 1
-                  }
-                ],
-                "scalars": [
-                  {
-                    "description": "Name",
-                    "type": "string",
-                    "value": ""
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
         "description": "Timeline",
         "components": [
           {
@@ -279,9 +239,9 @@
                 "description": "Dest Rect",
                 "type": "rectangle",
                 "value": {
-                  "x": 0,
+                  "x": 1.6,
                   "y": 0,
-                  "width": 16,
+                  "width": 14.4,
                   "height": 9
                 }
               }
