@@ -482,8 +482,11 @@ export class VideoClipComponent extends ComponentWithLiveDuration {
    * button.  It lives here rather than on the scene so it stays lined up with
    * the picture when the clip moves on the timeline:  each sound clip's start
    * is measured from the start of *this* component.
+   *
+   * Always an array, possibly empty, so the Visual Editor can add sounds to,
+   * or move sounds onto, any Video Clip.
    */
-  soundClips?: SoundClip[];
+  soundClips: SoundClip[] = [];
 
   #url = "";
   #videoPromise: Promise<OpenVideo> | undefined;

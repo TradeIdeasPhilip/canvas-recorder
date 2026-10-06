@@ -27,6 +27,7 @@ import {
   SerializedSchedule,
   Showable,
   ShowableParent,
+  SoundClip,
   VisualEditorAPI,
 } from "../src/showable.ts";
 import {
@@ -55,7 +56,7 @@ import {
   VideoSnapshot,
 } from "../src/snapshot.ts";
 import { downloadBlob, philDebug } from "../src/utility.ts";
-import { getNewDebugLogEntries } from "../src/debug-log.ts";
+import { debugLog, getNewDebugLogEntries } from "../src/debug-log.ts";
 import { AudioBuilder } from "./audio-builder.ts";
 import { openColorPickerDialog } from "./color-picker.ts";
 import { setSwatchColor } from "./color-utils.ts";
@@ -74,6 +75,15 @@ import {
 import { buildSlideComponentPanel } from "./slide-panel.ts";
 import { buildVideoClipPanel } from "./video-clip-panel.ts";
 import { buildTextFramePanel, CanvasState } from "./multi-text-panel.ts";
+import {
+  ownerOf,
+  parseSoundClips,
+  rehomeSoundClip,
+  soundOwners,
+  startWithin,
+  tidyMs,
+} from "./sound-clips.ts";
+import { askHowToSplit } from "./split-dialog.ts";
 import { SyncedFile, type SyncedFileOptions } from "./synced-file.ts";
 import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
@@ -91,6 +101,8 @@ import {
 import { SlideComponent } from "../src/slide-components/slide-component.ts";
 import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
 import { MultiTextComponent } from "../src/slide-components/multi-text.ts";
+import { InSeriesComponent } from "../src/slide-components/in-series.ts";
+import { splitVideoClip } from "../src/slide-components/split-video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
@@ -589,12 +601,19 @@ async function initAudio(): Promise<void> {
     if (myGen !== reloadGeneration) return false;
     if (item.soundClips) {
       for (const clip of item.soundClips) {
-        await newBuilder.add(
-          clip.source,
-          offset + clip.startMsIntoScene,
-          clip.startMsIntoClip,
-          clip.lengthMs,
-        );
+        // A brand new clip has no source yet, and a URL being typed is wrong
+        // until it's finished.  Either way, skip that one clip, not all audio.
+        if (clip.source === "") continue;
+        try {
+          await newBuilder.add(
+            clip.source,
+            offset + clip.startMsIntoScene,
+            clip.startMsIntoClip,
+            clip.lengthMs,
+          );
+        } catch (reason) {
+          debugLog("audio", `Skipped "${clip.source}": ${reason}`);
+        }
         if (myGen !== reloadGeneration) return false;
       }
     }
@@ -618,6 +637,9 @@ async function initAudio(): Promise<void> {
   audioBuilder = newBuilder;
   audioReady = true;
   console.log(`Audio ready in ${(time2 - time1).toFixed(0)} ms.`);
+  // Sound clips on the timeline can now show their waveforms, and the ones
+  // that play to the end of their file now know how long that is.
+  timelineDisplay.redraw();
 }
 
 initAudio();
@@ -1561,6 +1583,12 @@ const goToButtonUpdaters: Array<() => void> = [];
 const durationSyncCallbacks: Array<() => void> = [];
 const soundClipSyncCallbacks: Array<() => void> = [];
 /**
+ * The sound clip highlighted on the timeline and in its owner's Sound Clips
+ * list.  Declared up here, not with the other sound clip code, because
+ * {@link updateScheduleEditor} reads it and runs during startup.
+ */
+let selectedSoundClip: SoundClip | undefined;
+/**
  * Callbacks that refresh custom panels in the schedule editor (bottom right)
  * when a duration changes anywhere — e.g. the Video File panel's speed
  * readout, after the Duration field in the component tree is edited.
@@ -1752,6 +1780,13 @@ timelineDisplay.onBlockClick = (id) => {
   // Find the Showable that was clicked (may be nested) and select it.
   const selectable = chapterList[select.selectedIndex]?.selectable;
   if (!selectable) return;
+  // A sound clip:  select its owner, which shows the clip in its Sound Clips list.
+  const soundOwner = ownerOf(soundOwners(selectable), id as SoundClip);
+  if (soundOwner) {
+    selectedSoundClip = id as SoundClip;
+    selectInChapter(soundOwner.owner);
+    return;
+  }
   function findIn(
     children: NonNullable<Showable["children"]>,
     container: Showable,
@@ -1773,14 +1808,114 @@ timelineDisplay.onBlockClick = (id) => {
 
 // MARK: Timeline blocks
 
-/** Build timeline blocks for the children of `selectable`. */
+/**
+ * A sound clip's numbers changed, from a field or a drag on the timeline.
+ * Save, rebuild the audio soon, and bring the fields and the timeline up to date.
+ */
 function _onClipValueChanged(): void {
   markDirty();
   clearTimeout(_durationAudioTimer);
   _durationAudioTimer = setTimeout(() => void initAudio(), 300);
   for (const cb of soundClipSyncCallbacks) cb();
+  timelineDisplay.redraw();
 }
 
+// MARK: Sound clips
+
+/** Shortest a sound clip can be trimmed to by dragging, in ms. */
+const MIN_SOUND_CLIP_MS = 50;
+
+/** How long the file `clip` plays from is, once it has been decoded. */
+function soundFileMs(clip: SoundClip): number | undefined {
+  const buffer = audioBuilder.getDecodedBuffer(clip.source);
+  return buffer ? buffer.duration * 1000 : undefined;
+}
+
+/**
+ * How long `clip` plays:  its Length, or with no Length, the rest of its
+ * file.  Undefined only when that file hasn't been decoded yet.
+ */
+function soundClipLengthMs(clip: SoundClip): number | undefined {
+  if (clip.lengthMs !== undefined) return clip.lengthMs;
+  const fileMs = soundFileMs(clip);
+  return fileMs === undefined
+    ? undefined
+    : Math.max(0, fileMs - (clip.startMsIntoClip ?? 0));
+}
+
+/**
+ * A timeline block for one sound clip, whose owner starts `ownerStart` ms
+ * into the chapter.  The body moves it, the left edge trims or extends its
+ * beginning, and the right edge its end.  Trimming leaves the rest of the
+ * sound playing at exactly the same moment.
+ */
+function soundClipBlock(clip: SoundClip, ownerStart: number): TimelineBlock {
+  const start = () => ownerStart + clip.startMsIntoScene;
+  return {
+    id: clip,
+    get label() {
+      return clip.notes || clip.source || "—";
+    },
+    color: "#3aab3a",
+    lane: "sound",
+    startMs: start,
+    durationMs: () => soundClipLengthMs(clip) ?? 0,
+    waveform: () => {
+      const buffer = audioBuilder.getDecodedBuffer(clip.source);
+      return buffer ? { buffer, fromMs: clip.startMsIntoClip ?? 0 } : undefined;
+    },
+    onDragBody: (newStartMs) => {
+      // Before the owner starts, or after it ends, is legal.
+      clip.startMsIntoScene = tidyMs(newStartMs - ownerStart);
+      _onClipValueChanged();
+    },
+    onDragLeft: (newStartMs) => {
+      const fromMs = clip.startMsIntoClip ?? 0;
+      let delta = newStartMs - start();
+      // Can't start before the file does.
+      delta = Math.max(delta, -fromMs);
+      const length = soundClipLengthMs(clip);
+      if (length !== undefined) {
+        delta = Math.min(delta, length - MIN_SOUND_CLIP_MS);
+      }
+      clip.startMsIntoScene = tidyMs(clip.startMsIntoScene + delta);
+      clip.startMsIntoClip = tidyMs(fromMs + delta);
+      // With no Length the clip plays to the end of its file, so its end
+      // already stays put.
+      if (clip.lengthMs !== undefined) {
+        clip.lengthMs = tidyMs(clip.lengthMs - delta);
+      }
+      _onClipValueChanged();
+    },
+    onDragRight: (newEndMs) => {
+      let length = newEndMs - start();
+      const fileMs = soundFileMs(clip);
+      if (fileMs !== undefined) {
+        // Can't play past the end of the file.
+        length = Math.min(length, fileMs - (clip.startMsIntoClip ?? 0));
+      }
+      clip.lengthMs = tidyMs(Math.max(MIN_SOUND_CLIP_MS, length));
+      _onClipValueChanged();
+    },
+    onCommitRight: () => start() + (soundClipLengthMs(clip) ?? 0),
+  };
+}
+
+/**
+ * Select `target`, which is the current chapter or something inside it, the
+ * same way clicking it in the component tree does.
+ */
+function selectInChapter(target: Showable): void {
+  const chapter = chapterList[select.selectedIndex]?.selectable;
+  if (!chapter) return;
+  selectedSlideChild = target === chapter ? null : target;
+  updateComponentEditor(chapter);
+  updateScheduleEditor(target);
+  activeRootComponentEditor?.selectionChanged(target);
+  timelineDisplay.setSelectedId(selectedSlideChild ?? undefined);
+}
+
+/** Build timeline blocks for the children of `selectable`. */
 function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
   const blocks: TimelineBlock[] = [];
   const seen = new Set<object>();
@@ -1875,24 +2010,11 @@ function _buildTimelineBlocks(selectable: Showable): TimelineBlock[] {
 
   addChildrenBlocks(selectable.children ?? [], 0);
 
-  // Sound clips — one block per clip, in a dedicated color
-  for (const clip of selectable.soundClips ?? []) {
-    blocks.push({
-      id: clip,
-      label: clip.notes || clip.source || "—",
-      color: "#3aab3a",
-      startMs: () => clip.startMsIntoScene,
-      durationMs: () => clip.lengthMs ?? 0,
-      onDragBody: (newStartMs) => {
-        clip.startMsIntoScene = Math.max(0, newStartMs);
-        _onClipValueChanged();
-      },
-      onDragRight: (newEndMs) => {
-        clip.lengthMs = Math.max(0, newEndMs - clip.startMsIntoScene);
-        _onClipValueChanged();
-      },
-      onCommitRight: () => clip.startMsIntoScene + (clip.lengthMs ?? 0),
-    });
+  // Every sound clip in this chapter, whoever owns it, in the sound lane.
+  for (const { owner, startMs } of soundOwners(selectable)) {
+    for (const clip of owner.soundClips!) {
+      blocks.push(soundClipBlock(clip, startMs));
+    }
   }
 
   return blocks;
@@ -4048,7 +4170,6 @@ async function pasteInto(target: Showable, selectable: Showable) {
 function updateComponentEditor(selectable: Showable) {
   setVeRoot(selectable);
   durationSyncCallbacks.length = 0;
-  soundClipSyncCallbacks.length = 0;
   const rootReplaceable = selectable.replaceableComponents;
   const hasAnyChildren = (selectable.children?.length ?? 0) > 0;
   const shouldHide =
@@ -4271,7 +4392,6 @@ function updateComponentEditor(selectable: Showable) {
   list.append(rootRow);
 
   renderComponentTree(selectable as Showable, 0);
-  _buildSoundClipEditor(selectable as Showable, list);
   componentsEditorFieldset.append(list);
 
   // Toolbar: "Insert New Child" and "Wrap Component".
@@ -4382,46 +4502,97 @@ function updateComponentEditor(selectable: Showable) {
 }
 
 /**
- * Appends a Sound Clips editor section to `list` when `selectable.soundClips` is defined.
- * Registers per-field sync callbacks into {@link soundClipSyncCallbacks}.
+ * The Sound Clips section of the schedule editor, for a component whose
+ * `soundClips` is defined.  One card per clip, plus Add and Paste.
+ *
+ * Each card's Owner menu moves the clip to another component without changing
+ * when it plays.  Registers per-field sync callbacks into
+ * {@link soundClipSyncCallbacks}, so drags on the timeline show up here.
  */
-function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
-  const clips = selectable.soundClips;
-  if (clips === undefined) return;
+function buildSoundClipSection(selectable: Showable): HTMLElement {
+  const clips = selectable.soundClips!;
 
+  /** The clip list changed shape:  save, rebuild the audio, redraw this section and the timeline. */
   function afterStructureChange(): void {
     markDirty();
     clearTimeout(_durationAudioTimer);
     _durationAudioTimer = setTimeout(() => void initAudio(), 300);
-    updateComponentEditor(selectable);
-    _updateTimeline(selectable);
+    updateScheduleEditor(selectable);
+    if (_veRootSelectable) _updateTimeline(_veRootSelectable);
   }
 
-  const section = document.createElement("div");
-  section.style.cssText =
-    "border-top:2px solid #888;padding-top:0.4em;margin-top:0.3em";
+  /** Every place a sound can live in this video, and when each starts. */
+  const owners = soundOwners(toShow);
+  const self = owners.find(({ owner }) => owner === selectable);
+  /** When this component starts, in video time.  0 if it can't be found, which shouldn't happen. */
+  const selfStartMs = self?.startMs ?? 0;
+
+  const section = document.createElement("fieldset");
+  const legend = document.createElement("legend");
+  legend.textContent = `Sound Clips (${clips.length})`;
+  section.append(legend);
 
   const header = document.createElement("div");
   header.style.cssText =
-    "display:flex;align-items:center;gap:0.4em;margin-bottom:0.3em";
-  const title = document.createElement("b");
-  title.textContent = `Sound Clips (${clips.length})`;
+    "display:flex;align-items:center;gap:0.4em;margin-bottom:0.3em;font-size:0.85em;color:#555";
+  header.textContent = "Times are in ms, measured from the start of this component.";
+  const playheadInOwner = () =>
+    tidyMs(playPositionSeconds.valueAsNumber * 1000 - selfStartMs);
   const addBtn = document.createElement("button");
   addBtn.type = "button";
   addBtn.textContent = "+ Add";
+  addBtn.title = "Add an empty sound clip at the playhead.  Then fill in its source.";
   addBtn.style.marginLeft = "auto";
   addBtn.addEventListener("click", () => {
-    clips.push({ source: "", startMsIntoScene: 0 });
+    const clip: SoundClip = { source: "", startMsIntoScene: playheadInOwner() };
+    clips.push(clip);
+    selectedSoundClip = clip;
     afterStructureChange();
   });
-  header.append(title, addBtn);
+  const pasteBtn = document.createElement("button");
+  pasteBtn.type = "button";
+  pasteBtn.textContent = "📋 Paste";
+  pasteBtn.title =
+    "Add the sound clips on the clipboard:  Sound Explorer's Copy One or Copy All, or JSON.  " +
+    "Their times are used exactly as copied.";
+  pasteBtn.addEventListener("click", async () => {
+    let text: string;
+    try {
+      text = await navigator.clipboard.readText();
+    } catch {
+      alert("Could not read the clipboard.");
+      return;
+    }
+    const pasted = parseSoundClips(text);
+    if (pasted.length === 0) {
+      alert("No sound clips found on the clipboard.  Each one needs at least a source.");
+      return;
+    }
+    clips.push(...pasted);
+    selectedSoundClip = pasted[0];
+    afterStructureChange();
+  });
+  header.append(addBtn, pasteBtn);
   section.append(header);
 
   for (let i = 0; i < clips.length; i++) {
     const clip = clips[i]!;
     const card = document.createElement("div");
-    card.style.cssText =
-      "background:#f0f8f0;border:1px solid #aaccaa;border-radius:3px;padding:0.2em 0.3em;margin-bottom:0.25em";
+    const drawHighlight = () => {
+      const selected = clip === selectedSoundClip;
+      card.style.cssText =
+        "background:#f0f8f0;border:1px solid #aaccaa;border-radius:3px;padding:0.2em 0.3em;margin-bottom:0.25em" +
+        (selected ? ";outline:2px solid #1e6b1e;outline-offset:-1px" : "");
+    };
+    drawHighlight();
+    // Working in a card selects that clip, in the list and on the timeline.
+    card.addEventListener("focusin", () => {
+      if (selectedSoundClip === clip) return;
+      selectedSoundClip = clip;
+      for (const cb of soundClipSyncCallbacks) cb();
+      timelineDisplay.setSelectedSoundId(clip);
+    });
+    soundClipSyncCallbacks.push(drawHighlight);
 
     // Row 1: notes + reorder + delete
     const row1 = document.createElement("div");
@@ -4463,6 +4634,7 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
     delBtn.title = "Delete clip";
     delBtn.addEventListener("click", () => {
       clips.splice(i, 1);
+      if (selectedSoundClip === clip) selectedSoundClip = undefined;
       afterStructureChange();
     });
 
@@ -4493,24 +4665,33 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
 
     function makeTimeInput(
       labelText: string,
+      title: string,
       getValue: () => number | undefined,
       setValue: (v: number | undefined) => void,
+      allowNegative: boolean,
     ): HTMLElement {
       const lbl = document.createElement("label");
       lbl.style.cssText =
         "display:flex;align-items:center;gap:0.2em;white-space:nowrap";
       lbl.textContent = labelText;
+      lbl.title = title;
       const inp = document.createElement("input");
       inp.type = "number";
-      inp.min = "0";
+      if (!allowNegative) inp.min = "0";
       inp.step = "1";
-      inp.style.cssText = "width:5em";
+      inp.style.cssText = "width:6em";
       const v = getValue();
       inp.value = v !== undefined ? String(v) : "";
       inp.placeholder = "ms";
-      inp.addEventListener("change", () => {
+      inp.addEventListener("input", () => {
         const parsed = inp.valueAsNumber;
-        setValue(isNaN(parsed) ? undefined : Math.max(0, parsed));
+        setValue(
+          isNaN(parsed)
+            ? undefined
+            : allowNegative
+              ? parsed
+              : Math.max(0, parsed),
+        );
         _onClipValueChanged();
       });
       soundClipSyncCallbacks.push(() => {
@@ -4525,33 +4706,100 @@ function _buildSoundClipEditor(selectable: Showable, list: HTMLElement): void {
 
     row3.append(
       makeTimeInput(
-        "scene:",
+        "start:",
+        "When the sound starts, in ms after this component starts.  " +
+          "Negative is fine:  it starts that much before this component does.",
         () => clip.startMsIntoScene,
         (v) => {
           clip.startMsIntoScene = v ?? 0;
         },
+        true,
       ),
       makeTimeInput(
-        "clip-in:",
+        "from file:",
+        "Where in the sound file to start, in ms.  Empty means 0, the beginning.",
         () => clip.startMsIntoClip,
         (v) => {
           clip.startMsIntoClip = v;
         },
+        false,
       ),
       makeTimeInput(
         "length:",
+        "How much of the file to play, in ms.  Empty means to the end of the file.",
         () => clip.lengthMs,
         (v) => {
           clip.lengthMs = v;
         },
+        false,
       ),
     );
 
-    card.append(row1, row2, row3);
+    // Row 4: owner (rehoming) and when it plays
+    const row4 = document.createElement("div");
+    row4.style.cssText =
+      "display:flex;gap:0.4em;align-items:center;margin-top:0.2em;flex-wrap:wrap;font-size:0.85em";
+    const ownerLabel = document.createElement("label");
+    ownerLabel.style.cssText = "display:flex;align-items:center;gap:0.2em;min-width:0;flex:1";
+    ownerLabel.textContent = "owner:";
+    ownerLabel.title =
+      "Which component this sound belongs to.  It moves when its owner moves.  " +
+      "Choosing another owner keeps the sound playing at exactly the same time.  " +
+      "▶ marks the owners playing when this sound starts.";
+    const ownerSelect = document.createElement("select");
+    ownerSelect.style.cssText = "min-width:0;flex:1";
+    const clipStartInVideo = () => selfStartMs + clip.startMsIntoScene;
+    owners.forEach(({ owner, startMs, path }, index) => {
+      const option = document.createElement("option");
+      const t = clipStartInVideo();
+      const playing = startMs <= t && t < startMs + owner.duration;
+      option.value = String(index);
+      option.textContent = `${playing ? "▶ " : "\u2003"}${path}`;
+      option.selected = owner === selectable;
+      ownerSelect.append(option);
+    });
+    ownerSelect.addEventListener("change", () => {
+      const to = owners[Number(ownerSelect.value)];
+      if (!self || !to) return;
+      rehomeSoundClip(clip, self, to);
+      selectedSoundClip = clip;
+      markDirty();
+      clearTimeout(_durationAudioTimer);
+      _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+      const chapter = chapterList[select.selectedIndex]?.selectable;
+      if (chapter && startWithin(chapter, to.owner) !== undefined) {
+        // Follow the clip to its new owner.
+        selectInChapter(to.owner);
+      } else {
+        // The new owner is in another chapter.  Stay here; the clip is gone from this list.
+        updateScheduleEditor(selectable);
+      }
+      if (_veRootSelectable) _updateTimeline(_veRootSelectable);
+    });
+    ownerLabel.append(ownerSelect);
+    const playsAt = document.createElement("span");
+    playsAt.style.cssText = "white-space:nowrap;color:#555";
+    playsAt.title = "When this sound plays, in video time.";
+    const drawPlaysAt = () => {
+      const from = clipStartInVideo();
+      const length = soundClipLengthMs(clip);
+      playsAt.textContent =
+        length === undefined
+          ? `plays from ${(from / 1000).toFixed(3)} s`
+          : `plays ${(from / 1000).toFixed(3)}–${((from + length) / 1000).toFixed(3)} s`;
+    };
+    drawPlaysAt();
+    soundClipSyncCallbacks.push(drawPlaysAt);
+    row4.append(ownerLabel, playsAt);
+
+    card.append(row1, row2, row3, row4);
     section.append(card);
+    if (clip === selectedSoundClip) {
+      requestAnimationFrame(() => card.scrollIntoView({ block: "nearest" }));
+    }
   }
 
-  list.append(section);
+  return section;
 }
 
 /** Builds the "Name" fieldset for {@link Showable.userEditableDescription}. */
@@ -4616,7 +4864,13 @@ function updateScheduleEditor(selectable: Showable) {
   draggingArrowConstraint = "none";
   goToButtonUpdaters.length = 0;
   scheduleEditorRefreshers.length = 0;
+  soundClipSyncCallbacks.length = 0;
   rectAspectLock = null;
+  // A highlighted sound clip stays highlighted only while its owner is selected.
+  if (selectedSoundClip && !selectable.soundClips?.includes(selectedSoundClip)) {
+    selectedSoundClip = undefined;
+  }
+  timelineDisplay.setSelectedSoundId(selectedSoundClip);
   // History is always saved/loaded at the slide level, even when the schedule
   // editor is open on an individual child component.
   const saveTarget = currentSaveTarget();
@@ -4635,7 +4889,8 @@ function updateScheduleEditor(selectable: Showable) {
     !scalars?.length &&
     !schedules?.length &&
     !isTraditionalText &&
-    !slideComponent
+    !slideComponent &&
+    selectable.soundClips === undefined
   ) {
     scheduleEditorFieldset.hidden = true;
     return;
@@ -4677,6 +4932,16 @@ function updateScheduleEditor(selectable: Showable) {
           markDirty();
         },
         editingRectKeyframe: () => editingRectKf,
+        soundClipsChanged() {
+          updateScheduleEditor(videoClip);
+        },
+        splitProblem() {
+          const target = splitTarget(videoClip);
+          return typeof target === "string" ? target : undefined;
+        },
+        split() {
+          void splitAtPlayhead(videoClip);
+        },
       })
     : null;
   if (videoClip && videoPanel) {
@@ -4742,6 +5007,79 @@ function updateScheduleEditor(selectable: Showable) {
     }
     scheduleEditorFieldset.append(section);
   }
+  if (selectable.soundClips !== undefined) {
+    scheduleEditorFieldset.append(buildSoundClipSection(selectable));
+  }
+}
+
+// MARK: Split
+
+/**
+ * The series a Video Clip would be split within, or a sentence saying why it
+ * can't be split.
+ */
+function splitTarget(clip: VideoClipComponent): InSeriesComponent | string {
+  const parent = clip.parent;
+  if (!(parent instanceof InSeriesComponent)) {
+    return "Only a clip in a series, like a timeline, can be split:  the second piece has to start where the first one ends.";
+  }
+  if (!parent.replaceableComponents?.get().includes(clip)) {
+    return "This clip is fixed in TypeScript, so the Visual Editor can't put a second piece next to it.";
+  }
+  if (!(clip.duration > 0)) {
+    return "This clip has no length to split.";
+  }
+  return parent;
+}
+
+/** How long a sound plays, for splitting:  a clip whose file isn't decoded yet is taken to play forever. */
+function soundLengthForSplit(sound: SoundClip): number {
+  return soundClipLengthMs(sound) ?? Infinity;
+}
+
+/**
+ * Ask how to split `clip` at the playhead, then replace it in its series with
+ * the piece or pieces chosen.  See splitVideoClip() for what each piece gets.
+ */
+async function splitAtPlayhead(clip: VideoClipComponent): Promise<void> {
+  const parent = splitTarget(clip);
+  if (typeof parent === "string") return;
+  const chapter = chapterList[select.selectedIndex]?.selectable;
+  const clipStart = chapter ? (startWithin(chapter, clip) ?? 0) : 0;
+  const choice = await askHowToSplit({
+    clip,
+    atMs: tidyMs(
+      playPositionSeconds.valueAsNumber * 1000 - sectionStartTime - clipStart,
+    ),
+    lengthOf: soundLengthForSplit,
+  });
+  // The dialog is modal, but make sure nothing moved underneath it.
+  if (!choice || splitTarget(clip) !== parent) return;
+  const { first, second } = splitVideoClip(
+    clip,
+    choice.atMs,
+    choice.crossing,
+    soundLengthForSplit,
+  );
+  const kept =
+    choice.keep === "both"
+      ? [first, second]
+      : choice.keep === "first"
+        ? [first]
+        : [second];
+  const siblings = parent.replaceableComponents!.get();
+  siblings.splice(siblings.indexOf(clip), 1, ...kept);
+  // Saves, rebuilds the audio, and redraws the timeline and the chapter list.
+  parent.replaceableComponents!.replace(siblings);
+  selectedSoundClip = undefined;
+  activeRootComponentEditor?.resetAll();
+  if (chapter !== clip) {
+    selectInChapter(kept[0]);
+  }
+  // Otherwise the chapter being shown was the clip itself, which is gone.  The
+  // chapter list rebuilds on the next frame and, matching by name, lands on
+  // the first piece kept.
+  markDirty();
 }
 
 // MARK: Text Frame

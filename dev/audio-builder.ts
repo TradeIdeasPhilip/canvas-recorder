@@ -2,6 +2,9 @@
  * This creates a complete audio clip by joining multiple clips.
  * It starts with all silence and you can add the clips wherever you need them.
  *
+ * Overlapping clips are mixed:  each one is added to whatever is already
+ * there, so two sounds at the same time are both heard.
+ *
  * The result is always **mono**.  Every source is mixed down to one channel as
  * it is added.  Nothing recorded for these videos is really stereo:  a Mac
  * screen recording, for example, writes its one microphone signal into both
@@ -88,7 +91,11 @@ export class AudioBuilder {
 
   /**
    * Add a new clip to the soundtrack.
-   * Overwrite any existing sounds at that position.
+   * It is mixed with (added to) any sounds already at that position.
+   *
+   * The sum can go past ±1, which clips.  That's fine for what this is used
+   * for, a voiceover with the occasional overlap; the WAV encoder clamps, and
+   * live playback clips the same way.
    * @param url Where to find the file.
    *
    * I typically use vite dev mode to run my project.
@@ -100,11 +107,16 @@ export class AudioBuilder {
    * @param startMsInDestination 0 to play the new clip at the the beginning of the video.
    * 1000 to start this clip 1 second after the video starts.
    *
-   * Negative numbers are explicitly prohibited.
+   * Negative numbers are allowed:  the part of the clip that would play before
+   * the video starts is skipped.  A sound clip may legally start before the
+   * component that owns it, and that component may be at the very start.
    * @param trimFromStartMs Where to start the clip.
    * 0 to play the entire clip.
    * 500 to trim the first half second from the clip.
    * The default is 0.
+   *
+   * Negative numbers mean silence before the clip starts:  -500 starts the
+   * clip half a second after `startMsInDestination`.
    *
    * If you fast forward the resulting video to `startMsInDestination` in your video player,
    * and you fast forward the initial clip in another player to `trimFromStartMs`,
@@ -136,19 +148,17 @@ export class AudioBuilder {
     trimFromStartMs: number = 0,
     length: number = Infinity,
   ): Promise<void> {
-    if (trimFromStartMs < 0 || startMsInDestination < 0) {
-      // I could deal with these in a rational way.
-      // If required I would.
-      // But I can't imagine any case where I need that.
-      // It would make the code more complicated, harder to read and harder to test.
-      /*
-        if (startMsInResult < 0) {
-          trimFromStartMs -= startMsInResult;
-          length += startMsInResult;
-          startMsInResult=0;
-        }
-      */
-      throw new Error("wtf");
+    if (startMsInDestination < 0) {
+      // Skip the part that would play before the video starts.
+      trimFromStartMs -= startMsInDestination;
+      length += startMsInDestination;
+      startMsInDestination = 0;
+    }
+    if (trimFromStartMs < 0) {
+      // Nothing to play before the source starts:  start later instead.
+      startMsInDestination -= trimFromStartMs;
+      length += trimFromStartMs;
+      trimFromStartMs = 0;
     }
 
     const sourceBuffer = await this.#findAudioBuffer(url);
@@ -181,18 +191,22 @@ export class AudioBuilder {
           .subarray(sourceStart, sourceStart + count),
     );
     if (channels.length === 1) {
-      // The common case, and a plain block copy.
-      destination.set(channels[0]);
+      // The common case.
+      const source = channels[0];
+      for (let i = 0; i < count; i++) {
+        destination[i] += source[i];
+      }
     } else {
-      // Average, don't sum:  identical channels (the usual "stereo") come out
-      // exactly as they went in, where a sum would double the level and clip.
+      // Average the channels, don't sum them:  identical channels (the usual
+      // "stereo") come out exactly as they went in, where a sum would double
+      // the level and clip.
       const scale = 1 / channels.length;
       for (let i = 0; i < count; i++) {
         let sum = 0;
         for (const channel of channels) {
           sum += channel[i];
         }
-        destination[i] = sum * scale;
+        destination[i] += sum * scale;
       }
     }
   }

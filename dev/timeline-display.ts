@@ -1,8 +1,8 @@
 /**
  * Timeline overview for the Visual Editor.
  *
- * Draws horizontal block rows for child components, a play-head, and a chapter
- * cursor.  Supports click-to-seek, click-to-select-block, drag-to-resize handles,
+ * Draws horizontal block rows for child components, a lane of sound clips
+ * below them, a play-head, and a chapter cursor.  Supports click-to-seek, click-to-select-block, drag-to-resize handles,
  * drag-to-pan, and scroll-to-zoom.
  *
  * All times are **chapter-local** milliseconds (0 → chapter duration).
@@ -35,11 +35,31 @@ export type TimelineBlock = {
   readonly onCommitRight?: () => number;
   /** Fill color for the block.  Defaults to #4a8fdb (blue). */
   readonly color?: string;
+  /**
+   * `"sound"` blocks get their own, taller rows below all the others.  They
+   * are stacked only when they overlap, so two sounds playing at once are
+   * easy to spot.
+   */
+  readonly lane?: "sound";
+  /**
+   * For sound blocks:  the decoded audio, and the point in it that lines up
+   * with the block's left edge.  Drawn inside the block.  Return undefined
+   * until the file has been decoded.
+   */
+  readonly waveform?: () => { buffer: AudioBuffer; fromMs: number } | undefined;
+};
+
+/** Which row each block is in, and where each row is, in CSS px. */
+type RowLayout = {
+  readonly rows: number[];
+  readonly tops: number[];
+  readonly heights: number[];
 };
 
 // ── layout constants (all CSS px) ─────────────────────────────────────────────
 
 const ROW_H_CSS = 28;
+const SOUND_ROW_H_CSS = 40;
 const BLOCK_PAD_CSS = 3;   // gap above/below block within its row
 const HANDLE_PX = 8;       // pixel zone at block edges that triggers a drag cursor
 const MIN_WINDOW_MS = 50;  // smallest zoom window allowed
@@ -50,12 +70,14 @@ const BOTTOM_PAD_CSS = Math.round(ROW_H_CSS / 3);  // always-blank seek strip at
 export class TimelineDisplay {
   private _blocks: TimelineBlock[] = [];
   private _selectedId: object | undefined;
+  /** A sound clip highlighted alongside {@link _selectedId}, which is then its owner. */
+  private _selectedSoundId: object | undefined;
   private _durationMs = 1000;
   private _playLocalMs = 0;
   private _viewStartMs = 0;
   private _viewEndMs = 1000;
-  /** Row assignment cached after each draw so hit-testing reuses it without recomputing. */
-  private _cachedRows: number[] = [];
+  /** Row layout cached after each draw so hit-testing reuses it without recomputing. */
+  private _layout: RowLayout = { rows: [], tops: [], heights: [] };
 
   /** Fires when the user clicks the background or scrubs (shift-drag).  Arg: chapter-local ms. */
   onSeek?: (localMs: number) => void;
@@ -86,6 +108,17 @@ export class TimelineDisplay {
     this._draw();
   }
 
+  /** Draw again, e.g. after a value a block reads has changed outside a drag. */
+  redraw(): void {
+    this._draw();
+  }
+
+  /** Highlight one sound clip block, or none. */
+  setSelectedSoundId(id: object | undefined): void {
+    this._selectedSoundId = id;
+    this._draw();
+  }
+
   /** @param localMs  Play position relative to chapter start (0 .. chapter duration). */
   setPlayMs(localMs: number): void {
     this._playLocalMs = localMs;
@@ -106,33 +139,49 @@ export class TimelineDisplay {
 
   // ── row assignment (greedy, left-to-right) ─────────────────────────────────
 
-  private _assignRows(): number[] {
+  /** Greedy rows for the blocks at `indices`, numbered from 0. */
+  private _assignLane(indices: number[], rows: number[]): number {
     const blocks = this._blocks;
-    const n = blocks.length;
-    const rows: number[] = new Array(n).fill(0);
     const rowEnds: number[] = [];
-
-    const order = Array.from({ length: n }, (_, i) => i)
-      .sort((a, b) => blocks[a]!.startMs() - blocks[b]!.startMs());
-
+    const order = [...indices].sort(
+      (a, b) => blocks[a]!.startMs() - blocks[b]!.startMs(),
+    );
     for (const i of order) {
       const b = blocks[i]!;
       const end = b.startMs() + b.durationMs();
-      let placed = false;
-      for (let r = 0; r < rowEnds.length; r++) {
-        if (rowEnds[r]! <= b.startMs()) {
-          rows[i] = r;
-          rowEnds[r] = end;
-          placed = true;
-          break;
-        }
-      }
-      if (!placed) {
-        rows[i] = rowEnds.length;
+      let row = rowEnds.findIndex((rowEnd) => rowEnd <= b.startMs());
+      if (row < 0) {
+        row = rowEnds.length;
         rowEnds.push(end);
+      } else {
+        rowEnds[row] = end;
       }
+      rows[i] = row;
     }
-    return rows;
+    return rowEnds.length;
+  }
+
+  /** Component rows first, then the sound lane's rows below them. */
+  private _assignRows(): RowLayout {
+    const n = this._blocks.length;
+    const rows: number[] = new Array(n).fill(0);
+    const all = Array.from({ length: n }, (_, i) => i);
+    const isSound = (i: number) => this._blocks[i]!.lane === "sound";
+    const componentRows = this._assignLane(all.filter((i) => !isSound(i)), rows);
+    const soundIndices = all.filter(isSound);
+    const soundRows = this._assignLane(soundIndices, rows);
+    for (const i of soundIndices) rows[i]! += componentRows;
+    const heights = [
+      ...new Array<number>(componentRows).fill(ROW_H_CSS),
+      ...new Array<number>(soundRows).fill(SOUND_ROW_H_CSS),
+    ];
+    const tops: number[] = [];
+    let y = 0;
+    for (const height of heights) {
+      tops.push(y);
+      y += height;
+    }
+    return { rows, tops, heights };
   }
 
   // ── drawing ────────────────────────────────────────────────────────────────
@@ -145,10 +194,11 @@ export class TimelineDisplay {
     if (cssW === 0) return;
     const pxW = Math.round(cssW * dpr);
 
-    const rows = this._assignRows();
-    this._cachedRows = rows;
-    const numRows = rows.length > 0 ? Math.max(...rows) + 1 : 0;
-    const cssH = Math.max(ROW_H_CSS, numRows * ROW_H_CSS) + BOTTOM_PAD_CSS;
+    const layout = this._assignRows();
+    this._layout = layout;
+    const { rows, tops, heights } = layout;
+    const rowsHeight = heights.reduce((sum, h) => sum + h, 0);
+    const cssH = Math.max(ROW_H_CSS, rowsHeight) + BOTTOM_PAD_CSS;
     const pxH = Math.round(cssH * dpr);
 
     if (canvas.width !== pxW || canvas.height !== pxH) {
@@ -163,8 +213,17 @@ export class TimelineDisplay {
     ctx.fillRect(0, 0, pxW, pxH);
 
     const msToX = (ms: number) => this._msToX(ms, pxW);
-    const ROW_PX = ROW_H_CSS * dpr;
     const PAD = BLOCK_PAD_CSS * dpr;
+
+    // A faint band behind the sound lane, so it reads as one track.
+    const firstSoundRow = this._blocks.reduce(
+      (first, b, i) => (b.lane === "sound" ? Math.min(first, rows[i]!) : first),
+      Infinity,
+    );
+    if (firstSoundRow !== Infinity) {
+      ctx.fillStyle = "#e3eee3";
+      ctx.fillRect(0, tops[firstSoundRow]! * dpr, pxW, (rowsHeight - tops[firstSoundRow]!) * dpr);
+    }
 
     for (let i = 0; i < this._blocks.length; i++) {
       const b = this._blocks[i]!;
@@ -173,18 +232,37 @@ export class TimelineDisplay {
       const durMs = b.durationMs();
       const x0 = msToX(startMs);
       const x1 = msToX(startMs + durMs);
-      const y0 = row * ROW_PX + PAD;
-      const y1 = (row + 1) * ROW_PX - PAD;
+      const y0 = tops[row]! * dpr + PAD;
+      const y1 = (tops[row]! + heights[row]!) * dpr - PAD;
       const bw = Math.max(2 * dpr, x1 - x0);
       const bh = y1 - y0;
-      const selected = b.id === this._selectedId;
+      const isSound = b.lane === "sound";
+      const selected = isSound
+        ? b.id === this._selectedSoundId
+        : b.id === this._selectedId;
 
       // Block body
-      ctx.fillStyle = selected ? "#1a5aab" : (b.color ?? "#4a8fdb");
+      ctx.fillStyle = selected
+        ? isSound
+          ? "#1e6b1e"
+          : "#1a5aab"
+        : (b.color ?? "#4a8fdb");
       const corner = Math.min(4 * dpr, bw / 2, bh / 2);
       ctx.beginPath();
       ctx.roundRect(x0, y0, bw, bh, corner);
       ctx.fill();
+
+      const wave = b.waveform?.();
+      if (wave && durMs > 0) {
+        this._drawWaveform(ctx, wave, durMs, x0, bw, y0, bh, pxW);
+      }
+      if (isSound && selected) {
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2 * dpr;
+        ctx.beginPath();
+        ctx.roundRect(x0 + dpr, y0 + dpr, bw - 2 * dpr, bh - 2 * dpr, corner);
+        ctx.stroke();
+      }
 
       // Separate handle line for minDuration blocks — only when minDuration < actual duration
       if (b.handleEndMs) {
@@ -205,11 +283,22 @@ export class TimelineDisplay {
           ctx.beginPath();
           ctx.rect(clipLeft, y0, clipRight - clipLeft, bh);
           ctx.clip();
+          const fontPx = Math.round(11 * dpr);
+          ctx.font = `${fontPx}px sans-serif`;
+          let labelY = (y0 + y1) / 2;
+          if (isSound) {
+            // Over the waveform, on a patch just big enough for the words,
+            // so both stay readable.
+            const patchH = fontPx + 3 * dpr;
+            const patchW = ctx.measureText(b.label).width + 6 * dpr;
+            ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
+            ctx.fillRect(clipLeft - 3 * dpr, y1 - patchH, patchW, patchH);
+            labelY = y1 - patchH / 2;
+          }
           ctx.fillStyle = "#fff";
-          ctx.font = `${Math.round(11 * dpr)}px sans-serif`;
           ctx.textBaseline = "middle";
           ctx.textAlign = "left";
-          ctx.fillText(b.label, clipLeft, (y0 + y1) / 2);
+          ctx.fillText(b.label, clipLeft, labelY);
           ctx.restore();
         }
       }
@@ -219,6 +308,53 @@ export class TimelineDisplay {
     const phX = Math.round(msToX(this._playLocalMs));
     ctx.fillStyle = "rgba(200, 0, 0, 0.85)";
     ctx.fillRect(phX, 0, Math.ceil(dpr), pxH);
+  }
+
+  /**
+   * Min / max bars, one per pixel column, for the part of the audio the block
+   * covers.  Only the visible columns are computed.
+   */
+  private _drawWaveform(
+    ctx: CanvasRenderingContext2D,
+    { buffer, fromMs }: { buffer: AudioBuffer; fromMs: number },
+    durationMs: number,
+    x0: number,
+    width: number,
+    y0: number,
+    height: number,
+    canvasWidth: number,
+  ): void {
+    const data = buffer.getChannelData(0);
+    const samplesPerMs = buffer.sampleRate / 1000;
+    const middle = y0 + height / 2;
+    const halfHeight = height / 2 - 1;
+    const firstColumn = Math.max(0, Math.floor(-x0));
+    const lastColumn = Math.min(width, canvasWidth - x0);
+    ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
+    for (let px = firstColumn; px < lastColumn; px++) {
+      const from = Math.max(
+        0,
+        Math.floor((fromMs + (px / width) * durationMs) * samplesPerMs),
+      );
+      const to = Math.min(
+        data.length,
+        Math.max(
+          from + 1,
+          Math.floor((fromMs + ((px + 1) / width) * durationMs) * samplesPerMs),
+        ),
+      );
+      if (to <= from) continue;
+      let low = data[from]!;
+      let high = low;
+      for (let i = from + 1; i < to; i++) {
+        const v = data[i]!;
+        if (v < low) low = v;
+        else if (v > high) high = v;
+      }
+      const top = middle - high * halfHeight;
+      const bottom = middle - low * halfHeight;
+      ctx.fillRect(x0 + px, top, 1, Math.max(1, bottom - top));
+    }
   }
 
   // ── events ─────────────────────────────────────────────────────────────────
@@ -254,11 +390,13 @@ export class TimelineDisplay {
       const pxPerMs = viewDur > 0 ? rect.width / viewDur : Infinity;
       const handleMs = HANDLE_PX / pxPerMs;
 
+      const { rows, tops, heights } = this._layout;
       for (let i = 0; i < this._blocks.length; i++) {
         const b = this._blocks[i]!;
-        const row = this._cachedRows[i];
+        const row = rows[i];
         if (row === undefined) continue;
-        if (cy < row * ROW_H_CSS || cy >= (row + 1) * ROW_H_CSS) continue;
+        const top = tops[row]!;
+        if (cy < top || cy >= top + heights[row]!) continue;
 
         const startMs = b.startMs();
         const endMs = startMs + b.durationMs();
@@ -292,7 +430,8 @@ export class TimelineDisplay {
       const isBodyDraggable = hit?.zone === "body" && !!hit.block.onDragBody;
       const isCtrlSelect = !!e.altKey && !!hit;
       canvas.style.cursor = isDurationZone ? "ew-resize"
-        : isStartTimeZone ? "grab"
+        // A sound clip's left edge trims; anything else's moves the start.
+        : isStartTimeZone ? (hit.block.lane === "sound" ? "ew-resize" : "grab")
         : isCtrlSelect ? "pointer"
         : isBodyDraggable ? "grab"
         : "crosshair";

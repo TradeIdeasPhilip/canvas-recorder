@@ -356,3 +356,59 @@ Call `markDirty()` on both.
 23. PaddingComponent with `initialTimeScalar = 0` and `primaryChild.duration = 0`: a zero-width block appears at x = 0 (degenerate but should not crash).
 24. Drag a left (PaddingComponent) marker past the right edge of the timeline.
     Verify it clamps at `selectable.duration` and does not crash.
+
+## Sound Clips and Split, as built (10/6/2026)
+
+Most of [Part 2](#part-2-sound-clip-editor) is now real, on the main timeline, with no linking:
+a sound clip is always relative to the component that owns it, and moves when its owner moves.
+
+### Sound clips
+
+* **Every sound in the chapter is on the timeline**, in its own lane under the components, whoever owns it.
+  Sounds that overlap stack onto separate rows, so overlaps are easy to spot.
+  Each clip shows its waveform once its file has been decoded.
+* **Drag** the middle to move a clip, the left edge to trim or extend its start, and the right edge its end.
+  Trimming leaves the rest of the sound playing at exactly the same moment.
+  The edges stop at the ends of the file.
+  A clip may start before its owner does, or end after; both are legal.
+* **Click a clip** to select its owner; the clip is highlighted in the owner's Sound Clips list.
+* **The Sound Clips list** is now at the bottom of the schedule editor, for any selected component whose `soundClips` is defined, not only a chapter's root.
+  **+ Add** puts an empty clip at the playhead.
+  **📋 Paste** takes Sound Explorer's Copy One or Copy All, or JSON.
+* **Owner** (on each card) is rehoming:  move the clip to any other component that can hold sounds, without changing when it plays.
+  ▶ marks the owners playing when the clip starts.
+  The prototype never had this; its "rehoming" was re-pointing an anchor inside its own list.
+* Every Video Clip now has a `soundClips` array, possibly empty, so any of them can receive sounds.
+  Elsewhere, give a component `soundClips: []` in TypeScript to make it a place sounds can live.
+
+### Audio
+
+* **Overlapping sounds are mixed**, not overwritten.  The sum can clip; fine for a voiceover with the occasional overlap.
+* A clip that would start before the video does is trimmed, not an error.
+* A clip with no source, or a URL that doesn't load (yet), is skipped and noted in the Debug Log, instead of silencing all the audio.
+
+### Split (Video Clips only, for now)
+
+**✂ Split…** in the Video File panel cuts a clip at the playhead, inside a series like galaga's Timeline.
+The dialog chooses what happens to sounds playing at that point (split them, attach to first, attach to second; greyed out when there are none),
+and what to keep (both pieces, or just one, which trims the clip and lets the series close the gap).
+With both pieces kept, nothing looks or sounds different afterwards.
+
+The work is a pure function, `splitVideoClip()` in `src/slide-components/split-video-clip.ts`, which makes two new clips and changes nothing.
+Checked headlessly:  the frame shown, the Dest Rect, and every sound heard at every sampled moment match the original, for every choice.
+
+### Speed changes
+
+Deliberately naive.  Changing a Video Clip's Duration, Start or End leaves its sound clips exactly where they were.
+The Video File panel's "audio imported, but out of date" note is the only hint.
+
+### If we come back
+
+* **A wrapper for any Showable** with start, end and speed, reusing this GUI once it's right.  Split would then work on anything.
+* **Drag a clip onto another component** on the timeline to rehome it, instead of using the Owner menu.
+* **Escape** to cancel a drag.
+* **Anchors / linking**, as in the prototype, so a sound can follow a point inside its owner when the owner is split or stretched.
+* **Each split piece opens the video file separately.**  Only the piece that's playing decodes frames, so this hasn't mattered, but they could share one open per URL.
+* **Every audio rebuild decodes every file again**, because each rebuild gets a fresh `AudioBuilder` and its cache.
+  After a drag that's one rebuild, a moment after you let go; with a long recording it could be noticeable.
+  The decoded files could be cached across rebuilds.

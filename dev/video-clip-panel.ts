@@ -32,6 +32,12 @@ export type VideoClipPanelHooks = {
   readonly rectKeyframeChanged: (keyframe: Keyframe<ReadOnlyRect>) => void;
   /** The Dest Rect keyframe in ✎ edit mode, if there is one. */
   readonly editingRectKeyframe: () => Keyframe<ReadOnlyRect> | null;
+  /** The clip's sound clips were replaced by a button here.  Rebuild the Sound Clips list. */
+  readonly soundClipsChanged: () => void;
+  /** Why ✂ Split… can't be used right now, or undefined when it can. */
+  readonly splitProblem: () => string | undefined;
+  /** ✂ Split… was clicked. */
+  readonly split: () => void;
 };
 
 export type VideoClipPanel = {
@@ -177,6 +183,11 @@ export function buildVideoClipPanel(
     "Play at 1×",
     "Set Duration to End − Start, so the video plays in real time.",
   );
+  const SPLIT_TITLE =
+    "Cut this clip in two at the playhead.  You choose what happens to sounds " +
+    "playing at that point, and whether to keep both pieces (keeping one is a trim).";
+  const splitBtn = button(timingRow, "✂ Split…", SPLIT_TITLE);
+  splitBtn.addEventListener("click", () => hooks.split());
 
   const rectRow = line(panel, "margin-top:0.4em");
   const rectButtons = [
@@ -343,6 +354,9 @@ export function buildVideoClipPanel(
       }
     }
 
+    const splitProblem = hooks.splitProblem();
+    splitBtn.disabled = splitProblem !== undefined;
+    splitBtn.title = splitProblem ? `${SPLIT_TITLE}\n\n${splitProblem}` : SPLIT_TITLE;
     wholeFileBtn.disabled = !ready;
     realTimeBtn.hidden = Number.isNaN(speed) || isRealTime(speed);
     realTimeBtn.disabled = !(end > start);
@@ -352,7 +366,7 @@ export function buildVideoClipPanel(
   }
 
   function drawAudio(speed: number): void {
-    const imported = (clip.soundClips ?? []).filter(
+    const imported = clip.soundClips.filter(
       (sc) => sc.notes === IMPORTED_AUDIO_NOTE,
     );
     removeAudioBtn.hidden = imported.length === 0;
@@ -473,22 +487,22 @@ export function buildVideoClipPanel(
   importBtn.addEventListener("click", () => {
     const audio = info?.audio;
     if (!audio) return;
-    const kept = (clip.soundClips ?? []).filter(
+    const kept = clip.soundClips.filter(
       (sc) => sc.notes !== IMPORTED_AUDIO_NOTE,
     );
     clip.soundClips = [...kept, expectedSoundClip(clip, audio)];
     // Saves and rebuilds the audio, through the same path as a duration change.
     clip.scheduleHasChanged();
-    drawDerived();
+    hooks.soundClipsChanged();
   });
 
   removeAudioBtn.addEventListener("click", () => {
-    const kept = (clip.soundClips ?? []).filter(
+    const kept = clip.soundClips.filter(
       (sc) => sc.notes !== IMPORTED_AUDIO_NOTE,
     );
-    clip.soundClips = kept.length ? kept : undefined;
+    clip.soundClips = kept;
     clip.scheduleHasChanged();
-    drawDerived();
+    hooks.soundClipsChanged();
   });
 
   refresh();
