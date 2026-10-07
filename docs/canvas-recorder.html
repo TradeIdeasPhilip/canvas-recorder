@@ -5,10 +5,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>📽️ Canvas Recorder</title>
-    <script type="module" crossorigin src="./assets/canvas-recorder-BjaGfooK.js"></script>
+    <script type="module" crossorigin src="./assets/canvas-recorder-CCNL75d_.js"></script>
     <link rel="modulepreload" crossorigin href="./assets/modulepreload-polyfill-B5Qt9EMX.js">
     <link rel="modulepreload" crossorigin href="./assets/vendor-DHcmMqkt.js">
-    <link rel="modulepreload" crossorigin href="./assets/lib-CS9Zhk5s.js">
+    <link rel="modulepreload" crossorigin href="./assets/lib-BMYouSwl.js">
     <link rel="stylesheet" crossorigin href="./assets/canvas-recorder-GppJCoFY.css">
   </head>
   <body>
@@ -292,10 +292,17 @@
               📂 Load
             </button>
           </span>
+          <label
+            title="Show what's said in each sound clip, word by word, on the timeline.  Each sound file is transcribed once, on this computer, in the background.  The first time downloads about 170 MB of speech models."
+          >
+            <input type="checkbox" id="transcriptsCheckbox" />
+            🗣 Transcripts
+          </label>
+          <span id="transcriptsStatus" style="font-size: 0.85em; color: #555"></span>
         </div>
         <canvas
           id="timelineCanvas"
-          title="Click to seek · Shift-drag to scrub · Drag to pan · Scroll to zoom · Click block to select"
+          title="Click to seek · Shift-drag to scrub · Drag to pan · Scroll to zoom · Click block to select · Click a word to play from just before it · Dragged sound clip edges snap to the quiet moments between words (hold Alt to drag freely)"
         ></canvas>
         <fieldset id="componentsEditor" hidden>
           <!-- dynamically populated by canvas-recorder.ts -->

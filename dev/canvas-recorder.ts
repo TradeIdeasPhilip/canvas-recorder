@@ -5418,12 +5418,31 @@ function logicalToLocal(
 }
 
 /**
+ * The dashes in an empty lattice's placeholder cell, in the lattice's own
+ * units.  A fixed size, not scaled to the cell, so the pattern doesn't crawl
+ * while the cell is being resized.  25% duty cycle.
+ */
+const LATTICE_DASH = 0.125;
+const LATTICE_GAP = 0.375;
+
+/**
  * Draw one cell of a lattice: a rectangle with both diagonals, the same
  * "here is a cell" mark used elsewhere for placeholder content.
  *
  * `dashed` marks a lattice that has no cells in at least one direction.  We
  * still draw a single cell flush against the top left so the user can see and
  * grab the control point, but the dashes say it isn't really there.
+ *
+ * That cell is resized by dragging its bottom-right corner, the orange control
+ * point, while its top-left corner stays put.  So each dashed line's pattern
+ * is pinned to a point that doesn't move, and the dashes only change at the
+ * ends that do:
+ * * The rectangle is one path from the control point, around, and back.  Its
+ *   pattern is pinned to the top-left corner, halfway along.
+ * * The diagonal through the control point is pinned to the top-left corner,
+ *   where it starts.
+ * * The other diagonal is pinned to its middle.
+ * Each pin is the middle of a dash.
  */
 function drawLatticeCell(
   ctx: CanvasRenderingContext2D,
@@ -5432,17 +5451,51 @@ function drawLatticeCell(
 ) {
   const { x, y, width, height } = rect;
   if (!(width > 0) || !(height > 0)) return;
-  // 25% duty cycle, scaled to the cell so the pattern stays readable at any size.
-  const dash = Math.min(width, height) / 8;
-  ctx.setLineDash(dashed ? [dash, dash * 3] : []);
-  ctx.beginPath();
-  ctx.rect(x, y, width, height);
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + width, y + height);
-  ctx.moveTo(x, y + height);
-  ctx.lineTo(x + width, y);
-  ctx.stroke();
+  if (!dashed) {
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + width, y + height);
+    ctx.moveTo(x, y + height);
+    ctx.lineTo(x + width, y);
+    ctx.stroke();
+    return;
+  }
+  ctx.setLineDash([LATTICE_DASH, LATTICE_GAP]);
+  /**
+   * Stroke one line, with the pattern placed so that `pinAt`, a distance
+   * along the line from its start, falls in the middle of a dash.  (The dash
+   * pattern starts over for each stroke, at lineDashOffset.)
+   */
+  const strokePinned = (pinAt: number, trace: () => void) => {
+    ctx.lineDashOffset = LATTICE_DASH / 2 - pinAt;
+    ctx.beginPath();
+    trace();
+    ctx.stroke();
+  };
+  const right = x + width;
+  const bottom = y + height;
+  const diagonal = Math.hypot(width, height);
+  // The rectangle:  control point, top right, top left, bottom left, control point.
+  strokePinned(width + height, () => {
+    ctx.moveTo(right, bottom);
+    ctx.lineTo(right, y);
+    ctx.lineTo(x, y);
+    ctx.lineTo(x, bottom);
+    ctx.closePath();
+  });
+  // Top left to the control point.
+  strokePinned(0, () => {
+    ctx.moveTo(x, y);
+    ctx.lineTo(right, bottom);
+  });
+  // The other diagonal, pinned at its middle.
+  strokePinned(diagonal / 2, () => {
+    ctx.moveTo(right, y);
+    ctx.lineTo(x, bottom);
+  });
   ctx.setLineDash([]);
+  ctx.lineDashOffset = 0;
 }
 
 /**
