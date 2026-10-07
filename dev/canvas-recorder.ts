@@ -89,7 +89,24 @@ import {
 } from "./sound-clips.ts";
 import { askHowToSplit } from "./split-dialog.ts";
 import { SyncedFile, type SyncedFileOptions } from "./synced-file.ts";
-import { TimelineDisplay, type TimelineBlock } from "./timeline-display.ts";
+import {
+  TimelineDisplay,
+  type TimelineBlock,
+  type TimelineWord,
+} from "./timeline-display.ts";
+import {
+  forgetTranscripts,
+  makeTranscript,
+  onTranscriptsChange,
+  readyTranscript,
+  setTranscriptsEnabled,
+  statusText,
+  Transcript,
+  transcriptsEnabled,
+  transcriptStatus,
+  transcriptsSummary,
+} from "./transcripts.ts";
+import type { Device } from "./transcribe-core.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
 import { DurationAgnosticComponent } from "../src/slide-components/duration-agnostic.ts";
@@ -1429,6 +1446,25 @@ const visualEditorAPI: VisualEditorAPI = {
 // MARK: Console API
 philDebug.chapterList = chapterList;
 philDebug.refreshSounds = () => void initAudio();
+/**
+ * Transcribe one file from scratch, skipping the cache, and report how long
+ * it took.  `device` is "webgpu" or "wasm"; leave it out for the normal choice.
+ * For measuring speed.  E.g. `await philDebug.transcribe("./Recap.m4a", "wasm")`.
+ */
+philDebug.transcribe = async (url: string, device?: Device) => {
+  const transcript = await makeTranscript(
+    url,
+    (p) => console.log(`${p.stage} ${Math.round(p.fraction * 100)}%`),
+    device,
+  );
+  console.log(
+    `${transcript.words.length} words on ${transcript.device} in ${(transcript.elapsedMs / 1000).toFixed(1)} s`,
+  );
+  console.table(transcript.words.slice(0, 40));
+  return transcript;
+};
+/** Throw away every saved transcript, so they're all made again. */
+philDebug.forgetTranscripts = forgetTranscripts;
 philDebug.VisualEditor = {
   get rootComponent(): Showable | undefined {
     return chapterList[select.selectedIndex]?.selectable;
@@ -1592,6 +1628,14 @@ const soundClipSyncCallbacks: Array<() => void> = [];
  * {@link updateScheduleEditor} reads it and runs during startup.
  */
 let selectedSoundClip: SoundClip | undefined;
+/**
+ * The last answer timelineWords() gave for each clip.  Up here for the same
+ * reason as {@link selectedSoundClip}:  the timeline draws during startup.
+ */
+const timelineWordsMemo = new WeakMap<
+  SoundClip,
+  { key: string; words: readonly TimelineWord[]; snaps: readonly number[] }
+>();
 /**
  * Callbacks that refresh custom panels in the schedule editor (bottom right)
  * when a duration changes anywhere — e.g. the Video File panel's speed
@@ -1774,6 +1818,20 @@ function scheduleChapterRefresh(): void {
 }
 updateFromSelect();
 
+// MARK: Transcripts
+
+const transcriptsCheckbox = getById("transcriptsCheckbox", HTMLInputElement);
+const transcriptsStatusSpan = getById("transcriptsStatus", HTMLSpanElement);
+transcriptsCheckbox.checked = transcriptsEnabled();
+transcriptsCheckbox.addEventListener("change", () => {
+  setTranscriptsEnabled(transcriptsCheckbox.checked);
+  timelineDisplay.redraw();
+});
+onTranscriptsChange(() => {
+  transcriptsStatusSpan.textContent = transcriptsSummary();
+  timelineDisplay.redraw();
+});
+
 timelineDisplay.onSeek = (localMs) => {
   stopAudio();
   loadPlayPositionSeconds(localMs + sectionStartTime);
@@ -1847,6 +1905,59 @@ function soundClipLengthMs(clip: SoundClip): number | undefined {
     : Math.max(0, fileMs - (clip.startMsIntoClip ?? 0));
 }
 
+/** The words of `clip`'s file that are inside the clip, in file time. */
+function wordsInClip(clip: SoundClip, transcript: Transcript) {
+  const fromMs = clip.startMsIntoClip ?? 0;
+  const toMs = fromMs + (soundClipLengthMs(clip) ?? Infinity);
+  return transcript.words.filter((w) => w.endMs > fromMs && w.startMs < toMs);
+}
+
+/** What `clip` says, from its transcript, or undefined if that isn't ready. */
+function clipText(clip: SoundClip, maxWords = Infinity): string | undefined {
+  const transcript = readyTranscript(clip.source);
+  if (!transcript) return undefined;
+  const words = wordsInClip(clip, transcript);
+  const text = words
+    .slice(0, maxWords)
+    .map((w) => w.text)
+    .join(" ");
+  return words.length > maxWords ? text + " …" : text;
+}
+
+/**
+ * {@link wordsInClip} on the timeline, for a clip that starts `clipStart` ms
+ * into the chapter.  Remembered per clip, since the timeline asks on every
+ * frame while playing.
+ */
+function timelineWords(
+  clip: SoundClip,
+  transcript: Transcript,
+  clipStart: number,
+): { words: readonly TimelineWord[]; snaps: readonly number[] } {
+  const fromMs = clip.startMsIntoClip ?? 0;
+  const key = `${clipStart}|${fromMs}|${soundClipLengthMs(clip)}|${transcript.madeAt}`;
+  const memo = timelineWordsMemo.get(clip);
+  if (memo?.key === key) return memo;
+  // File time to chapter time.
+  const shift = clipStart - fromMs;
+  const words = wordsInClip(clip, transcript).map((w) => ({
+    text: w.text,
+    startMs: w.startMs + shift,
+    endMs: w.endMs + shift,
+    cutBeforeMs: w.cutBeforeMs + shift,
+    cutAfterMs: w.cutAfterMs + shift,
+  }));
+  // Every cut in the file, not just in the clip, so an edge can be dragged
+  // outward onto a word that isn't in the clip yet.
+  const snaps = transcript.words.flatMap((w) => [
+    w.cutBeforeMs + shift,
+    w.cutAfterMs + shift,
+  ]);
+  const result = { key, words, snaps };
+  timelineWordsMemo.set(clip, result);
+  return result;
+}
+
 /**
  * A timeline block for one sound clip, whose owner starts `ownerStart` ms
  * into the chapter.  The body moves it, the left edge trims or extends its
@@ -1858,10 +1969,23 @@ function soundClipBlock(clip: SoundClip, ownerStart: number): TimelineBlock {
   return {
     id: clip,
     get label() {
-      return clip.notes || clip.source || "—";
+      // Notes if there are any, or else the first few words, so clips can be
+      // told apart even zoomed out.
+      return clip.notes || clipText(clip, 6) || clip.source || "—";
     },
     color: "#3aab3a",
     lane: "sound",
+    transcript: () => {
+      // Asking is what queues the file for transcribing.
+      const status = transcriptStatus(clip.source);
+      if (!status) return undefined;
+      if (status.kind !== "ready") return statusText(status);
+      return timelineWords(clip, status.transcript, start()).words;
+    },
+    snapPoints: () => {
+      const transcript = readyTranscript(clip.source);
+      return transcript ? timelineWords(clip, transcript, start()).snaps : [];
+    },
     startMs: start,
     durationMs: () => soundClipLengthMs(clip) ?? 0,
     waveform: () => {
@@ -4675,7 +4799,27 @@ function buildSoundClipSection(selectable: Showable): HTMLElement {
       afterStructureChange();
     });
 
-    row1.append(notesInput, upBtn, downBtn, delBtn);
+    const fromTranscriptBtn = document.createElement("button");
+    fromTranscriptBtn.type = "button";
+    fromTranscriptBtn.textContent = "📝";
+    fromTranscriptBtn.title =
+      "Replace Notes with what this clip says, from its transcript.";
+    fromTranscriptBtn.addEventListener("click", () => {
+      const text = clipText(clip);
+      if (text === undefined) {
+        alert(
+          transcriptsEnabled()
+            ? "This clip's transcript isn't ready yet.  Its progress shows on the timeline."
+            : "Transcripts are off.  Turn on 🗣 Transcripts above the timeline.",
+        );
+        return;
+      }
+      clip.notes = text || undefined;
+      notesInput.value = text;
+      _onClipValueChanged();
+    });
+
+    row1.append(notesInput, fromTranscriptBtn, upBtn, downBtn, delBtn);
 
     // Row 2: source URL
     const row2 = document.createElement("div");

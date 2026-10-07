@@ -1,4 +1,3 @@
-Generated: Wed Sep 23 2026 11:14:05 GMT-0700 (Pacific Daylight Time)
 Shadow Test » shadow
 → Shadow Test
 → → Slide 1: Shape Gallery
@@ -13,9 +12,15 @@ Shadow Test » shadow
   text.alignmentSchedule.set("justify");
   this.addFixed({ child: text });
   const slide = new SlideComponent({ description: "Slide" });
+  const slide2 = new SlideComponent({ description: "Slide" });
+  const text2 = new TextComponent({ description: "Text" });
+  slide2.addFixed({ child: text2 });
+  slide.addFixed({ child: slide2 });
   this.addFixed({ child: slide });
-  const slide = new SlideComponent({ description: "Slide" });
-  this.addFixed({ child: slide });
+  const slide3 = new SlideComponent({ description: "Slide" });
+  const text3 = new TextComponent({ description: "Text" });
+  slide3.addFixed({ child: text3 });
+  this.addFixed({ child: slide3 });
   const traditionalText = new TraditionalTextComponent({ description: "Traditional Text" });
   traditionalText.textSchedule.set("Traditional Text");
   traditionalText.positionSchedule.set({"x":8.963942307692308,"y":8.43719951923077});
@@ -27,7 +32,15 @@ Shadow Test » shadow
   traditionalText.textBaselineSchedule.set("bottom");
   this.addFixed({ child: traditionalText });
 → → Slide 2: Growing Rectangle
+  const slide4 = new SlideComponent({ description: "Slide" });
   const rectangle = new RectangleComponent({ description: "Rectangle" });
   rectangle.colorSchedule.set([{"time":0,"value":"rgb(255, 0, 0)"},{"time":10000,"value":"#d8d800"}]);
   rectangle.rectSchedule.set([{"time":0,"value":{"x":1,"y":1,"width":1,"height":2}},{"time":10000,"value":{"x":1,"y":1,"width":14,"height":2}}]);
-  this.addFixed({ child: rectangle });
+  slide4.addFixed({ child: rectangle });
+  this.addFixed({ child: slide4 });
+  const inSeries = new InSeriesComponent({ description: "In Series" });
+  const holdNext = new HoldNextTransition({ description: "Hold Next" });
+  inSeries.addFixed({ child: holdNext });
+  this.addFixed({ child: inSeries });
+  const multiText = new MultiTextComponent({ description: "Multi Text" });
+  this.addFixed({ child: multiText });

@@ -25,6 +25,7 @@
     "node": ">=26"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.1",
     "@napi-rs/canvas": "^0.1.100",
     "bezier-js": "^6.1.4",
     "colorizr": "^5.0.1",

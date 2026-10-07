@@ -79,6 +79,9 @@ export default defineConfig({
       },
     },
   },
+  // The transcript worker (dev/transcribe-worker.ts) uses dynamic imports, which
+  // the default "iife" worker format can't bundle.
+  worker: { format: "es" },
   // This is the important part.  The default configuration assumes I have access
   // to the root of the webserver, and each project will share some assets.
   base: "./",

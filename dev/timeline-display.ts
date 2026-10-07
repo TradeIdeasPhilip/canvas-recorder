@@ -47,6 +47,28 @@ export type TimelineBlock = {
    * until the file has been decoded.
    */
   readonly waveform?: () => { buffer: AudioBuffer; fromMs: number } | undefined;
+  /**
+   * For sound blocks:  the words spoken in this block, drawn in a strip along
+   * its bottom, or a status line while they're being worked out.  Undefined
+   * for no strip at all.
+   */
+  readonly transcript?: () => readonly TimelineWord[] | string | undefined;
+  /**
+   * Places a dragged edge should snap to, in chapter-local ms, e.g. the quiet
+   * moments between words.  Hold Alt while dragging to ignore them.
+   */
+  readonly snapPoints?: () => readonly number[];
+};
+
+/** One word on the timeline.  All times chapter-local ms. */
+export type TimelineWord = {
+  readonly text: string;
+  readonly startMs: number;
+  readonly endMs: number;
+  /** The quiet moment just before the word:  where clicking it seeks to. */
+  readonly cutBeforeMs: number;
+  /** The quiet moment just after it. */
+  readonly cutAfterMs: number;
 };
 
 /** Which row each block is in, and where each row is, in CSS px. */
@@ -59,7 +81,11 @@ type RowLayout = {
 // ── layout constants (all CSS px) ─────────────────────────────────────────────
 
 const ROW_H_CSS = 28;
-const SOUND_ROW_H_CSS = 40;
+const SOUND_ROW_H_CSS = 58;
+/** Height of the strip of words along the bottom of a sound block. */
+const WORD_STRIP_CSS = 16;
+/** How close, in CSS px, a dragged edge must come to a snap point to land on it. */
+const SNAP_PX = 8;
 const BLOCK_PAD_CSS = 3;   // gap above/below block within its row
 const HANDLE_PX = 8;       // pixel zone at block edges that triggers a drag cursor
 const MIN_WINDOW_MS = 50;  // smallest zoom window allowed
@@ -78,6 +104,10 @@ export class TimelineDisplay {
   private _viewEndMs = 1000;
   /** Row layout cached after each draw so hit-testing reuses it without recomputing. */
   private _layout: RowLayout = { rows: [], tops: [], heights: [] };
+  /** The word under the mouse, shaded in its block. */
+  private _hoverWord: { block: TimelineBlock; word: TimelineWord } | undefined;
+  /** Where the edge being dragged has snapped to, drawn as a guide line. */
+  private _snapMs: number | undefined;
 
   /** Fires when the user clicks the background or scrubs (shift-drag).  Arg: chapter-local ms. */
   onSeek?: (localMs: number) => void;
@@ -252,9 +282,14 @@ export class TimelineDisplay {
       ctx.roundRect(x0, y0, bw, bh, corner);
       ctx.fill();
 
+      const transcript = isSound ? b.transcript?.() : undefined;
+      const stripH = transcript === undefined ? 0 : WORD_STRIP_CSS * dpr;
       const wave = b.waveform?.();
       if (wave && durMs > 0) {
-        this._drawWaveform(ctx, wave, durMs, x0, bw, y0, bh, pxW);
+        this._drawWaveform(ctx, wave, durMs, x0, bw, y0, bh - stripH, pxW);
+      }
+      if (transcript !== undefined && bw > 2 * dpr) {
+        this._drawWords(ctx, b, transcript, x0, x0 + bw, y1 - stripH, stripH, msToX, pxW, dpr);
       }
       if (isSound && selected) {
         ctx.strokeStyle = "#fff";
@@ -275,7 +310,7 @@ export class TimelineDisplay {
       }
 
       // Label, clipped to visible portion of the block
-      if (bw > 18 * dpr) {
+      if (bw > 18 * dpr && b.label !== "") {
         const clipLeft = Math.max(0, x0) + 4 * dpr;
         const clipRight = Math.min(pxW, x1) - 2 * dpr;
         if (clipRight > clipLeft) {
@@ -287,13 +322,13 @@ export class TimelineDisplay {
           ctx.font = `${fontPx}px sans-serif`;
           let labelY = (y0 + y1) / 2;
           if (isSound) {
-            // Over the waveform, on a patch just big enough for the words,
-            // so both stay readable.
+            // Over the waveform, top left, on a patch just big enough for
+            // the label, so both stay readable.  The bottom is for the words.
             const patchH = fontPx + 3 * dpr;
             const patchW = ctx.measureText(b.label).width + 6 * dpr;
             ctx.fillStyle = "rgba(0, 0, 0, 0.45)";
-            ctx.fillRect(clipLeft - 3 * dpr, y1 - patchH, patchW, patchH);
-            labelY = y1 - patchH / 2;
+            ctx.fillRect(clipLeft - 3 * dpr, y0, patchW, patchH);
+            labelY = y0 + patchH / 2;
           }
           ctx.fillStyle = "#fff";
           ctx.textBaseline = "middle";
@@ -304,10 +339,136 @@ export class TimelineDisplay {
       }
     }
 
+    // Snap guide, while a dragged edge sits on a snap point.
+    if (this._snapMs !== undefined) {
+      const sx = Math.round(msToX(this._snapMs));
+      ctx.fillStyle = "rgba(0, 90, 255, 0.9)";
+      ctx.fillRect(sx - dpr, 0, 2 * dpr, pxH);
+    }
+
     // Play-head line
     const phX = Math.round(msToX(this._playLocalMs));
     ctx.fillStyle = "rgba(200, 0, 0, 0.85)";
     ctx.fillRect(phX, 0, Math.ceil(dpr), pxH);
+  }
+
+  /**
+   * The strip of words along the bottom of a sound block.
+   *
+   * Words are labelled left to right, each only if it clears the one before,
+   * like labels on a map.  Zoomed in, that's every word; zoomed out, a sample
+   * spread along the clip, which is still enough to tell clips apart.  A tick
+   * marks where each word starts, whenever ticks are far enough apart to see.
+   */
+  private _drawWords(
+    ctx: CanvasRenderingContext2D,
+    block: TimelineBlock,
+    transcript: readonly TimelineWord[] | string,
+    x0: number,
+    x1: number,
+    top: number,
+    height: number,
+    msToX: (ms: number) => number,
+    canvasWidth: number,
+    dpr: number,
+  ): void {
+    const left = Math.max(0, x0);
+    const right = Math.min(canvasWidth, x1);
+    if (right <= left) return;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(left, top, right - left, height);
+    ctx.clip();
+    ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+    ctx.fillRect(left, top, right - left, height);
+    const middle = top + height / 2;
+    ctx.textBaseline = "middle";
+    ctx.textAlign = "left";
+    if (typeof transcript === "string") {
+      ctx.font = `italic ${Math.round(10 * dpr)}px sans-serif`;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+      ctx.fillText(transcript, left + 4 * dpr, middle);
+      ctx.restore();
+      return;
+    }
+    const hovered =
+      this._hoverWord?.block === block ? this._hoverWord.word : undefined;
+    if (hovered) {
+      // The whole word, cut to cut, across the full height of the block.
+      const hx0 = msToX(hovered.cutBeforeMs);
+      const hx1 = msToX(hovered.cutAfterMs);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+      ctx.fillRect(hx0, top, hx1 - hx0, height);
+    }
+    ctx.font = `${Math.round(10 * dpr)}px sans-serif`;
+    let lastTickX = -Infinity;
+    let lastTextRight = -Infinity;
+    for (const word of transcript) {
+      const x = msToX(word.startMs);
+      if (x > right) break;
+      if (msToX(word.endMs) < left) continue;
+      if (x - lastTickX >= 3 * dpr) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.fillRect(Math.round(x), top, Math.max(1, Math.round(dpr / 2)), height);
+        lastTickX = x;
+      }
+      const textX = Math.max(x, left) + 2 * dpr;
+      if (textX >= lastTextRight + 4 * dpr) {
+        ctx.fillStyle = word === hovered ? "#fff" : "rgba(255, 255, 255, 0.92)";
+        ctx.fillText(word.text, textX, middle);
+        lastTextRight = textX + ctx.measureText(word.text).width;
+      }
+    }
+    ctx.restore();
+  }
+
+  /**
+   * The word strip at a point, if there is one:  the sound block and the word
+   * whose cut-to-cut span holds `ms`.  `cssY` is relative to the canvas.
+   */
+  private _wordAt(
+    ms: number,
+    cssY: number,
+  ): { block: TimelineBlock; word: TimelineWord } | undefined {
+    const { rows, tops, heights } = this._layout;
+    for (let i = 0; i < this._blocks.length; i++) {
+      const block = this._blocks[i]!;
+      if (block.lane !== "sound" || !block.transcript) continue;
+      const row = rows[i];
+      if (row === undefined) continue;
+      const bottom = tops[row]! + heights[row]! - BLOCK_PAD_CSS;
+      if (cssY < bottom - WORD_STRIP_CSS || cssY >= bottom) continue;
+      const start = block.startMs();
+      if (ms < start || ms > start + block.durationMs()) continue;
+      const words = block.transcript();
+      if (typeof words !== "object") return undefined;
+      const word = words.find((w) => ms >= w.cutBeforeMs && ms < w.cutAfterMs);
+      return word ? { block, word } : undefined;
+    }
+    return undefined;
+  }
+
+  /**
+   * `ms`, moved to the nearest of `block`'s snap points if one is within
+   * {@link SNAP_PX}.  Records the result for the guide line.
+   */
+  private _snap(block: TimelineBlock, ms: number, cssWidth: number): number {
+    this._snapMs = undefined;
+    const points = block.snapPoints?.();
+    if (!points?.length) return ms;
+    const viewDuration = this._viewEndMs - this._viewStartMs;
+    const reach = (SNAP_PX / cssWidth) * viewDuration;
+    let best = ms;
+    let bestDistance = reach;
+    for (const point of points) {
+      const distance = Math.abs(point - ms);
+      if (distance <= bestDistance) {
+        best = point;
+        bestDistance = distance;
+      }
+    }
+    if (best !== ms) this._snapMs = best;
+    return best;
   }
 
   /**
@@ -477,6 +638,13 @@ export class TimelineDisplay {
         lastClientX = e.clientX;
         lastClientY = e.clientY;
         updateHoverCursor(e);
+        const rect = canvas.getBoundingClientRect();
+        const hover = this._wordAt(toLocalMs(e), e.clientY - rect.top);
+        if (hover) canvas.style.cursor = "pointer";
+        if (hover?.word !== this._hoverWord?.word) {
+          this._hoverWord = hover;
+          this._draw();
+        }
         return;
       }
 
@@ -484,20 +652,28 @@ export class TimelineDisplay {
         case "seek":
           this.onSeek?.(clampMs(toLocalMs(e)));
           break;
-        case "drag-left":
-          drag.block.onDragLeft!(toLocalMs(e));
+        case "drag-left": {
+          const width = canvas.getBoundingClientRect().width;
+          const ms = e.altKey ? toLocalMs(e) : this._snap(drag.block, toLocalMs(e), width);
+          if (e.altKey) this._snapMs = undefined;
+          drag.block.onDragLeft!(ms);
           this._draw();
           break;
+        }
         case "drag-body": {
           const delta = toLocalMs(e) - drag.msAtDown;
           drag.block.onDragBody!(drag.startMsAtDown + delta);
           this._draw();
           break;
         }
-        case "drag-right":
-          drag.block.onDragRight?.(toLocalMs(e));
+        case "drag-right": {
+          const width = canvas.getBoundingClientRect().width;
+          const ms = e.altKey ? toLocalMs(e) : this._snap(drag.block, toLocalMs(e), width);
+          if (e.altKey) this._snapMs = undefined;
+          drag.block.onDragRight?.(ms);
           this._draw();
           break;
+        }
         case "potential":
           if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) > 4) {
             if (drag.leftBlock) {
@@ -533,12 +709,19 @@ export class TimelineDisplay {
 
       if (saved.kind === "drag-left" || saved.kind === "drag-right" || saved.kind === "drag-body") {
         if (saved.kind === "drag-right") saved.block.onCommitRight?.();
+        this._snapMs = undefined;
         this._draw();
         return;
       }
       if (saved.kind === "potential") {
         const hit = hitTest(e);
-        if (hit) {
+        const rect = canvas.getBoundingClientRect();
+        const wordHit = this._wordAt(toLocalMs(e), e.clientY - rect.top);
+        if (wordHit) {
+          // A word:  select its clip, and put the playhead just before the word.
+          this.onBlockClick?.(wordHit.block.id);
+          this.onSeek?.(wordHit.word.cutBeforeMs);
+        } else if (hit) {
           // Any click on any part of a block selects it.
           this.onBlockClick?.(hit.block.id);
         } else {

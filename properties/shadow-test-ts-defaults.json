@@ -860,7 +860,8 @@
                   }
                 ],
                 "components": [],
-                "duration": 4900
+                "duration": 4900,
+                "soundClips": []
               }
             ]
           },
@@ -900,7 +901,8 @@
                   }
                 ],
                 "components": [],
-                "duration": 4900
+                "duration": 4900,
+                "soundClips": []
               },
               {
                 "description": "Traditional Text",
@@ -1037,7 +1039,8 @@
                       }
                     ],
                     "components": [],
-                    "duration": 4900
+                    "duration": 4900,
+                    "soundClips": []
                   }
                 ]
               },
