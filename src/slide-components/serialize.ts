@@ -8,9 +8,16 @@ import {
 } from "../showable";
 import { ComponentRegistryEntry, componentRegistry } from "./registry";
 
+/**
+ * One component the Visual Editor added, as saved.
+ *
+ * Saved forms usually leave out whatever a brand new component of this kind
+ * already has (see `omitComponentDefaults()` in snapshot.ts).  That's safe
+ * because {@link buildComponents} always starts from a brand new one.
+ */
 export type SerializedChild = {
   registryKey: string;
-  schedules: SerializedSchedule[];
+  schedules?: SerializedSchedule[];
   scalars?: SerializedScalar[];
   components?: SerializedChild[];
   userEditableDescription?: string;
@@ -29,6 +36,10 @@ export type SerializedChild = {
  * factory, has its `registryKey` stamped on it, schedules restored via
  * `applySnapshot`, and nested components rebuilt recursively.  Entries whose
  * `registryKey` is not found in the registry are silently skipped.
+ *
+ * Anything an entry leaves out keeps the brand new component's default.  A
+ * `components` list, when present, replaces the new component's children
+ * rather than adding to them.
  */
 export function buildComponents(snapshot: SerializedChild[]): Showable[] {
   return snapshot.flatMap((sc) => {
@@ -46,9 +57,11 @@ export function buildComponents(snapshot: SerializedChild[]): Showable[] {
     if (sc.duration !== undefined) child.setDuration?.(sc.duration);
     if (sc.soundClips !== undefined)
       child.soundClips = sc.soundClips.map((c) => ({ ...c }));
-    if (child.schedules?.length) applySnapshot(child.schedules, sc.schedules);
-    if (child.replaceableComponents !== undefined && sc.components?.length) {
-      child.replaceableComponents.push(...buildComponents(sc.components));
+    if (child.schedules?.length && sc.schedules?.length) {
+      applySnapshot(child.schedules, sc.schedules);
+    }
+    if (child.replaceableComponents !== undefined && sc.components !== undefined) {
+      child.replaceableComponents.replace(buildComponents(sc.components));
     }
     return [child];
   });

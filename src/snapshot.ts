@@ -10,6 +10,7 @@ import {
   Showable,
   SoundClip,
 } from "./showable";
+import { componentRegistry } from "./slide-components/registry";
 import { SerializedChild, buildComponents } from "./slide-components/serialize";
 
 /**
@@ -126,36 +127,35 @@ function getFixedComponents(parent: Showable) {
   );
 }
 
+// MARK: Matching siblings
+
 /**
- * Describe an object's parents in a way suitable for a debug message.
- * @param showable Describe the parents of this object.
- * @returns A string with a list of descriptions and class names.
+ * For each of `items`, its counterpart in `others`:  the one with the same
+ * description.  When several siblings share a description, they pair up in
+ * order:  the 2nd "note" with the 2nd "note".
+ *
+ * This is how a saved component finds its live one, and its TypeScript
+ * default.  Descriptions aren't unique.  Matching on the first one with that
+ * name used to hand every saved "note" to the first live "note", so a reload
+ * scrambled same-named siblings.  That still happens if the TypeScript adds,
+ * removes or reorders same-named siblings, since order is all there is to go on.
  */
-function describeAncestors(showable: Showable) {
-  const pieces = new Array<string>();
-  for (
-    let parent = showable.parent;
-    parent !== undefined;
-    parent = parent.parent
-  ) {
-    let itemDescription = "";
-    if ("description" in parent) {
-      if (typeof parent.description == "string") {
-        itemDescription = parent.description;
-      }
-    }
-    if ("constructor" in parent) {
-      if (itemDescription != "") {
-        itemDescription += " ";
-      }
-      itemDescription += `[${parent.constructor.name}]`;
-    }
-    if (itemDescription == "") {
-      itemDescription = "⁇";
-    }
-    pieces.unshift(itemDescription);
+export function counterparts<
+  A extends { description: string },
+  B extends { description: string },
+>(items: readonly A[], others: readonly B[]): (B | undefined)[] {
+  const byDescription = new Map<string, B[]>();
+  for (const other of others) {
+    let group = byDescription.get(other.description);
+    if (!group) byDescription.set(other.description, (group = []));
+    group.push(other);
   }
-  return pieces.join(" ≫ ");
+  const seen = new Map<string, number>();
+  return items.map((item) => {
+    const n = seen.get(item.description) ?? 0;
+    seen.set(item.description, n + 1);
+    return byDescription.get(item.description)?.[n];
+  });
 }
 
 /** Serializes {@link Showable.fixedComponents} — TypeScript-defined items whose
@@ -164,16 +164,6 @@ function describeAncestors(showable: Showable) {
 export function serializeFixedComponents(
   fixedComponents: readonly Showable[],
 ): SerializedFixedChild[] {
-  const seen = new Set<string>();
-  for (const child of fixedComponents) {
-    if (seen.has(child.description)) {
-      console.warn(
-        `serializeFixedComponents: duplicate fixed-child description "${child.description}" — only the first will be restored on load.`,
-        describeAncestors(child),
-      );
-    }
-    seen.add(child.description);
-  }
   return fixedComponents.map((child) => {
     const entry: SerializedFixedChild = { description: child.description };
     if (child.schedules?.length)
@@ -194,14 +184,15 @@ export function serializeFixedComponents(
 }
 
 /** Restores saved state into an existing `fixedComponents` array.
- *  Each saved entry is matched to a live item by `description`; unmatched
- *  entries are silently ignored (e.g. after a TypeScript rename). */
+ *  Each saved entry is matched to a live item with {@link counterparts};
+ *  unmatched entries are silently ignored (e.g. after a TypeScript rename). */
 export function applyFixedComponents(
   fixedComponents: readonly Showable[],
   serialized: SerializedFixedChild[],
 ): void {
-  for (const sc of serialized) {
-    const child = fixedComponents.find((c) => c.description === sc.description);
+  const live = counterparts(serialized, fixedComponents);
+  for (const [index, sc] of serialized.entries()) {
+    const child = live[index];
     if (!child) continue;
     if (child.scalars?.length && sc.scalars?.length)
       applyScalarSnapshot(child.scalars, sc.scalars);
@@ -288,10 +279,10 @@ export function findSerializedNode(
   if (liveParent === wanted) return serializedParent;
   const serializedChildren = serializedParent.fixedComponents;
   if (!serializedChildren?.length) return undefined;
-  for (const child of getFixedComponents(liveParent)) {
-    const match = serializedChildren.find(
-      (s) => s.description === child.description,
-    );
+  const liveChildren = getFixedComponents(liveParent);
+  const matches = counterparts(liveChildren, serializedChildren);
+  for (const [index, child] of liveChildren.entries()) {
+    const match = matches[index];
     if (!match) continue;
     const found = findSerializedNode(child, match, wanted);
     if (found) return found;
@@ -327,4 +318,230 @@ export function applyJsonEntry(
     selectable.soundClips.length = 0;
     selectable.soundClips.push(...entry.soundClips.map((c) => ({ ...c })));
   }
+}
+
+// MARK: Leaving out defaults
+//
+// Saved files list only what differs from the defaults, the way the diff file
+// always has.  There are two kinds of default:
+//
+// * A component the Visual Editor added starts as a brand new one from the
+//   registry, so its defaults are that brand new component.  Leaving those out
+//   needs nothing else:  loading starts from a brand new component anyway.
+// * A component built in TypeScript starts the way the TypeScript built it,
+//   so its defaults are the TypeScript defaults captured at startup.  Loading
+//   has to put those back first, which is what fillTreeDefaults() is for.
+//
+// The TypeScript defaults file is the one thing written in full.
+
+/** How applySnapshot() and applyScalarSnapshot() match a saved item to a live one. */
+function keyOf(item: { description: string; type: string }): string {
+  return `${item.type}\0${item.description}`;
+}
+
+function sameJson(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/** The items in `current` that differ from their match in `defaults`, or undefined if none do. */
+function withoutDefaults<T extends { description: string; type: string }>(
+  current: readonly T[] | undefined,
+  defaults: readonly T[] | undefined,
+): T[] | undefined {
+  if (!current) return undefined;
+  const result = current.filter((item) => {
+    const match = defaults?.find((d) => keyOf(d) === keyOf(item));
+    return !match || !sameJson(match, item);
+  });
+  return result.length ? result : undefined;
+}
+
+/** `defaults`, with each item replaced by its match from `stored`.  The inverse of {@link withoutDefaults}. */
+function withDefaults<T extends { description: string; type: string }>(
+  stored: readonly T[] | undefined,
+  defaults: readonly T[] | undefined,
+): T[] | undefined {
+  if (!defaults) return stored && [...stored];
+  if (!stored) return [...defaults];
+  const result = defaults.map(
+    (d) => stored.find((s) => keyOf(s) === keyOf(d)) ?? d,
+  );
+  // Saved items the code no longer has.  Harmless; applying ignores them.
+  for (const s of stored) {
+    if (!defaults.some((d) => keyOf(d) === keyOf(s))) result.push(s);
+  }
+  return result;
+}
+
+/** Cache for {@link registryDefault}.  null means "no such registry key". */
+const registryDefaults = new Map<string, SerializedChild | null>();
+
+/**
+ * A brand new component of this kind, serialized.  Computed the first time
+ * it's asked for and cached, since serializing happens on every save.
+ */
+export function registryDefault(
+  registryKey: string,
+): SerializedChild | undefined {
+  let cached = registryDefaults.get(registryKey);
+  if (cached === undefined) {
+    const fresh = componentRegistry.get(registryKey)?.create();
+    if (fresh) fresh.registryKey = registryKey;
+    cached = fresh ? (serializeComponents([fresh])[0] ?? null) : null;
+    registryDefaults.set(registryKey, cached);
+  }
+  return cached ?? undefined;
+}
+
+/**
+ * Leave out of each component whatever a brand new one of its kind already
+ * has.  Recursive.  Nothing is lost, because {@link buildComponents} starts
+ * from a brand new component.
+ */
+export function omitComponentDefaults(
+  children: readonly SerializedChild[],
+): SerializedChild[] {
+  return children.map((child) => {
+    const fresh = registryDefault(child.registryKey);
+    if (!fresh) return child;
+    const result: SerializedChild = { registryKey: child.registryKey };
+    const schedules = withoutDefaults(child.schedules, fresh.schedules);
+    if (schedules) result.schedules = schedules;
+    const scalars = withoutDefaults(child.scalars, fresh.scalars);
+    if (scalars) result.scalars = scalars;
+    if (child.components !== undefined) {
+      const components = omitComponentDefaults(child.components);
+      if (!sameJson(components, omitComponentDefaults(fresh.components ?? []))) {
+        result.components = components;
+      }
+    }
+    if (child.userEditableDescription !== undefined) {
+      result.userEditableDescription = child.userEditableDescription;
+    }
+    if (child.duration !== undefined && child.duration !== fresh.duration) {
+      result.duration = child.duration;
+    }
+    if (
+      child.soundClips !== undefined &&
+      !sameJson(child.soundClips, fresh.soundClips)
+    ) {
+      result.soundClips = child.soundClips;
+    }
+    return result;
+  });
+}
+
+/**
+ * The parts of `tree` that differ from `defaults`, the TypeScript defaults.
+ * A component whose saved form would be nothing but its description is left
+ * out entirely.  Components the Visual Editor added are trimmed with
+ * {@link omitComponentDefaults}.
+ *
+ * Undo with {@link fillTreeDefaults} before applying.
+ */
+export function omitTreeDefaults(
+  tree: SerializedFixedChild,
+  defaults: SerializedFixedChild | undefined,
+): SerializedFixedChild {
+  const result: SerializedFixedChild = { description: tree.description };
+  const schedules = withoutDefaults(tree.schedules, defaults?.schedules);
+  if (schedules) result.schedules = schedules;
+  const scalars = withoutDefaults(tree.scalars, defaults?.scalars);
+  if (scalars) result.scalars = scalars;
+  if (tree.components !== undefined) {
+    const components = omitComponentDefaults(tree.components);
+    if (
+      defaults?.components === undefined ||
+      !sameJson(components, omitComponentDefaults(defaults.components))
+    ) {
+      result.components = components;
+    }
+  }
+  if (tree.fixedComponents) {
+    const children = tree.fixedComponents;
+    const childDefaults = counterparts(children, defaults?.fixedComponents ?? []);
+    const trimmed = children.map((child, index) =>
+      omitTreeDefaults(child, childDefaults[index]),
+    );
+    // Drop the components that didn't change, except one that shares its
+    // description with a later sibling that did.  That one stays, as just its
+    // description, so the nth "note" still lines up with the nth "note".
+    const lastChanged = new Map<string, number>();
+    for (const [index, child] of trimmed.entries()) {
+      if (Object.keys(child).length > 1) lastChanged.set(child.description, index);
+    }
+    const kept = trimmed.filter(
+      (child, index) => index <= (lastChanged.get(child.description) ?? -1),
+    );
+    if (kept.length) result.fixedComponents = kept;
+  }
+  if (tree.duration !== undefined && tree.duration !== defaults?.duration) {
+    result.duration = tree.duration;
+  }
+  if (
+    tree.soundClips !== undefined &&
+    !sameJson(tree.soundClips, defaults?.soundClips)
+  ) {
+    result.soundClips = tree.soundClips;
+  }
+  if (
+    tree.userEditableDescription !== undefined &&
+    tree.userEditableDescription !== defaults?.userEditableDescription
+  ) {
+    result.userEditableDescription = tree.userEditableDescription;
+  }
+  return result;
+}
+
+/**
+ * Put back everything {@link omitTreeDefaults} left out, so the result can be
+ * applied with {@link applyTree} or {@link applyJsonEntry}, which only change
+ * what they're given.
+ *
+ * A tree saved before defaults were left out already has everything, so this
+ * returns the same thing for it.
+ *
+ * The result shares nothing with either input.  Applying it makes its values
+ * live, and the TypeScript defaults must never change underneath us.
+ */
+export function fillTreeDefaults(
+  tree: SerializedFixedChild,
+  defaults: SerializedFixedChild | undefined,
+): SerializedFixedChild {
+  return structuredClone(fillNode(tree, defaults));
+}
+
+function fillNode(
+  tree: SerializedFixedChild,
+  defaults: SerializedFixedChild | undefined,
+): SerializedFixedChild {
+  if (!defaults) return tree;
+  const result: SerializedFixedChild = { description: tree.description };
+  const schedules = withDefaults(tree.schedules, defaults.schedules);
+  if (schedules) result.schedules = schedules;
+  const scalars = withDefaults(tree.scalars, defaults.scalars);
+  if (scalars) result.scalars = scalars;
+  const components = tree.components ?? defaults.components;
+  if (components) result.components = components;
+  const stored = tree.fixedComponents ?? [];
+  const childDefaults = defaults.fixedComponents ?? [];
+  const storedFor = counterparts(childDefaults, stored);
+  const fixedComponents = childDefaults.map((d, index) =>
+    fillNode(storedFor[index] ?? { description: d.description }, d),
+  );
+  // Saved components the code no longer has.  Harmless; applying ignores them.
+  for (const s of stored) {
+    if (!storedFor.includes(s)) fixedComponents.push(s);
+  }
+  if (fixedComponents.length) result.fixedComponents = fixedComponents;
+  const duration = tree.duration ?? defaults.duration;
+  if (duration !== undefined) result.duration = duration;
+  const soundClips = tree.soundClips ?? defaults.soundClips;
+  if (soundClips) result.soundClips = soundClips;
+  const userEditableDescription =
+    tree.userEditableDescription ?? defaults.userEditableDescription;
+  if (userEditableDescription !== undefined) {
+    result.userEditableDescription = userEditableDescription;
+  }
+  return result;
 }

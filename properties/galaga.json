@@ -16,21 +16,6 @@
             }
           },
           {
-            "description": "Alignment",
-            "type": "select",
-            "value": "center"
-          },
-          {
-            "description": "Anchor X",
-            "type": "select",
-            "value": "center"
-          },
-          {
-            "description": "Baseline",
-            "type": "select",
-            "value": "top"
-          },
-          {
             "description": "Width",
             "type": "number",
             "value": 9.053452402721351
@@ -39,19 +24,9 @@
             "description": "Height",
             "type": "number",
             "value": 1.7056706622896816
-          },
-          {
-            "description": "Additional Line Height",
-            "type": "number",
-            "value": 0
           }
         ],
         "scalars": [
-          {
-            "description": "Min Duration",
-            "type": "number",
-            "value": 0
-          },
           {
             "description": "Rotation",
             "type": "select",
@@ -66,21 +41,6 @@
             "description": "Height Mode",
             "type": "select",
             "value": "scale"
-          },
-          {
-            "description": "May Grow",
-            "type": "select",
-            "value": "shrink or grow"
-          },
-          {
-            "description": "Auto Size",
-            "type": "select",
-            "value": "live"
-          },
-          {
-            "description": "Frozen Size",
-            "type": "number",
-            "value": 0
           }
         ],
         "components": [
@@ -91,33 +51,6 @@
                 "description": "Color",
                 "type": "color",
                 "value": "rgb(0% 87.06% 0%)"
-              },
-              {
-                "description": "Font Size",
-                "type": "number",
-                "value": 1
-              },
-              {
-                "description": "Boldness",
-                "type": "number",
-                "value": 1
-              },
-              {
-                "description": "Obliqueness",
-                "type": "number",
-                "value": 0
-              },
-              {
-                "description": "Alpha",
-                "type": "number",
-                "value": 1
-              }
-            ],
-            "scalars": [
-              {
-                "description": "Name",
-                "type": "string",
-                "value": ""
               }
             ]
           },
@@ -128,11 +61,6 @@
                 "description": "Content",
                 "type": "string",
                 "value": "Galaga"
-              },
-              {
-                "description": "Style",
-                "type": "string",
-                "value": ""
               }
             ]
           }
@@ -140,26 +68,6 @@
       }
     ],
     "fixedComponents": [
-      {
-        "description": "Background",
-        "schedules": [
-          {
-            "description": "Color",
-            "type": "color",
-            "value": "black"
-          },
-          {
-            "description": "Rect",
-            "type": "rectangle",
-            "value": {
-              "x": 0,
-              "y": 0,
-              "width": 16,
-              "height": 9
-            }
-          }
-        ]
-      },
       {
         "description": "Timeline",
         "components": [
@@ -184,17 +92,11 @@
                 "value": "Galaga Screen Recording.mov"
               },
               {
-                "description": "Start Ms Into Clip",
-                "type": "number",
-                "value": 0
-              },
-              {
                 "description": "End Ms Into Clip",
                 "type": "number",
                 "value": 454468.3333333333
               }
             ],
-            "components": [],
             "duration": 45446.83333333,
             "soundClips": [
               {

@@ -44,9 +44,13 @@ import { ArrowValue, interpolateArrow } from "../src/schedule-helper.ts";
 import {
   applyJsonEntry,
   applyTree,
+  counterparts,
+  fillTreeDefaults,
   findSerializedNode,
   isVideoSnapshot,
   JsonFileEntry,
+  omitComponentDefaults,
+  omitTreeDefaults,
   serializeComponents,
   serializeScalars,
   serializeSchedules,
@@ -2409,6 +2413,53 @@ function buildDefaultsSnapshot(): VideoSnapshot {
 
 // MARK: Diffs
 
+/** What the diff's code generator needs to know about a brand new instance of one class. */
+type ClassDefaults = {
+  readonly schedules: SerializedSchedule[];
+  readonly scalars: SerializedScalar[];
+  readonly duration: number;
+  /** Schedule description → the property that holds it, e.g. "Dest Rect" → "destinationRectSchedule". */
+  readonly schedulePropertyNames: ReadonlyMap<string, string>;
+  /** Scalar description → the property that holds it. */
+  readonly scalarPropertyNames: ReadonlyMap<string, string>;
+};
+
+const classDefaultsCache = new Map<new () => Showable, ClassDefaults>();
+
+/**
+ * {@link ClassDefaults} for `cls`, worked out the first time and cached.  The
+ * diff is rebuilt on every save, and used to construct a new instance of each
+ * class for every component it described.
+ */
+function classDefaults(cls: new () => Showable): ClassDefaults {
+  let cached = classDefaultsCache.get(cls);
+  if (!cached) {
+    const instance = new cls();
+    // Map description → property name via reference identity.
+    const propertyNames = (items: readonly { description: string }[]) => {
+      const names = new Map<string, string>();
+      for (const item of items) {
+        for (const [k, v] of Object.entries(instance as Record<string, unknown>)) {
+          if (v === item) {
+            names.set(item.description, k);
+            break;
+          }
+        }
+      }
+      return names;
+    };
+    cached = {
+      schedules: serializeSchedules(instance.schedules ?? []),
+      scalars: serializeScalars(instance.scalars ?? []),
+      duration: instance.duration,
+      schedulePropertyNames: propertyNames(instance.schedules ?? []),
+      scalarPropertyNames: propertyNames(instance.scalars ?? []),
+    };
+    classDefaultsCache.set(cls, cached);
+  }
+  return cached;
+}
+
 /**
  * Builds a human-readable text diff of the current live state vs the
  * TypeScript defaults captured at page load ({@link tsDefaults}). Walks
@@ -2499,31 +2550,13 @@ function buildDiffText(): string {
 
     const cls = regEntry.howToGenerate.class;
     const className = cls.name;
-    const def = new cls() as Showable;
+    const def = classDefaults(cls);
+    const schedulePropMap = def.schedulePropertyNames;
+    const scalarPropMap = def.scalarPropertyNames;
 
-    // Map schedule/scalar description → property name via reference identity
-    const schedulePropMap = new Map<string, string>();
-    for (const schedule of def.schedules ?? []) {
-      for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
-        if (v === schedule) {
-          schedulePropMap.set(schedule.description, k);
-          break;
-        }
-      }
-    }
-    const scalarPropMap = new Map<string, string>();
-    for (const scalar of def.scalars ?? []) {
-      for (const [k, v] of Object.entries(def as Record<string, unknown>)) {
-        if (v === scalar) {
-          scalarPropMap.set(scalar.description, k);
-          break;
-        }
-      }
-    }
-
-    const defSchedules = serializeSchedules(def.schedules ?? []);
+    const defSchedules = def.schedules;
     const curSchedules = serializeSchedules(comp.schedules ?? []);
-    const defScalars = serializeScalars(def.scalars ?? []);
+    const defScalars = def.scalars;
     const curScalars = serializeScalars(comp.scalars ?? []);
 
     const displayName = comp.userEditableDescription ?? comp.description ?? rk;
@@ -2669,10 +2702,10 @@ function buildDiffText(): string {
     }
 
     const liveFixed = getFixedComponents(sel);
-    for (const defFixed of defaultEntry.fixedComponents ?? []) {
-      const liveChild = liveFixed.find(
-        (c) => c.description === defFixed.description,
-      );
+    const defaultFixed = defaultEntry.fixedComponents ?? [];
+    const liveFor = counterparts(defaultFixed, liveFixed);
+    for (const [index, defFixed] of defaultFixed.entries()) {
+      const liveChild = liveFor[index];
       if (!liveChild) {
         printPathIfNeeded([...path, defFixed.description]);
         lines.push(`  [WARNING: fixed child absent from live tree]`);
@@ -2681,11 +2714,7 @@ function buildDiffText(): string {
       diffNode(defFixed, liveChild, [...path, defFixed.description]);
     }
     for (const liveChild of liveFixed) {
-      if (
-        !(defaultEntry.fixedComponents ?? []).find(
-          (c) => c.description === liveChild.description,
-        )
-      ) {
+      if (!liveFor.includes(liveChild)) {
         printPathIfNeeded([...path, liveChild.description]);
         lines.push(
           `  [fixed child in live tree but absent from TypeScript defaults]`,
@@ -2738,6 +2767,29 @@ function getFixedComponents(showable: Showable): Showable[] {
 }
 
 /**
+ * The video's current state, as it is saved:  only what differs from the
+ * TypeScript defaults.
+ *
+ * Every save goes through here:  IndexedDB, the synced file, the unload
+ * backup.  The TypeScript defaults file is the one thing written in full.
+ * Read a saved tree back with {@link loadableTree}.
+ */
+function savedTree(): SerializedFixedChild {
+  return omitTreeDefaults(serializeTree(toShow), tsDefaultsTree);
+}
+
+/**
+ * A saved tree with the TypeScript defaults put back, ready to apply.
+ *
+ * Applying only changes what a tree mentions, so without this a property you
+ * changed and then saved at its default would keep your change.  Trees saved
+ * before defaults were left out pass through unchanged.
+ */
+function loadableTree(saved: SerializedFixedChild): SerializedFixedChild {
+  return fillTreeDefaults(saved, tsDefaultsTree);
+}
+
+/**
  * The canonical serialization of the video's current state.
  *
  * One function so the dirty check and the history dedup can never disagree.  They used to:
@@ -2745,7 +2797,7 @@ function getFixedComponents(showable: Showable): Showable[] {
  * a renamed component read as dirty forever and re-saved on every autosave tick.
  */
 function currentTreeJson(): string {
-  return JSON.stringify(serializeTree(toShow));
+  return JSON.stringify(savedTree());
 }
 
 /** True if the video's in-memory state differs from what was last loaded or saved. */
@@ -2859,13 +2911,13 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
         );
 
   if (specificEntry) {
-    applyTree(toShow, specificEntry.tree);
+    applyTree(toShow, loadableTree(specificEntry.tree));
     source = { kind: "db", timestamp: selectedTimestamp! };
   } else if (!effective || isMarker(effective)) {
     // No data entry -- the active file or the URL fetch will supply the state.
     source = { kind: "ts-defaults" };
   } else {
-    applyTree(toShow, effective.tree);
+    applyTree(toShow, loadableTree(effective.tree));
     source = { kind: "db", timestamp: effective.timestamp };
 
     if (useBackup) {
@@ -2922,7 +2974,7 @@ async function saveVideoState(force = false): Promise<void> {
 async function saveVideoStateToDb(force: boolean): Promise<void> {
   if (!force && !isVideoDirty()) return;
 
-  const tree = serializeTree(toShow);
+  const tree = savedTree();
   const newJson = JSON.stringify(tree);
 
   const record = await readVideoHistory();
@@ -2999,7 +3051,7 @@ function saveOnUnload() {
   const previewing = historyDialog.open && _historyTarget !== null;
   const tree = previewing
     ? (JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild)
-    : serializeTree(toShow);
+    : savedTree();
   const source = previewing ? _preDialogSource : _loadSource;
   const dirty = previewing ? _wasInitiallyDirty : isVideoDirty();
 
@@ -3348,7 +3400,10 @@ historyCancelBtn.addEventListener("click", () => {
   // against `target` alone would apply the root's state to that chapter.
   const target = _historyTarget;
   if (target) {
-    applyTree(toShow, JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild);
+    applyTree(
+      toShow,
+      loadableTree(JSON.parse(_preDialogSnapshotJson) as SerializedFixedChild),
+    );
     selectedSlideChild = null;
     activeRootComponentEditor?.resetAll();
     updateComponentEditor(target);
@@ -4115,28 +4170,6 @@ function buildScheduleSection(
   return section;
 }
 
-function serializeComponent(child: Showable): SerializedChild {
-  const entry: SerializedChild = {
-    registryKey: child.registryKey ?? "",
-    schedules: child.schedules?.length
-      ? serializeSchedules(child.schedules)
-      : [],
-  };
-  if (child.scalars?.length) {
-    entry.scalars = serializeScalars(child.scalars);
-  }
-  if (child.replaceableComponents !== undefined) {
-    entry.components = serializeComponents(child.replaceableComponents.get());
-  }
-  if (child.userEditableDescription !== undefined) {
-    entry.userEditableDescription = child.userEditableDescription;
-  }
-  if (child.setDuration !== undefined) {
-    entry.duration = child.duration;
-  }
-  return entry;
-}
-
 async function pasteInto(target: Showable, selectable: Showable) {
   let text: string;
   try {
@@ -4318,7 +4351,11 @@ function updateComponentEditor(selectable: Showable) {
       copyBtn.textContent = "🖥️ → 📋";
       copyBtn.title = "Copy component";
       copyBtn.addEventListener("click", () => {
-        const json = JSON.stringify([serializeComponent(child)], null, 2);
+        const json = JSON.stringify(
+          omitComponentDefaults(serializeComponents([child])),
+          null,
+          2,
+        );
         navigator.clipboard
           .writeText(json)
           .catch(() => alert("Could not write to clipboard."));
@@ -4367,7 +4404,7 @@ function updateComponentEditor(selectable: Showable) {
   rootCopyBtn.title = "Copy all components as JSON";
   rootCopyBtn.addEventListener("click", () => {
     const json = JSON.stringify(
-      serializeComponents(rootReplaceable!.get()),
+      omitComponentDefaults(serializeComponents(rootReplaceable!.get())),
       null,
       2,
     );
@@ -6323,7 +6360,7 @@ function buildJsonSnapshot(): VideoSnapshot {
   return {
     formatVersion: SNAPSHOT_FORMAT_VERSION,
     videoKey: toShowKey,
-    tree: serializeTree(toShow),
+    tree: savedTree(),
   };
 }
 
@@ -6389,7 +6426,9 @@ type FetchJsonResult =
  * open one, check out a commit from before the reader was removed and re-save the file there.
  */
 function parseSnapshotFile(parsed: unknown): SerializedFixedChild | undefined {
-  return isVideoSnapshot(parsed) ? parsed.tree : undefined;
+  // Saved files leave out the TypeScript defaults.  Put them back here, where
+  // a file's tree first enters memory, so everything downstream sees a whole one.
+  return isVideoSnapshot(parsed) ? loadableTree(parsed.tree) : undefined;
 }
 
 /** Fetch and parse `./saved_state/<toShowKey>.json`. */
@@ -6423,7 +6462,7 @@ function applyScopedToTarget(
   target: Showable,
   tree: SerializedFixedChild,
 ): void {
-  const node = findSerializedNode(toShow, tree, target);
+  const node = findSerializedNode(toShow, loadableTree(tree), target);
   if (node) applyJsonEntry(target, node);
 }
 
