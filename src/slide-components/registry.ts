@@ -1,6 +1,7 @@
 import { Showable } from "../showable";
 import { ArrowComponent } from "./arrow";
 import { CrossFadeTransition } from "./cross-fade-transition";
+import { FourierComponent } from "./fourier";
 import { FrameCounter } from "./frame-counter";
 import { FunctionGraphComponent } from "./function-graph";
 import { HalftoneShadowComponent } from "./halftone-shadow";
@@ -304,6 +305,19 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       isGoodForWrapping: false,
       hiddenByDefault: true,
       howToGenerate: { type: "class", class: TextFormatComponent },
+    },
+  ],
+  [
+    "Fourier",
+    {
+      create() {
+        return new FourierComponent();
+      },
+      description:
+        "A curve built up from its Fourier series, a few terms at a time.  " +
+        "Pick the curve by name, say which terms each step adds, and use the Step schedule to animate through them.",
+      isGoodForWrapping: false,
+      howToGenerate: { type: "class", class: FourierComponent },
     },
   ],
   [

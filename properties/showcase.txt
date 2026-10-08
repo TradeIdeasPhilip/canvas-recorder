@@ -1,0 +1,10 @@
+Showcase
+→ Scene List
+→ → Fourier Component
+→ → → More detail
+→ → → → Source
+TypeScript: "Walking Man"
+Current:    "Star"
+→ → → → Fill Color
+TypeScript: "transparent"
+Current:    "rgb(0% 47.06% 0%)"

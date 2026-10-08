@@ -122,6 +122,8 @@ import {
 import { SlideComponent } from "../src/slide-components/slide-component.ts";
 import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
 import { MultiTextComponent } from "../src/slide-components/multi-text.ts";
+import { FourierComponent } from "../src/slide-components/fourier.ts";
+import { buildFourierPanel } from "./fourier-panel.ts";
 import { InSeriesComponent } from "../src/slide-components/in-series.ts";
 import { splitVideoClip } from "../src/slide-components/split-video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
@@ -5136,6 +5138,12 @@ function updateScheduleEditor(selectable: Showable) {
 
   if (multiText) {
     scheduleEditorFieldset.append(buildMultiTextFrame(multiText));
+  }
+  if (selectable instanceof FourierComponent) {
+    const fourierPanel = buildFourierPanel(selectable);
+    scheduleEditorFieldset.append(fourierPanel.element);
+    // Every keystroke in Term Groups or Step updates the status.
+    scheduleEditorRefreshers.push(fourierPanel.refresh);
   }
 
   for (const info of scalars ?? []) {

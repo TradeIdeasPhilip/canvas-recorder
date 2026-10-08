@@ -2,6 +2,33 @@
   "formatVersion": 2,
   "videoKey": "showcase",
   "tree": {
-    "description": "Showcase"
+    "description": "Showcase",
+    "fixedComponents": [
+      {
+        "description": "Scene List",
+        "fixedComponents": [
+          {
+            "description": "Fourier Component",
+            "fixedComponents": [
+              {
+                "description": "More detail",
+                "schedules": [
+                  {
+                    "description": "Source",
+                    "type": "select",
+                    "value": "Star"
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "rgb(0% 47.06% 0%)"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
   }
 }

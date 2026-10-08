@@ -269,6 +269,279 @@
             ]
           },
           {
+            "description": "Fourier Component",
+            "components": [],
+            "fixedComponents": [
+              {
+                "description": "Less detail label"
+              },
+              {
+                "description": "Less detail",
+                "schedules": [
+                  {
+                    "description": "Source",
+                    "type": "select",
+                    "value": "Walking Man"
+                  },
+                  {
+                    "description": "Term Groups",
+                    "type": "string",
+                    "value": "0 1, 2, 3-5, 6-8, 9-11"
+                  },
+                  {
+                    "description": "Step",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 1
+                      },
+                      {
+                        "time": 4000,
+                        "value": 2
+                      },
+                      {
+                        "time": 4500,
+                        "value": 2
+                      },
+                      {
+                        "time": 8500,
+                        "value": 3
+                      },
+                      {
+                        "time": 9000,
+                        "value": 3
+                      },
+                      {
+                        "time": 13000,
+                        "value": 4
+                      },
+                      {
+                        "time": 13500,
+                        "value": 4
+                      },
+                      {
+                        "time": 17500,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0.3,
+                      "y": 1.3,
+                      "width": 5,
+                      "height": 7.4
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "transparent"
+                  },
+                  {
+                    "description": "Stroke Color",
+                    "type": "color",
+                    "value": "red"
+                  },
+                  {
+                    "description": "Line Width",
+                    "type": "number",
+                    "value": 0.06
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": []
+              },
+              {
+                "description": "Some detail label"
+              },
+              {
+                "description": "Some detail",
+                "schedules": [
+                  {
+                    "description": "Source",
+                    "type": "select",
+                    "value": "Walking Man"
+                  },
+                  {
+                    "description": "Term Groups",
+                    "type": "string",
+                    "value": "0-11, 12-24, 25-30, 31-42, 43-49"
+                  },
+                  {
+                    "description": "Step",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 1
+                      },
+                      {
+                        "time": 4000,
+                        "value": 2
+                      },
+                      {
+                        "time": 4500,
+                        "value": 2
+                      },
+                      {
+                        "time": 8500,
+                        "value": 3
+                      },
+                      {
+                        "time": 9000,
+                        "value": 3
+                      },
+                      {
+                        "time": 13000,
+                        "value": 4
+                      },
+                      {
+                        "time": 13500,
+                        "value": 4
+                      },
+                      {
+                        "time": 17500,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 5.5,
+                      "y": 1.3,
+                      "width": 5,
+                      "height": 7.4
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "transparent"
+                  },
+                  {
+                    "description": "Stroke Color",
+                    "type": "color",
+                    "value": "white"
+                  },
+                  {
+                    "description": "Line Width",
+                    "type": "number",
+                    "value": 0.04
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": []
+              },
+              {
+                "description": "More detail label"
+              },
+              {
+                "description": "More detail",
+                "schedules": [
+                  {
+                    "description": "Source",
+                    "type": "select",
+                    "value": "Walking Man"
+                  },
+                  {
+                    "description": "Term Groups",
+                    "type": "string",
+                    "value": "0-49, 50-74, 75-99, 100-149, 150-999"
+                  },
+                  {
+                    "description": "Step",
+                    "type": "number",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": 1
+                      },
+                      {
+                        "time": 4000,
+                        "value": 2
+                      },
+                      {
+                        "time": 4500,
+                        "value": 2
+                      },
+                      {
+                        "time": 8500,
+                        "value": 3
+                      },
+                      {
+                        "time": 9000,
+                        "value": 3
+                      },
+                      {
+                        "time": 13000,
+                        "value": 4
+                      },
+                      {
+                        "time": 13500,
+                        "value": 4
+                      },
+                      {
+                        "time": 17500,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 10.7,
+                      "y": 1.3,
+                      "width": 5,
+                      "height": 7.4
+                    }
+                  },
+                  {
+                    "description": "Fill Color",
+                    "type": "color",
+                    "value": "transparent"
+                  },
+                  {
+                    "description": "Stroke Color",
+                    "type": "color",
+                    "value": "rgb(0, 128, 255)"
+                  },
+                  {
+                    "description": "Line Width",
+                    "type": "number",
+                    "value": 0.02
+                  }
+                ],
+                "scalars": [
+                  {
+                    "description": "Min Duration",
+                    "type": "number",
+                    "value": 0
+                  }
+                ],
+                "components": []
+              }
+            ]
+          },
+          {
             "description": "Function Graphing",
             "fixedComponents": [
               {
