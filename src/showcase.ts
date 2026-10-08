@@ -5,7 +5,6 @@ import {
   makeLinear,
   only,
   positiveModulo,
-  Random,
   ReadOnlyRect,
 } from "phil-lib/misc";
 import {
@@ -60,7 +59,13 @@ import {
 import { PathShapeSplitter } from "./glib/path-shape-splitter";
 import { FullFormatter, PathElement } from "./fancy-text";
 import { fixCorners, matchShapes } from "./morph-animation";
-import { ArrayMap, blackBackground, distribute, philDebug } from "./utility";
+import {
+  ArrayMap,
+  blackBackground,
+  distribute,
+  philDebug,
+  Random,
+} from "./utility";
 import { zipper } from "./zipper";
 
 FunctionGraphComponent.functions.set("sin", Math.sin);

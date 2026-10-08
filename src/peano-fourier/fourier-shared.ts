@@ -12,12 +12,11 @@ import {
   lerp,
   makeBoundedLinear,
   makeLinear,
-  Random,
   sum,
 } from "phil-lib/misc";
 import { ease } from "../interpolate";
 import { PathShapeSplitter } from "../glib/path-shape-splitter";
-import { philDebug } from "../utility";
+import { philDebug, Random } from "../utility";
 
 /**
  * Transform a path.

@@ -1,4 +1,4 @@
-import { sum, zip } from "phil-lib/misc";
+import { pick, sum, zip } from "phil-lib/misc";
 import { Showable } from "./showable";
 
 export type Mutable<T> = {
@@ -396,3 +396,324 @@ export function lerp5(
   const slope = (y2 - y1) / (x2 - x1);
   return (x - x1) * slope + y1;
 }
+
+// MARK: Random
+
+// Copied from phil-lib 1.8.1 (misc.ts) to fix its console noise here first.
+// Copy it back to phil-lib once it has been tested.  Everything in this
+// project uses this copy, not phil-lib's.
+
+/**
+ * This is a drop in replacement for `window.random()`.
+ * You can also ask for the current seed, for us in a call to
+ * or Random.create(), Random.fromString() or Random.seedIsValid().
+ */
+export type RandomFunction = {
+  readonly currentSeed: string;
+  (): number;
+};
+
+/**
+ * This provides a random number generator that can be seeded.
+ * `Math.rand()` cannot be seeded.  Using a seed will allow
+ * me to repeat things in the debugger when my program acts
+ * strange.
+ */
+export class Random {
+  private constructor() {
+    throw new Error("wtf");
+  }
+  /**
+   * Creates a new random number generator using the sfc32 algorithm.
+   *
+   * sfc32 (Simple Fast Counter) is part of the [PractRand](http://pracrand.sourceforge.net/)
+   * random number testing suite (which it passes of course).
+   * sfc32 has a 128-bit state and is very fast in JS.
+   *
+   * [Source](https://stackoverflow.com/a/47593316/971955)
+   * @param a A 32 bit integer.  The 1st part of the seed.
+   * @param b A 32 bit integer.  The 2nd part of the seed.
+   * @param c A 32 bit integer.  The 3rd part of the seed.
+   * @param d A 32 bit integer.  The 4th part of the seed.
+   * @returns A function that will act a lot like `Math.rand()`, but it starts from the given seed.
+   */
+  private static sfc32(
+    a: number,
+    b: number,
+    c: number,
+    d: number
+  ): RandomFunction {
+    function random() {
+      a |= 0;
+      b |= 0;
+      c |= 0;
+      d |= 0;
+      let t = (((a + b) | 0) + d) | 0;
+      d = (d + 1) | 0;
+      a = b ^ (b >>> 9);
+      b = (c + (c << 3)) | 0;
+      c = (c << 21) | (c >>> 11);
+      c = (c + t) | 0;
+      return (t >>> 0) / 4294967296;
+    }
+    const result = random as RandomFunction;
+    Object.defineProperty(result, "currentSeed", {
+      get() {
+        return JSON.stringify([a, b, c, d]);
+      },
+    });
+    return result;
+  }
+  static #nextSeedInt = 42;
+  /**
+   * Returns true if this was a valid seed created by
+   * `RandomFunction.currentSeed` or Random.newSeed().
+   * @param seed The string to test
+   * @returns True if this was a saved seed value.
+   */
+  static seedIsValid(seed: string): boolean {
+    try {
+      this.create(seed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  /**
+   * Create a new instance of a random number generator.
+   *
+   * Also consider `Random.fromString()` which is slightly newer.
+   * This only works with seeds that have been created and saved by
+   * this class.  `Random.fromString()` can turn any string into a
+   * seed.
+   * @param seed The result from a previous call to `Random.newSeed()`.
+   * By default this will create a new seed.
+   * Either way the seed will be sent to the JavaScript console.
+   *
+   * Typical use:  Use the default until you want to repeat something.
+   * Then copy the last seed from the log and use here.
+   * @returns A function that can be used as a drop in replacement for `Math.random()`.
+   * @throws If the seed is invalid this will `throw` an `Error`.
+   */
+  static create(seed = this.newSeed()): RandomFunction {
+    console.info(seed);
+    // The following line throws a lot of exceptions, by design.
+    // If you checked "pause on caught exceptions", and you are here,
+    // just hit resume.
+    const seedObject: unknown = JSON.parse(seed);
+    if (!(seedObject instanceof Array)) {
+      throw new Error("invalid input");
+    }
+    if (seedObject.length != 4) {
+      throw new Error("invalid input");
+    }
+    const [a, b, c, d] = seedObject;
+    if (
+      !(
+        typeof a == "number" &&
+        typeof b == "number" &&
+        typeof c == "number" &&
+        typeof d == "number"
+      )
+    ) {
+      throw new Error("invalid input");
+    }
+    return this.sfc32(a, b, c, d);
+  }
+  /**
+   *
+   * @returns A new seed value appropriate for use in a call to `Random.create()`.
+   * This will be reasonably random.
+   *
+   * The seed is intended to be opaque, a magic cookie.
+   * It's something that's easy to copy and paste.
+   * Don't try to parse or create one of these.
+   */
+  static newSeed() {
+    const ints: number[] = [];
+    ints.push(Date.now() | 0);
+    ints.push(this.#nextSeedInt++ | 0);
+    ints.push((Math.random() * 2 ** 31) | 0);
+    ints.push((performance.now() * 10000) | 0);
+    const seed = JSON.stringify(ints);
+    return seed;
+  }
+  /**
+   * Create a new random number generator based on a string.
+   * The result will be repeatable.
+   * I.e. the same input will always lead the the same random number generator.
+   * @param s Any string is acceptable.
+   * This can include random things like "try again 27".
+   *
+   * And it can include special things like "[1,2,3,4]" which are generated by this library.
+   * randomNumberGenerator.currentSeed() will return a seed that can be used to clone the random number generator in its current state.
+   * @returns A new random number generator.
+   */
+  static fromString(s: string): RandomFunction {
+    try {
+      return this.create(s);
+    } catch {
+      return this.create(this.anyStringToSeed(s));
+    }
+  }
+  /**
+   *
+   * @param input Any string is valid.
+   * Reasonable inputs include "My game", "My game 32", "My game 33", "在你用中文测试过之前你还没有测试过它。".
+   * I.e. you might just add or change one character, and you want to maximize the resulting change.
+   */
+  static anyStringToSeed(input: string): string {
+    function rotateLeft32(value: number, shift: number): number {
+      return ((value << shift) | (value >>> (32 - shift))) >>> 0;
+    }
+    const ints = [0x9e3779b9, 0x243f6a88, 0x85a308d3, 0x13198a2e];
+    const data = new TextEncoder().encode(input);
+    data.forEach((byte) => {
+      ints[0] ^= byte;
+      ints[0] = rotateLeft32(ints[0], 3);
+      ints[1] ^= byte;
+      ints[1] = rotateLeft32(ints[1], 5);
+      ints[2] ^= byte;
+      ints[2] = rotateLeft32(ints[2], 7);
+      ints[3] ^= byte;
+      ints[3] = rotateLeft32(ints[3], 11);
+    });
+    // Final mixing step
+    ints[0] ^= rotateLeft32(ints[1], 7);
+    ints[1] ^= rotateLeft32(ints[2], 11);
+    ints[2] ^= rotateLeft32(ints[3], 13);
+    ints[3] ^= rotateLeft32(ints[0], 17);
+    return JSON.stringify(ints);
+  }
+  static test() {
+    const maxGenerators = 10;
+    const iterationsPerCycle = 20;
+    const generators = [this.create()];
+    while (generators.length <= maxGenerators) {
+      for (let iteration = 0; iteration < iterationsPerCycle; iteration++) {
+        const results = generators.map((generator) => generator());
+        for (let i = 1; i < results.length; i++) {
+          if (results[i] !== results[0]) {
+            debugger;
+            throw new Error("wtf");
+          }
+        }
+      }
+      const currentSeed = pick(generators).currentSeed;
+      generators.forEach((generator) => {
+        if (generator.currentSeed != currentSeed) {
+          debugger;
+          throw new Error("wtf");
+        }
+      });
+      generators.push(this.create(currentSeed)!);
+    }
+  }
+  // MARK: Self test
+
+  /**
+   * Checks this class against phil-lib 1.8.1, the version it was copied from.
+   * Two kinds of check:
+   * * **Quiet:**  only `create()` with no seed should write to the console,
+   *   because only then is there a seed worth recording.
+   * * **Repeatable:**  the same seed must give the same numbers, forever.  The
+   *   expected values below were recorded from phil-lib 1.8.1.  Never change
+   *   them; if a test fails, the code is wrong.
+   *
+   * Prints each case, then a summary.  Failures go to `console.error`.
+   */
+  static selfTest(): void {
+    const problems: string[] = [];
+    /** Run `action`, and count what it writes to the console.  It still gets written. */
+    function countMessages(action: () => void): number {
+      const methods = ["log", "info", "debug", "warn", "error"] as const;
+      const originals = methods.map((method) => console[method]);
+      let count = 0;
+      methods.forEach((method, index) => {
+        console[method] = (...args: unknown[]) => {
+          count++;
+          originals[index].apply(console, args);
+        };
+      });
+      try {
+        action();
+      } finally {
+        methods.forEach((method, index) => (console[method] = originals[index]));
+      }
+      return count;
+    }
+    function expectMessages(name: string, expected: number, action: () => void) {
+      const count = countMessages(action);
+      if (count !== expected) {
+        problems.push(`${name} wrote ${count} console message${count === 1 ? "" : "s"}, expected ${expected}.`);
+      }
+    }
+    function expectSame(name: string, actual: unknown, expected: unknown) {
+      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+        problems.push(`${name}:  got ${JSON.stringify(actual)}, expected ${JSON.stringify(expected)}.`);
+      }
+    }
+    const draw = (random: () => number, count: number) =>
+      Array.from({ length: count }, () => random());
+
+    // MARK: Quiet
+    console.log("Random case 1.  This should record the seed.");
+    expectMessages("Random.create()", 1, () => Random.create());
+    console.log("Random case 2.  This should run silently.");
+    expectMessages('Random.create("[1,2,3,4]")', 0, () => Random.create("[1,2,3,4]"));
+    console.log("Random case 3.  This should also run silently.");
+    expectMessages('Random.fromString("Random case 3")', 0, () =>
+      Random.fromString("Random case 3"),
+    );
+    console.log("Random case 4.  Random.seedIsValid(), also silent.");
+    expectMessages('Random.seedIsValid("hello")', 0, () => Random.seedIsValid("hello"));
+
+    // MARK: Repeatable
+    // Everything below is checked silently, so it must not print anything either.
+    expectMessages("the repeatability checks", 0, () => {
+      const fromSeed = Random.create("[42,17,99,7]");
+      expectSame('Random.create("[42,17,99,7]")', draw(fromSeed, 5), [
+        1.5366822481155396e-8, 2.1327286958694458e-7, 0.435058941366151,
+        0.7251853088382632, 0.7317605882417411,
+      ]);
+      expectSame("its currentSeed after 5", fromSeed.currentSeed, "[1892747913,1308741698,295958450,12]");
+      // Used by makePolygon() in fourier-shared.ts, so it's in finished videos.
+      expectSame('Random.fromString("My seed 2025")', draw(Random.fromString("My seed 2025"), 5), [
+        0.9786544013768435, 0.7879613474942744, 0.050264536403119564,
+        0.07471863739192486, 0.040992809226736426,
+      ]);
+      expectSame('Random.anyStringToSeed("My seed 2025")', Random.anyStringToSeed("My seed 2025"),
+        "[-1446261746,783903852,-1683271991,570679246]");
+      expectSame("Random.anyStringToSeed(Chinese)",
+        Random.anyStringToSeed("在你用中文测试过之前你还没有测试过它。"),
+        "[-978814459,-622026031,56408694,127018260]");
+      // A string that is already a seed is used as is.
+      expectSame('Random.fromString("[1,2,3,4]")', draw(Random.fromString("[1,2,3,4]"), 3), [
+        1.6298145055770874e-9, 7.916241884231567e-9, 0.01318361610174179,
+      ]);
+      for (const [seed, valid] of [
+        ["[1,2,3,4]", true],
+        ["hello", false],
+        ["[1,2,3]", false],
+        ['["a",2,3,4]', false],
+        // Odd, but phil-lib 1.8.1 accepts it, so keep accepting it.
+        ["[1.5,2,3,4]", true],
+      ] as const) {
+        expectSame(`Random.seedIsValid(${JSON.stringify(seed)})`, Random.seedIsValid(seed), valid);
+      }
+      // A clone made from currentSeed carries on exactly where the original is.
+      const original = Random.create("[5,6,7,8]");
+      draw(original, 7);
+      const clone = Random.create(original.currentSeed);
+      expectSame("a clone from currentSeed", draw(clone, 5), draw(original, 5));
+    });
+
+    if (problems.length === 0) {
+      console.log("Random done:  all passed.");
+    } else {
+      console.error(`Random done:  ${problems.length} problem${problems.length === 1 ? "" : "s"}.\n  ${problems.join("\n  ")}`);
+    }
+  }
+}
+
+Random.selfTest();
