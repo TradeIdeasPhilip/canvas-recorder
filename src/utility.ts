@@ -487,16 +487,21 @@ export class Random {
    * this class.  `Random.fromString()` can turn any string into a
    * seed.
    * @param seed The result from a previous call to `Random.newSeed()`.
-   * By default this will create a new seed.
-   * Either way the seed will be sent to the JavaScript console.
+   * By default this will create a new seed, and send it to the JavaScript
+   * console so you can repeat it later.  A seed you pass in is not logged:
+   * you already have it.
    *
    * Typical use:  Use the default until you want to repeat something.
    * Then copy the last seed from the log and use here.
    * @returns A function that can be used as a drop in replacement for `Math.random()`.
    * @throws If the seed is invalid this will `throw` an `Error`.
    */
-  static create(seed = this.newSeed()): RandomFunction {
-    console.info(seed);
+  static create(seed?: string): RandomFunction {
+    if (seed === undefined) {
+      // The only case worth logging:  this seed exists nowhere else.
+      seed = this.newSeed();
+      console.info(seed);
+    }
     // The following line throws a lot of exceptions, by design.
     // If you checked "pause on caught exceptions", and you are here,
     // just hit resume.
@@ -716,4 +721,4 @@ export class Random {
   }
 }
 
-Random.selfTest();
+//Random.selfTest();
