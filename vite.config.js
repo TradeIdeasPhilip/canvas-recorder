@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { resolve } from "path";
 import { defineConfig } from "vite";
 
@@ -12,6 +13,38 @@ import { defineConfig } from "vite";
 // • The directory structure is perfect for publishing with GitHub Pages.
 //
 // More details: https://www.youtube.com/watch?v=8VJIBguoneM
+
+/**
+ * Keep ONNX Runtime's WebAssembly out of docs/.
+ *
+ * onnxruntime-web, inside the transcript worker, names its .wasm file as
+ * `new URL("ort-wasm-….wasm", import.meta.url)`, so Vite copies the file into
+ * the build:  26 MB.  But that's only a fallback for when no wasmPaths is set,
+ * and Transformers.js always sets one, to the same file on jsdelivr.  This
+ * points the fallback at jsdelivr too, so nothing is copied and nothing changes.
+ */
+function onnxWasmFromCdn() {
+  return {
+    name: "onnx-wasm-from-cdn",
+    apply: "build",
+    // Before Vite's own handling of `new URL(…, import.meta.url)`.
+    enforce: "pre",
+    transform(code, id) {
+      const packageRoot = /^(.*\/node_modules\/onnxruntime-web)\/dist\//.exec(id)?.[1];
+      if (!packageRoot) return null;
+      // The exact version Transformers.js loads from the CDN.
+      const { version } = JSON.parse(
+        readFileSync(`${packageRoot}/package.json`, "utf8"),
+      );
+      const cdn = `https://cdn.jsdelivr.net/npm/onnxruntime-web@${version}/dist/`;
+      const result = code.replace(
+        /new URL\((["'])(ort-[^"']+\.wasm)\1,\s*import\.meta\.url\)/g,
+        (_match, _quote, file) => `new URL(${JSON.stringify(cdn + file)})`,
+      );
+      return result === code ? null : { code: result, map: null };
+    },
+  };
+}
 
 export default defineConfig({
   build: {
@@ -79,9 +112,12 @@ export default defineConfig({
       },
     },
   },
-  // The transcript worker (dev/transcribe-worker.ts) uses dynamic imports, which
-  // the default "iife" worker format can't bundle.
-  worker: { format: "es" },
+  worker: {
+    // The transcript worker (dev/transcribe-worker.ts) uses dynamic imports,
+    // which the default "iife" worker format can't bundle.
+    format: "es",
+    plugins: () => [onnxWasmFromCdn()],
+  },
   // This is the important part.  The default configuration assumes I have access
   // to the root of the webserver, and each project will share some assets.
   base: "./",
