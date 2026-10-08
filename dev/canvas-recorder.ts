@@ -355,7 +355,11 @@ viewport.addEventListener(
  * input (pointermove, etc.).
  */
 function showFrame(timeInMs: number, live: boolean) {
-  timelineDisplay.setPlayMs(timeInMs - sectionStartTime);
+  // While playing, the timeline keeps the play head on screen.
+  timelineDisplay.setPlayMs(
+    timeInMs - sectionStartTime,
+    live && playCheckBox.checked,
+  );
   for (const update of goToButtonUpdaters) update();
   context.reset();
   context.setTransform(mainTransform());

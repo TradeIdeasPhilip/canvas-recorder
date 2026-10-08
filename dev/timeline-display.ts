@@ -108,6 +108,12 @@ export class TimelineDisplay {
   private _hoverWord: { block: TimelineBlock; word: TimelineWord } | undefined;
   /** Where the edge being dragged has snapped to, drawn as a guide line. */
   private _snapMs: number | undefined;
+  /** For following the play head:  was it on screen at the last update? */
+  private _wasPlayheadVisible = true;
+  /** For following the play head:  were we playing at the last update? */
+  private _wasFollowing = false;
+  /** A button is down on the timeline:  don't move the view out from under the user. */
+  private _interacting = false;
 
   /** Fires when the user clicks the background or scrubs (shift-drag).  Arg: chapter-local ms. */
   onSeek?: (localMs: number) => void;
@@ -149,10 +155,56 @@ export class TimelineDisplay {
     this._draw();
   }
 
-  /** @param localMs  Play position relative to chapter start (0 .. chapter duration). */
-  setPlayMs(localMs: number): void {
+  /**
+   * @param localMs  Play position relative to chapter start (0 .. chapter duration).
+   * @param follow  True while playing, to keep the play head on screen.  See
+   * {@link _followPlayhead}.
+   */
+  setPlayMs(localMs: number, follow = false): void {
     this._playLocalMs = localMs;
+    if (follow) this._followPlayhead();
+    this._wasFollowing = follow;
+    this._wasPlayheadVisible = this._playheadVisible();
     this._draw();
+  }
+
+  /**
+   * The user just panned or zoomed.  If that took the play head off screen,
+   * that was their choice:  don't follow it until it comes back into view.
+   */
+  private _userMovedView(): void {
+    this._wasPlayheadVisible = this._playheadVisible();
+  }
+
+  private _playheadVisible(): boolean {
+    return (
+      this._playLocalMs >= this._viewStartMs &&
+      this._playLocalMs <= this._viewEndMs
+    );
+  }
+
+  /**
+   * Keep the play head on screen while playing, a page at a time:  when it
+   * leaves the view, jump so it's at the left edge, keeping the zoom.  Near
+   * the end the view stops at the end instead, so there's never empty space
+   * past it.
+   *
+   * Only when the play head was on screen a moment ago, or playback just
+   * started.  If you've panned away to read ahead, or to look back, it leaves
+   * you alone; once the play head comes back into view, following resumes.
+   * And never while a button is down on the timeline.
+   */
+  private _followPlayhead(): void {
+    if (this._interacting || this._playheadVisible()) return;
+    const justStarted = !this._wasFollowing;
+    if (!this._wasPlayheadVisible && !justStarted) return;
+    const span = this._viewEndMs - this._viewStartMs;
+    const start = Math.max(
+      0,
+      Math.min(this._playLocalMs, this._durationMs - span),
+    );
+    this._viewStartMs = start;
+    this._viewEndMs = start + span;
   }
 
   // ── coordinate helpers ─────────────────────────────────────────────────────
@@ -608,6 +660,7 @@ export class TimelineDisplay {
 
     canvas.addEventListener("pointerdown", (e) => {
       if (e.button !== 0) return;
+      this._interacting = true;
       canvas.setPointerCapture(e.pointerId);
 
       const hit = hitTest(e);
@@ -696,14 +749,21 @@ export class TimelineDisplay {
           s = Math.max(0, Math.min(this._durationMs - dur, s));
           this._viewStartMs = s;
           this._viewEndMs = s + dur;
+          this._userMovedView();
           this._draw();
           break;
         }
       }
     });
 
+    const stopInteracting = () => {
+      this._interacting = false;
+    };
+    canvas.addEventListener("pointercancel", stopInteracting);
+    canvas.addEventListener("lostpointercapture", stopInteracting);
     canvas.addEventListener("pointerup", (e) => {
       if (e.button !== 0) return;
+      stopInteracting();
       const saved = drag;
       drag = { kind: "idle" };
 
@@ -742,6 +802,7 @@ export class TimelineDisplay {
       if (end - s >= MIN_WINDOW_MS) {
         this._viewStartMs = s;
         this._viewEndMs = end;
+        this._userMovedView();
         this._draw();
       }
     }, { passive: false });

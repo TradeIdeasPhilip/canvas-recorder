@@ -18,6 +18,6 @@ Galaga
   videoClip.destinationRectSchedule.set({"x":1.6,"y":0,"width":14.4,"height":9});
   videoClip.urlScalar.value = "Galaga Screen Recording.mov";
   videoClip.endMsIntoClipScalar.value = 454468.3333333333;
-  videoClip.setDuration(45446.83333333);
-  videoClip.soundClips = [{"source":"Galaga Screen Recording.mov","startMsIntoScene":0,"startMsIntoClip":22.166666666666668,"lengthMs":454468.3333333333,"notes":"imported from video"}];
+  videoClip.setDuration(454468.3333333333);
+  videoClip.soundClips = [{"source":"Galaga Screen Recording.mov","startMsIntoScene":-116.755163,"startMsIntoClip":22.166666666666668,"lengthMs":454468.3333333333,"notes":"imported from video"}];
   this.addFixed({ child: videoClip });
