@@ -145,3 +145,7 @@ docs/                    ← production build output (served by GitHub Pages)
 ## Comments
 
 The user likes JSDoc style comments and VS Code's "MARK:" style comments.
+
+## GUI Inputs
+
+HTML input elements listen for `input` (fires on every keystroke), not `change` (fires only when the field loses focus or Enter is pressed). Previews, status panels and validation should update while the user types. Use `change` only with a specific reason, and say why in a comment.

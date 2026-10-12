@@ -124,6 +124,8 @@ import { VideoClipComponent } from "../src/slide-components/video-clip.ts";
 import { MultiTextComponent } from "../src/slide-components/multi-text.ts";
 import { FourierComponent } from "../src/slide-components/fourier.ts";
 import { buildFourierPanel } from "./fourier-panel.ts";
+import { HandwritingEffectComponent } from "../src/slide-components/handwriting-effect.ts";
+import { buildHandwritingPanel } from "./handwriting-panel.ts";
 import { InSeriesComponent } from "../src/slide-components/in-series.ts";
 import { splitVideoClip } from "../src/slide-components/split-video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
@@ -5148,6 +5150,22 @@ function updateScheduleEditor(selectable: Showable) {
     scheduleEditorFieldset.append(fourierPanel.element);
     // Every keystroke in Term Groups or Step updates the status.
     scheduleEditorRefreshers.push(fourierPanel.refresh);
+  }
+  if (selectable instanceof HandwritingEffectComponent) {
+    const handwritingPanel = buildHandwritingPanel(selectable, {
+      localTimeMs(owner) {
+        const chapter = chapterList[select.selectedIndex]?.selectable;
+        const ownerStart = chapter ? (startWithin(chapter, owner) ?? 0) : 0;
+        return (
+          playPositionSeconds.valueAsNumber * 1000 -
+          sectionStartTime -
+          ownerStart
+        );
+      },
+    });
+    scheduleEditorFieldset.append(handwritingPanel.element);
+    // Every keystroke in Divisions or Progress updates the status.
+    scheduleEditorRefreshers.push(handwritingPanel.refresh);
   }
 
   for (const info of scalars ?? []) {

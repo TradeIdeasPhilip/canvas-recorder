@@ -5,6 +5,7 @@ import { FourierComponent } from "./fourier";
 import { FrameCounter } from "./frame-counter";
 import { FunctionGraphComponent } from "./function-graph";
 import { HalftoneShadowComponent } from "./halftone-shadow";
+import { HandwritingEffectComponent } from "./handwriting-effect";
 import { HoldPreviousTransition, HoldNextTransition } from "./hold";
 import { SingleImageComponent } from "./image";
 import { PaddingComponent } from "./in-parallel";
@@ -54,11 +55,22 @@ export type ComponentRegistryEntry = {
    */
   isTransition?: boolean;
   /**
+   * This component is a text effect (see `TEXT_EFFECT` in text-effect.ts): it changes how a
+   * Multi Text strokes its text, so it only works as a direct child of a Multi Text.
+   *
+   * Multi Text uses this to find the effects to offer.  Text effects should also set
+   * {@link hiddenByDefault}, so they aren't offered anywhere else.
+   *
+   * The default is false.
+   */
+  isTextEffect?: boolean;
+  /**
    * Leave this out of the Visual Editor's "Insert New Child" and "Wrap Component" lists
    * unless the parent puts it back; see `replaceableComponents.customizeComponentChoices`.
    *
    * For components that only work under one kind of parent: the transitions (direct children
-   * of an In Series) and Text Format (a direct child of a Multi Text).  Because such a component
+   * of an In Series), and Text Format and the text effects (direct children of a Multi Text).
+   * Because such a component
    * depends on its parent, the Visual Editor also won't offer to wrap one.
    *
    * Hidden entries are still in the registry, so saved files containing them load normally.
@@ -275,7 +287,8 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       },
       description:
         "A way to draw fancy text.  " +
-        "This can contain multiple TextFormat and TextSpan components as children.",
+        "This can contain multiple TextFormat and TextSpan components as children, " +
+        "and one text effect, like Handwriting Effect.",
       isGoodForWrapping: false,
       howToGenerate: { type: "class", class: MultiTextComponent },
     },
@@ -305,6 +318,21 @@ export const componentRegistry = new Map<string, ComponentRegistryEntry>([
       isGoodForWrapping: false,
       hiddenByDefault: true,
       howToGenerate: { type: "class", class: TextFormatComponent },
+    },
+  ],
+  [
+    "Handwriting Effect",
+    {
+      create() {
+        return new HandwritingEffectComponent();
+      },
+      description:
+        "Writes the text out a little at a time, as if by hand.  " +
+        "This must be a direct child of a Multi Text.",
+      isGoodForWrapping: false,
+      isTextEffect: true,
+      hiddenByDefault: true,
+      howToGenerate: { type: "class", class: HandwritingEffectComponent },
     },
   ],
   [

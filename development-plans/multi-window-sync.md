@@ -1,0 +1,165 @@
+# Multi-Window Sync
+
+_Idea and assessment, 10/8/2026.  Not scheduled._
+
+Several windows open on the same video stay in sync with each other's changes, the way
+[sound-explorer.html](../sound-explorer.html) already does.
+
+## Use cases
+
+- **Two editors, one video.**  Edit one scene in one window and another scene in a second
+  window, while a third plays a loop through both.  The same thing as two views of one image
+  in Paint Shop Pro, or one file open in both halves of VS Code.
+- **A display that doesn't fit the layout.**  A prototype, a one-off, a rarely used panel:
+  open another window instead of finding room in the existing HTML.
+- **The accidental duplicate tab.**  The same video open twice without realizing it.  This
+  has already happened once, and explained some mysterious behaviour just before it.  It was
+  also the main reason Sound Explorer got this feature.
+
+## The design, as proposed
+
+1. **Start of a batch.**  When the first change of a batch starts the autosave timer, tell
+   every other window.  Send one message per batch, not one per change.  Other windows show a
+   clearly noticeable, non-disruptive status light: "another window is editing".
+   - **Advisory only.**  There is no lock.  A window that dies mid-batch leaves nothing
+     to clean up; the light just expires.
+2. **End of a batch.**  When a window saves to IndexedDB (and, optionally, to its synced files),
+   tell every other window, and they bring themselves up to date.
+3. **Conflicts.**  If this window has unsaved changes when another window's save arrives,
+   don't save over it, because that would set off more changes.  Instead:
+   - Put this window's state into the history as an entry just *older* than the incoming one,
+     without notifying anyone.
+   - Suggest the Load window as the way to merge.
+   - Nothing is lost:  both states are in Load.
+4. **No unnecessary changes.**  Applying another window's save must not disturb what this
+   window is doing.  If you're editing component A here and component B changes elsewhere,
+   A's editor stays exactly as it was.
+
+## Assessment
+
+How Sound Explorer does it, for comparison:  `localStorage` plus the browser's `storage` event
+(`dev/sound-explorer.ts:988`).  That's simple because a `localStorage` write is synchronous,
+and the browser itself tells every other same-origin window about it.  IndexedDB has no
+equivalent, so the messaging has to be added; `BroadcastChannel` is the standard API.
+
+| # | Item | Effort | Certainty |
+|---|---|---|---|
+| 1 | Messaging:  one `BroadcastChannel` per video key | Small | High |
+| 2 | "Another window is editing" light that expires on its own | Small | High |
+| 3 | Not echoing:  applying a remote change must not re-save or re-broadcast | Small | High |
+| 4 | Is a write visible to other windows yet? | None:  not a real problem | High |
+| 5 | IndexedDB connection hygiene | Small | High |
+| 6 | Synced files when several windows sync the same file | Small | High |
+| 7 | Conflicts:  stash local state in history, point to Load | Small–Medium | High |
+| 8 | Applying a remote state without rebuilding everything | **Medium** | Medium–High |
+| 9 | Keeping the GUI steady:  selection, scroll, focus, open dialogs | **Medium** | **Medium** |
+
+Items 1–7 are plumbing.  Items 8 and 9 are where the cost is.
+
+### Details behind the table
+
+**1, 2.**  The first change of a batch is easy to detect:  it's when `markDirty()`
+(`dev/canvas-recorder.ts`) finds no autosave timer running.  Note that the timer is a 5 s
+*debounce*, so a long editing session is one long batch.  The light should be refreshed by a
+throttled "still editing" message, and expire a few seconds after the last one.  Send a
+"closed" message on `pagehide` too, so a clean exit clears it immediately.
+
+**3, echo loops.**  Applying the incoming state goes through the normal setters, which call
+`scheduleHasChanged()` and `markDirty()`.  So set the baseline (`_baselineTreeJson`) to the
+incoming state, and suppress the "editing" broadcast, while applying.  Otherwise windows bounce
+the same change back and forth.  Easy, but it has to be designed in from the start.
+
+**4, "we're never sure when a write is visible".**  That isn't really the case.  Once an
+IndexedDB transaction's `complete` event fires, every connection, in every window, sees the
+data.  `writeVideoHistory()` already resolves on `complete`, so a broadcast sent after awaiting
+it is safe.  The refresh problem remembered here was different:  `beforeunload` can't wait for
+async work, so that last write often never committed at all.
+
+Simplest of all:  put the whole tree *in the message*.  `BroadcastChannel` uses structured
+clone, and even `some5` is only about 170 KB.  IndexedDB stays the record, but receivers never
+need to read it.
+
+**5, connection hygiene — already a latent issue.**  `openScheduleDB()` opens a new connection
+on every call, never closes one, and has no `onversionchange` handler.  Any other open window
+therefore blocks the next schema upgrade, which is exactly what the `onblocked` message added
+for v3 and v4 warns about.  The fix is to cache one connection and close it on
+`versionchange`, asking for a reload.  This is worth doing on its own.
+
+**6, synced files — probably a bug today, with duplicate tabs.**  `SyncedFile`
+(`dev/synced-file.ts`) loads its record once and keeps `lastWrittenBody` in memory.  Its
+"never clobber" rule compares the file on disk with that remembered body.  So when window A
+writes the synced file, window B's memory goes stale.  The next time B syncs, it sees A's write
+as an outside edit and reports "⚠ changed on disk".  That may be some of the mysterious
+behaviour seen with the accidental duplicate tab.
+
+The fix is for each sync to re-read its record from IndexedDB, which is where `store()` keeps
+it.  Possibly also only the window that saved should write the files.
+
+**7, conflicts.**  `isVideoDirty()` already answers "does this window have unsaved changes?"
+The stash is `saveVideoStateToDb()` with an explicit timestamp and no broadcast.  One catch:
+startup restores `entries.at(-1)`, the *last array element*, not the newest timestamp.  So the
+stashed entry has to be inserted *before* the incoming one in the array, not just given an
+older timestamp.  The Load dialog sorts by timestamp, so it will show both.
+
+**8, applying without rebuilding.**  Today every apply rebuilds:
+
+- `applySnapshot()` (`src/showable.ts`) empties each schedule array and refills it with *new*
+  keyframe objects.
+- `applyFixedComponents()` (`src/snapshot.ts`) replaces each replaceable child list with new
+  components from `buildComponents()`.
+
+So after any apply, `selectedSlideChild`, the ✎ edit-mode keyframe (`editingRectKf` and
+friends), and every `*SyncCallbacks` map point at objects that no longer exist.
+
+What's needed is a *diff-apply* that walks the live tree and the incoming tree together,
+the way `findSerializedNode()` does:
+
+- touch only the schedules, scalars, durations and sound clips whose serialized form differs
+- for a replaceable child list, keep the existing objects and recurse into them when the
+  `registryKey` sequence matches, and rebuild only that one list when it doesn't
+
+This is one new function next to `applyFixedComponents()`.  It's feasible because, since the
+single-tree refactor, every piece of state goes through one uniform format.  Under the old
+per-chapter records this would have been much harder.
+
+The residual risk is components with private state that serialization doesn't capture:
+caches, and `RootComponentEditor`s like the one in `some5`.  They already survive Load,
+so probably fine, but unverified.
+
+**9, keeping the GUI steady — the most uncertain item.**  There is no existing trick here.
+Today `refreshGUI("structure")` sets `selectedSlideChild = null` and rebuilds both editors from
+scratch.  That's acceptable after your own action, and wrong for a change from somewhere else.
+With item 8 keeping objects alive:
+
+- Rebuild an editor only if *its* component's data changed.  The `*SyncCallbacks` maps already
+  update inputs in place without a rebuild; that is the nearest thing to a trick, and it
+  covers some fields.
+- Keep the selection by object identity, falling back to its path in the tree.
+- **While a dialog is open** (color picker, font picker, Load, Insert/Wrap), defer the merge
+  until it closes, with the status light showing "update waiting".  That is far cheaper and
+  more predictable than deciding whether a dialog is still relevant, and it costs only a short
+  delay.
+- Focus inside a rebuilt editor is the hard case.  It only arises when the other window
+  changed the very component you're editing here, which is a conflict in all but name.
+
+## Suggested order
+
+Each stage is useful on its own:
+
+1. **Plumbing and warning** (small, high certainty).  Items 1–7.  When another window saves, show
+   "newer changes from another window", with a **Load latest** button that uses today's full
+   apply.  This fixes the accidental-duplicate-tab case, item 6's false conflicts, and the
+   blocked upgrades.
+2. **Automatic apply, but blunt** (small).  Apply automatically when this window has no unsaved
+   changes, using the existing full rebuild.  That's perfect for the "third window just
+   playing" case, and for a separate display window, since neither has an editor in use.
+3. **Smooth apply** (medium).  Items 8 and 9.  This is what the two-editors case needs.
+
+## Not a concern
+
+- Different windows on different chapters, zooms or playback positions:  only the tree is
+  shared.
+- `sessionStorage` (the unload backup) is per tab already.
+- Different videos in different windows:  one channel per video key.
+- The shared history:  saves from every window interleave in Load.  That's arguably a feature:
+  Load becomes the merge tool the conflict design relies on.

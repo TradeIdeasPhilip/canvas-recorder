@@ -9,10 +9,15 @@ class WordInfo {
   readonly letters: readonly { x: number; description: DescriptionOfLetter }[];
   readonly spaceAfter: number;
   constructor(
-    word: string,
+    /**
+     * The characters this word was made from, including any spaces after it.
+     * There may be fewer `letters`:  characters the font doesn't have are skipped.
+     */
+    readonly text: string,
     font: Font,
     readonly tag: unknown,
   ) {
+    const word = text;
     const letters = font.getWord(word);
     let x = 0;
     this.letters = letters.map((description) => {
@@ -38,6 +43,13 @@ export type WordInPlace = {
   readonly x: number;
   readonly baseline: number;
   readonly wordInfo: WordInfo;
+  /**
+   * Which line this word is on, counting only hard line breaks ("\n" or
+   * `addLineBreak()`), not word wrap.  0 for the first line.
+   *
+   * Blank lines still count, so this can skip numbers.
+   */
+  readonly hardLineIndex: number;
 };
 
 class LinkBreak {}
@@ -188,27 +200,28 @@ export class ParagraphLayout {
     if (width == Infinity) {
       width = Math.max(...allRowMetrics.map(({ minWidth }) => minWidth));
     }
+    let hardLineIndex = 0;
     lines.forEach((line, index) => {
       const rowMetrics = allRowMetrics[index];
       const baseline = rowMetrics.baseline;
       function center() {
         let x = (width - rowMetrics.minWidth) / 2;
         line.forEach((wordInfo) => {
-          words.push({ x, baseline, wordInfo });
+          words.push({ x, baseline, wordInfo, hardLineIndex });
           x += wordInfo.width + wordInfo.spaceAfter;
         });
       }
       function left() {
         let x = 0;
         line.forEach((wordInfo) => {
-          words.push({ x, baseline, wordInfo });
+          words.push({ x, baseline, wordInfo, hardLineIndex });
           x += wordInfo.width + wordInfo.spaceAfter;
         });
       }
       function right() {
         let x = width - rowMetrics.minWidth;
         line.forEach((wordInfo) => {
-          words.push({ x, baseline, wordInfo });
+          words.push({ x, baseline, wordInfo, hardLineIndex });
           x += wordInfo.width + wordInfo.spaceAfter;
         });
       }
@@ -216,7 +229,7 @@ export class ParagraphLayout {
         const padding = (width - rowMetrics.minWidth) / (line.length - 1);
         let x = 0;
         line.forEach((wordInfo) => {
-          words.push({ x, baseline, wordInfo });
+          words.push({ x, baseline, wordInfo, hardLineIndex });
           x += wordInfo.width + wordInfo.spaceAfter + padding;
         });
       }
@@ -245,6 +258,9 @@ export class ParagraphLayout {
         default: {
           throw new Error("wtf");
         }
+      }
+      if (hardLineBreakAt.has(index)) {
+        hardLineIndex++;
       }
     });
     function* getAllLetters(left = 0, top = 0) {

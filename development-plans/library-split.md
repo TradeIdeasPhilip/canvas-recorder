@@ -32,6 +32,53 @@ From [README.md](../README.md#most-current):
 
 > This directory contains files that should probably be moved to a library in its own npm package.
 
+## Use cases
+
+The main one: each new video is its own small project that imports the library.
+
+### Recording another canvas app (the three.js robots)
+
+A separate project, not yet on GitHub, has robots walking around in three.js, doing both interactive and scripted things.
+I would not want to import that project into this one: it has a different style, a different level of quality control, and heavy package imports.
+
+Instead, once some good scripted moves are hooked up to buttons, I want to prompt: _"now import canvas-recorder-lib and use it to record the results of hitting the button labeled 'spiral but the camera stays fixed'."_
+It's already drawing to a canvas, and the RAF handler already takes time as an input, so turning that into a `Showable` shouldn't be hard.
+
+**The concern.** The robots walk smoothly because of a lot of automatic, hidden state.
+Jumping to a random frame would probably be good enough for a preview.
+But you could never clip two parts together unless they were recorded in order.
+
+**What this needs from the library:**
+
+- **A separate page in the robots project.** Add a `record.html` that calls `start()`, so the player GUI never touches the app's own page.
+  This needs no API change.
+  The player's CSS is only imported by the player module, which `start()` loads on demand, so the robots app's normal page never gets the library's styles.
+- **An adapter `Showable`.** It lives in the robots project, so the library never depends on three.js.
+  Inside `show()`:
+  - advance the simulation to `timeInMs`;
+  - render with three.js;
+  - `context.drawImage(threeCanvas, 0, 0, width, height)`.
+
+  Size the three.js renderer to `context.canvas.width × height`, so the copy is 1:1 and stays pixel-perfect.
+  Do the `drawImage` right after `render()`, or use `preserveDrawingBuffer: true`.
+  If models load asynchronously, report them through `getFramePromises()`.
+- **Make time the only input.** This is the fix for the concern. `show(t)` has to be a function of `t` alone:
+  - a fixed simulation timestep, not the RAF's variable `dt`, so the recording (exact 1/60 s steps, slower than real time) matches the preview;
+  - seeded randomness, and no `performance.now()`;
+  - the button press becomes an event at a known time in a script.
+
+  Then seeking is just "if `t` went backwards, reset and step forward to `t`".
+  That's cheap when the simulation steps without rendering.
+  Any range can be recorded, and separately recorded clips line up exactly.
+  A bonus: an interactive session could be recorded as a log of timestamped inputs, then rendered offline at full quality.
+- **Maybe a library helper for that pattern:** something like `replayable({ reset, step, render, stepMs })`.
+  Any simulation would benefit (physics, boids, cellular automata), and it keeps the robots adapter tiny.
+- **Ship a real build sooner.** The robots project will be the first consumer with a different tsconfig and code style.
+  Shipping TypeScript source means its compiler type-checks the library's source under its own settings.
+  That argues for doing the `tsc → dist` build early.
+- **A README written for that prompt.** The library's README should have a short "record an existing canvas app" section.
+  Then a Claude session in the robots project can do the job from the docs alone.
+
 ## What goes where (first thoughts)
 
 From [instant-startup.md](instant-startup.md#project-structure): today `/dev` is the tooling and `/src` is the content.

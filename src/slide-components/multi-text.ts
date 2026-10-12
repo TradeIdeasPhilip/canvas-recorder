@@ -4,7 +4,11 @@ import { Point } from "bezier-js";
 import { ReadOnlyRect } from "phil-lib/misc";
 import { Font } from "../glib/letters-base";
 import { makeLineFontRatio } from "../glib/line-font";
-import { LaidOut, ParagraphLayout } from "../glib/paragraph-layout";
+import {
+  LaidOut,
+  ParagraphLayout,
+  WordInPlace,
+} from "../glib/paragraph-layout";
 import { PathShape } from "../glib/path-shape";
 import {
   PointScheduleInfo,
@@ -18,6 +22,7 @@ import { ShowOptions, Showable, ScheduleInfo, Scalar } from "../showable";
 import { DurationAgnosticComponent } from "./duration-agnostic";
 import { ShowChildInfo } from "./in-parallel";
 import { showError } from "./show-error";
+import { EffectLetter, isTextEffect, TextEffect, TEXT_EFFECT } from "./text-effect";
 import { Keyframe } from "../interpolate";
 // Type-only: registry.ts imports this module, so a runtime import would be circular.
 import type { ComponentRegistryEntry } from "./registry";
@@ -132,6 +137,11 @@ export type PlacedText = {
    */
   readonly laidOut: LaidOut;
   /**
+   * Which Text Span each word came from, counting from 0 among the spans.
+   * See {@link EffectLetter.spanIndex}.
+   */
+  readonly spanIndexOf: ReadonlyMap<WordInPlace["wordInfo"], number>;
+  /**
    * Where the top left of the (scaled) paragraph lands.
    *
    * Anyone measuring the text needs to include this.  The layout alone says
@@ -237,6 +247,8 @@ const ANCHOR_FRACTION = {
  *
  * We can now have other children.
  * TextSpanComponent and TextFormatComponent have special meanings.
+ * So does a text effect, like HandwritingEffectComponent:  at most one, which changes
+ * how the text is stroked.  See {@link TEXT_EFFECT}.
  * Any other children are drawn like normal.
  * These children are drawn before the TextSpanComponents are drawn.
  * One reason is that descendants get full access to this component's formatters.
@@ -247,16 +259,19 @@ export class MultiTextComponent extends DurationAgnosticComponent {
   readonly registryKey = "Multi Text";
   /**
    * Text Span and Text Format are what a Multi Text is made of, so offer them first.
-   * Text Format only works as a direct child of a Multi Text, so it is hidden everywhere
-   * else and has to be added back here.
+   * Text Format and the text effects only work as direct children of a Multi Text, so
+   * they are hidden everywhere else and have to be added back here.
    */
   protected override customizeComponentChoices(
     choices: string[],
     purpose: "insert" | "wrap",
-    _registry: ReadonlyMap<string, ComponentRegistryEntry>,
+    registry: ReadonlyMap<string, ComponentRegistryEntry>,
   ): void {
     if (purpose !== "insert") return;
-    choices.unshift("Text Span", "Text Format");
+    const effects = [...registry]
+      .filter(([, entry]) => entry.isTextEffect)
+      .map(([key]) => key);
+    choices.unshift("Text Span", "Text Format", ...effects);
   }
   readonly #temporaryText = new Array<TextSpanComponent>();
   /**
@@ -563,8 +578,9 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     options: ShowOptions,
     wrapWidth: number,
     sizeMultiplier: number,
-  ): LaidOut {
+  ): Pick<PlacedText, "laidOut" | "spanIndexOf"> {
     const { context, timeInMs } = options;
+    const spanIndexOf = new Map<WordInPlace["wordInfo"], number>();
     const allFormatters = extractTextFormatList(options, this.#ownFormatters());
     const paragraphLayout = new ParagraphLayout(baseFont);
     const initializedFormatters = new Map<
@@ -577,7 +593,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       ),
       ...this.#temporaryText,
     ];
-    sources.forEach((source) => {
+    sources.forEach((source, spanIndex) => {
       const { content, style } = source.get(timeInMs);
       const initializedFormatter = initializedFormatters.getOrInsertComputed(
         style,
@@ -591,18 +607,21 @@ export class MultiTextComponent extends DurationAgnosticComponent {
         // as this happens in the animation frame handler.
         showError(context, `Unknown style:\n“${style}”`);
       } else {
-        initializedFormatter(content, paragraphLayout);
+        for (const wordInfo of initializedFormatter(content, paragraphLayout)) {
+          spanIndexOf.set(wordInfo, spanIndex);
+        }
       }
     });
     // Note:  paragraphLayout.align() has partial support for more.
     // Things like capital top or (normal text) baseline.
     // But that code seems to be in a state of flux at the moment.
     // TODO fix it.
-    return paragraphLayout.align(
+    const laidOut = paragraphLayout.align(
       wrapWidth,
       this.alignmentSchedule.at(timeInMs),
       this.additionalLineHeightSchedule.at(timeInMs) * sizeMultiplier,
     );
+    return { laidOut, spanIndexOf };
   }
 
   /**
@@ -622,7 +641,8 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     mayGrow: boolean,
   ): number {
     const fits = (multiplier: number) =>
-      this.#layOut(options, wrapWidth, multiplier).height <= frameHeight;
+      this.#layOut(options, wrapWidth, multiplier).laidOut.height <=
+      frameHeight;
     let hi = mayGrow
       ? MultiTextComponent.MAX_FONT_MULTIPLIER
       : /* Never larger than the size the author actually asked for. */ 1;
@@ -689,7 +709,11 @@ export class MultiTextComponent extends DurationAgnosticComponent {
         ? baked
         : this.#searchFontMultiplier(options, wrapWidth, frameHeight, mayGrow);
     }
-    const laidOut = this.#layOut(options, wrapWidth, sizeMultiplier);
+    const { laidOut, spanIndexOf } = this.#layOut(
+      options,
+      wrapWidth,
+      sizeMultiplier,
+    );
     // align() reports the width we *asked* for, so the only way to notice an
     // unbreakable word poking out past it is to look at the individual rows.
     // Normally this is <= laidOut.width and changes nothing.
@@ -769,6 +793,7 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     );
     return {
       laidOut,
+      spanIndexOf,
       scale,
       sizeMultiplier,
       quarterTurns,
@@ -874,6 +899,33 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     this.widthSchedule.schedule[0].value = width;
     this.heightSchedule.schedule[0].value = height;
   }
+  /**
+   * Every letter of `placed`, in reading order, in the form a
+   * {@link TextEffect} wants.
+   */
+  static effectLetters(placed: PlacedText): EffectLetter[] {
+    const { laidOut, spanIndexOf } = placed;
+    const result: EffectLetter[] = [];
+    laidOut.words.forEach((word, wordIndex) => {
+      const { wordInfo, hardLineIndex, baseline } = word;
+      const spanIndex = spanIndexOf.get(wordInfo) ?? -1;
+      for (const letter of wordInfo.letters) {
+        const x = word.x + letter.x;
+        const untranslatedShape = letter.description.shape;
+        result.push({
+          shape: untranslatedShape.translate(x, baseline),
+          untranslatedShape,
+          x,
+          baseline,
+          tag: wordInfo.tag,
+          wordIndex,
+          hardLineIndex,
+          spanIndex,
+        });
+      }
+    });
+    return result;
+  }
   override show(options: ShowOptions): void {
     const { context } = options;
     // Children that are neither spans nor formats draw normally, before the
@@ -882,16 +934,29 @@ export class MultiTextComponent extends DurationAgnosticComponent {
       options,
       extractTextFormatList(options, this.#ownFormatters()),
     );
+    const effects: TextEffect[] = [];
     this.children.forEach(({ child }) => {
-      if (
+      if (isTextEffect(child)) {
+        effects.push(child);
+      } else if (
         !(child instanceof TextSpanComponent) &&
         !(child instanceof TextFormatComponent)
       ) {
         child.show(childOptions);
       }
     });
-    const { laidOut, offset, scale, quarterTurns, pivot } =
-      this.layoutAt(options);
+    const placed = this.layoutAt(options);
+    const { laidOut, offset, scale, quarterTurns, pivot } = placed;
+    // Sizing and placement above came from the complete text.  An effect only
+    // changes what gets stroked, so the text doesn't move while, say,
+    // handwriting fills it in.
+    const toStroke =
+      effects.length == 1
+        ? effects[0][TEXT_EFFECT](
+            MultiTextComponent.effectLetters(placed),
+            options,
+          )
+        : laidOut.pathShapeByTag();
     // The scale goes on the context rather than the path, so the stroke width
     // scales with the letters.  Scaling the PathShape alone would leave the
     // pen the same size, and small text would come out looking too heavy.
@@ -904,13 +969,19 @@ export class MultiTextComponent extends DurationAgnosticComponent {
     }
     context.translate(offset.x, offset.y);
     context.scale(scale, scale);
-    laidOut.pathShapeByTag().forEach((pathShape, callback) => {
+    toStroke.forEach((pathShape, callback) => {
       (callback as (options: ShowOptions, pathShape: PathShape) => void)(
         options,
         pathShape,
       );
     });
     context.restore();
+    if (effects.length > 1) {
+      showError(
+        context,
+        `A Multi Text can have\nonly one text effect.\nThis one has ${effects.length}.`,
+      );
+    }
   }
 }
 
@@ -1043,8 +1114,9 @@ export class TextFormatComponent implements Showable {
       context.stroke(pathShape.canvasPath);
       context.globalAlpha = 1;
     }
-    function addText(content: string, paragraphLayout: ParagraphLayout): void {
-      paragraphLayout.addText(content, font, drawText);
+    /** @returns The words it added, so they can be traced back to `content`. */
+    function addText(content: string, paragraphLayout: ParagraphLayout) {
+      return paragraphLayout.addText(content, font, drawText);
     }
     return addText;
   }
