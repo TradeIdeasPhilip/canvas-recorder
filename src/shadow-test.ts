@@ -27,6 +27,8 @@ import { TraditionalTextComponent } from "./slide-components/traditional-text";
 import { VideoClipComponent } from "./slide-components/video-clip";
 import { makeLissajousPath } from "./lissajous";
 import { strokeColors } from "./stroke-colors";
+import { InParallelComponent } from "./slide-components/in-parallel";
+import { DurationAgnosticComponent } from "./slide-components/duration-agnostic";
 
 export const DEFAULT_SLIDE_DURATION_MS = 10_000;
 
@@ -1491,6 +1493,13 @@ const SCREEN_RECORDING_DURATION_MS = 4_900;
     }
   }
   slideList.add(new PaddingHoldSlide());
+}
+
+// MARK: Handwriting Effect
+{
+  const slide = new DurationAgnosticComponent("Handwriting Effect")
+  slide.minDurationScalar.value = 1000;
+slideList.add(slide)
 }
 
 export const shadowTest = new HalftoneShadowComponent({

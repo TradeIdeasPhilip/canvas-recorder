@@ -286,6 +286,385 @@
                 "registryKey": "Multi Text"
               }
             ]
+          },
+          {
+            "description": "Handwriting Effect",
+            "components": [
+              {
+                "registryKey": "Static Image",
+                "schedules": [
+                  {
+                    "description": "URL",
+                    "type": "string",
+                    "value": "end-of-demo.png"
+                  },
+                  {
+                    "description": "Dest Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0,
+                      "y": -1,
+                      "width": 16,
+                      "height": 10
+                    }
+                  }
+                ]
+              },
+              {
+                "registryKey": "Rectangle",
+                "schedules": [
+                  {
+                    "description": "Color",
+                    "type": "color",
+                    "keyframes": [
+                      {
+                        "time": 0,
+                        "value": "transparent"
+                      },
+                      {
+                        "time": 1000,
+                        "value": "transparent"
+                      },
+                      {
+                        "time": 1500,
+                        "value": "rgb(0% 0% 0% / 50%)"
+                      }
+                    ]
+                  },
+                  {
+                    "description": "Rect",
+                    "type": "rectangle",
+                    "value": {
+                      "x": 0,
+                      "y": 0,
+                      "width": 8.55,
+                      "height": 9
+                    }
+                  }
+                ]
+              },
+              {
+                "registryKey": "Multi Text",
+                "schedules": [
+                  {
+                    "description": "Position",
+                    "type": "point",
+                    "value": {
+                      "x": 4.287044143,
+                      "y": 0.035695423
+                    }
+                  },
+                  {
+                    "description": "Width",
+                    "type": "number",
+                    "value": 8.51854373499047
+                  },
+                  {
+                    "description": "Height",
+                    "type": "number",
+                    "value": 8.851364436619718
+                  },
+                  {
+                    "description": "Additional Line Height",
+                    "type": "number",
+                    "value": 0.2
+                  }
+                ],
+                "components": [
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "rgb(100% 100% 0%)"
+                      },
+                      {
+                        "description": "Boldness",
+                        "type": "number",
+                        "value": 1.7
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "Title"
+                      }
+                    ],
+                    "userEditableDescription": "Title Format"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Credits\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "Title"
+                      }
+                    ],
+                    "userEditableDescription": "Credits"
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "#0e0"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "me"
+                      }
+                    ],
+                    "userEditableDescription": "Me Format"
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "rgb(255, 0, 0)"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "cc"
+                      }
+                    ],
+                    "userEditableDescription": "Claude Code Format"
+                  },
+                  {
+                    "registryKey": "Text Format",
+                    "schedules": [
+                      {
+                        "description": "Color",
+                        "type": "color",
+                        "value": "rgb(255, 0, 255)"
+                      },
+                      {
+                        "description": "Font Size",
+                        "type": "number",
+                        "value": 0.5
+                      },
+                      {
+                        "description": "Obliqueness",
+                        "type": "number",
+                        "value": 7.1
+                      }
+                    ],
+                    "scalars": [
+                      {
+                        "description": "Name",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ],
+                    "userEditableDescription": "What Format"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Script: "
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ],
+                    "userEditableDescription": "Script"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "me\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "me"
+                      }
+                    ],
+                    "userEditableDescription": "me"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Robot Code: "
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ],
+                    "userEditableDescription": "Robot Code"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Claude Code\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "cc"
+                      }
+                    ],
+                    "userEditableDescription": "Claude Code"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Voiceover: "
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ]
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "me\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "me"
+                      }
+                    ],
+                    "userEditableDescription": "me"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Production Tools: "
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ],
+                    "userEditableDescription": "Production Tools"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "me and\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "me"
+                      }
+                    ],
+                    "userEditableDescription": "me and"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Claude Code\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "cc"
+                      }
+                    ],
+                    "userEditableDescription": "Claude Code"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "Final Edit: "
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "What"
+                      }
+                    ],
+                    "userEditableDescription": "Final Edit"
+                  },
+                  {
+                    "registryKey": "Text Span",
+                    "schedules": [
+                      {
+                        "description": "Content",
+                        "type": "string",
+                        "value": "me\n"
+                      },
+                      {
+                        "description": "Style",
+                        "type": "string",
+                        "value": "me"
+                      }
+                    ],
+                    "userEditableDescription": "me"
+                  },
+                  {
+                    "registryKey": "Handwriting Effect"
+                  }
+                ]
+              }
+            ]
           }
         ]
       }

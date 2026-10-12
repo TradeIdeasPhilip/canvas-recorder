@@ -12,6 +12,8 @@ Galaga
   const textSpan = new TextSpanComponent({ description: "Text Span" });
   textSpan.contentSchedule.set("Galaga");
   multiText.addFixed({ child: textSpan });
+  const handwritingEffect = new HandwritingEffectComponent({ description: "Handwriting Effect" });
+  multiText.addFixed({ child: handwritingEffect });
   this.addFixed({ child: multiText });
 → Timeline
   const videoClip = new VideoClipComponent({ description: "Video Clip" });

@@ -126,6 +126,8 @@ import { FourierComponent } from "../src/slide-components/fourier.ts";
 import { buildFourierPanel } from "./fourier-panel.ts";
 import { HandwritingEffectComponent } from "../src/slide-components/handwriting-effect.ts";
 import { buildHandwritingPanel } from "./handwriting-panel.ts";
+import { SingleImageComponent } from "../src/slide-components/image.ts";
+import { buildStaticImagePanel } from "./static-image-panel.ts";
 import { InSeriesComponent } from "../src/slide-components/in-series.ts";
 import { splitVideoClip } from "../src/slide-components/split-video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
@@ -5139,6 +5141,25 @@ function updateScheduleEditor(selectable: Showable) {
     rectAspectLock = (kf) =>
       videoClip.destinationRectSchedule.schedule.includes(kf)
         ? videoPanel.aspect()
+        : undefined;
+  }
+  if (selectable instanceof SingleImageComponent) {
+    const image = selectable;
+    const imagePanel = buildStaticImagePanel(image, {
+      rectKeyframeChanged(kf) {
+        // The same sync a drag on the canvas uses, so ✎ edit mode survives.
+        markerSyncCallbacks.get(kf)?.(kf.value);
+        activeRootComponentEditor?.update(image, image.destRectSchedule);
+        markDirty();
+      },
+      editingRectKeyframe: () => editingRectKf,
+    });
+    scheduleEditorFieldset.append(imagePanel.element);
+    // Every keystroke in URL, and every Dest Rect edit or drag.
+    scheduleEditorRefreshers.push(imagePanel.refresh);
+    rectAspectLock = (kf) =>
+      image.destRectSchedule.schedule.includes(kf)
+        ? imagePanel.aspect()
         : undefined;
   }
 

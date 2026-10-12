@@ -1111,6 +1111,17 @@
                 "components": []
               }
             ]
+          },
+          {
+            "description": "Handwriting Effect",
+            "scalars": [
+              {
+                "description": "Min Duration",
+                "type": "number",
+                "value": 1000
+              }
+            ],
+            "components": []
           }
         ]
       }
