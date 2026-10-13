@@ -45,6 +45,9 @@ Shadow Test » shadow
   const multiText = new MultiTextComponent({ description: "Multi Text" });
   this.addFixed({ child: multiText });
 → → Handwriting Effect
+→ → → Min Duration
+TypeScript: 1000
+Current:    100000
   const staticImage = new SingleImageComponent({ description: "Static Image" });
   staticImage.urlSchedule.set("end-of-demo.png");
   staticImage.destRectSchedule.set({"x":0,"y":-1,"width":16,"height":10});
@@ -143,5 +146,7 @@ Shadow Test » shadow
   me3.userEditableDescription = "me";
   multiText2.addFixed({ child: me3 });
   const handwritingEffect = new HandwritingEffectComponent({ description: "Handwriting Effect" });
+  handwritingEffect.progressSchedule.set([{"time":1500,"value":0},{"time":2000,"value":1},{"time":3000,"value":1},{"time":3500,"value":2},{"time":4500,"value":2},{"time":4750,"value":3},{"time":5750,"value":3},{"time":6250,"value":4},{"time":7250,"value":4},{"time":7750,"value":5},{"time":8750,"value":5},{"time":9250,"value":6},{"time":10250,"value":6},{"time":10750,"value":7},{"time":11750,"value":7},{"time":12250,"value":8},{"time":13250,"value":8},{"time":13750,"value":9},{"time":14750,"value":9},{"time":15250,"value":10},{"time":16250,"value":10},{"time":16750,"value":11},{"time":17750,"value":11},{"time":18250,"value":12},{"time":19250,"value":12}]);
+  handwritingEffect.divisionsScalar.value = "Spans";
   multiText2.addFixed({ child: handwritingEffect });
   this.addFixed({ child: multiText2 });

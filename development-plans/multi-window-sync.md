@@ -142,10 +142,62 @@ With item 8 keeping objects alive:
 - Focus inside a rebuilt editor is the hard case.  It only arises when the other window
   changed the very component you're editing here, which is a conflict in all but name.
 
+### Item 9 is also wanted for Vite reloads
+
+_Added 10/12/2026._  The same "put the GUI back the way it was" problem comes up without a
+second window:  **every time Vite forces a full page reload.**  That happens on most saves of a
+source file, and it's a frequent, long-standing annoyance.
+
+- **What survives a reload today.**  `saveState()` (`dev/canvas-recorder.ts`) writes the left
+  side and the canvas to `sessionStorage` on the way out:
+  - the chapter, playhead, playing or not, and the "on section end" choice
+  - zoom and pan, quality, and splitter sizes
+
+  The tree's data survives too, through the unload backup.
+- **What's lost.** The whole right side:
+  - which component is selected
+  - which keyframes are in ✎ or 👁 mode
+  - which schedules are in Durations mode
+  - scroll positions in the component tree and the schedule editor
+  - which field had focus, and where the caret was
+- **Harder than sync in one way.** After a reload every object is new, so nothing can be kept
+  by identity.  Everything has to be found again by **path**:
+  - the sibling-by-description walk `findSerializedNode()` already does
+  - then a schedule's description, then a keyframe's index
+
+  Durations mode, for example, is a `WeakSet` of `ScheduleInfo` objects today, so it would
+  need a path-based key.
+- **Easier than sync in another.** There's nothing to merge, because it's this window's own
+  state.  The one twist is that the reload usually happened *because the TypeScript changed*,
+  so some paths may not resolve any more.  Fall back quietly:
+  - select the nearest ancestor that still exists
+  - drop a ✎ whose keyframe is gone
+
+### One mechanism for both
+
+Build a **GUI state snapshot**, captured and applied by path, and use it in both places:
+
+- **Reload:** capture in `saveState()`, apply after `initFromDB()`.  This needs none of the
+  multi-window work, so it's useful on its own, immediately.
+- **Sync:** capture before applying another window's tree, apply afterwards.  That turns
+  stage 2's blunt full rebuild into something close to stage 3's smooth apply, *without* item
+  8's diff-apply.  Item 8 then matters only for keeping focus and half-typed text in an
+  editor that is rebuilt.
+
+| Item | Effort | Certainty |
+|---|---|---|
+| Snapshot and restore selection, ✎ / 👁, Durations mode, scroll | Small–Medium | High |
+| Restore focus and caret position | Small | Medium |
+| Graceful fallback when the TypeScript changed | Small | High |
+
+This raises its priority.  It could be done first, before any of the multi-window plumbing.
+
 ## Suggested order
 
 Each stage is useful on its own:
 
+0. **GUI state snapshot** (small–medium).  See "One mechanism for both".  It fixes Vite
+   reloads on its own, and stages 2 and 3 reuse it.
 1. **Plumbing and warning** (small, high certainty).  Items 1–7.  When another window saves, show
    "newer changes from another window", with a **Load latest** button that uses today's full
    apply.  This fixes the accidental-duplicate-tab case, item 6's false conflicts, and the
@@ -154,6 +206,7 @@ Each stage is useful on its own:
    changes, using the existing full rebuild.  That's perfect for the "third window just
    playing" case, and for a separate display window, since neither has an editor in use.
 3. **Smooth apply** (medium).  Items 8 and 9.  This is what the two-editors case needs.
+   With stage 0 done, most of item 9 is already there, and what's left is mostly item 8.
 
 ## Not a concern
 

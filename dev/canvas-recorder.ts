@@ -1654,6 +1654,19 @@ const timelineWordsMemo = new WeakMap<
  */
 const scheduleEditorRefreshers: Array<() => void> = [];
 
+/**
+ * The schedules the user switched to **Durations**, as opposed to the
+ * default, **Times**.  See {@link buildScheduleSection}.
+ *
+ * This is purely a way of looking at a schedule.  The keyframes always store
+ * absolute times, and this choice is never saved:  every schedule starts out
+ * showing times after a reload.
+ *
+ * Declared up here, not next to buildScheduleSection(), because the first
+ * schedule editor is built while this module is still loading.
+ */
+const schedulesShowingDurations = new WeakSet<ScheduleInfo>();
+
 /** The selectable whose `.parent` is currently set to {@link veRootParent}. */
 let _veRootSelectable: Showable | undefined;
 
@@ -3590,12 +3603,46 @@ scheduleEditorFieldset.addEventListener("change", () => {
 let _datalistIdCounter = 0;
 // MARK: Schedule section builder
 
+/** Hide round-off error, so 1500 doesn't show up as 1499.9999999999998. */
+function tidyTime(n: number): number {
+  return Math.round(n * 1e9) / 1e9;
+}
+
+/**
+ * The editor for one schedule:  a table with one row per keyframe.
+ *
+ * A schedule can be shown two ways.  **Times** is the default, and edits each
+ * keyframe's time directly.  **Durations** (see
+ * {@link schedulesShowingDurations}) shows how long each keyframe lasts before
+ * the next one, plus when the first one starts:
+ *
+ * * Changing a duration, or deleting a keyframe, moves every later keyframe by
+ *   the same amount.  Nothing earlier moves.
+ * * Changing the start moves every keyframe.
+ * * ↑ / ↓ swap two neighbors, and each keeps its duration.  The last keyframe
+ *   has no duration, so a keyframe that moves into last place gives up its
+ *   duration to the one that moves out of last place.  Either way the
+ *   schedule's total length never changes.
+ * * Durations can't be negative, so the keyframes are always in order.  They
+ *   are sorted when this mode starts.
+ *
+ * Schedules marked {@link ScheduleInfo.editDurations} are older and different:
+ * they store a duration in each keyframe's `time`.  They don't get this choice.
+ */
 function buildScheduleSection(
   info: ScheduleInfo,
   selectable: Showable,
 ): HTMLElement {
   const showableDescription = selectable.description;
   const section = document.createElement("fieldset");
+  type Kf = (typeof info.schedule)[number];
+  const schedule = info.schedule as Kf[];
+  const showDurations =
+    !info.editDurations && schedulesShowingDurations.has(info);
+  if (showDurations) {
+    // Stable, so keyframes that share a time keep their order.
+    schedule.sort((a, b) => a.time - b.time);
+  }
 
   if (info.editDurations) {
     // Durations must be positive; clamp any bad values left over from serialization.
@@ -3641,6 +3688,9 @@ function buildScheduleSection(
     // Panels care how many keyframes there are, e.g. whether the Text Frame
     // panel has one frame to edit.
     for (const cb of scheduleEditorRefreshers) cb();
+    // Buttons cause most rebuilds, and a click fires no input event, so
+    // nothing else would start the autosave.
+    markDirty();
   }
 
   function currentTimeMs() {
@@ -3725,7 +3775,28 @@ function buildScheduleSection(
       );
       rebuild();
     });
+    // Durations are always in order.
+    sortBtn.hidden = showDurations;
   }
+
+  const durationsLabel = document.createElement("label");
+  durationsLabel.style.cssText = "font-weight:normal;white-space:nowrap";
+  durationsLabel.title =
+    "Edit how long each keyframe lasts, instead of when it starts.  " +
+    "Changing a duration moves every later keyframe.";
+  durationsLabel.hidden = !!info.editDurations;
+  const durationsCheckbox = addName(document.createElement("input"));
+  durationsCheckbox.type = "checkbox";
+  durationsCheckbox.checked = showDurations;
+  durationsCheckbox.addEventListener("input", () => {
+    if (durationsCheckbox.checked) {
+      schedulesShowingDurations.add(info);
+    } else {
+      schedulesShowingDurations.delete(info);
+    }
+    rebuild();
+  });
+  durationsLabel.append(durationsCheckbox, "Durations");
 
   const copyBtn = document.createElement("button");
   copyBtn.type = "button";
@@ -3775,6 +3846,8 @@ function buildScheduleSection(
     " ",
     sortBtn,
     " ",
+    durationsLabel,
+    " ",
     copyBtn,
     " ",
     pasteBtn,
@@ -3795,8 +3868,15 @@ function buildScheduleSection(
           : info.type === "lattice"
             ? ["x", "y", "width", "height", "cell w", "cell h", "Canvas"]
             : ["Value"];
+  const timeLabel =
+    info.timeAxisLabel ?? (info.editDurations ? "Duration (ms)" : "Time (ms)");
+  // A schedule whose times aren't milliseconds, like progressAxisLabel, has
+  // durations in the same unit.
+  const durationLabel = info.timeAxisLabel
+    ? `Δ ${info.timeAxisLabel}`
+    : "Duration (ms)";
   for (const h of [
-    info.timeAxisLabel ?? (info.editDurations ? "Duration (ms)" : "Time (ms)"),
+    showDurations ? durationLabel : timeLabel,
     ...valueHeaders,
     "Ease ↓",
     "",
@@ -3829,12 +3909,128 @@ function buildScheduleSection(
     });
   }
 
+  // MARK: Durations mode
+
+  /** Each keyframe's "at …" label, in Durations mode.  Kept current as times ripple. */
+  const timeLabelForKf = new Map<Kf, HTMLElement>();
+  /** Redraw what depends on the times of other keyframes.  Durations mode only. */
+  function refreshRippled(): void {
+    timeLabelForKf.forEach((label, kf) => {
+      label.textContent = `at ${tidyTime(kf.time)}`;
+    });
+    updateEaseVisibility();
+  }
+  /**
+   * Set a field from a button, then announce it like a keystroke would:  the
+   * field's own handler applies it, the component tree updates, and the
+   * autosave starts.
+   */
+  function enterFromButton(input: HTMLInputElement, value: number): void {
+    input.value = String(tidyTime(value));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  /**
+   * Swap the keyframes at `index` and `index + 1`, keeping their durations.
+   * See {@link buildScheduleSection} for what happens to the last one.
+   */
+  function swapWithNext(index: number): void {
+    const first = schedule[index];
+    const second = schedule[index + 1];
+    const start = first.time;
+    if (index + 1 === schedule.length - 1) {
+      // `second` is last.  It takes over `first`'s duration.
+      const end = second.time;
+      second.time = start;
+      first.time = end;
+    } else {
+      const secondDuration = schedule[index + 2].time - second.time;
+      second.time = start;
+      first.time = start + secondDuration;
+    }
+    // Placed explicitly rather than sorted:  with a duration of 0, both have
+    // the same time, and only the array order says which comes first.
+    schedule[index] = second;
+    schedule[index + 1] = first;
+    rebuild();
+  }
+  if (showDurations && schedule.length > 0) {
+    const startLine = document.createElement("div");
+    startLine.style.cssText = "margin:0.2em 0 0.3em";
+    const startInput = buildNumericInput(schedule[0].time, (n) => {
+      const delta = n - schedule[0].time;
+      for (const kf of schedule) kf.time += delta;
+      refreshRippled();
+    });
+    startInput.step = "any";
+    startInput.style.width = "6em";
+    const startNowBtn = document.createElement("button");
+    startNowBtn.type = "button";
+    startNowBtn.textContent = "←";
+    startNowBtn.title =
+      "Start at the current time.  Every keyframe moves by the same amount.";
+    startNowBtn.addEventListener("click", () =>
+      enterFromButton(startInput, localTimeMs()),
+    );
+    startLine.append(
+      `First keyframe's ${timeLabel}: `,
+      startInput,
+      " ",
+      startNowBtn,
+    );
+    section.append(startLine);
+  }
+
   const tbody = table.createTBody();
   for (let i = 0; i < info.schedule.length; i++) {
     const kf = info.schedule[i];
     const row = tbody.insertRow();
 
-    if (info.editDurations) {
+    if (showDurations) {
+      const cell = row.insertCell();
+      cell.style.whiteSpace = "nowrap";
+      const next = schedule[i + 1];
+      if (next) {
+        const duration = tidyTime(next.time - kf.time);
+        const durationInput = buildNumericInput(duration, (n) => {
+          if (n < 0) {
+            durationInput.setCustomValidity("A duration can't be negative.");
+            durationInput.reportValidity();
+            return;
+          }
+          durationInput.setCustomValidity("");
+          // Rows never move in this mode without a rebuild, but look it up
+          // anyway rather than trusting a captured index.
+          const index = schedule.indexOf(kf);
+          const delta = n - (schedule[index + 1].time - kf.time);
+          for (let j = index + 1; j < schedule.length; j++) {
+            schedule[j].time += delta;
+          }
+          refreshRippled();
+        });
+        durationInput.step = "any";
+        durationInput.style.width = "6em";
+        const nowBtn = document.createElement("button");
+        nowBtn.type = "button";
+        nowBtn.textContent = "←";
+        nowBtn.title =
+          "Last until the current time.  The next keyframe moves to the current time, and every later keyframe moves with it.";
+        nowBtn.addEventListener("click", () =>
+          enterFromButton(durationInput, localTimeMs() - kf.time),
+        );
+        cell.append(durationInput, " ", nowBtn);
+      } else {
+        const none = document.createElement("span");
+        none.textContent = "—";
+        none.title = "The last keyframe has no duration:  nothing comes after it.";
+        none.style.cssText = "display:inline-block;width:6em;text-align:center;color:#888";
+        cell.append(none);
+      }
+      const atLabel = document.createElement("span");
+      atLabel.style.cssText = "margin-left:0.4em;font-size:0.85em;color:#777";
+      atLabel.title = timeLabel;
+      timeLabelForKf.set(kf, atLabel);
+      cell.append(atLabel);
+    } else if (info.editDurations) {
       const durationInput = buildNumericInput(kf.time, (n) => {
         if (n <= 0) {
           durationInput.setCustomValidity("Duration must be positive");
@@ -4214,12 +4410,43 @@ function buildScheduleSection(
     deleteBtn.textContent = "🗑";
     deleteBtn.title = "Delete this keyframe";
     deleteBtn.disabled = info.schedule.length <= 1;
+    if (showDurations) {
+      deleteBtn.title =
+        "Delete this keyframe and its duration.  Every later keyframe moves earlier to fill the gap.";
+    }
     deleteBtn.addEventListener("click", () => {
-      (info.schedule as (typeof info.schedule)[number][]).splice(i, 1);
+      // Not `i`:  in Times mode, editing a time re-sorts the array without
+      // moving the rows, so the row's index can be stale.
+      const index = schedule.indexOf(kf);
+      if (index < 0) return;
+      const next = schedule[index + 1];
+      if (showDurations && next) {
+        const duration = next.time - kf.time;
+        for (let j = index + 1; j < schedule.length; j++) {
+          schedule[j].time -= duration;
+        }
+      }
+      schedule.splice(index, 1);
       rebuild();
     });
 
     const actionCell = row.insertCell();
+    if (showDurations) {
+      // Followed by Go To, below.
+      const upBtn = document.createElement("button");
+      upBtn.type = "button";
+      upBtn.textContent = "↑";
+      upBtn.title = "Move up one place, keeping its duration";
+      upBtn.disabled = i === 0;
+      upBtn.addEventListener("click", () => swapWithNext(i - 1));
+      const downBtn = document.createElement("button");
+      downBtn.type = "button";
+      downBtn.textContent = "↓";
+      downBtn.title = "Move down one place, keeping its duration";
+      downBtn.disabled = i === schedule.length - 1;
+      downBtn.addEventListener("click", () => swapWithNext(i));
+      actionCell.append(upBtn, downBtn, deleteBtn);
+    }
     if (info.editDurations) {
       function moveKf(fromIdx: number, toIdx: number) {
         const schedule = info.schedule as (typeof info.schedule)[number][];
@@ -4259,7 +4486,7 @@ function buildScheduleSection(
 
       actionCell.append(topBtn, upBtn, downBtn, bottomBtn, deleteBtn);
     } else {
-      actionCell.append(deleteBtn);
+      if (!showDurations) actionCell.append(deleteBtn);
 
       // "Go To" button — jumps to this keyframe's time, updated every frame.
       const goToBtn = document.createElement("button");
@@ -4294,7 +4521,8 @@ function buildScheduleSection(
       goToCell.append(goToBtn);
     }
   }
-  updateEaseVisibility();
+  // Also fills in the "at …" labels in Durations mode.
+  refreshRippled();
 
   table.append(tbody);
   section.append(table);
@@ -5182,6 +5410,12 @@ function updateScheduleEditor(selectable: Showable) {
           sectionStartTime -
           ownerStart
         );
+      },
+      progressChanged() {
+        activeRootComponentEditor?.update(selectable, selectable.progressSchedule);
+        markDirty();
+        // Rebuild so the Progress table shows the new keyframes.
+        updateScheduleEditor(selectable);
       },
     });
     scheduleEditorFieldset.append(handwritingPanel.element);

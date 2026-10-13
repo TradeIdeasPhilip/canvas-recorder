@@ -5,13 +5,17 @@ import {
   HandwritingUnit,
   handwritingUnits,
 } from "../src/slide-components/handwriting-effect.ts";
+import { Keyframe } from "../src/interpolate.ts";
 import { MultiTextComponent } from "../src/slide-components/multi-text.ts";
 import { isTextEffect } from "../src/slide-components/text-effect.ts";
 import { Showable } from "../src/showable.ts";
+import { addName } from "./schedule-helpers.ts";
 
 export type HandwritingPanelHooks = {
   /** Where the playhead is, in `owner`'s own time:  what its schedules see. */
   localTimeMs(owner: Showable): number;
+  /** Keyframes were added to Progress by a button here.  Save, and rebuild the schedule editor to show them. */
+  progressChanged(): void;
 };
 
 export type HandwritingPanel = {
@@ -150,6 +154,19 @@ export function buildHandwritingPanel(
           `It peaks at ${formatNumber(peak)}, ${whereThePenIs(units, peak, division, words)}.`,
         "#a06000",
       );
+      const fillBtn = document.createElement("button");
+      fillBtn.type = "button";
+      fillBtn.textContent = "Fill in the rest…";
+      fillBtn.title =
+        division === "Total"
+          ? "Add keyframes after the last one, until Progress reaches 1."
+          : `Add keyframes after the last one, one ${singular} at a time, until Progress reaches ${count}.`;
+      fillBtn.style.marginTop = "0.2em";
+      fillBtn.addEventListener("click", async () => {
+        const added = await askToFillIn(component, count, division);
+        if (added) hooks.progressChanged();
+      });
+      status.append(fillBtn);
     } else {
       line(`Progress reaches ${formatNumber(count)}, the end of the text  ✓`, "#070");
       if (peak > count) {
@@ -197,4 +214,192 @@ function whereThePenIs(
   const where =
     division === "Total" ? "" : `partway through ${singular} ${complete + 1}, `;
   return `where the pen is ${where}in ${wordText(last.wordIndex)}`;
+}
+
+// MARK: Fill in the rest
+
+/** The dialog's last answers, so a second use starts where the first left off.  Until a reload. */
+let lastTransitionMs = 500;
+let lastHoldMs = 1000;
+
+/**
+ * The keyframes that take Progress from where its schedule ends up to
+ * `count`, one whole number at a time:  a transition up to each whole number,
+ * then a hold.
+ *
+ * Every whole number gets two keyframes, the arrival and the end of the hold,
+ * the last one included.  If the schedule ends by arriving at a whole number,
+ * that number's hold comes first.
+ *
+ * Each new transition copies the easing of the last transition already in the
+ * schedule.  That easing belongs to the keyframe where a transition starts, so
+ * {@link FillIn.lastEase} says what to give the existing last keyframe.
+ */
+export function fillInKeyframes(
+  schedule: readonly Keyframe<number>[],
+  count: number,
+  transitionMs: number,
+  holdMs: number,
+): FillIn {
+  const sorted = [...schedule].sort((a, b) => a.time - b.time);
+  const last = sorted.at(-1)!;
+  const beforeLast = sorted.at(-2);
+  let ease: Keyframe<number>["easeAfter"];
+  for (let i = sorted.length - 2; i >= 0; i--) {
+    if (sorted[i + 1].value > sorted[i].value) {
+      ease = sorted[i].easeAfter;
+      break;
+    }
+  }
+  /** A keyframe where a transition starts, if `startsTransition`. */
+  const keyframe = (
+    time: number,
+    value: number,
+    startsTransition: boolean,
+  ): Keyframe<number> =>
+    startsTransition && ease ? { time, value, easeAfter: ease } : { time, value };
+  const added: Keyframe<number>[] = [];
+  let time = last.time;
+  let lastEase = ease;
+  if (Number.isInteger(last.value) && beforeLast?.value !== last.value) {
+    time += holdMs;
+    added.push(keyframe(time, last.value, true));
+    // The existing last keyframe now starts a hold, where easing does nothing.
+    lastEase = last.easeAfter;
+  }
+  for (let value = Math.floor(last.value) + 1; value <= count; value++) {
+    time += transitionMs;
+    added.push(keyframe(time, value, false));
+    time += holdMs;
+    added.push(keyframe(time, value, value < count));
+  }
+  return { added, lastEase };
+}
+
+export type FillIn = {
+  /** New keyframes, in order, all after the existing last one. */
+  readonly added: readonly Keyframe<number>[];
+  /** The `easeAfter` the existing last keyframe should have. */
+  readonly lastEase: Keyframe<number>["easeAfter"];
+};
+
+/**
+ * Ask for the transition and hold times, then add the keyframes
+ * {@link fillInKeyframes} describes to Progress.
+ * @returns True if keyframes were added, false if the user cancelled.
+ */
+function askToFillIn(
+  component: HandwritingEffectComponent,
+  count: number,
+  division: HandwritingDivision,
+): Promise<boolean> {
+  const schedule = component.progressSchedule.schedule;
+  const [singular] = UNIT_NAMES[division];
+  const startValue = [...schedule].sort((a, b) => a.time - b.time).at(-1)!
+    .value;
+
+  const dialog = document.createElement("dialog");
+  dialog.style.cssText = "min-width:26em;max-width:36em;padding:1em";
+  const heading = document.createElement("h3");
+  heading.style.margin = "0 0 0.4em 0";
+  heading.textContent = "Fill in the rest";
+  const hint = document.createElement("div");
+  hint.style.cssText = "margin-bottom:0.8em;font-size:0.85em;color:#555;font-style:italic";
+  hint.textContent =
+    `Progress ends at ${formatNumber(startValue)}.  ` +
+    (division === "Total"
+      ? "Add keyframes after the last one, until it reaches 1."
+      : `Add keyframes after the last one, one ${singular} at a time, until it reaches ${count}.`) +
+    "  Each whole number gets two keyframes:  one when it arrives, and one when its hold ends.";
+
+  function numberRow(text: string, initial: number, title: string) {
+    const row = document.createElement("label");
+    row.style.cssText = "display:block;margin-bottom:0.4em";
+    row.title = title;
+    const input = addName(document.createElement("input"));
+    input.type = "number";
+    input.min = "0";
+    input.step = "any";
+    input.style.width = "7em";
+    input.value = String(initial);
+    row.append(`${text} `, input, " ms");
+    return { row, input };
+  }
+  const transition = numberRow(
+    "Transition",
+    lastTransitionMs,
+    `How long it takes to write each ${singular}.`,
+  );
+  const hold = numberRow(
+    "Hold",
+    lastHoldMs,
+    `How long to wait after each ${singular} is finished.`,
+  );
+
+  const preview = document.createElement("div");
+  preview.style.cssText = "font-size:0.85em;line-height:1.4;margin:0.4em 0 1em";
+
+  const buttons = document.createElement("div");
+  buttons.style.cssText = "display:flex;gap:0.5em;justify-content:flex-end";
+  const cancelBtn = document.createElement("button");
+  cancelBtn.type = "button";
+  cancelBtn.textContent = "Cancel";
+  const okBtn = document.createElement("button");
+  okBtn.type = "button";
+  okBtn.textContent = "Add keyframes";
+  buttons.append(cancelBtn, okBtn);
+  dialog.append(heading, hint, transition.row, hold.row, preview, buttons);
+
+  /** The new keyframes for what's typed now, or undefined if it isn't valid. */
+  function plan(): FillIn | undefined {
+    const transitionMs = transition.input.valueAsNumber;
+    const holdMs = hold.input.valueAsNumber;
+    if (!(transitionMs >= 0) || !(holdMs >= 0)) return undefined;
+    return fillInKeyframes(schedule, count, transitionMs, holdMs);
+  }
+  function draw(): void {
+    const result = plan();
+    okBtn.disabled = !result;
+    if (!result) {
+      preview.textContent = "Times must be numbers, 0 or more.";
+      preview.style.color = "#a06000";
+      return;
+    }
+    const { added } = result;
+    preview.style.color = "";
+    preview.textContent = `Adds ${added.length} keyframes, from ${formatNumber(added[0].time)} ms to ${formatNumber(added.at(-1)!.time)} ms.`;
+  }
+  transition.input.addEventListener("input", draw);
+  hold.input.addEventListener("input", draw);
+  draw();
+
+  let applied = false;
+  okBtn.addEventListener("click", () => {
+    const result = plan();
+    if (!result) return;
+    lastTransitionMs = transition.input.valueAsNumber;
+    lastHoldMs = hold.input.valueAsNumber;
+    const sorted = [...schedule].sort((a, b) => a.time - b.time);
+    const last = sorted.at(-1)!;
+    if (result.lastEase) {
+      last.easeAfter = result.lastEase;
+    } else {
+      delete last.easeAfter;
+    }
+    // Sorted first, so the new keyframes, which all come later, can simply go on the end.
+    schedule.splice(0, schedule.length, ...sorted, ...result.added);
+    applied = true;
+    dialog.close();
+  });
+  cancelBtn.addEventListener("click", () => dialog.close());
+
+  return new Promise((resolve) => {
+    dialog.addEventListener("close", () => {
+      dialog.remove();
+      resolve(applied);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+    okBtn.focus();
+  });
 }
