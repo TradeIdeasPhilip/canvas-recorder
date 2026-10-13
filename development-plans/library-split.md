@@ -2,10 +2,170 @@
 
 Split this project into one npm library for the tooling and one small project per video.
 
-**Status:** Collecting notes. No code changes or detailed plan yet.
+**Status (2026-10-12):** Planning version 1. No code yet.
+See [Version 1 plan](#version-1-plan) below.
 
-This document gathers notes that were scattered across the project.
+The rest of this document gathers notes that were scattered across the project.
 The originals are still in place; follow the links for full context.
+
+## Version 1 plan
+
+**The goal is to get one real video out:** the robots from [riemann-surfaces-3d](https://github.com/TradeIdeasPhilip/riemann-surfaces-3d), recorded in 4K and always perfect, with sounds and text added in our editor.
+
+- This is a *first* version of the library, not a perfect one. Semantic versioning lets version 2 start fresh.
+- Try for a complete library. Anything unnecessary that gets in the way gets commented out.
+- riemann-surfaces-3d is our customer, and it represents a serious, common use case: another program wants to save what it already shows on screen to a video file, and use our editor for annotations.
+  - Make as few changes to it as possible.
+  - We are not building a component that draws robots or solves math problems. We are saving a result the program already draws.
+
+### Ground rules
+
+- **Rule 1:** this work doesn't interfere with canvas-recorder, and vice versa. Either project can be dropped mid-thought.
+- **Rule 2:** canvas-recorder is the source of truth. The library is a copy and may be rebuilt from scratch several times.
+
+### Projects
+
+| Project | Role in version 1 |
+| --- | --- |
+| `canvas-recorder-lib` (new repo) | The library |
+| `riemann-surfaces-3d` (existing, port 5179) | The customer; the first real consumer |
+| `canvas-recorder` (port 5173) | Unchanged. Still the source of truth |
+| `canvas-recorder-dev` (Font Inspector + Kerning slides) | Deferred until after the video (see question 4) |
+| `canvas-recorder-sample` (help page) | Deferred until after the video (see question 4) |
+
+### The library: `canvas-recorder-lib`
+
+- **Built by a copy script.** `scripts/import-from-canvas-recorder.mjs` copies the player's import tree from `../canvas-recorder` verbatim, keeping `dev/` and `src/` as they are, so relative imports still work.
+  The tree is about 12 `dev/` files and 40 `src/` files, *minus* `src/dynamic-exports.ts`, so none of the old videos come along.
+  - Commit A is the verbatim import; hand edits are separate commits after it.
+  - To re-sync, re-run the script on a branch and rebase the edits onto it.
+- **The main control object, `canvasRecorder`.** It's exported and documented, and holds:
+  - `pixelWidth` / `pixelHeight` (default 3840 × 2160);
+  - `width` / `height` in logical units (default 16 × 9);
+  - `fps` (default 60);
+  - `start(showable, { name })`.
+
+  Any part of a video can read the settings. They're frozen once `start()` runs.
+  Video code should read them inside `show()`, not at module top level, because static imports run before `main.ts`'s body.
+  The library's own uses of 3840/2160/16/9/60 switch to these properties. The old videos aren't copied, so they aren't touched.
+- **`start()` replaces `document.body`** with the player's HTML, stored as a TS string extracted from `canvas-recorder.html`.
+  It then loads the player module with one internal `import()`, so its 6,200 lines run unchanged.
+  - The "Select a video" menu, `resolveToShow()`, and the `?toShow=` registry are gone.
+  - `name` replaces `toShowKey` for IndexedDB, sessionStorage and save files.
+  - The player's only top-level `await` goes away, so the TLA deadlock can't happen.
+- **Ship a real build (changed from the earlier plan).** The library publishes `dist/` `.js` + `.d.ts`, not TypeScript source.
+  Shipping source would make riemann's `tsc`, which is part of its `npm run build`, type-check our code under its own settings: TS 5.9 (we use 6.0), with `noUnusedLocals` and `noUnusedParameters` on.
+  That would break its GitHub Pages build.
+  - Build: `tsc` with `rewriteRelativeImportExtensions` (our imports say `.ts`), plus a step that copies the CSS files, which tsc ignores.
+  - While developing, run `tsc --watch` in the library.
+  - riemann depends on it with `"canvas-recorder-lib": "file:../canvas-recorder-lib"` for now.
+- **Exports:**
+  - `canvasRecorder`;
+  - the core (Showable types, the slide components, interpolate, PathShape, fonts);
+  - `componentRegistry`, which is already an exported `Map`, so the customer can register its own components and get save, load and "TypeScript defaults" for free;
+  - the new component below.
+- **CSS:** `import "./x.css"` inside the library just works in the consumer's Vite. Never set `"sideEffects": false`, or production builds drop the styles.
+  The player's CSS is imported only by the player module, so riemann's normal page never sees it.
+- **Not in version 1:**
+  - the tsx recorder;
+  - test-rig;
+  - random-tests;
+  - the service worker;
+  - sound-explorer and media-browser, unless they turn out to be needed for this video.
+
+### New library component: Live Canvas
+
+This component is generic: it knows nothing about robots.
+It copies another program's live canvases into rectangles, and keeps that program's simulation in step with `timeInMs`.
+
+The customer implements a small host interface, one per clip:
+
+```ts
+type LiveCanvasHost = {
+  /** Put the program in its state at time 0 of this clip. */
+  restart(): void;
+  /** Advance exactly `dtSeconds`. Must not read the clock, the keyboard or the mouse. */
+  step(dtSeconds: number): void;
+  /** True once the clip is over.  Used to measure the duration. */
+  isDone?(): boolean;
+  /** Render the current state.  Each canvas must come back at exactly the requested pixel size. */
+  render(sizes: readonly { width: number; height: number }[]): readonly HTMLCanvasElement[];
+  /** Lines for the statistics area. */
+  status?(): readonly string[];
+};
+```
+
+**Properties.** One editable rectangle schedule per canvas, plus one for the statistics.
+They're in 16 × 9 units, like everything else, so our text and annotations line up with them.
+The defaults for this video:
+
+- input graph on the left, 9 × 9: `{x: 0, y: 0, width: 9, height: 9}`;
+- output graph bottom right, 7 × 7: `{x: 9, y: 2, width: 7, height: 7}`;
+- statistics in the top-right 7 × 2: `{x: 9, y: 0, width: 7, height: 2}`.
+
+**Real pixels.** There's no need to turn off the virtual units.
+Inside `show()`, multiply a rectangle by `context.getTransform()` to get its exact pixel size, render three.js at that size with pixel ratio 1, and `drawImage` it back into the unit rectangle. It lands 1:1, so it's pixel-perfect.
+That gives 2160 × 2160 and 1680 × 1680 pixels while recording, and whatever the window is in preview.
+Do the `drawImage` right after `render()`, in the same task, or create the renderers with `preserveDrawingBuffer: true`.
+
+**Time.** `stepMs = 1000 / fps`.
+The component remembers how many steps it has taken, and the target is `floor(timeInMs / stepMs)`.
+
+- If the target is behind it, `restart()`; then step forward until it catches up.
+- Recording advances exactly one step per frame. Live playback at 60 Hz does about the same, so the preview behaves like the program does on its own screen.
+- **Live preview** caps the catch-up work per frame (about 8 ms). If it's still behind, it draws what it has plus a small warning light, like the video clip component.
+- **Recording** does the full catch-up in `getFramePromises()`, so a recorded frame is always exact.
+
+**What random seeking will do.** Seeking forward costs one step per 1/60 s skipped. Seeking backward replays from the start of that clip.
+The steps are simulation only, with no rendering, so they're cheap. Even so, a jump deep into the narrated tour (minutes long) will show the warning light for a moment while it catches up.
+That's the experiment you're curious about.
+
+**Duration.** At startup, measure by a dry run: `restart()`, then step until `isDone()`.
+If that's too slow for 14 demos, cache or hard-code the numbers.
+
+### Changes to riemann-surfaces-3d (keep them small)
+
+1. **An "Open video editor" button.** It dynamically imports a new file, `src/video-editor.ts`, so the normal app never loads the library.
+2. **Stop the app's own loop and input when the editor opens:**
+   - `renderer.setAnimationLoop(null)`;
+   - a flag that makes `readKeys()` return all zeros, and makes the pointer and keydown handlers do nothing. Otherwise typing in the Visual Editor would walk z around.
+3. **Split `frame(timestamp)` into `step(dt)` and `render()`.** The existing loop stays: `timer.update(t); step(min(dt, 0.05)); fitToCanvas…; render()`. The on-screen behavior is unchanged.
+4. **`freshStart(demo)`:** `reset()` + the right function + fixed settings (mode, eye, sheet checkbox, 3D-floor lift, off-sheet select, `time = 0`, `sheetMix`), then the demo's own function.
+   This is needed because demos start "wherever the body is now", and the editor needs every demo to start the same way every time (see question 1).
+5. **`statusText()`:** the readout's content as plain lines, factored out of `updateReadout()` so both can use it.
+6. **Build the tree in `video-editor.ts`:**
+   - a top-level duration-agnostic component (permanent);
+   - replaceable children: a background `RectangleComponent`, and an `InSeriesComponent` holding one Live Canvas per demo, in button order;
+   - register the Live Canvas entry in `componentRegistry`;
+   - `canvasRecorder.start(root, { name: "riemann-surfaces-3d" })`.
+7. **Leave fitToCanvas alone.** Once our GUI replaces the body, the original canvases are detached, `clientWidth` is 0, and it already returns early. Live Canvas sizes the renderers instead.
+
+### Things I noticed in riemann-surfaces-3d
+
+- **Time steps.** The frame loop uses a variable `dt` (`timer.getDelta()`, capped at 0.05). The fixed step fixes that.
+  All the easing (`1 - exp(-dt * k)`) is `dt`-based, so it's deterministic with a fixed step.
+- **Sparkles.** `Sparkles` uses `Math.random()` when it's constructed, and they keep moving with `time`, so they won't match between "played from the start" and "seeked".
+  It's visual only; reseed or ignore.
+- **Toasts and the startup wave emote** run on `setTimeout`, which is wall-clock time, and the toasts are HTML. They won't appear in the recording (see question 2).
+- **The line font has no `−` (U+2212), `𝒾` or `√`.** The readout and nameplates use all three.
+  So draw the statistics with canvas `fillText` in Roboto, which riemann already bundles for its tabular digits.
+- **Square input view.** On screen the input view is wider than it is tall; a 9 × 9 rect makes the camera's aspect 1. Check the demos' framing, since they were tuned on a wide view.
+- **Version differences.** riemann runs Vite 8 (we use 7) and TS 5.9 (we use 6). The dist build handles TS; Vite is worth one test.
+
+### Open questions
+
+1. **Fresh start per demo, or chained?** On screen, each demo starts where the previous one left off.
+   For the video, I recommend a fresh start for each. Then seeking within a demo only replays that demo, and demos can be reordered or cut independently.
+   Chained would mean any seek replays everything from the first demo.
+2. **Toasts and captions.**
+   - The narrated tour's captions could go into the statistics area, or become our own Multi Text.
+   - The end-of-demo toasts could be drawn, or dropped in favor of text you add in the editor.
+
+   I'd draw the captions and drop the toasts.
+3. **Is the narrated tour in the video?** Its moves are pinned to `RECORDED` voiceover times (narration.ts).
+   With our sound tools placing the voiceover, that could line up nicely, but it's the longest clip and the hardest to seek in.
+4. **Dev and sample projects:** OK to defer both until the video is out?
+5. **Name:** "Live Canvas" for the component?
 
 ## Goal
 
@@ -37,6 +197,8 @@ From [README.md](../README.md#most-current):
 The main one: each new video is its own small project that imports the library.
 
 ### Recording another canvas app (the three.js robots)
+
+_The original notes for this use case. The concrete version is in the [Version 1 plan](#version-1-plan)._
 
 A separate project, not yet on GitHub, has robots walking around in three.js, doing both interactive and scripted things.
 I would not want to import that project into this one: it has a different style, a different level of quality control, and heavy package imports.

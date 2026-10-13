@@ -191,12 +191,10 @@ body {
 
 /* ── Misc retained rules ─────────────────────────────────────────────── */
 
-#relevantRows td:nth-child(3) {
-  text-align: right;
-}
-
-#relevantRows td:nth-child(4) {
-  text-align: right;
+#limitsRow {
+  margin-top: 0.3em;
+  font-size: 0.9em;
+  color: #555;
 }
 
 .range-container {

@@ -361,7 +361,7 @@ viewport.addEventListener(
 function showFrame(timeInMs: number, live: boolean) {
   // While playing, the timeline keeps the play head on screen.
   timelineDisplay.setPlayMs(
-    timeInMs - sectionStartTime,
+    timeInMs - rootStartMs,
     live && playCheckBox.checked,
   );
   for (const update of goToButtonUpdaters) update();
@@ -394,23 +394,51 @@ function showFrame(timeInMs: number, live: boolean) {
 // Exposed so the browser console can call showFrame() directly for debugging.
 (window as any).showFrame = showFrame;
 
+// MARK: Root and play limits
+//
+// Two separate things, though they usually agree:
+//
+// * The **root**:  the component the Visual Editor works on, picked in the
+//   chapter <select>.  Keyframe times, the timeline at the bottom, and every
+//   "now" the editors show are measured from the root's start.  See
+//   rootStartMs and playheadInRootMs().
+// * The **play limits**:  where playback wraps or stops, and the ends of the
+//   slider.  They come from limitsShowable, which is normally the root, but
+//   stays put while Keep play limits is checked.  See applyLimits().
+//
+// See development-plans/chapter-selector.md.
+
 /**
- * You can select an individual section to display.
+ * The start of the play limits.
  *
  * Dragging the slider all the way to the left will set the time to this time.
  * If you select repeat, each time you get to the end you will be sent back
  * to this time.
+ *
+ * This is **not** where the Visual Editor's root starts.  See {@link rootStartMs}.
  */
 let sectionStartTime = 0;
 
 /**
- * You can select an individual section to display.
+ * The end of the play limits.
  *
  * Dragging the slider all the way to the right will set the time to this time.
- * If you select repeat or pause, that action will file when you get to this
+ * If you select repeat or pause, that action will fire when you get to this
  * time.
  */
 let sectionEndTime = 0;
+
+/**
+ * When the Visual Editor's root starts, in video time.  Keyframe times, the
+ * timeline, and every "now" the editors show are measured from here.
+ */
+let rootStartMs = 0;
+
+/**
+ * The component whose start and end are the play limits.  Usually the root.
+ * See {@link applyLimits}.
+ */
+let limitsShowable: Showable | undefined;
 
 /**
  * Play or pause.  Option space will toggle this.
@@ -442,13 +470,14 @@ const repeatRadioButton = querySelector(
   'input[name="onSectionEnd"][value="repeat"]',
   HTMLInputElement,
 );
+
 /**
- * When we get to the end of the section just keep going.
+ * The playhead, measured from the start of the Visual Editor's root:  the
+ * time its keyframes use.
  */
-const continueRadioButton = querySelector(
-  'input[name="onSectionEnd"][value="continue"]',
-  HTMLInputElement,
-);
+function playheadInRootMs(): number {
+  return playPositionSeconds.valueAsNumber * 1000 - rootStartMs;
+}
 
 /**
  * Update the input that shows the time as a number.
@@ -704,7 +733,7 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
   if (!audioSourceNode && !rafFallbackPlaying) {
     // No source node running: first play, after pause/seek, or after repeat.
     let startMs = playPositionSeconds.valueAsNumber * 1000;
-    if (startMs >= sectionEndTime - 0.05 && !continueRadioButton.checked) {
+    if (startMs >= sectionEndTime - 0.05) {
       // At the end — jump to the beginning.
       startMs = sectionStartTime;
       loadPlayPositionSeconds(startMs);
@@ -720,8 +749,9 @@ const animationLoop = new AnimationLoop((_rAFTimeInMs: number) => {
 
   const timeInMs = currentAudioTimeMs();
 
-  if (timeInMs >= sectionEndTime - 0.05 && !continueRadioButton.checked) {
-    if (repeatRadioButton.checked) {
+  if (timeInMs >= sectionEndTime - 0.05) {
+    // Repeating nothing would restart the audio on every frame.
+    if (repeatRadioButton.checked && sectionEndTime > sectionStartTime) {
       // Loop: restart from the beginning of the section.
       loadPlayPositionSeconds(sectionStartTime);
       startAudio(sectionStartTime);
@@ -1146,7 +1176,8 @@ getById("saveAllBtn", HTMLButtonElement).addEventListener("click", () => {
 getById("saveCopyChapterBtn", HTMLButtonElement).addEventListener(
   "click",
   () => {
-    const info = chapterList[select.selectedIndex];
+    // The play limits, not the Visual Editor's root.
+    const info = limitsChapter;
     if (info) {
       saveChapterSelect.selectedIndex = info.absolutePosition + 1;
       setSaveRange(info.start, info.end);
@@ -1193,7 +1224,6 @@ type ShowableTree = {
   parent: ShowableTree | undefined;
   children: ShowableTree[];
   absolutePosition: number;
-  siblingPosition: number;
   selectable: Showable;
 };
 
@@ -1214,7 +1244,6 @@ const chapterList = new Array<ShowableTree>();
  * @param limit The last time that is available for this section to run.
  * A section will not run past the end of any of its ancestors.
  * This is measured from the beginning of the entire video.
- * @param descriptionPrefix Used when we are combining nodes.
  * @param parent
  */
 function dump(
@@ -1222,58 +1251,28 @@ function dump(
   prefix = "",
   start = 0,
   limit = Infinity,
-  descriptionPrefix = "",
   parent?: ShowableTree,
-  /** When collapsing a chain of single-interesting-child nodes, this holds the
-   *  outermost (root) node so the chapter always selects the top of the chain. */
-  selectableRoot?: Showable,
 ) {
-  /**
-   * Remove any children with a duration of 0.
-   * The point of this list is to let the user select a section of the video to view.
-   * Things with a duration of 0 add nothing of value to this list.
-   */
-  const interestingChildren = (current.children ?? []).filter(
-    ({ child }) => child.duration,
-  );
-  if (
-    interestingChildren.length == 1 &&
-    interestingChildren[0].start == 0 &&
-    interestingChildren[0].child.duration == current.duration
-  ) {
-    // Merge this node with its only interesting child to flatten the tree.
-    // Keep selectableRoot pointing to the outermost node of the chain.
-    dump(
-      interestingChildren[0].child,
-      prefix,
-      start,
-      limit,
-      descriptionPrefix + current.description + " ⏵ ",
-      parent,
-      selectableRoot ?? current,
-    );
-  } else {
-    // Add this node to the tree then process its children recursively.
-    const end = Math.min(start + current.duration, limit);
-    const info: ShowableTree = {
-      prefix,
-      description: descriptionPrefix + current.description,
-      start,
-      end,
-      parent,
-      children: [],
-      absolutePosition: chapterList.length,
-      siblingPosition: parent ? parent.children.length : NaN,
-      selectable: selectableRoot ?? current,
-    };
-    if (parent) {
-      parent.children.push(info);
+  const end = Math.min(start + current.duration, limit);
+  const info: ShowableTree = {
+    prefix,
+    description: current.userEditableDescription ?? current.description,
+    start,
+    end,
+    parent,
+    children: [],
+    absolutePosition: chapterList.length,
+    selectable: current,
+  };
+  parent?.children.push(info);
+  chapterList.push(info);
+  for (const next of current.children ?? []) {
+    // Leave out zero-length leaves, like a background rectangle:  showcase
+    // has hundreds.  A zero-length *container* stays.  A slide whose duration
+    // was set to 0 by mistake must not vanish while you're fixing it.
+    if (next.child.duration > 0 || next.child.children?.length) {
+      dump(next.child, FIGURE_SPACE + prefix, start + next.start, end, info);
     }
-    chapterList.push(info);
-    interestingChildren.forEach((next) => {
-      const absoluteStart = start + next.start;
-      dump(next.child, FIGURE_SPACE + prefix, absoluteStart, end, "", info);
-    });
   }
 }
 const select = getById("chapterSelector", HTMLSelectElement);
@@ -1282,9 +1281,7 @@ const select = getById("chapterSelector", HTMLSelectElement);
  * Rebuild {@link chapterList} and the chapter `<select>` from the current tree, keeping the
  * same chapter selected if it still exists.
  *
- * The previous selection is found by its Showable first and its description second.  A
- * description alone isn't stable: when `dump()` collapses a single-child chain, a newly added
- * child can turn "Galaga" into "Galaga ⏵ Timeline".
+ * The previous selection is found by its Showable first and its description second.
  *
  * @returns true if the selected chapter is still the same Showable as before.
  */
@@ -1317,91 +1314,17 @@ function initChapters(): boolean {
 initChapters();
 //console.table(chapterList);
 
-/**
- * These describe the parent of the currently selected section.
- */
-const parentCells = querySelectorAll("#parentRow td", HTMLTableCellElement);
-/**
- * These describe the section immediately before this section, sharing the same parent.
- */
-const previousSiblingCells = querySelectorAll(
-  "#previousSiblingRow td",
-  HTMLTableCellElement,
-);
-/**
- * These describe the current section of the video.
- */
-const thisCells = querySelectorAll("#thisRow td", HTMLTableCellElement);
-/**
- * These describe the first subsection of the current section.
- */
-const firstChildCells = querySelectorAll(
-  "#firstChildRow td",
-  HTMLTableCellElement,
-);
-/**
- * These describe the section immediately after the current section, sharing the same parent.
- */
-const nextSiblingCells = querySelectorAll(
-  "#nextSiblingRow td",
-  HTMLTableCellElement,
-);
-
-const buttonDestination = new Map<
-  HTMLButtonElement,
-  ShowableTree | undefined
->();
-
-/**
- * Fill in the table that shows information about a handful or relevant sections.
- * @param cells The row to update
- * @param info Describes the relevant section.
- */
-function updateRow(
-  cells: readonly HTMLTableCellElement[],
-  info: ShowableTree | undefined,
-) {
-  /**
-   * Pressing this button will jump to the section described by this row.
-   *
-   * The row for the current section has no button because we are already there.
-   */
-  const button = querySelectorAll(
-    "button",
-    HTMLButtonElement,
-    0,
-    1,
-    cells[0],
-  ).at(0);
-  if (button) {
-    button.disabled = info == undefined;
-    buttonDestination.set(button, info);
-  }
-  if (info == undefined) {
-    cells[1].textContent = "";
-    cells[2].textContent = "";
-    cells[3].textContent = "";
-  } else {
-    cells[1].textContent = info.description;
-    cells[2].textContent = (info.start / 1000).toFixed(3);
-    cells[3].textContent = (info.end / 1000).toFixed(3);
-  }
+/** The Visual Editor's root:  the component picked in the chapter `<select>`. */
+function currentRoot(): Showable | undefined {
+  return chapterList[select.selectedIndex]?.selectable;
 }
 
-/**
- * Go to the previous section.
- *
- * This is based on an in order traversal of the tree.
- * This might be a sibling or the parent of the current element.
- */
-const previousButton = getById("previousButton", HTMLButtonElement);
-
-/**
- * Go to the next section.
- *
- * This is based on an in order traversal of the tree.
- */
-const nextButton = getById("nextButton", HTMLButtonElement);
+/** When checked, picking another root leaves the play limits alone. */
+const keepLimitsCheckbox = getById("keepLimits", HTMLInputElement);
+/** Says what the play limits are, below the chapter `<select>`. */
+const limitsInfo = getById("limitsInfo", HTMLSpanElement);
+/** Make the play limits match the root again. */
+const playRootBtn = getById("playRootBtn", HTMLButtonElement);
 
 const componentsEditorFieldset = getById(
   "componentsEditor",
@@ -1423,10 +1346,10 @@ let activeRootComponentEditorElement: HTMLElement | undefined = undefined;
 
 const visualEditorAPI: VisualEditorAPI = {
   getCurrentlySelected(): Showable {
-    return selectedSlideChild ?? chapterList[select.selectedIndex]!.selectable;
+    return selectedSlideChild ?? currentRoot()!;
   },
   refreshGUI(howMuch) {
-    const selectable = chapterList[select.selectedIndex]?.selectable;
+    const selectable = currentRoot();
     if (!selectable) return;
     if (howMuch === "sound") {
       void initAudio();
@@ -1442,11 +1365,11 @@ const visualEditorAPI: VisualEditorAPI = {
   },
   seek(ms) {
     stopAudio();
-    loadPlayPositionSeconds(sectionStartTime + ms);
+    loadPlayPositionSeconds(rootStartMs + ms);
     loadPlayPositionRange();
   },
   getCurrentTimeMs() {
-    return playPositionSeconds.valueAsNumber * 1000 - sectionStartTime;
+    return playheadInRootMs();
   },
   getDecodedBuffer(url: string): AudioBuffer | null {
     return audioBuilder.getDecodedBuffer(url);
@@ -1477,14 +1400,14 @@ philDebug.transcribe = async (url: string, device?: Device) => {
 philDebug.forgetTranscripts = forgetTranscripts;
 philDebug.VisualEditor = {
   get rootComponent(): Showable | undefined {
-    return chapterList[select.selectedIndex]?.selectable;
+    return currentRoot();
   },
   get selectedComponent(): Showable | null {
     return selectedSlideChild;
   },
-  /** Current time in ms relative to the start of the selected chapter. */
+  /** Current time in ms relative to the start of the Visual Editor's root. */
   get localTimeMs(): number {
-    return playPositionSeconds.valueAsNumber * 1000 - sectionStartTime;
+    return playheadInRootMs();
   },
 };
 
@@ -1747,30 +1670,32 @@ function setVeRoot(selectable: Showable): void {
 const componentTransforms = new WeakMap<Showable, DOMMatrix>();
 
 /**
- * Change the GUI to match the current section.
- * Read the current section out of the <select> (drop down) element.
+ * The chapter the play limits come from, as of the last {@link applyLimits}.
+ * Usually {@link limitsShowable}'s chapter, but see applyLimits() for when it isn't.
  */
+let limitsChapter: ShowableTree | undefined;
+
 /**
- * Point the table, the Previous/Next buttons and the playback bounds at `info`.
+ * Set the play limits, and the slider's ends, from {@link limitsShowable} as it
+ * is right now.  Leaves the audio, the playhead, the selected component and
+ * the editors alone, so it is safe to call while the user is editing.
  *
- * This is the light half of {@link updateFromSelect}: it leaves the audio, the selected
- * component and both editors alone, so it is safe to run while the user is editing.
+ * Something with no length can't be played on its own, so for that this uses
+ * the nearest ancestor that has a length.  limitsShowable stays the same, so
+ * the limits go back to it as soon as it has a length again.
  */
-function applyChapterBounds(info: ShowableTree): void {
-  previousButton.disabled = info.absolutePosition == 0;
-  nextButton.disabled = info.absolutePosition == chapterList.length - 1;
-  updateRow(parentCells, info.parent);
-  updateRow(thisCells, info);
-  updateRow(firstChildCells, info.children.at(0));
-  const previousSibling =
-    info.parent && info.siblingPosition != 0
-      ? info.parent.children.at(info.siblingPosition - 1)
-      : undefined;
-  updateRow(previousSiblingCells, previousSibling);
-  const nextSibling = info.parent
-    ? info.parent.children.at(info.siblingPosition + 1)
-    : undefined;
-  updateRow(nextSiblingCells, nextSibling);
+function applyLimits(): void {
+  let info = chapterList.find((d) => d.selectable === limitsShowable);
+  if (!info) {
+    // It was deleted.  Fall back to the whole video.
+    info = chapterList[0];
+    limitsShowable = info.selectable;
+  }
+  const named = info;
+  while (info.end <= info.start && info.parent) {
+    info = info.parent;
+  }
+  limitsChapter = info;
   // Round both boundaries to 0.1 ms precision (matching the toFixed(4) display).
   // Rounding start UP and end DOWN prevents the range from ever pointing at a frame
   // that belongs to the adjacent chapter, even after a toFixed(4) round-trip.
@@ -1782,17 +1707,42 @@ function applyChapterBounds(info: ShowableTree): void {
   }
   playPositionRange.min = sectionStartTime.toString();
   playPositionRange.max = sectionEndTime.toString();
+
+  const seconds = (ms: number) => (ms / 1000).toFixed(3);
+  const range = `${seconds(info.start)}–${seconds(info.end)} s`;
+  const root = chapterList[select.selectedIndex];
+  if (named !== info) {
+    limitsInfo.textContent = `“${named.description}” has no length, so this plays “${info.description}”, ${range}.`;
+  } else if (info !== root) {
+    limitsInfo.textContent = `Playing “${info.description}”, ${range}.`;
+  } else {
+    limitsInfo.textContent = `Playing ${range}.`;
+  }
+  playRootBtn.hidden = limitsShowable === root?.selectable;
+  playRootBtn.title = root
+    ? `Play “${root.description}” instead:  set the play limits to its start and end, and go to its start.`
+    : "";
 }
 
-/** Switch to the chapter selected in the `<select>`. */
+/**
+ * Switch the Visual Editor to the root picked in the `<select>`.  The play
+ * limits follow, unless Keep play limits is checked.
+ */
 function updateFromSelect() {
-  stopAudio();
   const info = chapterList[select.selectedIndex];
-  applyChapterBounds(info);
-  // playPositionRange automatically clamps to [min, max].  Make the number match.
-  const rawPositionMs = playPositionRange.valueAsNumber;
-  const safePositionMs = Math.max(rawPositionMs, sectionStartTime);
-  loadPlayPositionSeconds(safePositionMs);
+  rootStartMs = info.start;
+  if (keepLimitsCheckbox.checked && limitsShowable) {
+    // Only the "Play this one" button changes.  Playback carries on.
+    applyLimits();
+  } else {
+    stopAudio();
+    limitsShowable = info.selectable;
+    applyLimits();
+    // playPositionRange automatically clamps to [min, max].  Make the number match.
+    const rawPositionMs = playPositionRange.valueAsNumber;
+    const safePositionMs = Math.max(rawPositionMs, sectionStartTime);
+    loadPlayPositionSeconds(safePositionMs);
+  }
   const newRootEditor = info.selectable.rootComponentEditor;
   if (newRootEditor !== activeRootComponentEditor) {
     activeRootComponentEditor?.suspend();
@@ -1808,17 +1758,27 @@ function updateFromSelect() {
 }
 select.addEventListener("input", updateFromSelect);
 
+playRootBtn.addEventListener("click", () => {
+  stopAudio();
+  limitsShowable = currentRoot();
+  applyLimits();
+  loadPlayPositionSeconds(sectionStartTime);
+  loadPlayPositionRange();
+});
+
 /**
- * Bring the chapter list and the playback bounds up to date after durations change.
+ * Bring the chapter list, the root's start and the play limits up to date
+ * after durations change.
  *
  * The chapter list stores each chapter's start and end, so it goes stale whenever a duration
  * changes: typing one, dragging on the timeline, adding or removing a child, or restoring
- * saved state.  When the selected chapter survives, only the bounds are refreshed, leaving
- * playback and the editors alone.  When it's gone, this switches chapters properly.
+ * saved state.  When the root survives, only the times are refreshed, leaving
+ * playback and the editors alone.  When it's gone, this switches roots properly.
  */
 function refreshChapters(): void {
   if (initChapters()) {
-    applyChapterBounds(chapterList[select.selectedIndex]);
+    rootStartMs = chapterList[select.selectedIndex].start;
+    applyLimits();
     // The range clamped itself to the new bounds; show the real position again.  The
     // number input stays the source of truth, so a playhead past a shortened end is left
     // for playback to wrap rather than moved here.
@@ -1857,13 +1817,13 @@ onTranscriptsChange(() => {
 
 timelineDisplay.onSeek = (localMs) => {
   stopAudio();
-  loadPlayPositionSeconds(localMs + sectionStartTime);
+  loadPlayPositionSeconds(localMs + rootStartMs);
   loadPlayPositionRange();
 };
 
 timelineDisplay.onBlockClick = (id) => {
   // Find the Showable that was clicked (may be nested) and select it.
-  const selectable = chapterList[select.selectedIndex]?.selectable;
+  const selectable = currentRoot();
   if (!selectable) return;
   // A sound clip:  select its owner, which shows the clip in its Sound Clips list.
   const soundOwner = ownerOf(soundOwners(selectable), id as SoundClip);
@@ -2057,7 +2017,7 @@ function soundClipBlock(clip: SoundClip, ownerStart: number): TimelineBlock {
  * same way clicking it in the component tree does.
  */
 function selectInChapter(target: Showable): void {
-  const chapter = chapterList[select.selectedIndex]?.selectable;
+  const chapter = currentRoot();
   if (!chapter) return;
   selectedSlideChild = target === chapter ? null : target;
   updateComponentEditor(chapter);
@@ -2176,21 +2136,6 @@ function _updateTimeline(selectable: Showable): void {
   timelineDisplay.setBlocks(_buildTimelineBlocks(selectable));
   timelineDisplay.setSelectedId(selectedSlideChild ?? undefined);
 }
-querySelectorAll("table button", HTMLButtonElement).forEach((button) => {
-  button.addEventListener("click", () => {
-    const info = buttonDestination.get(button)!;
-    select.selectedIndex = info.absolutePosition;
-    updateFromSelect();
-  });
-});
-previousButton.addEventListener("click", () => {
-  select.selectedIndex--;
-  updateFromSelect();
-});
-nextButton.addEventListener("click", () => {
-  select.selectedIndex++;
-  updateFromSelect();
-});
 
 /**
  * When someone hits refresh in their browser,
@@ -2199,6 +2144,11 @@ nextButton.addEventListener("click", () => {
  */
 function saveState() {
   sessionStorage.setItem("index", select.selectedIndex.toString());
+  sessionStorage.setItem("keepLimits", keepLimitsCheckbox.checked ? "1" : "0");
+  sessionStorage.setItem(
+    "limitsIndex",
+    chapterList.findIndex((d) => d.selectable === limitsShowable).toString(),
+  );
   sessionStorage.setItem("timeInSeconds", playPositionSeconds.value);
   sessionStorage.setItem(
     "state",
@@ -3087,7 +3037,7 @@ async function initFromDB(unloadBackup?: string | null): Promise<void> {
 
   canvas.style.visibility = "";
   canvasLoading.style.display = "none";
-  const currentSel = chapterList[select.selectedIndex]?.selectable;
+  const currentSel = currentRoot();
   if (currentSel) {
     updateComponentEditor(currentSel);
     updateScheduleEditor(currentSel);
@@ -3184,7 +3134,7 @@ function markDirty(): void {
  * so a single save captures the full component list and all keyframes.
  */
 function currentSaveTarget(): Showable | null {
-  const selectable = chapterList[select.selectedIndex]?.selectable;
+  const selectable = currentRoot();
   if (!selectable) return null;
   if (selectable.replaceableComponents !== undefined) return selectable;
   return selectable.schedules?.length ? selectable : null;
@@ -3699,7 +3649,7 @@ function buildScheduleSection(
 
   /** Time relative to the start of the selected scene — what keyframe.time values use. */
   function localTimeMs() {
-    return currentTimeMs() - sectionStartTime;
+    return currentTimeMs() - rootStartMs;
   }
 
   function addKeyframeAtCurrentTime() {
@@ -4510,7 +4460,7 @@ function buildScheduleSection(
       goToBtn.addEventListener("click", () => {
         const globalMs = Math.max(
           sectionStartTime,
-          Math.min(sectionEndTime, kf.time + sectionStartTime),
+          Math.min(sectionEndTime, kf.time + rootStartMs),
         );
         stopAudio();
         loadPlayPositionSeconds(globalMs);
@@ -5185,7 +5135,7 @@ function buildSoundClipSection(selectable: Showable): HTMLElement {
       markDirty();
       clearTimeout(_durationAudioTimer);
       _durationAudioTimer = setTimeout(() => void initAudio(), 300);
-      const chapter = chapterList[select.selectedIndex]?.selectable;
+      const chapter = currentRoot();
       if (chapter && startWithin(chapter, to.owner) !== undefined) {
         // Follow the clip to its new owner.
         selectInChapter(to.owner);
@@ -5403,13 +5353,9 @@ function updateScheduleEditor(selectable: Showable) {
   if (selectable instanceof HandwritingEffectComponent) {
     const handwritingPanel = buildHandwritingPanel(selectable, {
       localTimeMs(owner) {
-        const chapter = chapterList[select.selectedIndex]?.selectable;
-        const ownerStart = chapter ? (startWithin(chapter, owner) ?? 0) : 0;
-        return (
-          playPositionSeconds.valueAsNumber * 1000 -
-          sectionStartTime -
-          ownerStart
-        );
+        const root = currentRoot();
+        const ownerStart = root ? (startWithin(root, owner) ?? 0) : 0;
+        return playheadInRootMs() - ownerStart;
       },
       progressChanged() {
         activeRootComponentEditor?.update(selectable, selectable.progressSchedule);
@@ -5510,13 +5456,11 @@ function soundLengthForSplit(sound: SoundClip): number {
 async function splitAtPlayhead(clip: VideoClipComponent): Promise<void> {
   const parent = splitTarget(clip);
   if (typeof parent === "string") return;
-  const chapter = chapterList[select.selectedIndex]?.selectable;
-  const clipStart = chapter ? (startWithin(chapter, clip) ?? 0) : 0;
+  const root = currentRoot();
+  const clipStart = root ? (startWithin(root, clip) ?? 0) : 0;
   const choice = await askHowToSplit({
     clip,
-    atMs: tidyMs(
-      playPositionSeconds.valueAsNumber * 1000 - sectionStartTime - clipStart,
-    ),
+    atMs: tidyMs(playheadInRootMs() - clipStart),
     lengthOf: soundLengthForSplit,
   });
   // The dialog is modal, but make sure nothing moved underneath it.
@@ -5539,12 +5483,12 @@ async function splitAtPlayhead(clip: VideoClipComponent): Promise<void> {
   parent.replaceableComponents!.replace(siblings);
   selectedSoundClip = undefined;
   activeRootComponentEditor?.resetAll();
-  if (chapter !== clip) {
+  if (root !== clip) {
     selectInChapter(kept[0]);
   }
-  // Otherwise the chapter being shown was the clip itself, which is gone.  The
-  // chapter list rebuilds on the next frame and, matching by name, lands on
-  // the first piece kept.
+  // Otherwise the root was the clip itself, which is gone.  The chapter list
+  // rebuilds on the next frame and, matching by name, lands on the first piece
+  // kept.
   markDirty();
 }
 
@@ -5675,7 +5619,7 @@ function rectHandlePositions(
 function getMarkerRelTf(): DOMMatrix | null {
   const component =
     selectedSlideChild ??
-    (chapterList[select.selectedIndex]?.selectable as Showable | undefined);
+    currentRoot();
   if (!component) return null;
   const compTf = componentTransforms.get(component);
   if (!compTf) return null;
@@ -6539,6 +6483,16 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
         select.selectedIndex = 0;
       }
       updateFromSelect();
+      if (sessionStorage.getItem("keepLimits") === "1") {
+        keepLimitsCheckbox.checked = true;
+        const limitsIndex = parseIntX(sessionStorage.getItem("limitsIndex") ?? "");
+        const saved =
+          limitsIndex === undefined ? undefined : chapterList[limitsIndex];
+        if (saved) {
+          limitsShowable = saved.selectable;
+          applyLimits();
+        }
+      }
       const savedMs = parseFloat(timeInSeconds) * 1000;
       const clampedMs = Math.max(
         sectionStartTime,
@@ -6546,10 +6500,11 @@ function applyMarkerDrag(localX: number, localY: number, shiftKey = false) {
       );
       loadPlayPositionSeconds(clampedMs);
       loadPlayPositionRange();
-      querySelector(
+      // "continue" was removed.  A page saved with it pauses instead.
+      const onEnd = document.querySelector<HTMLInputElement>(
         `input[name="onSectionEnd"][value="${state}"]`,
-        HTMLInputElement,
-      ).checked = true;
+      );
+      if (onEnd) onEnd.checked = true;
       if (sessionStorage.getItem("wasPlaying") === "1") {
         playCheckBox.checked = true;
       }

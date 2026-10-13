@@ -103,3 +103,54 @@ The old selector got this wrong at first: it computed every chapter's start and 
 load, so `galaga` showed a 0 ms chapter after its saved clip was restored.
 The interim fix is `refreshChapters()` in `dev/canvas-recorder.ts`, called from both root
 listeners' `scheduleHasChanged()`.
+
+## Decisions (10/12/2026)
+
+- **Matching removable components across history:** by position and registry key.  No IDs.
+  IDs have been considered many times and cause more problems than they solve.  Confusing
+  cases can be constructed, but they aren't expected in practice.  If it goes wrong, revisit.
+- **Picking a root sets the play limits by default.**  A **Keep play limits** option leaves
+  them alone.  Use case:  watching one section over and over while fixing several things in it,
+  including with the Load dialog.
+- **A component must never vanish from the list because of its duration.**  This happened:
+  a slide's duration was set to 0 by accident, the list refreshed, and the slide being worked
+  on disappeared, so there was no good way to fix it.  Zero length used to be a stand-in for
+  "background component".  If an explicit filter is ever needed, add something like
+  `Showable.canBeRoot`, defaulting to true.
+- **Everything on the left side survives a reload,** the limits included.  The right side is
+  being discussed in [multi-window-sync.md](multi-window-sync.md), stage 0.
+
+## Where the hard parts are
+
+1. **"Now" in the Visual Editor used to mean "playhead minus chapter start."**  It must be the
+   root's start, because the limits and the root can now differ.  About 15 places used it:
+   + Add, ← now and Go To in the schedule editor, the timeline, ✂ Split, the Handwriting
+   panel, and seek.  A missed one is a silent bug, like a keyframe added at the wrong time.
+2. **Removable components as the root.**
+   - Load and undo find the root in a saved tree with `findSerializedNode()`, which only
+     follows fixed children.  It needs to follow removable ones too, by position (see above).
+   - A whole-video Load rebuilds removable components as new objects, so the root has to be
+     found again by path after every Load, falling back to its parent if it's gone.
+3. **Finding things by path.**  Needed for item 2, for restoring after a reload (today by an
+   index into the list, which shifts), and for multi-window stage 0.  Build it once.
+
+## Stages
+
+Each one ships on its own.
+
+1. **Done.**  Root and limits are separate:
+   - `rootStartMs` and `playheadInRootMs()` for everything in the Visual Editor.
+   - `limitsShowable` and `applyLimits()` for playback.
+   - **Keep play limits** checkbox, plus a **Play this one** button that sets the limits to
+     the root.  Both are saved across reloads.
+   - A root with no length plays its nearest ancestor that has one, and says so.
+   - Removed:  Continue, Previous / Next, and the table.
+   - The list no longer merges single-child chains (no more "Galaga ⏵ Timeline"), shows
+     the names you typed, and keeps zero-length *containers*.  Zero-length leaves are still
+     left out, because showcase would otherwise list a couple of hundred more entries.
+2. **Editing the limits.**  Each end is either "follows X's start / end" or a typed number.
+   The render dialog uses the same limits.
+3. **A breadcrumb of what's active at the playhead,** each item clickable to edit or play it.
+4. **Removable roots,** per "Where the hard parts are", items 2 and 3.
+5. **Maybe:**  the full drill-down timeline with a vertical playhead line.  Wait until the
+   breadcrumb shows what's actually wanted.

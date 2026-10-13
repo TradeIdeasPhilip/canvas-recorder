@@ -104,13 +104,6 @@
                     name="onSectionEnd"
                     value="repeat"
                   />Repeat</label
-                >
-                <label
-                  ><input
-                    type="radio"
-                    name="onSectionEnd"
-                    value="continue"
-                  />Continue</label
                 >)&nbsp;</span
               >
               <input type="number" id="playPositionSeconds" value="0" />
@@ -118,48 +111,20 @@
             </div>
           </fieldset>
           <div>
-            <select id="chapterSelector"></select
-            ><button id="previousButton">Previous</button
-            ><button id="nextButton">Next</button>
+            <label
+              title="The component the Visual Editor works on.  Normally the play limits follow it."
+              >Edit <select id="chapterSelector"></select
+            ></label>
+            <label
+              title="Picking another component to edit leaves the play limits where they are.  For watching one section over and over while you fix things anywhere."
+              ><input type="checkbox" id="keepLimits" />Keep play
+              limits</label
+            >
           </div>
-          <table id="relevantRows">
-            <tr>
-              <th></th>
-              <th></th>
-              <th>Start</th>
-              <th>End</th>
-            </tr>
-            <tr id="parentRow">
-              <td><button>Parent</button></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr id="previousSiblingRow">
-              <td>&emsp;<button>Previous Sibling</button></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr id="thisRow">
-              <td>&emsp;This</td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr id="firstChildRow">
-              <td>&emsp;&emsp;<button>First Child</button></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-            <tr id="nextSiblingRow">
-              <td>&emsp;<button>Next Sibling</button></td>
-              <td></td>
-              <td></td>
-              <td></td>
-            </tr>
-          </table>
+          <div id="limitsRow">
+            <span id="limitsInfo"></span>
+            <button type="button" id="playRootBtn">Play this one</button>
+          </div>
           <div
             id="autoplayFallbackMsg"
             hidden
