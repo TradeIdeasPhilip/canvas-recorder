@@ -152,7 +152,30 @@ If that's too slow for 14 demos, cache or hard-code the numbers.
 - **Square input view.** On screen the input view is wider than it is tall; a 9 × 9 rect makes the camera's aspect 1. Check the demos' framing, since they were tuned on a wide view.
 - **Version differences.** riemann runs Vite 8 (we use 7) and TS 5.9 (we use 6). The dist build handles TS; Vite is worth one test.
 
-### Open questions
+### Decisions (2026-10-13)
+
+These override anything above that disagrees.
+
+- **The video is the narrated tour.** One `FullScreenComponent` plays it. Adding the other demos is optional, just for play.
+- **Seeking: forward only, for now.** riemann treats a big jump in time like a hidden window and stops animating.
+  So, as with a video stream that has a single keyframe, you can only walk forward.
+  - If `timeInMs` goes backwards, `restart()`.
+  - Recording and playing from the start are what matter.
+
+  Fixing seeking is not in scope.
+  (Live Canvas steps in 1/60 s increments, so the big-jump rule may never fire during catch-up. Worth a look someday, not today.)
+- **The component is named `FullScreenComponent`.** It lives in riemann, not in the library.
+  It has no domain words in it, so another program can copy it as is.
+  The library doesn't need a new component at all; the host-interface idea above becomes this one class.
+- **Ship source too, like phil-lib.** The package contains `dist/` `.js` + `.d.ts` and the `.ts` sources, with `declarationMap` so Go to Definition opens the real source.
+  `exports` → `types` points at the `.d.ts`, so a consumer's `tsc` never type-checks our source.
+- **riemann upgrades to TypeScript 6** (`npm install --save-dev typescript@^6.0.2`).
+- **Both three.js views are already square,** so no framing problem.
+- **Statistics: `fillText` in Roboto.** The line font also doesn't read well at small sizes.
+- **Captions: drawn for now, because they help. Removed before the final recording.** Toasts are dropped.
+- **The dev and sample projects wait until after the video.**
+
+### Open questions (answered above)
 
 1. **Fresh start per demo, or chained?** On screen, each demo starts where the previous one left off.
    For the video, I recommend a fresh start for each. Then seeking within a demo only replays that demo, and demos can be reordered or cut independently.
