@@ -106,7 +106,14 @@
                 "source": "Galaga Screen Recording.mov",
                 "startMsIntoScene": -116.755163,
                 "startMsIntoClip": 22.166666666666668,
-                "lengthMs": 454468.3333333333,
+                "lengthMs": 150487.833333,
+                "notes": "imported from video"
+              },
+              {
+                "source": "Galaga Screen Recording.mov",
+                "startMsIntoScene": 150371.07817,
+                "startMsIntoClip": 150510,
+                "lengthMs": 303980.5,
                 "notes": "imported from video"
               }
             ]

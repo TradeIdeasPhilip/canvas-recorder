@@ -87,7 +87,7 @@ import {
   startWithin,
   tidyMs,
 } from "./sound-clips.ts";
-import { askHowToSplit } from "./split-dialog.ts";
+import { askHowToSplit, askHowToSplitSound } from "./split-dialog.ts";
 import { SyncedFile, type SyncedFileOptions } from "./synced-file.ts";
 import {
   TimelineDisplay,
@@ -130,7 +130,10 @@ import { buildHandwritingPanel } from "./handwriting-panel.ts";
 import { SingleImageComponent } from "../src/slide-components/image.ts";
 import { buildStaticImagePanel } from "./static-image-panel.ts";
 import { InSeriesComponent } from "../src/slide-components/in-series.ts";
-import { splitVideoClip } from "../src/slide-components/split-video-clip.ts";
+import {
+  splitSoundClip,
+  splitVideoClip,
+} from "../src/slide-components/split-video-clip.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
@@ -5039,10 +5042,54 @@ function buildSoundClipSection(selectable: Showable): HTMLElement {
       );
     });
 
+    const splitBtn = document.createElement("button");
+    splitBtn.type = "button";
+    splitBtn.textContent = "✂";
+    splitBtn.title =
+      "Split this clip in two at the playhead.  You choose whether to keep both pieces " +
+      "(keeping one is a trim), and can snap to the quiet moment between two words.";
+    splitBtn.addEventListener("click", async () => {
+      const transcript = readyTranscript(clip.source);
+      const choice = await askHowToSplitSound({
+        label:
+          clip.notes ||
+          decodeURIComponent(clip.source.split("/").pop() ?? "") ||
+          "sound clip",
+        lengthMs: soundClipLengthMs(clip) ?? Infinity,
+        atMs: playheadInOwner() - clip.startMsIntoScene,
+        startMsIntoClip: clip.startMsIntoClip ?? 0,
+        words: transcript?.words,
+      });
+      if (!choice) return;
+      // The dialog is modal, but make sure nothing moved underneath it.
+      const index = clips.indexOf(clip);
+      if (index < 0) return;
+      const { first, second } = splitSoundClip(
+        clip,
+        clip.startMsIntoScene + choice.atMs,
+      );
+      // Notes that 📝 filled in describe the whole clip.  Give each piece its own.
+      if (clip.notes !== undefined && clip.notes === clipText(clip)) {
+        for (const piece of [first, second]) {
+          piece.notes = clipText(piece) || undefined;
+        }
+      }
+      const kept =
+        choice.keep === "both"
+          ? [first, second]
+          : choice.keep === "first"
+            ? [first]
+            : [second];
+      clips.splice(index, 1, ...kept);
+      selectedSoundClip = kept[0];
+      afterStructureChange();
+    });
+
     row1.append(
       notesInput,
       fromTranscriptBtn,
       saveTranscriptBtn,
+      splitBtn,
       upBtn,
       downBtn,
       delBtn,

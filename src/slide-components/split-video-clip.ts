@@ -1,4 +1,5 @@
-// Splitting a Video Clip in two, the way a video editor's razor tool does.
+// Splitting a Video Clip, or a sound clip, in two, the way a video editor's
+// razor tool does.
 //
 // Everything here is a pure function:  nothing passed in is modified, and the
 // pieces are brand new components.  Putting them into the tree is the
@@ -59,6 +60,33 @@ export function crossesSplit(
 ): boolean {
   const start = sound.startMsIntoScene;
   return start < atMs && start + lengthOf(sound) > atMs;
+}
+
+/**
+ * Split one sound clip at `atMs` into two that, played together, sound
+ * exactly like the original:  the first plays up to `atMs`, the second from
+ * there.  Both keep the original's times, so they stay where they were.
+ *
+ * `atMs` is in the same time as `sound.startMsIntoScene`:  its owner's.
+ * `sound` itself is not modified.  Check {@link crossesSplit} first;
+ * otherwise one piece is empty.
+ */
+export function splitSoundClip(
+  sound: SoundClip,
+  atMs: number,
+): { readonly first: SoundClip; readonly second: SoundClip } {
+  const playedBefore = tidy(atMs - sound.startMsIntoScene);
+  const first: SoundClip = { ...sound, lengthMs: playedBefore };
+  const second: SoundClip = {
+    ...sound,
+    startMsIntoScene: tidy(atMs),
+    startMsIntoClip: tidy((sound.startMsIntoClip ?? 0) + playedBefore),
+  };
+  // No lengthMs means "to the end of the file", which is still right.
+  if (sound.lengthMs !== undefined) {
+    second.lengthMs = tidy(sound.lengthMs - playedBefore);
+  }
+  return { first, second };
 }
 
 /** An independent copy, made the same way saving and loading would. */
@@ -146,18 +174,9 @@ export function splitVideoClip(
         secondSounds.push(toSecond(sound));
         break;
       case "split": {
-        const playedBefore = tidy(atMs - sound.startMsIntoScene);
-        firstSounds.push({ ...sound, lengthMs: playedBefore });
-        const rest: SoundClip = {
-          ...sound,
-          startMsIntoScene: 0,
-          startMsIntoClip: tidy((sound.startMsIntoClip ?? 0) + playedBefore),
-        };
-        // No lengthMs means "to the end of the file", which is still right.
-        if (sound.lengthMs !== undefined) {
-          rest.lengthMs = tidy(sound.lengthMs - playedBefore);
-        }
-        secondSounds.push(rest);
+        const halves = splitSoundClip(sound, atMs);
+        firstSounds.push(halves.first);
+        secondSounds.push(toSecond(halves.second));
         break;
       }
     }
