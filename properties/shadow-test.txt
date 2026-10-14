@@ -1,9 +1,15 @@
 Shadow Test » shadow
 → Shadow Test
 → → Slide 1: Shape Gallery
-  // [WARNING: no howToGenerate for "Nine Shapes (Shadow Test)" — manual conversion needed]
+  // No howToGenerate for "Nine Shapes (Shadow Test)", so this makes one the way the Visual Editor does.
+  const nineShapes = componentRegistry.get("Nine Shapes (Shadow Test)")!.create();
+  nineShapes.layoutSchedule.set([{"time":0,"value":{"x":0.5,"y":4.5,"width":6,"height":4}},{"time":3000,"value":{"x":5,"y":0.5,"width":6,"height":4}},{"time":6500,"value":{"x":9.5,"y":4.5,"width":6,"height":4}},{"time":9500,"value":{"x":0.5,"y":0.5,"width":15,"height":8}}]);
+  this.addFixed({ child: nineShapes });
 → → Slide 1a: Generic Container
-  // [WARNING: no howToGenerate for "Nine Shapes (Shadow Test)" — manual conversion needed]
+  // No howToGenerate for "Nine Shapes (Shadow Test)", so this makes one the way the Visual Editor does.
+  const nineShapes2 = componentRegistry.get("Nine Shapes (Shadow Test)")!.create();
+  nineShapes2.layoutSchedule.set([{"time":0,"value":{"x":0.5,"y":4.5,"width":6,"height":4}},{"time":3000,"value":{"x":5,"y":0.5,"width":6,"height":4}},{"time":6500,"value":{"x":9.5,"y":4.5,"width":6,"height":4}},{"time":9500,"value":{"x":0.5,"y":0.5,"width":15,"height":8}}]);
+  this.addFixed({ child: nineShapes2 });
   const text = new TextComponent({ description: "Text" });
   text.rectSchedule.set({"x":0.5,"y":0.5,"width":8,"height":4});
   text.textSchedule.set([{"time":0,"value":"a b c d e f g h i j k l m n o p q r s t u v w x y z"},{"time":9178.699999999999,"value":"a b c d e f g h i j k l m n o p q r s t u v w x y z"}]);

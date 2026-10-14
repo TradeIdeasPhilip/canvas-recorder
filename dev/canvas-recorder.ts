@@ -50,6 +50,7 @@ import {
   isVideoSnapshot,
   JsonFileEntry,
   omitComponentDefaults,
+  registryDefault,
   omitTreeDefaults,
   serializeComponents,
   serializeScalars,
@@ -2609,7 +2610,29 @@ type ClassDefaults = {
   readonly schedulePropertyNames: ReadonlyMap<string, string>;
   /** Scalar description → the property that holds it. */
   readonly scalarPropertyNames: ReadonlyMap<string, string>;
+  /** A new instance's sound clips. */
+  readonly soundClips: readonly SoundClip[] | undefined;
 };
+
+/**
+ * Map each of `items` (schedules or scalars) to the property of `owner` that
+ * holds it, by identity.  Missing for one held in a `#private` field.
+ */
+function propertyNamesOf(
+  owner: object,
+  items: readonly { description: string }[],
+): Map<string, string> {
+  const names = new Map<string, string>();
+  for (const item of items) {
+    for (const [k, v] of Object.entries(owner as Record<string, unknown>)) {
+      if (v === item) {
+        names.set(item.description, k);
+        break;
+      }
+    }
+  }
+  return names;
+}
 
 const classDefaultsCache = new Map<new () => Showable, ClassDefaults>();
 
@@ -2622,25 +2645,13 @@ function classDefaults(cls: new () => Showable): ClassDefaults {
   let cached = classDefaultsCache.get(cls);
   if (!cached) {
     const instance = new cls();
-    // Map description → property name via reference identity.
-    const propertyNames = (items: readonly { description: string }[]) => {
-      const names = new Map<string, string>();
-      for (const item of items) {
-        for (const [k, v] of Object.entries(instance as Record<string, unknown>)) {
-          if (v === item) {
-            names.set(item.description, k);
-            break;
-          }
-        }
-      }
-      return names;
-    };
     cached = {
       schedules: serializeSchedules(instance.schedules ?? []),
       scalars: serializeScalars(instance.scalars ?? []),
       duration: instance.duration,
-      schedulePropertyNames: propertyNames(instance.schedules ?? []),
-      scalarPropertyNames: propertyNames(instance.scalars ?? []),
+      schedulePropertyNames: propertyNamesOf(instance, instance.schedules ?? []),
+      scalarPropertyNames: propertyNamesOf(instance, instance.scalars ?? []),
+      soundClips: instance.soundClips,
     };
     classDefaultsCache.set(cls, cached);
   }
@@ -2728,16 +2739,27 @@ function buildDiffText(): string {
     const rk = comp.registryKey ?? "unknown";
     const regEntry = componentRegistry.get(rk);
 
-    if (!regEntry?.howToGenerate) {
+    // Without howToGenerate, the registry still knows how to make a new one:
+    // compare with that, and find property names on the live component.
+    // Components registered by a project using this as a library usually
+    // have no howToGenerate, and their sound clips matter as much as anyone's.
+    const fresh = regEntry?.howToGenerate ? undefined : registryDefault(rk);
+    if (!regEntry || (!regEntry.howToGenerate && !fresh)) {
       out.push(
-        `${indent}// [WARNING: no howToGenerate for "${rk}" — manual conversion needed]`,
+        `${indent}// [WARNING: "${rk}" isn't in the component registry — manual conversion needed]`,
       );
       return out;
     }
-
-    const cls = regEntry.howToGenerate.class;
-    const className = cls.name;
-    const def = classDefaults(cls);
+    const def: ClassDefaults = regEntry.howToGenerate
+      ? classDefaults(regEntry.howToGenerate.class)
+      : {
+          schedules: fresh!.schedules ?? [],
+          scalars: fresh!.scalars ?? [],
+          duration: fresh!.duration ?? comp.duration,
+          schedulePropertyNames: propertyNamesOf(comp, comp.schedules ?? []),
+          scalarPropertyNames: propertyNamesOf(comp, comp.scalars ?? []),
+          soundClips: fresh!.soundClips,
+        };
     const schedulePropMap = def.schedulePropertyNames;
     const scalarPropMap = def.scalarPropertyNames;
 
@@ -2750,9 +2772,19 @@ function buildDiffText(): string {
     const varName = uniqueVarName(toVarName(displayName) || "comp");
     const ctorDesc = comp.userEditableDescription ?? comp.description ?? rk;
 
-    out.push(
-      `${indent}const ${varName} = new ${className}({ description: ${JSON.stringify(ctorDesc)} });`,
-    );
+    if (regEntry.howToGenerate) {
+      out.push(
+        `${indent}const ${varName} = new ${regEntry.howToGenerate.class.name}({ description: ${JSON.stringify(ctorDesc)} });`,
+      );
+    } else {
+      // The live object's class, so the properties below type-check.
+      const className = comp.constructor.name;
+      const cast = className && className !== "Object" ? ` as ${className}` : "";
+      out.push(
+        `${indent}// No howToGenerate for "${rk}", so this makes one the way the Visual Editor does.`,
+        `${indent}const ${varName} = componentRegistry.get(${JSON.stringify(rk)})!.create()${cast};`,
+      );
+    }
 
     for (const curS of curSchedules) {
       const defS = defSchedules.find((s) => s.description === curS.description);
@@ -2793,9 +2825,12 @@ function buildDiffText(): string {
       out.push(`${indent}${varName}.setDuration(${comp.duration});`);
     }
 
-    if (comp.soundClips?.length) {
+    if (
+      (comp.soundClips?.length || def.soundClips?.length) &&
+      JSON.stringify(comp.soundClips ?? []) !== JSON.stringify(def.soundClips ?? [])
+    ) {
       out.push(
-        `${indent}${varName}.soundClips = ${JSON.stringify(comp.soundClips)};`,
+        `${indent}${varName}.soundClips = ${JSON.stringify(comp.soundClips ?? [])};`,
       );
     }
 
