@@ -110,6 +110,16 @@ function describe(view: Omit<ViewWord, "element">): string {
   ].join("\n");
 }
 
+/**
+ * How the playhead is marked:  the CSS class for the word the playhead is in,
+ * or, like a text cursor, a bar in the gap just after or just before it.
+ */
+const PLAYHEAD_CLASSES = {
+  in: "current",
+  after: "playhead-after",
+  before: "playhead-before",
+} as const;
+
 // MARK: The view
 
 /**
@@ -154,8 +164,8 @@ export class TranscriptView {
 
   /** Where the playhead is:  the word being spoken, or in a pause, the last word before it. */
   #current: ViewWord | undefined;
-  /** The word highlighted as being spoken.  Undefined in a pause. */
-  #speaking: ViewWord | undefined;
+  /** The word carrying the playhead mark, and which mark.  See {@link PLAYHEAD_CLASSES}. */
+  #marked: { readonly view: ViewWord; readonly className: string } | undefined;
   /** For following the playhead:  was its word in sight at the last update? */
   #wasVisible = true;
   #wasPlaying = false;
@@ -255,11 +265,12 @@ export class TranscriptView {
     this.#playMs = playMs;
     this.#rebuildIfNeeded();
     this.#drawSelectedClip();
-    const { anchor, speaking } = this.#wordAt(playMs);
-    if (speaking !== this.#speaking) {
-      this.#speaking?.element.classList.remove("current");
-      speaking?.element.classList.add("current");
-      this.#speaking = speaking;
+    const { anchor, side } = this.#wordAt(playMs);
+    const className = side && PLAYHEAD_CLASSES[side];
+    if (anchor !== this.#marked?.view || className !== this.#marked?.className) {
+      this.#marked?.view.element.classList.remove(this.#marked.className);
+      if (anchor && className) anchor.element.classList.add(className);
+      this.#marked = anchor && className ? { view: anchor, className } : undefined;
     }
     this.#current = anchor;
     if (!anchor) {
@@ -314,7 +325,7 @@ export class TranscriptView {
     this.#byElement.clear();
     this.#clipElements.clear();
     this.#current = undefined;
-    this.#speaking = undefined;
+    this.#marked = undefined;
 
     if (clips.length === 0) {
       this.#status.textContent = "No sound clips here.";
@@ -445,10 +456,12 @@ export class TranscriptView {
   /**
    * Where `ms` is in the words.
    * * `anchor`:  the last word whose cut point has passed, or the first word
-   *   before any have.  This is what scrolling and the arrows go by.
-   * * `speaking`:  the anchor, if `ms` is still inside it.
+   *   before any have.  This is what scrolling, the arrows and the playhead
+   *   mark go by.
+   * * `side`:  whether `ms` is inside the anchor, in the pause after it, or
+   *   before it (only before the very first word).
    */
-  #wordAt(ms: number): { anchor?: ViewWord; speaking?: ViewWord } {
+  #wordAt(ms: number): { anchor?: ViewWord; side?: keyof typeof PLAYHEAD_CLASSES } {
     const words = this.#played;
     let low = 0;
     let high = words.length - 1;
@@ -462,8 +475,8 @@ export class TranscriptView {
         high = middle - 1;
       }
     }
-    if (!found) return { anchor: words[0] };
-    return { anchor: found, speaking: ms < found.cutAfterMs ? found : undefined };
+    if (!found) return words.length ? { anchor: words[0], side: "before" } : {};
+    return { anchor: found, side: ms < found.cutAfterMs ? "in" : "after" };
   }
 
   #isVisible(view: ViewWord): boolean {

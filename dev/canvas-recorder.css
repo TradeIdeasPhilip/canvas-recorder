@@ -227,10 +227,35 @@ body {
 #transcriptView .tv-word.doubtful {
   background: #ffe0b0;
 }
-/* The word being spoken.  After the colors above, so it wins over them. */
+/* The word being spoken.  After the colors above, so it wins over them.
+   Solid blue with white text:  nothing else here looks like it, not even the
+   orange and red flags. */
 #transcriptView .tv-word.current {
-  background: #ffe066;
-  outline: 1px solid #c9a800;
+  background: #1d5fd6;
+  color: #fff;
+}
+/* In a pause, the playhead is a bar in the gap, like a text cursor:  just
+   after the last word spoken, or just before the very first word.  It's
+   positioned absolutely so the text never shifts as it comes and goes. */
+#transcriptView .tv-word.playhead-after,
+#transcriptView .tv-word.playhead-before {
+  position: relative;
+}
+#transcriptView .tv-word.playhead-after::after,
+#transcriptView .tv-word.playhead-before::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  width: 3px;
+  border-radius: 1px;
+  background: #1d5fd6;
+}
+#transcriptView .tv-word.playhead-after::after {
+  right: -4px;
+}
+#transcriptView .tv-word.playhead-before::before {
+  left: -4px;
 }
 /* Part of the file that no clip plays. */
 #transcriptView .tv-word.cut {
