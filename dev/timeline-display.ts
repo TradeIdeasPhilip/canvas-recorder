@@ -69,7 +69,19 @@ export type TimelineWord = {
   readonly cutBeforeMs: number;
   /** The quiet moment just after it. */
   readonly cutAfterMs: number;
+  /**
+   * Worth an editor's attention?  Drawn with a red (`left out`) or orange
+   * (`doubtful`) background, wide enough to see even zoomed out, when the
+   * word's label isn't drawn.  See `wordFlag()` in transcript-align.ts.
+   */
+  readonly flag?: "left out" | "doubtful";
 };
+
+/** Background colors for flagged words.  The 📖 Read view uses lighter versions of the same colors. */
+const WORD_FLAG_COLORS = {
+  "left out": "rgba(225, 30, 30, 0.9)",
+  doubtful: "rgba(255, 140, 0, 0.8)",
+} as const;
 
 /** Which row each block is in, and where each row is, in CSS px. */
 type RowLayout = {
@@ -445,6 +457,20 @@ export class TimelineDisplay {
     }
     const hovered =
       this._hoverWord?.block === block ? this._hoverWord.word : undefined;
+    // Flagged words first, under everything else.  At least a few pixels
+    // wide, so a mistake is visible even when the timeline is zoomed out
+    // too far for its label.  Orange first, so red wins where they touch.
+    for (const flag of ["doubtful", "left out"] as const) {
+      ctx.fillStyle = WORD_FLAG_COLORS[flag];
+      for (const word of transcript) {
+        if (word.flag !== flag) continue;
+        const fx0 = msToX(word.cutBeforeMs);
+        const fx1 = msToX(word.cutAfterMs);
+        if (fx1 < left || fx0 > right) continue;
+        const width = Math.max(fx1 - fx0, 3 * dpr);
+        ctx.fillRect((fx0 + fx1) / 2 - width / 2, top, width, height);
+      }
+    }
     if (hovered) {
       // The whole word, cut to cut, across the full height of the block.
       const hx0 = msToX(hovered.cutBeforeMs);

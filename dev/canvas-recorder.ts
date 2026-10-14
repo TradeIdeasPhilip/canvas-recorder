@@ -107,6 +107,7 @@ import {
   transcriptsSummary,
 } from "./transcripts.ts";
 import { transcriptFileName, transcriptJson } from "./transcript-export.ts";
+import { wordFlag } from "./transcript-align.ts";
 import type { Device } from "./transcribe-core.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
@@ -131,9 +132,11 @@ import { SingleImageComponent } from "../src/slide-components/image.ts";
 import { buildStaticImagePanel } from "./static-image-panel.ts";
 import { InSeriesComponent } from "../src/slide-components/in-series.ts";
 import {
+  cutOutOfSoundClip,
   splitSoundClip,
   splitVideoClip,
 } from "../src/slide-components/split-video-clip.ts";
+import { TranscriptView } from "./transcript-view.ts";
 import { TraditionalTextComponent } from "../src/slide-components/traditional-text.ts";
 import { PaddingComponent } from "../src/slide-components/in-parallel.ts";
 
@@ -201,6 +204,12 @@ const context = assertNonNullable(canvas.getContext("2d"));
 const timelineDisplay = new TimelineDisplay(
   getById("timelineCanvas", HTMLCanvasElement),
 );
+
+/**
+ * The transcript as text, in the timeline's place when 📖 Read is checked.
+ * Created later, once the things it reads exist.  See "MARK: Transcripts".
+ */
+let transcriptView: TranscriptView | undefined;
 
 /**
  * By analogy to an SVG view box, we always focus on the ideal coordinates.
@@ -368,6 +377,7 @@ function showFrame(timeInMs: number, live: boolean) {
     timeInMs - rootStartMs,
     live && playCheckBox.checked,
   );
+  if (live) transcriptView?.update(timeInMs - rootStartMs, playCheckBox.checked);
   for (const update of goToButtonUpdaters) update();
   context.reset();
   context.setTransform(mainTransform());
@@ -1822,6 +1832,77 @@ onTranscriptsChange(() => {
   timelineDisplay.redraw();
 });
 
+// The transcript as text.  It rebuilds itself when the clips or transcripts
+// change, so it needs no calls besides the one in showFrame().
+transcriptView = new TranscriptView({
+  clips() {
+    const root = currentRoot();
+    if (!root) return [];
+    return soundOwners(root)
+      .flatMap(({ owner, startMs }) =>
+        (owner.soundClips ?? []).map((clip) => ({
+          clip,
+          owner,
+          startMs: startMs + clip.startMsIntoScene,
+          lengthMs: soundClipLengthMs(clip),
+        })),
+      )
+      .sort((a, b) => a.startMs - b.startMs);
+  },
+  transcript(source) {
+    const status = transcriptStatus(source);
+    if (!status) return undefined;
+    return status.kind === "ready" ? status.transcript : (statusText(status) ?? "");
+  },
+  seek: (rootMs) => timelineDisplay.onSeek?.(rootMs),
+  selectClip: (clip) => timelineDisplay.onBlockClick?.(clip),
+  selectedClip: () => selectedSoundClip,
+  cutOut({ clip, owner, lengthMs }, fromMs, toMs, closeGap) {
+    const clips = owner.soundClips;
+    const index = clips?.indexOf(clip) ?? -1;
+    if (!clips || index < 0) return;
+    const pieces = cutOutOfSoundClip(clip, fromMs, toMs, closeGap, lengthMs);
+    // Notes that 📝 filled in describe the whole clip.  Give each piece its own.
+    if (clip.notes !== undefined && clip.notes === clipText(clip)) {
+      for (const piece of pieces) piece.notes = clipText(piece) || undefined;
+    }
+    clips.splice(index, 1, ...pieces);
+    selectedSoundClip = pieces[0];
+    markDirty();
+    clearTimeout(_durationAudioTimer);
+    _durationAudioTimer = setTimeout(() => void initAudio(), 300);
+    // Show the owner's Sound Clips, with the remaining piece highlighted.
+    selectInChapter(owner);
+    if (_veRootSelectable) _updateTimeline(_veRootSelectable);
+  },
+});
+getById("timelineCanvas", HTMLCanvasElement).after(transcriptView.element);
+{
+  const READ_KEY = "transcriptView.on";
+  const checkbox = getById("transcriptViewCheckbox", HTMLInputElement);
+  const timelineCanvas = getById("timelineCanvas", HTMLCanvasElement);
+  const apply = () => {
+    transcriptView!.hidden = !checkbox.checked;
+    // The timeline's CSS sets `display`, which would beat the `hidden` attribute.
+    timelineCanvas.style.display = checkbox.checked ? "none" : "";
+    if (!checkbox.checked) timelineDisplay.redraw();
+  };
+  try {
+    checkbox.checked = localStorage.getItem(READ_KEY) === "true";
+  } catch {
+    // Remembering is only a convenience.
+  }
+  checkbox.addEventListener("input", () => {
+    try {
+      localStorage.setItem(READ_KEY, String(checkbox.checked));
+    } catch {
+      // See above.
+    }
+    apply();
+  });
+  apply();
+}
+
 timelineDisplay.onSeek = (localMs) => {
   stopAudio();
   loadPlayPositionSeconds(localMs + rootStartMs);
@@ -1931,11 +2012,13 @@ function timelineWords(
   // File time to chapter time.
   const shift = clipStart - fromMs;
   const words = wordsInClip(clip, transcript).map((w) => ({
-    text: w.text,
+    // Speech Whisper left out is bracketed, as in the 📖 Read view.
+    text: w.timing === "letters" ? `[${w.text}]` : w.text,
     startMs: w.startMs + shift,
     endMs: w.endMs + shift,
     cutBeforeMs: w.cutBeforeMs + shift,
     cutAfterMs: w.cutAfterMs + shift,
+    flag: wordFlag(w),
   }));
   // Every cut in the file, not just in the clip, so an edge can be dragged
   // outward onto a word that isn't in the clip yet.

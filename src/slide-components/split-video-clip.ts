@@ -89,6 +89,46 @@ export function splitSoundClip(
   return { first, second };
 }
 
+/**
+ * Cut the stretch from `fromMs` to `toMs` out of a sound clip, the way an
+ * editor deletes a fluffed line.
+ *
+ * Times are in the same time as `sound.startMsIntoScene`:  its owner's.  The
+ * stretch is clamped to the clip.
+ *
+ * @param closeGap True to move the rest of the clip earlier so it starts where
+ * the cut started (a "ripple delete").  Nothing else moves:  not the other
+ * sound clips, and not the picture.
+ * @param lengthMs How long `sound` plays, or undefined for "to the end of its
+ * file", unknown here.
+ * @returns What replaces `sound`:  nothing, one piece or two.  `sound` itself
+ * is not modified.
+ */
+export function cutOutOfSoundClip(
+  sound: SoundClip,
+  fromMs: number,
+  toMs: number,
+  closeGap: boolean,
+  lengthMs: number | undefined,
+): SoundClip[] {
+  const start = sound.startMsIntoScene;
+  const end = lengthMs === undefined ? Infinity : start + lengthMs;
+  fromMs = Math.max(fromMs, start);
+  toMs = Math.min(toMs, end);
+  if (toMs <= fromMs) return [{ ...sound }];
+  const pieces: SoundClip[] = [];
+  if (fromMs > start) pieces.push(splitSoundClip(sound, fromMs).first);
+  if (toMs < end) {
+    const rest = splitSoundClip(sound, toMs).second;
+    pieces.push(
+      closeGap
+        ? { ...rest, startMsIntoScene: tidy(rest.startMsIntoScene - (toMs - fromMs)) }
+        : rest,
+    );
+  }
+  return pieces;
+}
+
 /** An independent copy, made the same way saving and loading would. */
 function copyOf(clip: VideoClipComponent): VideoClipComponent {
   const [copy] = buildComponents(serializeComponents([clip]));

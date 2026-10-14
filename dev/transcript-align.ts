@@ -505,6 +505,34 @@ export function recoverSkippedSpeech(
   return result;
 }
 
+// MARK: Worth a listen
+
+/** Letters only, lower case, for comparing what Whisper wrote with what was heard. */
+const squash = (s: string) => s.toLowerCase().replace(/[^a-z']/g, "");
+
+/**
+ * What's interesting about a word, for an editor hunting mistakes, or
+ * undefined for an ordinary word.
+ *
+ * * `left out`:  speech Whisper didn't write down, found by the letter model.
+ *   In practice, almost always a mistake:  a repeated word, a false start, an
+ *   "um".  Whisper hid it; the editor wants it highlighted.
+ * * `doubtful`:  Whisper wrote it, but the letter model heard nothing there,
+ *   or something that doesn't even start the same way.  Rough, but in testing
+ *   it found real misreadings ("and pairs" for "in pairs").
+ */
+export function wordFlag(word: TranscriptWord): "left out" | "doubtful" | undefined {
+  if (word.timing === "letters") return "left out";
+  const text = squash(word.text);
+  // `heard` is missing from transcripts made before it existed.
+  const heard = squash(word.heard ?? "");
+  if (text === "") return undefined;
+  if (heard === "" || (text.length > 2 && !heard.includes(text.slice(0, 2)))) {
+    return "doubtful";
+  }
+  return undefined;
+}
+
 // MARK: Cut points
 
 /** How finely to search for the quietest moment.  One 10 ms window at a time. */

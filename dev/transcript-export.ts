@@ -1,6 +1,6 @@
 import { SoundClip } from "../src/showable.ts";
 import { MODELS, PIPELINE_VERSION } from "./transcribe-core.ts";
-import type { TranscriptWord } from "./transcript-align.ts";
+import { type TranscriptWord, wordFlag } from "./transcript-align.ts";
 import type { Transcript } from "./transcripts.ts";
 
 /**
@@ -59,6 +59,8 @@ export function transcriptJson(transcript: Transcript, context: ClipContext): st
         "When it disagrees with text, or is empty, that's worth a listen:  Whisper tidies, the letter model doesn't.",
       "confidence:  0 to 1, how well the audio matched the letters.  Low means noise, mumbling, or a word that wasn't said.",
       "cutBeforeMs / cutAfterMs:  the quietest moment just before and after the word:  the best places to cut.",
+      "flag:  only on words worth an editor's attention.  'left out' (timing 'letters') is almost always a mistake:  " +
+        "a repeat, a false start, an um.  'doubtful' means the letter model heard nothing there, or something else.",
     ],
     file: clip.source,
     clip: {
@@ -78,6 +80,7 @@ export function transcriptJson(transcript: Transcript, context: ClipContext): st
       models: MODELS,
       wordCount: transcript.words.length,
       recoveredCount: transcript.words.filter((w) => w.timing === "letters").length,
+      doubtfulCount: transcript.words.filter((w) => wordFlag(w) === "doubtful").length,
       text: asText(transcript.words),
     },
     words: "@@WORDS@@",
@@ -93,6 +96,8 @@ export function transcriptJson(transcript: Transcript, context: ClipContext): st
       timing: w.timing,
       confidence: Math.round(w.confidence * 1000) / 1000,
       heard: w.heard,
+      // Only on flagged words:  JSON leaves out undefined.
+      flag: wordFlag(w),
       inClip: inClip(w),
     }),
   );

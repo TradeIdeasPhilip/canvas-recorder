@@ -145,6 +145,112 @@ body {
   box-sizing: border-box;
 }
 
+/* ── Transcript view:  the timeline's sound as readable text ─────────── */
+
+/* Takes the timeline's place.  Drag the bottom corner to make it taller. */
+#transcriptView {
+  flex-shrink: 0;
+  height: 240px;
+  min-height: 80px;
+  resize: vertical;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid #bbb;
+}
+#transcriptView[hidden] {
+  display: none;
+}
+#transcriptView .tv-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  padding: 0.15em 0.5em;
+  font-size: 0.85em;
+  border-bottom: 1px solid #ddd;
+}
+#transcriptView .tv-status {
+  color: #555;
+}
+#transcriptView .tv-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+#transcriptView .tv-scroll {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  padding: 0.2em 0.6em;
+  line-height: 1.5;
+}
+#transcriptView .tv-clip-head {
+  margin-top: 0.5em;
+  padding-top: 0.2em;
+  border-top: 1px solid #ddd;
+  font-size: 0.8em;
+  color: #666;
+  cursor: pointer;
+}
+#transcriptView .tv-clip:first-child .tv-clip-head {
+  margin-top: 0;
+  border-top: none;
+}
+#transcriptView .tv-clip.selected .tv-clip-head {
+  color: #1e6b1e;
+  font-weight: bold;
+}
+#transcriptView .tv-para {
+  margin: 0.15em 0;
+}
+#transcriptView .tv-note {
+  font-style: italic;
+  color: #777;
+}
+#transcriptView .tv-word {
+  cursor: pointer;
+  border-radius: 2px;
+}
+#transcriptView .tv-word:hover {
+  background: #e4ecff;
+}
+/* Speech Whisper left out, found by the letter model.  Almost always a
+   mistake, so it's loud on purpose.  The timeline uses the same red. */
+#transcriptView .tv-word.recovered {
+  background: #ffc4c4;
+  color: #900;
+  font-style: italic;
+}
+/* Whisper wrote it, but the letter model heard something else:  worth a
+   listen.  The timeline uses the same orange. */
+#transcriptView .tv-word.doubtful {
+  background: #ffe0b0;
+}
+/* The word being spoken.  After the colors above, so it wins over them. */
+#transcriptView .tv-word.current {
+  background: #ffe066;
+  outline: 1px solid #c9a800;
+}
+/* Part of the file that no clip plays. */
+#transcriptView .tv-word.cut {
+  color: #aaa;
+  text-decoration: line-through;
+  cursor: default;
+}
+#transcriptView .tv-jump {
+  position: absolute;
+  right: 1.4em;
+  z-index: 1;
+  font-size: 0.8em;
+}
+#transcriptView .tv-jump.up {
+  top: 0.3em;
+}
+#transcriptView .tv-jump.down {
+  bottom: 0.3em;
+}
+
 #componentsEditor {
   flex: 1;
   min-height: 0;
