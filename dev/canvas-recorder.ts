@@ -106,6 +106,7 @@ import {
   transcriptStatus,
   transcriptsSummary,
 } from "./transcripts.ts";
+import { transcriptFileName, transcriptJson } from "./transcript-export.ts";
 import type { Device } from "./transcribe-core.ts";
 import { showableOptions } from "../src/dynamic-exports.ts";
 import { watchServiceWorkerReady } from "./delay-files.ts";
@@ -5010,7 +5011,42 @@ function buildSoundClipSection(selectable: Showable): HTMLElement {
       _onClipValueChanged();
     });
 
-    row1.append(notesInput, fromTranscriptBtn, upBtn, downBtn, delBtn);
+    const saveTranscriptBtn = document.createElement("button");
+    saveTranscriptBtn.type = "button";
+    saveTranscriptBtn.textContent = "💾";
+    saveTranscriptBtn.title =
+      "Save this file's whole transcript as JSON, with times for every word, " +
+      "and where this clip starts and stops in it.";
+    saveTranscriptBtn.addEventListener("click", () => {
+      const transcript = readyTranscript(clip.source);
+      if (!transcript) {
+        alert(
+          transcriptsEnabled()
+            ? "This clip's transcript isn't ready yet.  Its progress shows on the timeline."
+            : "Transcripts are off.  Turn on 🗣 Transcripts above the timeline.",
+        );
+        return;
+      }
+      const json = transcriptJson(transcript, {
+        clip,
+        ownerName: selectable.userEditableDescription ?? selectable.description,
+        startsInVideoMs: selfStartMs + clip.startMsIntoScene,
+        lengthMs: soundClipLengthMs(clip),
+      });
+      downloadBlob(
+        transcriptFileName(clip.source),
+        new Blob([json], { type: "application/json" }),
+      );
+    });
+
+    row1.append(
+      notesInput,
+      fromTranscriptBtn,
+      saveTranscriptBtn,
+      upBtn,
+      downBtn,
+      delBtn,
+    );
 
     // Row 2: source URL
     const row2 = document.createElement("div");

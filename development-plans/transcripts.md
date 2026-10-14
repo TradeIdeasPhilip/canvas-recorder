@@ -22,6 +22,10 @@ Free and local:  open models (MIT / Apache) run in the browser, with no service,
   Hold **Alt** to drag freely.
 * A clip with no Notes is labelled with its first few words.
   **📝** on a sound clip's card replaces its Notes with everything the clip says.
+* **💾** on a sound clip's card saves the file's whole transcript as `<file>.transcript.json`:
+  every word with its times, cut points, confidence and what the letter model heard, one word per line.
+  The top says where the clip starts and stops in the file and in the video, and its text.
+  For finding what to cut, by hand or by handing the file to someone else.
 * Console:
   * `await philDebug.transcribe(url, device)` transcribes one file from scratch, skipping the cache, and reports the time.
     `device` is `"webgpu"` or `"wasm"`; leave it out for the normal choice.
@@ -40,6 +44,28 @@ A clip is a window into a file, so one transcript serves every clip cut from it,
    Numbers and a few symbols are spelled out first ("2" → TWO, "1981" → NINETEEN EIGHTY ONE, "+" → PLUS), since wav2vec2 only knows letters.
 4. **Cut points:**  for each word, the quietest 10 ms just before it and just after it, within 200 ms of the word.
    Between two words close together, they're the same moment.
+
+**Literal, not tidy (pipeline version 2, 10/13/2026).**
+Whisper was trained on transcripts people had cleaned up, so it drops repeated words, false starts and "um"s,
+and sometimes rewrites what was said ("in pairs" became "and pairs").
+Those are exactly what an editor needs to find.
+wav2vec2 spells what it hears, letter by letter, and never tidies, so it now does two more jobs:
+
+* **Recovering what Whisper left out** (`recoverSkippedSpeech()`).
+  Anything outside the words Whisper found, where wav2vec2 confidently hears letters, becomes an extra word with timing `letters`.
+  The transcript JSON shows these in [brackets].
+* **`heard` on every word:**  what wav2vec2 heard between the word's cut points, on its own.
+  When it disagrees with Whisper's text, or is empty, listen there.
+
+This needed wav2vec2 at **full precision** (about 380 MB, downloaded once).
+At 8 bits it was fine for timing but nearly deaf on its own:  on the Recap voiceover it heard nothing for about 40 words.
+At full precision, on three voiceovers in Node:
+
+* Going deeper:  nothing recovered, no disagreements.  No false alarms.
+* Recap:  4 disagreements, including "wanted" heard as "going" and an "and" that the letter model heard no trace of.
+* Does 2 + 2 = 4:  one recovered "[and]", a false start; "and pairs" heard as "in pears", and "And we do it again" heard as "chen".
+
+The thresholds (`RECOVER_MIN_PROBABILITY` and friends in `transcript-align.ts`) were not tuned beyond that.
 
 Files:
 

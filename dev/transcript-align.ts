@@ -17,7 +17,10 @@
 
 /** One word, with times in ms from the start of its file. */
 export type TranscriptWord = {
-  /** As Whisper wrote it, punctuation and all. */
+  /**
+   * As Whisper wrote it, punctuation and all.  For a word Whisper left out
+   * ({@link timing} `letters`), as the letter model spelled it, in lower case.
+   */
   readonly text: string;
   readonly startMs: number;
   /**
@@ -31,10 +34,15 @@ export type TranscriptWord = {
   /** The best place to cut just after this word, tail included. */
   readonly cutAfterMs: number;
   /**
-   * Where the times came from.  `whisper` only when alignment wasn't possible:
-   * a word with no letters to align, or a stretch that wouldn't fit.
+   * Where the word and its times came from.
+   * * `aligned`:  Whisper's word, timed by the letter model.  The usual case.
+   * * `whisper`:  Whisper's word and Whisper's times, when alignment wasn't
+   *   possible:  a word with no letters to align, or a stretch that wouldn't fit.
+   * * `letters`:  speech Whisper **left out**, such as a repeated word, a false
+   *   start or an "um".  Whisper tidies what it hears; the letter model doesn't.
+   *   See {@link recoverSkippedSpeech}.
    */
-  readonly timing: "aligned" | "whisper";
+  readonly timing: "aligned" | "whisper" | "letters";
   /**
    * How sure the letter model was, 0 to 1:  the average probability it gave
    * the letters it was made to hear.  Low in noise and mumbling.  Only
@@ -42,13 +50,21 @@ export type TranscriptWord = {
    * against full-precision models they beat Whisper's times anyway.
    */
   readonly confidence: number;
+  /**
+   * What the letter model heard from {@link cutBeforeMs} to {@link cutAfterMs},
+   * on its own, spelled in lower case.  Rough:  it spells by sound and knows
+   * no words.  But it never tidies, so when it disagrees with {@link text},
+   * that's worth a listen.  "" when it heard no letters, which is suspicious
+   * for a Whisper word.
+   */
+  readonly heard: string;
 };
 
 /** A word's times after alignment. */
 export type AlignedTimes = {
   readonly startMs: number;
   readonly endMs: number;
-  readonly timing: "aligned" | "whisper";
+  readonly timing: TranscriptWord["timing"];
   readonly confidence: number;
 };
 
@@ -140,6 +156,8 @@ export type CtcEmissions = {
   readonly wordSeparator?: number;
   /** The token for one letter, apostrophe included. */
   readonly tokenOf: (letter: string) => number | undefined;
+  /** The letter for one token, or undefined for anything that isn't a letter or apostrophe. */
+  readonly letterOf: (token: number) => string | undefined;
 };
 
 /**
@@ -322,6 +340,171 @@ export function alignWords(
   return result;
 }
 
+// MARK: What the letters say
+
+/** A word the letter model heard on its own, with no help from Whisper. */
+export type HeardWord = {
+  /** Lower case letters and apostrophes. */
+  readonly text: string;
+  readonly firstFrame: number;
+  /** Inclusive. */
+  readonly lastFrame: number;
+  /** The average probability of its letters, 0 to 1. */
+  readonly probability: number;
+};
+
+/**
+ * A pause this long, in frames (240 ms), ends a word even when the model
+ * didn't mark the end of the word.
+ */
+const HEARD_WORD_GAP_FRAMES = 12;
+
+/**
+ * What the letter model hears in frames [firstFrame, endFrame) on its own:
+ * the likeliest letter in each frame, repeats merged, blanks dropped
+ * (greedy CTC decoding).  Words end at the model's word separator, or at a
+ * long pause.
+ *
+ * It spells by sound and knows no words, so it's rough.  But unlike Whisper
+ * it never tidies anything up:  a repeated word is heard twice, and an "um" is
+ * heard at all.
+ */
+export function lettersHeard(
+  emissions: CtcEmissions,
+  firstFrame: number,
+  endFrame: number,
+): HeardWord[] {
+  const { logProbs, vocabularySize, blank, wordSeparator } = emissions;
+  const result: HeardWord[] = [];
+  let letters = "";
+  let start = -1;
+  let last = -1;
+  let probabilitySum = 0;
+  let frames = 0;
+  const finish = () => {
+    if (letters) {
+      result.push({
+        text: letters.toLowerCase(),
+        firstFrame: start,
+        lastFrame: last,
+        probability: probabilitySum / frames,
+      });
+    }
+    letters = "";
+    probabilitySum = 0;
+    frames = 0;
+  };
+  let previous = blank;
+  for (let t = Math.max(0, firstFrame); t < Math.min(endFrame, emissions.frameCount); t++) {
+    let best = 0;
+    let bestLogProb = -Infinity;
+    for (let token = 0; token < vocabularySize; token++) {
+      const logProb = logProbs[t * vocabularySize + token];
+      if (logProb > bestLogProb) {
+        bestLogProb = logProb;
+        best = token;
+      }
+    }
+    if (best === wordSeparator) {
+      finish();
+    } else {
+      const letter = best === blank ? undefined : emissions.letterOf(best);
+      if (letter === undefined) {
+        if (letters && t - last > HEARD_WORD_GAP_FRAMES) finish();
+      } else {
+        if (!letters) start = t;
+        // The same letter in neighboring frames is one letter, held.
+        if (best !== previous) letters += letter;
+        last = t;
+        probabilitySum += Math.exp(bestLogProb);
+        frames++;
+      }
+    }
+    previous = best;
+  }
+  finish();
+  return result;
+}
+
+/**
+ * What the letter model heard from `fromMs` to `toMs`, as one string:  the
+ * words separated by spaces, or "" for nothing.
+ */
+export function heardBetween(emissions: CtcEmissions, fromMs: number, toMs: number): string {
+  return lettersHeard(
+    emissions,
+    Math.floor(fromMs / emissions.frameMs),
+    Math.ceil(toMs / emissions.frameMs),
+  )
+    .map((word) => word.text)
+    .join(" ");
+}
+
+/**
+ * How far, in frames (40 ms), recovered speech must be from a word Whisper
+ * already has.  The letter model's peaks don't always land exactly where the
+ * alignment put a word's letters, and a stray letter just beside a word is
+ * that word, not a new one.
+ */
+const RECOVER_CLEARANCE_FRAMES = 2;
+
+/**
+ * The least average letter probability for recovered speech.  Noise, breaths
+ * and music produce the odd letter too, but the model is rarely sure of them.
+ * A single letter needs more, since "a" or "i" from a breath is the commonest
+ * false alarm.
+ */
+const RECOVER_MIN_PROBABILITY = 0.5;
+const RECOVER_MIN_PROBABILITY_ONE_LETTER = 0.75;
+
+/**
+ * Speech that Whisper left out of the transcript, found by the letter model.
+ *
+ * Whisper was trained on transcripts people had tidied, so it tends to drop
+ * repeated words, false starts and "um"s, which are exactly what an editor
+ * wants to find and cut.  Worse, when it drops one of two takes of a word,
+ * alignment pins its one word on one take, and the other looks like a pause.
+ *
+ * This looks at everything outside the words already found, and returns
+ * whatever the letter model confidently heard there, as extra words.
+ *
+ * @param times Every word's times so far, in any order.
+ */
+export function recoverSkippedSpeech(
+  times: readonly AlignedTimes[],
+  emissions: CtcEmissions,
+): { word: RoughWord; times: AlignedTimes }[] {
+  const { frameMs, frameCount } = emissions;
+  const covered = new Uint8Array(frameCount);
+  for (const { startMs, endMs } of times) {
+    const from = Math.max(0, Math.floor(startMs / frameMs) - RECOVER_CLEARANCE_FRAMES);
+    const to = Math.min(frameCount, Math.ceil(endMs / frameMs) + RECOVER_CLEARANCE_FRAMES);
+    covered.fill(1, from, to);
+  }
+  const result: { word: RoughWord; times: AlignedTimes }[] = [];
+  let t = 0;
+  while (t < frameCount) {
+    if (covered[t]) {
+      t++;
+      continue;
+    }
+    const gapStart = t;
+    while (t < frameCount && !covered[t]) t++;
+    for (const heard of lettersHeard(emissions, gapStart, t)) {
+      const needed =
+        heard.text.length === 1 ? RECOVER_MIN_PROBABILITY_ONE_LETTER : RECOVER_MIN_PROBABILITY;
+      if (heard.probability < needed) continue;
+      const startMs = heard.firstFrame * frameMs;
+      const endMs = (heard.lastFrame + 1) * frameMs;
+      result.push({
+        word: { text: heard.text, startMs, endMs },
+        times: { startMs, endMs, timing: "letters", confidence: heard.probability },
+      });
+    }
+  }
+  return result;
+}
+
 // MARK: Cut points
 
 /** How finely to search for the quietest moment.  One 10 ms window at a time. */
@@ -377,13 +560,16 @@ export function quietestMoment(
  * the quietest moment between them, shared by both.  In a longer pause each
  * side gets its own, near its word.
  *
+ * @param words In order of time, and `times` to match.
  * @param samples The same audio the words came from, mono.
+ * @param emissions For {@link TranscriptWord.heard}.
  */
 export function withCutPoints(
   words: readonly RoughWord[],
   times: readonly AlignedTimes[],
   samples: Float32Array,
   sampleRate: number,
+  emissions: CtcEmissions,
 ): TranscriptWord[] {
   const fileMs = (samples.length / sampleRate) * 1000;
   const quietest = (from: number, to: number) =>
@@ -422,5 +608,6 @@ export function withCutPoints(
     cutAfterMs: cutAfter[i],
     timing: times[i].timing,
     confidence: times[i].confidence,
+    heard: heardBetween(emissions, cutBefore[i], cutAfter[i]),
   }));
 }

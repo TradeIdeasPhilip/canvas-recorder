@@ -3,6 +3,7 @@ import {
   alignWords,
   CtcEmissions,
   quietestMoment,
+  recoverSkippedSpeech,
   RoughWord,
   TranscriptWord,
   withCutPoints,
@@ -36,18 +37,30 @@ export const MODELS = {
 } as const;
 
 /**
- * 8-bit models:  172 MB to download in all, and they run on WebGPU, WASM and
- * Node's CPU.  Measured against full precision, word starts agree within
- * 40 ms for 153 of 155 words.  The full-precision set is about twice as fast
- * on WebGPU, but 670 MB.
+ * Whisper is 8-bit:  small, and its words are as good as full precision's.
+ * Measured on the alignment alone, 8-bit wav2vec2 was fine too:  word starts
+ * agreed with full precision within 40 ms for 153 of 155 words.
  */
-const DTYPE = "q8";
+const WHISPER_DTYPE = "q8";
+
+/**
+ * wav2vec2 is full precision (about 380 MB, once), because it now also says
+ * what it hears on its own (see `TranscriptWord.heard` and
+ * `recoverSkippedSpeech()`).  At 8 bits it is nearly deaf for that:  on the
+ * one-minute Recap voiceover it heard nothing at all for about 40 words.  At
+ * full precision it disagreed with Whisper on 4, two of them real.
+ * Full precision is also about twice as fast on WebGPU.
+ */
+const ALIGNER_DTYPE = "fp32";
 
 /**
  * Change this whenever the models, their settings or the alignment change.
  * Saved transcripts made by an older version are then made again.
+ *
+ * 2:  speech Whisper left out is recovered, and every word says what the
+ * letter model heard.
  */
-export const PIPELINE_VERSION = 1;
+export const PIPELINE_VERSION = 2;
 
 /** Where the models run.  `cpu` is Node only. */
 export type Device = "webgpu" | "wasm" | "cpu";
@@ -112,7 +125,7 @@ export class Transcriber {
   private loadWhisper() {
     return this.transformers.pipeline("automatic-speech-recognition", MODELS.whisper, {
       device: this.device,
-      dtype: DTYPE,
+      dtype: WHISPER_DTYPE,
       progress_callback: this.#downloadProgress,
     });
   }
@@ -125,7 +138,7 @@ export class Transcriber {
       AutoModelForCTC.from_pretrained(MODELS.aligner, {
         ...options,
         device: this.device,
-        dtype: DTYPE,
+        dtype: ALIGNER_DTYPE,
       }),
       AutoTokenizer.from_pretrained(MODELS.aligner, options),
     ]).then(([processor, model, tokenizer]) => {
@@ -147,7 +160,19 @@ export class Transcriber {
     try {
       const rough = await this.#whisperWords(samples, onProgress);
       const emissions = await this.#letterProbabilities(samples, onProgress);
-      return withCutPoints(rough, alignWords(rough, emissions), samples, SAMPLE_RATE);
+      const aligned = alignWords(rough, emissions);
+      // Whisper's words plus what it left out, in order of time.
+      const all = [
+        ...rough.map((word, i) => ({ word, times: aligned[i] })),
+        ...recoverSkippedSpeech(aligned, emissions),
+      ].sort((a, b) => a.times.startMs - b.times.startMs);
+      return withCutPoints(
+        all.map(({ word }) => word),
+        all.map(({ times }) => times),
+        samples,
+        SAMPLE_RATE,
+        emissions,
+      );
     } finally {
       this.#onProgress = undefined;
     }
@@ -221,6 +246,11 @@ export class Transcriber {
       if (isLast) break;
     }
     const tokenOf = (letter: string) => vocabulary.get(letter);
+    const letters = new Map<number, string>();
+    for (const [text, token] of vocabulary) {
+      if (/^[A-Z']$/.test(text)) letters.set(token, text);
+    }
+    const letterOf = (token: number) => letters.get(token);
     return {
       logProbs,
       vocabularySize,
@@ -229,6 +259,7 @@ export class Transcriber {
       blank: vocabulary.get("<pad>") ?? 0,
       wordSeparator: vocabulary.get("|"),
       tokenOf,
+      letterOf,
     };
   }
 }
