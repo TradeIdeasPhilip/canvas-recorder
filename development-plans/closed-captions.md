@@ -129,10 +129,10 @@ placement is worth an editor.
 - **Re-transcribing** (a new pipeline version) makes a new transcript.  Fixes re-attach to the
   word at the same time, give or take ~60 ms, with the same `was`.  A fix that doesn't
   re-attach is listed, not silently lost.
-- **One pure function** applies a clip's fixes to its transcript words.  The Read view, the
+- **One pure function** applies a clip's fixes to its transcript words.  The Text view, the
   timeline and the caption export all go through it.
 
-### 2. Editing, in the 📖 Read view
+### 2. Editing, in the 📖 Text view
 
 - **Double-click a word**, or select it and press Enter, to edit it in place.
   - Enter commits, Escape cancels.
@@ -175,7 +175,7 @@ unlisted test video first.
 | Step | Effort |
 |---|---|
 | Fixes on sound clips, the apply function, re-attaching | ~45 min |
-| Editing in Read view, Keep as is, Next flagged | ~1–1.5 h |
+| Editing in Text view, Keep as is, Next flagged | ~1–1.5 h |
 | Building lines, the `.ytt` writer, the `.srt` fallback | ~1 h |
 | Export button, "In captions" per clip | ~30 min |
 | **Total** | **~3–4 h**, plus a test upload |

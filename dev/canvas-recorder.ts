@@ -207,7 +207,7 @@ const timelineDisplay = new TimelineDisplay(
 );
 
 /**
- * The transcript as text, in the timeline's place when 📖 Read is checked.
+ * The transcript as text, in the timeline's place when 📖 Text is checked.
  * Created later, once the things it reads exist.  See "MARK: Transcripts".
  */
 let transcriptView: TranscriptView | undefined;
@@ -2013,7 +2013,7 @@ function timelineWords(
   // File time to chapter time.
   const shift = clipStart - fromMs;
   const words = wordsInClip(clip, transcript).map((w) => ({
-    // Speech Whisper left out is bracketed, as in the 📖 Read view.
+    // Speech Whisper left out is bracketed, as in the 📖 Text view.
     text: w.timing === "letters" ? `[${w.text}]` : w.text,
     startMs: w.startMs + shift,
     endMs: w.endMs + shift,

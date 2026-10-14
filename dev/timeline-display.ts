@@ -77,7 +77,7 @@ export type TimelineWord = {
   readonly flag?: "left out" | "doubtful";
 };
 
-/** Background colors for flagged words.  The 📖 Read view uses lighter versions of the same colors. */
+/** Background colors for flagged words.  The 📖 Text view uses lighter versions of the same colors. */
 const WORD_FLAG_COLORS = {
   "left out": "rgba(225, 30, 30, 0.9)",
   doubtful: "rgba(255, 140, 0, 0.8)",

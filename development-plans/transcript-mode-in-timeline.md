@@ -36,7 +36,7 @@ I don't care about the details as long as it's easy to use.
 
 ## What was built
 
-**📖 Read**, next to 🗣 Transcripts, swaps the timeline for the transcript as text, in the same
+**📖 Text**, next to 🗣 Transcripts, swaps the timeline for the transcript as text, in the same
 place.  It starts 240 px tall; drag its bottom corner to make it taller.  The choice is
 remembered per browser.
 
