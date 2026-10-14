@@ -109,12 +109,35 @@ gathers every span's path by format before drawing anything.
 - **Drift** uses `ShowOptions.globalTime`, which was made for exactly this.  The colors keep
   moving even when a section repeats or the playhead is parked.  Something like "cycles per
   second", added to Offset.
-- **Rainbows and handwriting.**  `repeatCount` and `colorCount` are relative to the path's
-  length.  If they're measured on the partly written path, the colors squeeze and slide while
-  the pen moves.  The fix is to measure the *finished* path, turn that into an equivalent
-  `sectionLength`, and apply it to whatever has been written so far.  So a layer needs to be
-  told the full length as well as the path it's given.  `sectionLength` itself is already
-  stable.
+- **Which mode suits which animation.**  The modes differ in *where* a change of length shows
+  up, so offer them all and let the user explore.
+  - **Fixed length** (`sectionLength`, with the speed also in userspace units):  new path
+    appears at the end, and everything already drawn stays put.  That's exactly right for
+    handwriting.  Lengthening at the start instead would also need a matching change to the
+    offset to keep the illusion.
+  - **Ratios** (`repeatCount`, `colorCount`):  a change of length is spread through the middle
+    of the path.  That's right for morphing between paths of very different lengths.  Fixed
+    lengths fail there:  one end of the path stays calm while the other end races and flashes.
+    That's documented in a video on the YouTube channel.
+  - Multi Text doesn't morph today, so fixed length covers the common case.  Nothing special is
+    needed to combine rainbows with handwriting.
+
+## Layers out of step (low priority)
+
+Usually every layer is written by the same handwriting effect, at the same moment.  A fun
+variation is to write the layers with **different time offsets**, so one layer chases another.
+Example:  https://tradeideasphilip.github.io/handwriting-effect/
+
+This doesn't need much, because an effect is already a function of time:
+- Give each layer an optional **Delay (ms)**.
+- Multi Text runs the effect once per distinct delay, at `timeInMs − delay`, and hands each
+  layer its own result.
+- With no effect, Delay does nothing.
+
+This is a good example of the general problem.  In code, the libraries make it easy to mix and
+match all of these parts in many ways.  A GUI has to pick which combinations to offer.  Small
+knobs like this, which reuse pieces that already exist, are the cheap way to offer more of
+them.
 
 ## Color lists
 
@@ -207,7 +230,8 @@ strokeColors()".  That hook is what paint layers replace.
    width become its default layers.
 4. **The SVG importer:**  the panel, the dialog, and the parser gaps.
 5. **More layer kinds as they're wanted:**  stepped glow, dashes that animate, and so on.  Each
-   is a small component.
+   is a small component.  Per-layer Delay ([Layers out of step](#layers-out-of-step-low-priority))
+   fits here too.
 
 ## Open questions
 

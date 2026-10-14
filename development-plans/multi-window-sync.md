@@ -192,12 +192,58 @@ Build a **GUI state snapshot**, captured and applied by path, and use it in both
 
 This raises its priority.  It could be done first, before any of the multi-window plumbing.
 
+### Review:  the low-hanging fruit (10/13/2026)
+
+The common case after a reload is a tree identical to the one before it.  The next most common
+is a small, local change.  When something odd happens, landing somewhere reasonable is good
+enough.  With those expectations, most of this is small.
+
+**An existing bug first.**  Today's restore runs *before* the saved tree is restored.
+- `initFromDB()` is async, but the block that reads `sessionStorage` runs synchronously at the
+  end of module load.  So the chapter index and the playhead are applied to the *TypeScript
+  default* tree.
+- When the saved tree differs, they land in the wrong place.  `galaga` is the clear example:
+  its Video Clip only exists in saved state.
+  - The saved chapter index points at a different entry, or falls back to 0.
+  - The playhead is clamped to the TypeScript tree's limits.  Galaga's TypeScript duration is
+    0, so it restarts at 0 every time.
+- **Fix:** keep reading `sessionStorage` where it is, before `sessionStorage.clear()`, but
+  *apply* it after `initFromDB()` and the JSON fallback have finished.  The canvas is hidden
+  until then anyway, so nothing visible is lost.  Every step below depends on this one.
+
+**A path helper, about 30 lines.**  Locate a Showable as a list of child indices from `toShow`,
+recording each step's name (`userEditableDescription ?? description`).  To find it again, walk
+the indices:
+- If the child at an index has a different name, look for a sibling with the saved name.
+- If there's none, stop.  The result is the deepest ancestor that still exists, which is the
+  "reasonable state" fallback.
+
+The steps, in order of value for the effort:
+
+| # | Step | Effort | Notes |
+|---|---|---|---|
+| 1 | Apply the restore after `initFromDB()`.  Root and play limits by **path** instead of list index. | Small | Fixes the bug above.  The chapter list changes shape often now. |
+| 2 | **Selected component** by path, then `selectInChapter()` | Small | The biggest win. |
+| 3 | **Scroll positions** of `#componentsEditor .components-list` and `#bottom-right` | Trivial | Apply after step 2 rebuilds the editors. |
+| 4 | **Focus and caret.**  Save the focused field's position among the schedule editor's inputs, textareas and selects, plus its value and selection.  Restore focus only if the field at that position holds the same value. | Small | The value check makes a wrong guess harmless, so certainty goes from Medium to High.  The half-typed text is already safe:  every keystroke goes into the tree. |
+| 5 | **✎ / 👁 and Durations** for the selected component's schedules, saved as (schedule description, keyframe index), then one rebuild of the schedule editor.  Same for the Text Frame panel's state on a selected Multi Text. | Small–Medium | Touches several variables (rect, point, arrow, lattice), each simple. |
+| 6 | **Selected sound clip:**  owner path plus index | Small | Lower value. |
+
+**Not worth doing yet:**
+- state for components that aren't selected
+- dialogs that were open during the reload
+- the timeline's zoom
+
+Steps 1–3 are a good first commit.  They fix the bug and restore the selection.  Step 4 then
+covers the "I was typing when Vite reloaded" case.
+
 ## Suggested order
 
 Each stage is useful on its own:
 
-0. **GUI state snapshot** (small–medium).  See "One mechanism for both".  It fixes Vite
-   reloads on its own, and stages 2 and 3 reuse it.
+0. **GUI state snapshot** (small–medium).  See "One mechanism for both", and the step-by-step
+   list in "Review:  the low-hanging fruit".  It fixes Vite reloads on its own, and stages 2
+   and 3 reuse it.
 1. **Plumbing and warning** (small, high certainty).  Items 1–7.  When another window saves, show
    "newer changes from another window", with a **Load latest** button that uses today's full
    apply.  This fixes the accidental-duplicate-tab case, item 6's false conflicts, and the

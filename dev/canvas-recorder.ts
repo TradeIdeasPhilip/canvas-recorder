@@ -1014,6 +1014,9 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
     }
 
     // Trim audio to match actual recorded frames, then send.
+    // add() has to be awaited.  It feeds the encoder one small piece at a time, and
+    // finalize() closes the encoder wherever add() happens to be.  Without the await,
+    // only the first few seconds of a long soundtrack made it into the file.
     const actualAudioMs = frameNumber * frameDuration;
     const sr = audioBuffer.sampleRate;
     const samplesNeeded = Math.min(
@@ -1021,7 +1024,7 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
       audioBuffer.length,
     );
     if (samplesNeeded >= audioBuffer.length) {
-      audioSource.add(audioBuffer);
+      await audioSource.add(audioBuffer);
     } else {
       const trimmedAudio = new AudioBuffer({
         numberOfChannels: audioBuffer.numberOfChannels,
@@ -1034,7 +1037,7 @@ async function startRecording(saveStartMs = 0, saveEndMs = toShow.duration) {
           ch,
         );
       }
-      audioSource.add(trimmedAudio);
+      await audioSource.add(trimmedAudio);
     }
 
     infoDiv.innerHTML = "Frames complete.  Finalizing video.";
