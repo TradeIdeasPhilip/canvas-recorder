@@ -2,7 +2,47 @@
 
 _Proposal, 10/14/2026.  Not scheduled.  Sized to finish in an afternoon._
 
+_Updated 10/14/2026:  YouTube changed, and the priorities shifted.  The requirements didn't.
+See [What changed](#what-changed)._
+
+## What changed
+
+**YouTube now shows its automatic captions in blocks, edited or not.**  So the original
+problem (one correction switches the track to blocks) is gone.  Correcting captions in YouTube
+Studio no longer costs anything.
+
+That turns this from a fix into a choice:
+
+- **A. Keep using YouTube Studio.**  YouTube's automatic transcript, corrected in Studio.
+  No code at all.  Shown in blocks.
+- **B. Build the editor here, and upload a `.ytt`.**  The design below.  Shown word by word.
+
+**What B still has over A:**
+- **Word by word, as each word is spoken.**  An uploaded `.ytt` is now the *only* way to get
+  the display that's wanted.  A bonus, not a reason on its own, but most of the work is
+  already done.
+- **Captions follow the edit.**  They're rebuilt from the project.  Re-cut the video and
+  re-export, and every fix is still there.  Fixes made in Studio belong to one upload; a new
+  cut means starting over.
+- **The flags guide the review.**  Red and orange words show where to look, instead of reading
+  everything.
+- **Fixes are saved with the project,** in git, like everything else.
+
+**What A has over B:** it costs nothing, and it works today.
+
+**The cheap middle step, C:** export a `.ytt` from the transcript as it is, with no editor:
+steps 3 and 4 of the design, about 1.5 hours.  If the transcript is good enough, that's word
+by word for free.  If it needs fixes, fix them in Studio, which turns it back into blocks:
+no worse than A.  C is also a natural first step towards B, since B needs the same export.
+
+**Test first.**  YouTube changing how it shows *its own* captions raises a new question:  does it
+still show an uploaded `.ytt` word by word?  If not, the bonus is gone and A wins outright.
+Step 0, test 1, settles that, and it now comes before everything else.
+
 ## Why
+
+The original motivation, kept for the record.  The first paragraph is no longer true; see
+[What changed](#what-changed).
 
 YouTube's automatic captions are good, and they show each word as it's spoken, which is the
 style wanted.  But correcting even one word in YouTube Studio switches the whole track to
@@ -112,6 +152,10 @@ clock.
 Steps 1 and 3 decide most of the rest.  Test 1 confirms the format; test 3 says whether
 placement is worth an editor.
 
+**Test 1 is now the deciding test.**  Since YouTube switched its own captions to blocks, check
+that an uploaded `.ytt` still shows word by word before building anything.  It's quick to run
+by hand:  write the `.ytt` for a short clip by hand, or with step C's export.
+
 ## The design
 
 ### 1. Fixes, stored with the video
@@ -184,8 +228,17 @@ unlisted test video first.
 | Step 0, the test videos:  a small component that draws the target regions and writes the matching caption files | ~1 h, plus uploads |
 | Later, if test 3 says it's worth it:  a schedule of caption regions, a rectangle per keyframe, edited on the canvas like any Dest Rect | ~1–2 h |
 
+**Suggested order now:**
+1. Step 0, test 1.  If YouTube shows an uploaded `.ytt` in blocks, stop:  option A.
+2. Option C:  building lines plus the export, ~1.5 h.  Use it on a real video.
+3. Option B's editor (fixes, the Text view editing, Next flagged), if C's results show the
+   transcript needs fixing often enough to be worth it.
+
 ## Risks and open questions
 
+- **YouTube changes things.**  It just changed how its own captions display.  The word-by-word
+  look of an uploaded `.ytt` could change the same way.  Test 1 checks it today, but nothing
+  guarantees tomorrow.
 - **The upload route is unofficial.**  `.ytt` works today, and has for years, but YouTube
   could change it.  The `.srt` fallback always works, in block form.
 - **How YouTube lays out an uploaded word-by-word track** compared with its own automatic one

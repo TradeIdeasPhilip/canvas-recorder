@@ -1,5 +1,12 @@
 # Smarter Save Status
 
+**Status**:
+Obsolete.
+Some of this was done.
+But then it was all redone.
+Currently (10/14/2026) most things are auto saved to the properties directory but only read from disk on explicit request.
+IndexedDB is the main source of truth.
+
 Our automatic saves to IndexedDB are a good start, but they need some cleanup.
 
 This plan is inspired by my recent and ongoing work on some5.ts.

@@ -1,5 +1,8 @@
 # Main Timeline Prototype
 
+**Status**: Obsolete.
+After a couple of timeline prototypes we now have a live timeline!
+
 We need a “main” timeline.
 Deleting something or resizing something automatically moves everything later in the timeline, like the main timeline in CapCut (and others).
 A.k.a. "ripple effect".

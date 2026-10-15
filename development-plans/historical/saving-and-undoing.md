@@ -1,5 +1,10 @@
 # Saving and Undoing
 
+**Status**:
+Basically all done.
+It's evolved a bit,
+the current details are not exactly like this, but similar and better.
+
 Currently we have most of what we need for saving and restoring what the Visual Editor changes.
 This document describes some *top level* changes.
 Most of the code, including serializing and deserializing, remains the same.
